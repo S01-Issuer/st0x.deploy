@@ -21,5 +21,28 @@
       "survivedAfter": 1,
       "notes": "BEFORE 38/46 killed. The 8 survivors there were M15 and M16 (roleId / roleHolderId byte layout), M20 (createDiscoveredContract return contract), M41 and M42 (timelock and orchestrator grant polarity), M44 and M46 (vault and orchestrator beacon transfer kind), M45 (vault beacon upgrade kind). Seven are now killed by tests this run added; M20 is not closable with matchstick, whose data source registry is an address-keyed map that cannot distinguish one create of an address from two, so the behaviour stays unpinned and is filed as #448. One verdict in the first AFTER pass was a flake: M14 scored SURVIVED and kills when run by hand. A stale compile cache was ruled out by experiment (pristine run, then the same mutation with only src changed and the test file mtime pinned backwards, which still killed), leaving container reuse by `docker compose up`; the probe wrapper now tears the container down per probe and the whole pass was re-run under it. The first matrix is discarded and none of its numbers appear here."
     }
+  },
+  {
+    "timestamp": "2026-10-26T11:35:59Z",
+    "commit": "5d7af65f13ef5349906a8a78e5c860cd193ebbf7",
+    "testsAfterCommit": "0cf699136b2aefcff18ccecf00818745e04dde5e",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 468,
+    "scope": "pr:511 (branch 2026-10-26-us-eu-test-tokens): script/20261026-deploy-test-tokens.s.sol, src/lib/LibStoxTestTokens.sol and the RBAC names in src/lib/LibStoxConfig.sol. Suite: forge test --match-path test/script/20261026-deploy-test-tokens.t.sol (the fork tests need RPCs and run in CI). BEFORE at 5d7af65 with the suite as the PR shipped it, AFTER at 0cf6991 with this run's tests.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 44,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 26,
+      "testsAfter": 31,
+      "filed": [],
+      "killedBefore": 39,
+      "survivedBefore": 5,
+      "killedAfter": 44,
+      "survivedAfter": 0,
+      "notes": "BEFORE 39/44 killed. The 5 survivors were M29 and M31 (the build's off-pin reverts for the token and the wrapper), M41 (run without its pre-flight), and M43 and M44 (run without the US or EU landed check). They are killed by testRunRefusesTokenBuiltOffPin, testRunRefusesWrapperBuiltOffPin (factory build mocked off the pin), testRunPreflightsBeforeBuilding (a US RBAC off the timelock fails the run with RbacOwnerMismatch, not the landed check), and testRunChecksUsLanded / testRunChecksEuLanded (a pre-built token whose owner reads off the timelock fails the run). The adversarial pass checked the pins against the factory derivation, region polarity of names, RBAC and authorisers, and the permissionless pre-build path; no candidate findings. vm.startBroadcast and the console logs were not mutated: they have no observable effect in a local test."
+    }
   }
 ]
