@@ -35,7 +35,7 @@ on:
           - stox-orchestrator@0_1_30
           - stox-orchestrator-beacon-set-deployer@0_1_30
       legacy:
-        description: "Send type-0 transactions. HyperEVM needs them; Robinhood Chain rejects them."
+        description: "Send type-0 transactions on every network this run broadcasts to. HyperEVM needs them; Robinhood Chain rejects them. A network where the suite already has code is skipped before fee estimation, so a suite new to both chains takes one dispatch each way."
         required: false
         type: boolean
         default: false
@@ -46,6 +46,9 @@ on:
         default: false
 jobs:
   deploy:
+    concurrency:
+      group: manual-sol-artifacts
+      cancel-in-progress: false
     uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-artifacts.yaml@main
     with:
       suite: ${{ inputs.suite }}
