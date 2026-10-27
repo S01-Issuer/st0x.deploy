@@ -7,7 +7,9 @@
 # falls through to any RPC_URL_*_FORK variable and its hardcoded public
 # archive defaults. Main and rainix-sol-scheduled keep the paid endpoints.
 # Robinhood and Flare are passed everywhere: neither secret is the paid
-# Alchemy key, so gating them saves nothing.
+# Alchemy key, so gating them saves nothing. BSC is passed everywhere too: no
+# public BSC node serves eth_getLogs at an old block (bsc-dataseed answers
+# "limit exceeded", publicnode wants a token), and LibStoxMigrations needs one.
 #
 # A newer push to the same branch cancels the run it makes stale. Main keeps
 # one group per commit, so every merge still gets its own run.
@@ -23,7 +25,7 @@ jobs:
       RPC_URL_ARBITRUM_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_ARBITRUM_FORK || '' }}
       RPC_URL_BASE_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_BASE_FORK || '' }}
       RPC_URL_BASE_SEPOLIA_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_BASE_SEPOLIA_FORK || '' }}
-      RPC_URL_BSC_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_BSC_FORK || '' }}
+      RPC_URL_BSC_FORK: ${{ secrets.RPC_URL_BSC_FORK }}
       RPC_URL_ETHEREUM_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_ETHEREUM_FORK || '' }}
       RPC_URL_FLARE_FORK: ${{ secrets.RPC_URL_FLARE_FORK }}
       RPC_URL_HYPEREVM_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_HYPEREVM_FORK || '' }}
