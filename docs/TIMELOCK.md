@@ -285,6 +285,6 @@ as `admin`.
   new mint recipient's limit is likewise a 48h timelock operation before its
   first mint.
 
-## Explicitly out of scope (follow-ups)
+## Explicitly out of scope
 
 - **Dedicated canceller** — see the role model above.
