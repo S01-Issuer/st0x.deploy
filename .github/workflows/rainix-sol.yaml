@@ -10,6 +10,9 @@
 # Alchemy key, so gating them saves nothing. BSC is passed everywhere too: no
 # public BSC node serves eth_getLogs at an old block (bsc-dataseed answers
 # "limit exceeded", publicnode wants a token), and LibStoxMigrations needs one.
+# HyperEVM likewise: its public default (hyperliquid.drpc.org) load-balances
+# over nodes at different heights, so a fork at `latest` asks one node for a
+# block it does not have yet ("Unknown block").
 #
 # A newer push to the same branch cancels the run it makes stale. Main keeps
 # one group per commit, so every merge still gets its own run.
@@ -28,6 +31,6 @@ jobs:
       RPC_URL_BSC_FORK: ${{ secrets.RPC_URL_BSC_FORK }}
       RPC_URL_ETHEREUM_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_ETHEREUM_FORK || '' }}
       RPC_URL_FLARE_FORK: ${{ secrets.RPC_URL_FLARE_FORK }}
-      RPC_URL_HYPEREVM_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_HYPEREVM_FORK || '' }}
+      RPC_URL_HYPEREVM_FORK: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
       RPC_URL_POLYGON_FORK: ${{ github.ref == 'refs/heads/main' && secrets.RPC_URL_POLYGON_FORK || '' }}
       RPC_URL_ROBINHOOD_FORK: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
