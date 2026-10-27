@@ -314,6 +314,47 @@ export function registerLog(
   ]);
 }
 
+/** `IConfigRegistryV4` `Register(address,address,bytes32,string,bytes)`. */
+export function registerV4Log(
+  registry: Address,
+  sender: Address,
+  authority: Address,
+  name: Bytes,
+  valueType: string,
+  value: Bytes,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(registry, blockNumber, logIndex, [
+    new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
+    new ethereum.EventParam("authority", ethereum.Value.fromAddress(authority)),
+    new ethereum.EventParam("name", ethereum.Value.fromFixedBytes(name)),
+    new ethereum.EventParam("valueType", ethereum.Value.fromString(valueType)),
+    new ethereum.EventParam("value", ethereum.Value.fromBytes(value)),
+  ]);
+}
+
+/** `IMetaV1_2` `MetaV1_2(address,bytes32,bytes)`. */
+export function metaV1_2Log(
+  registry: Address,
+  sender: Address,
+  subject: Bytes,
+  meta: Bytes,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(registry, blockNumber, logIndex, [
+    new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
+    new ethereum.EventParam("subject", ethereum.Value.fromFixedBytes(subject)),
+    new ethereum.EventParam("meta", ethereum.Value.fromBytes(meta)),
+  ]);
+}
+
+/** `event`, moved into the transaction `hash`. */
+export function inTx(event: ethereum.Event, hash: Bytes): ethereum.Event {
+  event.transaction.hash = hash;
+  return event;
+}
 /**
  * `IRegistryDelegatesV1` `Approved(address,bytes32,address)` or
  * `Revoked(address,bytes32,address)`: the same three params, and which one it
