@@ -3,6 +3,12 @@ on: [push]
 jobs:
   rainix-sol:
     uses: rainlanguage/rainix/.github/workflows/rainix-sol.yaml@main
+    # rainix keeps the paid fork RPC for the default branch only. These
+    # networks keep it on branch pushes too: no public BSC node serves
+    # eth_getLogs at an old block (LibStoxMigrations needs one), and the
+    # public HyperEVM and Robinhood endpoints answer unevenly at latest.
+    with:
+      paid-fork-rpc-networks: bsc hyperevm robinhood
     secrets:
       RPC_URL_ARBITRUM_FORK: ${{ secrets.RPC_URL_ARBITRUM_FORK }}
       RPC_URL_BASE_FORK: ${{ secrets.RPC_URL_BASE_FORK }}
