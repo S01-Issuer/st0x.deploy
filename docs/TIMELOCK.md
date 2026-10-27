@@ -247,21 +247,6 @@ Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V3, so `20261022-backfill-migration-registry-v3` carries them over
 as history, per chain, before step 2 can run.
 
-`MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
-timelock; who may hold them is delay-gated, in both directions. Revoking a
-leaked `MINT` or `BURN` key is also a 48h timelock operation; the orchestrator
-has no pause, and `EMERGENCY` covers only withdraw, sweep and `setBurnIndex`.
-The immediate levers are the key's own `renounceRole`, which the legitimate
-holder can still call, and the Safe's direct `CERTIFY` on the authoriser:
-forcing a token's certification to expire blocks ordinary transfers of that
-token, which stops the orchestrator delivering mints of it, but it freezes every
-holder of that token too. The `CERTIFY` lever holds only while the leaked key
-cannot certify the token again: the service signer holds `CERTIFY` on the
-authoriser as well as `MINT` and `BURN` on the orchestrator, and revoking that
-`CERTIFY` is itself a timelock operation. Schedule the timelock revokes (`MINT`
-/ `BURN` on the orchestrator, and `CERTIFY` on the authoriser when the leaked
-key holds it) at the same time as the Safe expires the certification.
-
 The two steps are separate bundles by choice: the `EMERGENCY` grant is needed
 now and is signed on its own, while the admin move is a separate governance
 decision, signed once the grant has landed. Before signing step 2, on each
@@ -302,9 +287,8 @@ as `admin`.
 
 ## Explicitly out of scope (follow-ups)
 
-- **New Base tokens** are deployed by the sft-ops CD pipeline, not by a script
-  here. It must hand each new vault to `STOX_GOVERNANCE_TIMELOCK`
-  (`transferOwnership`); a vault left on the Safe fails the token and governance
-  invariants as soon as it is pinned.
+- **New Base tokens** are deployed outside this repo. Each new vault must be
+  handed to `STOX_GOVERNANCE_TIMELOCK` (`transferOwnership`); a vault left on
+  the Safe fails the token and governance invariants as soon as it is pinned.
 
 - **Dedicated canceller** — see the role model above.
