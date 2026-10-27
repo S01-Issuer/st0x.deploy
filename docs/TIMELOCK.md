@@ -287,8 +287,4 @@ as `admin`.
 
 ## Explicitly out of scope (follow-ups)
 
-- **New Base tokens** are deployed outside this repo. Each new vault must be
-  handed to `STOX_GOVERNANCE_TIMELOCK` (`transferOwnership`); a vault left on
-  the Safe fails the token and governance invariants as soon as it is pinned.
-
 - **Dedicated canceller** — see the role model above.
