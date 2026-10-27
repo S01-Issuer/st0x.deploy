@@ -8,7 +8,8 @@ import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.3/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.26/src/lib/LibRegistryAuthority.sol";
 import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
@@ -85,13 +86,13 @@ abstract contract OrchestratorIntegrationTest is Test {
         // Real authoriser clone, bound with ADMIN as owner in the RBAC the
         // vault resolves at initialize.
         authorizer = _newAuthorizer();
-        LibTestDeploy.bindRbac(vm, LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer)));
+        LibTestDeploy.bindRbac(vm, LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer)));
 
         // A real vault + receipt beacon-proxy pair from the clone factory, over
         // the beacon the guard version-locks against.
         vault = LibTestDeploy.newVault(
-            LibStoxConfig.ROOT_AUTHORITY,
-            LibTestDeploy.vaultData("Test tStock", "tTEST", LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME)
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibTestDeploy.vaultData("Test tStock", "tTEST", LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME)
         );
         receipt = IERC1155(address(vault.receipt()));
 

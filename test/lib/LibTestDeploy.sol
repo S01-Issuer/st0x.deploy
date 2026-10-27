@@ -4,17 +4,17 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.25/src/generated/0_1_21/ConfigRegistry.sol";
+} from "rain-deploy-0.1.26/src/generated/0_1_21/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
 } from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
 import {ICloneableFactoryV6} from "rain-factory-0.2.5/src/interface/ICloneableFactoryV6.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.25/src/interface/IConfigRegistryV3.sol";
+import {IConfigRegistryV3} from "rain-deploy-0.1.26/src/interface/deprecated/IConfigRegistryV3.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.12/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {

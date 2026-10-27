@@ -8,10 +8,10 @@ import {
     DeployMechanism,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.25/src/abstract/RainDeploySuitesBase.sol";
-import {CloneDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeployClone.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
-import {LibRainDeployMechanism} from "rain-deploy-0.1.25/src/lib/LibRainDeployMechanism.sol";
+} from "rain-deploy-0.1.26/src/abstract/RainDeploySuitesBase.sol";
+import {CloneDeploy} from "rain-deploy-0.1.26/src/lib/LibRainDeployClone.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
+import {LibRainDeployMechanism} from "rain-deploy-0.1.26/src/lib/LibRainDeployMechanism.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE

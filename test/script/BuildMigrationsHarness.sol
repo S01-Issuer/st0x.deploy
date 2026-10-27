@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {BuildMigrations} from "../../script/BuildMigrations.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
 
 /// @dev Exposes `BuildMigrations`' internal helpers.
 contract BuildMigrationsHarness is BuildMigrations {
