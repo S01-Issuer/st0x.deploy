@@ -71,6 +71,10 @@ contract BuildPrivilegedAddresses is Script {
     }
 
     function run() external {
-        vm.writeJson(render(), PATH);
+        write(PATH);
+    }
+
+    function write(string memory path) public {
+        vm.writeJson(render(), path);
     }
 }

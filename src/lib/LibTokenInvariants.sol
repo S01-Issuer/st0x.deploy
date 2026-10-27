@@ -59,6 +59,11 @@ error ReceiptVaultAuthoriserMismatch(address vault, address expected, address ac
 /// Safe-side checks. Live vault ownership is watched by the rain-org-health
 /// dashboard; `assertUniformOwnership` is for a script's post-state check of
 /// a bundle it authors.
+///
+/// A token is identified by (chain id, address), never by address alone:
+/// copies are created at the same deployer nonces on every chain, so one
+/// address can be a different token on another chain (for example the
+/// Ethereum tIFX triple is the BSC tASML triple).
 library LibTokenInvariants {
     // =========================================================================
     // Production token instance addresses on Base. Each token set is a
