@@ -276,6 +276,70 @@ dataSources:
           handler: handleMigrationRegistryRevoked
       file: ./src/migrationregistry.ts
   - kind: ethereum/contract
+    name: ConfigRegistryV4
+    network: robinhood
+    source:
+      abi: ConfigRegistryV4
+      address: "0xDc3909127e51DCb3aB7d43EeE585Dd351f77C285"
+      startBlock: 99502579
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - ConfigBinding
+        - ConfigRegister
+        - RegistryDelegate
+        - RegistryDelegateChange
+        - RegistryMeta
+        - RegistryMetaSubject
+      abis:
+        - name: ConfigRegistryV4
+          file: ./abis/ConfigRegistryV4.json
+      eventHandlers:
+        - event: Register(address,address,bytes32,string,bytes)
+          handler: handleConfigRegistryV4Register
+        - event: Approved(address,bytes32,address)
+          handler: handleConfigRegistryV4Approved
+        - event: Revoked(address,bytes32,address)
+          handler: handleConfigRegistryV4Revoked
+        - event: MetaV1_2(address,bytes32,bytes)
+          handler: handleConfigRegistryV4MetaV1_2
+      file: ./src/configregistry.ts
+  - kind: ethereum/contract
+    name: MigrationRegistryV4
+    network: robinhood
+    source:
+      abi: MigrationRegistryV4
+      address: "0x1A4B89828Eb2dd5f3A353BD98472512f371Ce408"
+      startBlock: 99502579
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - Contract
+        - MigrationLine
+        - MigrationRecord
+        - RegistryDelegate
+        - RegistryDelegateChange
+        - RegistryMeta
+        - RegistryMetaSubject
+      abis:
+        - name: MigrationRegistryV4
+          file: ./abis/MigrationRegistryV4.json
+      eventHandlers:
+        - event: Migrated(address,address,bytes32,bytes32,uint256)
+          handler: handleMigrationRegistryV4Migrated
+        - event: Approved(address,bytes32,address)
+          handler: handleMigrationRegistryV4Approved
+        - event: Revoked(address,bytes32,address)
+          handler: handleMigrationRegistryV4Revoked
+        - event: MetaV1_2(address,bytes32,bytes)
+          handler: handleMigrationRegistryV4MetaV1_2
+      file: ./src/migrationregistry.ts
+  - kind: ethereum/contract
     name: CloneFactoryV5
     network: robinhood
     source:

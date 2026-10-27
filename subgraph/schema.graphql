@@ -23,10 +23,14 @@ enum ContractKind {
   RECEIPT_VAULT
   "The chain's token-owner `Safe` 1.4.1 proxy — its owners and threshold govern every privileged surface the timelock does not."
   TOKEN_OWNER_SAFE
-  "The chain's `ConfigRegistry` — name bindings under authorities, and their delegates."
+  "The chain's `IConfigRegistryV3` `ConfigRegistry` — name bindings under authorities, and their delegates."
   CONFIG_REGISTRY
-  "The chain's `MigrationRegistry` — migration lines under writers, and their delegates."
+  "The chain's `IMigrationRegistryV3` `MigrationRegistry` — migration lines under writers, and their delegates."
   MIGRATION_REGISTRY
+  "The chain's `IConfigRegistryV4` `ConfigRegistry` — as `CONFIG_REGISTRY`, plus each binding's value type and `MetaV1_2` metadata."
+  CONFIG_REGISTRY_V4
+  "The chain's `IMigrationRegistryV4` `MigrationRegistry` — as `MIGRATION_REGISTRY`, plus each record's `MetaV1_2` metadata."
+  MIGRATION_REGISTRY_V4
 }
 
 """
@@ -422,8 +426,8 @@ type SafeOwnerChange @entity(immutable: true) {
 }
 
 """
-One name bound under one authority in the chain's `ConfigRegistry`, at its
-current value. Created by the first `Register` for the pair. The registry has no
+One name bound under one authority in one of the chain's `ConfigRegistry`s
+(`registry.kind` says which interface), at its current value. Created by the first `Register` for the pair. The registry has no
 unbind, so a row never goes away, and every later `Register` replaces `value`.
 
 Every authority's bindings are indexed, not only st0x's: the registry is one
@@ -433,7 +437,7 @@ shared contract and `Register` is the only way to discover a binding. Filter on
 type ConfigBinding @entity {
   "`registry` address ++ `authority` ++ the `bytes32` name."
   id: Bytes!
-  "The `ConfigRegistry`."
+  "The `ConfigRegistry`. Each registry keeps its own bindings: a V4 binding is not a V3 one rebound."
   registry: Contract!
   "The authority the name is bound under."
   authority: Bytes!
@@ -445,12 +449,20 @@ type ConfigBinding @entity {
   sender: Bytes!
   "Block of that `Register`."
   boundAtBlock: BigInt!
-  "Timestamp of that block. This is the moment `getV2` answers for the binding."
+  "The ABI type that `Register` named for `value`, as emitted. Null under a V3 registry, whose `Register` names none."
+  valueType: String
+  "The value type hash `getV4` answered at that `Register`'s block: `keccak256` of the emitted type bytes. Null under a V3 registry."
+  valueTypeHash: Bytes
+  "Timestamp of that block. This is the moment `getV2` / `getV4` answers for the binding."
   boundAtTimestamp: BigInt!
   "How many `Register` logs have bound the name under the authority, the first included."
   registerCount: Int!
   "Every `Register` of the name under the authority, unordered: sort by `blockNumber` then `logIndex`."
   registers: [ConfigRegister!]! @derivedFrom(field: "binding")
+  "The `MetaV1_2` subject a V4 registry emits this binding's metadata under: `keccak256(abi.encode(authority, name))`. Null under a V3 registry."
+  metaSubject: Bytes
+  "Every `MetaV1_2` emitted under `metaSubject`, unordered: sort by `blockNumber` then `logIndex`."
+  metas: [RegistryMeta!]! @derivedFrom(field: "configBinding")
 }
 
 "One `Register` log."
@@ -459,10 +471,16 @@ type ConfigRegister @entity(immutable: true) {
   id: Bytes!
   "The binding it wrote."
   binding: ConfigBinding!
-  "The account that called `registerV2`: the authority or a delegate."
+  "The account that called `registerV2` / `registerV4`: the authority or a delegate."
   sender: Bytes!
   "The value bound."
   value: Bytes!
+  "The ABI type named for `value`, as emitted. Null under a V3 registry."
+  valueType: String
+  "The value type hash `getV4` answered at this log's block. Null under a V3 registry."
+  valueTypeHash: Bytes
+  "The `MetaV1_2` the same `registerV4` call emitted, if it carried metadata."
+  metas: [RegistryMeta!]! @derivedFrom(field: "configRegister")
   "Block the log was emitted in."
   blockNumber: BigInt!
   "Timestamp of that block."
@@ -559,8 +577,9 @@ type MigrationLine @entity {
 }
 
 """
-One `Migrated` log: a migration recorded in a line, by `applyMigrationV3` or
-`applyMigrationHistoryV3`. The log does not say which.
+One `Migrated` log: a migration recorded in a line, by `applyMigrationV3` /
+`applyMigrationV4` or `applyMigrationHistoryV3` / `applyMigrationHistoryV4`.
+The log does not say which.
 """
 type MigrationRecord @entity(immutable: true) {
   "Transaction hash ++ log index."
@@ -587,4 +606,64 @@ type MigrationRecord @entity(immutable: true) {
   transactionFrom: Bytes!
   "Index of the log within its block."
   logIndex: BigInt!
+  "The `MetaV1_2` subject a V4 registry emits this record's metadata under: `keccak256(abi.encode(writer, namespace, migration))`. Null under a V3 registry."
+  metaSubject: Bytes
+  "Every `MetaV1_2` emitted under `metaSubject`. A migration is recorded once per line, so this is the write's own metadata."
+  metas: [RegistryMeta!]! @derivedFrom(field: "migrationRecord")
+}
+
+"""
+One `MetaV1_2` log from a V4 registry: rain metadata a write carried, stored
+byte for byte. The registries never store or validate it, and neither does
+this subgraph.
+
+`subject` links it to the binding or record it describes. rain.metadata
+defines no item that carries a name or value type string, so no preimage is
+parsed out of `meta` and `verified` is false.
+"""
+type RegistryMeta @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The registry that emitted it."
+  registry: Contract!
+  "The log's `sender`: the account that called the write."
+  sender: Bytes!
+  "The log's `subject`, as emitted."
+  subject: Bytes!
+  "The log's `meta`, byte for byte."
+  meta: Bytes!
+  "The binding `subject` names, under a `ConfigRegistry`. Null when no `Register` under the registry has that subject."
+  configBinding: ConfigBinding
+  "The `Register` emitted in the same transaction for that binding: the write that carried this metadata."
+  configRegister: ConfigRegister
+  "The record `subject` names, under a `MigrationRegistry`. Null when no `Migrated` under the registry has that subject."
+  migrationRecord: MigrationRecord
+  "True only when a name or type string parsed from `meta` hashes to the key it describes. Nothing is parsed, so always false."
+  verified: Boolean!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"""
+The write a V4 registry's `MetaV1_2` subject names, so a `MetaV1_2` handler can
+find it. Internal to the mappings; query `ConfigBinding.metas` or
+`MigrationRecord.metas` instead.
+"""
+type RegistryMetaSubject @entity {
+  "`registry` address ++ `subject`."
+  id: Bytes!
+  "The binding, under a `ConfigRegistry`."
+  configBinding: ConfigBinding
+  "The binding's most recent `Register`."
+  configRegister: ConfigRegister
+  "The record, under a `MigrationRegistry`."
+  migrationRecord: MigrationRecord
 }
