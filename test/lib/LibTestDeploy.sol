@@ -15,12 +15,12 @@ import {
 } from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
 import {ICloneableFactoryV6} from "rain-factory-0.2.5/src/interface/ICloneableFactoryV6.sol";
 import {IConfigRegistryV3} from "rain-deploy-0.1.25/src/interface/IConfigRegistryV3.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.11/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.11/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.12/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
     OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.11/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.12/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";

@@ -8,7 +8,7 @@ import {
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1Config
-} from "rain-vats-0.2.11/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+} from "rain-vats-0.2.12/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.3/src/concrete/CloneFactory.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
