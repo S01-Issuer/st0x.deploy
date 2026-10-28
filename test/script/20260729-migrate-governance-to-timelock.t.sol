@@ -103,16 +103,19 @@ contract MigrateGovernanceToTimelockTest is Test {
         }
     }
 
-    function selectBaseFork() internal {
-        selectRewoundFork(LibRainDeploy.BASE);
+    /// @return Whether the Base line already records the migration.
+    function selectBaseFork() internal returns (bool) {
+        return selectRewoundFork(LibRainDeploy.BASE);
     }
 
     /// @notice Fork `network` at head and rewind the executed migration.
-    function selectRewoundFork(string memory network) internal {
+    /// @return Whether the line already records the migration, so the
+    /// registry cannot be rewound and the fork is not set up.
+    function selectRewoundFork(string memory network) internal returns (bool) {
         vm.createSelectFork(network);
         rewindMigration();
         LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
-        LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration());
+        return LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration());
     }
 
     /// @notice Put the active fork back in the pre-migration state: every
@@ -163,7 +166,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// Safe-owned vault transfer, then every Safe-owned beacon transfer,
     /// then 7 renounces, in order.
     function testRunAuthorsFullMigration() external {
-        selectBaseFork();
+        if (selectBaseFork()) return;
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
     }
 
@@ -177,7 +180,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC must fail at fork
     /// time rather than pass having asserted nothing.
     function testRunAuthorsFullMigrationOnHyperevm() external {
-        selectRewoundFork(LibStoxDeployNetworks.HYPEREVM);
+        if (selectRewoundFork(LibStoxDeployNetworks.HYPEREVM)) return;
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
     }
 
@@ -186,20 +189,20 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// authoriser clone, and chain-generic code is only proven generic by
     /// running it on every chain it claims.
     function testRunAuthorsFullMigrationOnEthereum() external {
-        selectRewoundFork(LibStoxDeployNetworks.ETHEREUM);
+        if (selectRewoundFork(LibStoxDeployNetworks.ETHEREUM)) return;
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
     }
 
     /// @notice The same full authoring against live Robinhood Chain state.
     function testRunAuthorsFullMigrationOnRobinhood() external {
-        selectRewoundFork(LibStoxDeployNetworks.ROBINHOOD);
+        if (selectRewoundFork(LibStoxDeployNetworks.ROBINHOOD)) return;
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
     }
 
     /// @notice The same full authoring against live BNB Smart Chain state, so
     /// all five governed chains carry the same proof.
     function testRunAuthorsFullMigrationOnBsc() external {
-        selectRewoundFork(LibStoxDeployNetworks.BSC);
+        if (selectRewoundFork(LibStoxDeployNetworks.BSC)) return;
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
     }
 
@@ -388,7 +391,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// @notice A second authoring after full migration refuses: nothing is
     /// left on the Safe to move.
     function testRunRefusesWhenAlreadyRecorded() external {
-        selectBaseFork();
+        if (selectBaseFork()) return;
         address timelock = deployTimelock();
         new MigrateGovernanceToTimelockHarness(timelock, "testRunRefusesWhenAlreadyRecorded").run();
 
@@ -409,7 +412,7 @@ contract MigrateGovernanceToTimelockTest is Test {
             address safe = LibSafeInvariants.safeForChainId(block.chainid);
             address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
             LibMigrationLineFork.approve(vm, safe);
-            LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration());
+            if (LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration())) continue;
             SafeTx[] memory expected = _expectedLiveBundle(safe, timelock);
 
             MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(timelock, "liveState");
@@ -469,7 +472,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     function testPostStateRefusesAMissingRecord() external {
         vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
-        LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration());
+        if (LibMigrationLineFork.recordOnto(vm, migrateGovernanceToTimelockDeclaration())) return;
         MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(
             LibTimelockInvariants.timelockForChainId(block.chainid), "unrecorded"
         );
@@ -489,7 +492,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// aborts the authoring — unknown ownership is never papered over with a
     /// blind `transferOwnership`.
     function testRunRejectsUnknownVaultOwner() external {
-        selectBaseFork();
+        if (selectBaseFork()) return;
         address timelock = deployTimelock();
         address[] memory vaults = LibTokenInvariants.productionReceiptVaults();
         address stranger = address(0xDEAD);
@@ -506,7 +509,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// owner. Beacons carry the upgrade authority for every production
     /// proxy, so an unrecognised owner must never be papered over.
     function testRunRejectsUnknownBeaconOwner() external {
-        selectBaseFork();
+        if (selectBaseFork()) return;
         address timelock = deployTimelock();
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         address stranger = address(0xDEAD);
@@ -528,7 +531,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// its own copy), and a role change on the timelock itself (successor
     /// granted proposer through self-administration).
     function testGovernanceCanMigrateAwayToSuccessor() external {
-        selectBaseFork();
+        if (selectBaseFork()) return;
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address timelock = deployTimelock();
@@ -575,7 +578,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// serves the same implementation, and no faster path exists (a direct
     /// Safe call must revert: the Safe no longer owns the beacon).
     function testBeaconUpgradeRunsThroughTimelock() external {
-        selectBaseFork();
+        if (selectBaseFork()) return;
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address timelock = deployTimelock();
         new MigrateGovernanceToTimelockHarness(timelock, "testBeaconUpgradeRunsThroughTimelock").run();
@@ -601,7 +604,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// with an idempotent re-set of the current authoriser so the wiring is
     /// asserted unchanged.
     function testSetAuthorizerRunsThroughTimelock() external {
-        selectBaseFork();
+        if (selectBaseFork()) return;
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address timelock = deployTimelock();
@@ -628,7 +631,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// — exactly the signer's vantage point: artifact in hand, live chain
     /// untouched.
     function testVerifyAcceptsAuthoredArtifactAndRejectsTamper() external {
-        selectBaseFork();
+        if (selectBaseFork()) return;
         address timelock = deployTimelock();
         MigrateGovernanceToTimelockHarness author =
             new MigrateGovernanceToTimelockHarness(timelock, "testVerifyAcceptsAuthoredArtifactAndRejectsTamper");
@@ -637,7 +640,7 @@ contract MigrateGovernanceToTimelockTest is Test {
 
         // Fresh fork: authoring mutated the previous fork's state; the live
         // chain a signer verifies against is untouched.
-        selectBaseFork();
+        if (selectBaseFork()) return;
         assertEq(deployTimelock(), timelock, "derived timelock must be stable across forks");
         MigrateGovernanceToTimelockHarness verifier =
             new MigrateGovernanceToTimelockHarness(timelock, "testVerifyAcceptsAuthoredArtifactAndRejectsTamper");

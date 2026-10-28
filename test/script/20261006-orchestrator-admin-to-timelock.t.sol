@@ -55,7 +55,7 @@ contract OrchestratorAdminToTimelockTest is Test {
             IRegistryDelegatesV1(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
                 .approveV3(LibStoxMigrations.NAMESPACE, safe);
         }
-        LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration());
+        assertFalse(LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration()));
     }
 
     function assertBundle(string memory network) internal {
@@ -190,7 +190,7 @@ contract OrchestratorAdminToTimelockTest is Test {
             IRegistryDelegatesV1(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
                 .revokeV3(LibStoxMigrations.NAMESPACE, safe);
         }
-        LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration());
+        assertFalse(LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration()));
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("unapproved");
         vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
         script.callPreflight();

@@ -4,11 +4,13 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
+import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
@@ -20,11 +22,15 @@ import {GrantEuAuthoriserRolesHarness} from "./GrantEuAuthoriserRolesHarness.sol
 import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {RetireDirectSignerRolesHarness} from "./RetireDirectSignerRolesHarness.sol";
+import {retireDirectSignerRolesDeclaration} from "../../script/20260831-retire-direct-signer-roles.s.sol";
 
 /// @title MigrationLineTest
 /// @notice On every network the line replays on live state, in line order,
 /// from the live head to the end.
 contract MigrationLineTest is Test {
+    /// @notice The retirement batch's salt, as the script sets it.
+    bytes32 internal constant RETIRE_SALT = keccak256("st0x.retire-direct-signer-roles.20260831");
+
     /// @notice Runs the line's migration at `index`.
     /// @param index The migration's position on the line.
     /// @param timelock The chain's timelock.
@@ -41,11 +47,26 @@ contract MigrationLineTest is Test {
         } else if (index == 4) {
             new OrchestratorAdminToTimelockHarness(tag).run();
         } else {
-            RetireDirectSignerRolesHarness retire = new RetireDirectSignerRolesHarness(tag);
-            retire.run();
-            vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-            retire.run();
+            replayRetire(timelock, tag);
         }
+    }
+
+    /// @notice Runs the retirement from its batch's live stage: schedules it
+    /// unless the timelock has it, waits out its delay unless it is ready,
+    /// then executes it.
+    /// @param timelock The chain's timelock.
+    /// @param tag The artifact tag, unique per test.
+    function replayRetire(address timelock, string memory tag) internal {
+        RetireDirectSignerRolesHarness retire = new RetireDirectSignerRolesHarness(tag);
+        TimelockController controller = TimelockController(payable(timelock));
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            retire.callOperation(LibAuthoriserInvariants.activeChainAuthoriser(), timelock);
+        bytes32 id = controller.hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT);
+        if (!controller.isOperation(id)) retire.run();
+        // forge-lint: disable-next-line(block-timestamp)
+        if (!controller.isOperationReady(id)) vm.warp(controller.getTimestamp(id));
+        retire.run();
+        assertTrue(controller.isOperationDone(id));
     }
 
     /// @notice Replays the line on the selected fork from its live head to
@@ -100,5 +121,24 @@ contract MigrationLineTest is Test {
         }
         assertTrue(LibStoxMigrations.head() != MIGRATION_HEAD_GENESIS);
         replayFromLiveHead(LibRainDeploy.BASE, "movedLine");
+    }
+
+    /// @notice The retirement replays from a batch the timelock already
+    /// holds, whether it is inside its delay or ready.
+    function testRetireReplaysFromAScheduledBatch() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        LibMigrationLineFork.approve(vm, timelock);
+        if (LibMigrationLineFork.recordOnto(vm, retireDirectSignerRolesDeclaration())) return;
+        new RetireDirectSignerRolesHarness("scheduled").run();
+        uint256 scheduled = vm.snapshotState();
+
+        replayRetire(timelock, "pending");
+        assertEq(LibStoxMigrations.head(), retireDirectSignerRolesDeclaration().id);
+
+        vm.revertToState(scheduled);
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        replayRetire(timelock, "ready");
+        assertEq(LibStoxMigrations.head(), retireDirectSignerRolesDeclaration().id);
     }
 }

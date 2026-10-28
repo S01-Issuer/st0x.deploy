@@ -28,7 +28,7 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         vm.prank(address(safe));
         ORCHESTRATOR.grantRole(emergency, address(safe));
         LibMigrationLineFork.approve(vm, address(safe));
-        LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration());
+        assertFalse(LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration()));
         script = new OrchestratorAdminToTimelockHarness("local");
     }
 

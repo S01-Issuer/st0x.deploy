@@ -36,10 +36,18 @@ contract RetireDirectSignerRolesProdTest is Test {
     address internal constant SIGNER = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
     bytes32 internal constant RETIRE_SALT = keccak256("st0x.retire-direct-signer-roles.20260831");
 
+    /// @notice Forks `network` with its line at the retirement's onto and the
+    /// timelock approved to write it.
+    /// @param network The fork.
+    /// @param tag The artifact tag, unique per test.
+    /// @return The harness, or the zero harness when the line already
+    /// records the retirement.
     function fork(string memory network, string memory tag) internal returns (RetireDirectSignerRolesHarness) {
         vm.createSelectFork(network);
         LibMigrationLineFork.approve(vm, LibTimelockInvariants.timelockForChainId(block.chainid));
-        LibMigrationLineFork.recordOnto(vm, retireDirectSignerRolesDeclaration());
+        if (LibMigrationLineFork.recordOnto(vm, retireDirectSignerRolesDeclaration())) {
+            return RetireDirectSignerRolesHarness(address(0));
+        }
         return new RetireDirectSignerRolesHarness(tag);
     }
 
@@ -71,6 +79,7 @@ contract RetireDirectSignerRolesProdTest is Test {
         string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             RetireDirectSignerRolesHarness script = fork(networks[i], "rollout");
+            if (address(script) == address(0)) continue;
             (address holder, bytes32 role) = firstMissingGrant();
             if (holder != address(0)) {
                 vm.expectRevert(abi.encodeWithSelector(OrchestratorPathNotEnabled.selector, holder, role));
@@ -101,6 +110,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testOperationIsTheRevokesThenTheRecord() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "operation");
+        if (address(script) == address(0)) return;
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
             script.callOperation(address(authoriser()), address(timelock()));
         assertEq(targets.length, 3);
@@ -116,6 +126,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testOperationSelfScopesAPartialRetirement() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "partial");
+        if (address(script) == address(0)) return;
         revokeDirect(keccak256("DEPOSIT"));
         (address[] memory targets,, bytes[] memory payloads) =
             script.callOperation(address(authoriser()), address(timelock()));
@@ -125,6 +136,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testRunRecordsOnlyWhereAlreadyRetired() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "retired");
+        if (address(script) == address(0)) return;
         revokeDirect(keccak256("DEPOSIT"));
         revokeDirect(keccak256("WITHDRAW"));
         (address[] memory targets,,) = script.callOperation(address(authoriser()), address(timelock()));
@@ -137,6 +149,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testOperationRefusesWithoutTimelockRoleAdmin() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "noAdmin");
+        if (address(script) == address(0)) return;
         IAccessControl acl = authoriser();
         address controller = address(timelock());
         vm.prank(controller);
@@ -146,9 +159,9 @@ contract RetireDirectSignerRolesProdTest is Test {
     }
 
     function testRunRefusesAnUnapprovedTimelock() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        LibMigrationLineFork.recordOnto(vm, retireDirectSignerRolesDeclaration());
-        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness("unapproved");
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "unapproved");
+        if (address(script) == address(0)) return;
+        LibMigrationLineFork.revoke(vm, address(timelock()));
         vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, address(timelock())));
         script.run();
     }
@@ -156,7 +169,7 @@ contract RetireDirectSignerRolesProdTest is Test {
     function testRunRefusesBeforeTheAdminMoveIsRecorded() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         LibMigrationLineFork.approve(vm, address(timelock()));
-        LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration());
+        if (LibMigrationLineFork.recordOnto(vm, orchestratorAdminToTimelockDeclaration())) return;
         RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness("early");
         vm.expectRevert(
             abi.encodeWithSelector(UnexpectedMigrationLine.selector, grantOrchestratorEmergencyDeclaration().id)
@@ -166,6 +179,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testVerifyAcceptsTheScheduleArtifact() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "verify");
+        if (address(script) == address(0)) return;
         uint256 preRun = vm.snapshotState();
         script.run();
         string memory path = script.callArtifactPath();
@@ -179,6 +193,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testRunRefusesOrchestratorInstanceOffInvariant() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "offInvariant");
+        if (address(script) == address(0)) return;
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         vm.mockCall(orchestrator, abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, orchestrator));
@@ -187,6 +202,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testVerifyRefusesOrchestratorInstanceOffInvariant() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "offInvariantVerify");
+        if (address(script) == address(0)) return;
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         vm.mockCall(orchestrator, abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, orchestrator));
@@ -201,6 +217,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testPostStateRefusesABatchNotPendingInsideItsDelay() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "notScheduled");
+        if (address(script) == address(0)) return;
         bytes32 id = operationId(script);
         vm.expectRevert(abi.encodeWithSelector(RetireNotScheduled.selector, id));
         script.callAssertPostState();
@@ -213,6 +230,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testPostStateRefusesARecordFromAnotherBlock() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "staleRecord");
+        if (address(script) == address(0)) return;
         script.run();
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
         script.run();
@@ -229,6 +247,7 @@ contract RetireDirectSignerRolesProdTest is Test {
 
     function testRunRefusesARegrantThatDoesNotRestoreDeposit() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "regrant");
+        if (address(script) == address(0)) return;
         vm.mockCall(
             address(authoriser()),
             abi.encodeCall(IAccessControl.hasRole, (keccak256("DEPOSIT"), SIGNER)),

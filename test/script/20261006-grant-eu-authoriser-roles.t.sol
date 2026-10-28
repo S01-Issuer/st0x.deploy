@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
 
@@ -28,10 +29,18 @@ import {
 import {LibMigrationLineFork} from "../lib/LibMigrationLineFork.sol";
 
 contract GrantEuAuthoriserRolesTest is Test {
+    /// @notice Forks `network` with its line at the grant's onto and the Safe
+    /// approved to write it.
+    /// @param network The fork.
+    /// @param tag The artifact tag, unique per test.
+    /// @return The harness, or the zero harness when the line already
+    /// records the grant.
     function fork(string memory network, string memory tag) internal returns (GrantEuAuthoriserRolesHarness) {
         vm.createSelectFork(network);
         LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
-        LibMigrationLineFork.recordOnto(vm, grantEuAuthoriserRolesDeclaration());
+        if (LibMigrationLineFork.recordOnto(vm, grantEuAuthoriserRolesDeclaration())) {
+            return GrantEuAuthoriserRolesHarness(address(0));
+        }
         return new GrantEuAuthoriserRolesHarness(tag);
     }
 
@@ -53,6 +62,7 @@ contract GrantEuAuthoriserRolesTest is Test {
         string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             GrantEuAuthoriserRolesHarness script = fork(networks[i], "recordOnly");
+            if (address(script) == address(0)) continue;
             SafeTx[] memory txs = script.callAuthorBundle();
             assertEq(txs.length, 1, networks[i]);
             (address registry, bytes memory data) = LibStoxMigrations.recordCall(grantEuAuthoriserRolesDeclaration());
@@ -65,6 +75,7 @@ contract GrantEuAuthoriserRolesTest is Test {
 
     function testRunGrantsMissingRowsAndRenouncesHeldAdmins() external {
         GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "repair");
+        if (address(script) == address(0)) return;
         RoleGrant[] memory rows = map();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         RoleGrant memory missing = rows[LibAuthoriserInvariants.ADMIN_ROLE_COUNT];
@@ -88,6 +99,7 @@ contract GrantEuAuthoriserRolesTest is Test {
 
     function testPreflightRefusesAMissingRowTheSafeCannotGrant() external {
         GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "noAdmin");
+        if (address(script) == address(0)) return;
         RoleGrant memory missing = map()[LibAuthoriserInvariants.ADMIN_ROLE_COUNT];
         vm.prank(timelock());
         eu().revokeRole(missing.role, missing.grantee);
@@ -99,6 +111,7 @@ contract GrantEuAuthoriserRolesTest is Test {
 
     function testPostStateRefusesASafeStillHoldingAnAdmin() external {
         GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "stillAdmin");
+        if (address(script) == address(0)) return;
         script.run();
         bytes32 admin = map()[0].role;
         vm.prank(timelock());
@@ -109,6 +122,7 @@ contract GrantEuAuthoriserRolesTest is Test {
 
     function testPreflightRefusesForeignCodeAtTheClone() external {
         GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "foreignCode");
+        if (address(script) == address(0)) return;
         script.callPreflight();
         vm.etch(address(eu()), hex"00");
         vm.expectRevert(abi.encodeWithSelector(EuAuthoriserNotDeployed.selector, address(eu())));
@@ -117,6 +131,7 @@ contract GrantEuAuthoriserRolesTest is Test {
 
     function testPreflightRefusesAnUnapprovedSafe() external {
         GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "unapproved");
+        if (address(script) == address(0)) return;
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         LibMigrationLineFork.revoke(vm, safe);
         vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
@@ -124,17 +139,25 @@ contract GrantEuAuthoriserRolesTest is Test {
     }
 
     function testPreflightRefusesAHeadThatIsNotItsOnto() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        LibMigrationLineFork.approve(vm, LibSafeInvariants.safeForChainId(block.chainid));
-        GrantEuAuthoriserRolesHarness script = new GrantEuAuthoriserRolesHarness("wrongHead");
-        bytes32 head = LibStoxMigrations.head();
-        assertNotEq(head, grantEuAuthoriserRolesDeclaration().onto);
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, head));
+        GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "wrongHead");
+        if (address(script) == address(0)) return;
+        script.callPreflight();
+        bytes32 other = keccak256("script/not-in-the-line.s.sol");
+        vm.prank(LibStoxMigrations.WRITER);
+        LibMigrationRegistry.applyMigrationV3(
+            LibStoxMigrations.WRITER,
+            LibStoxMigrations.NAMESPACE,
+            other,
+            LibStoxMigrations.onto(grantEuAuthoriserRolesDeclaration().onto)
+        );
+        assertEq(LibStoxMigrations.head(), other);
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, other));
         script.callPreflight();
     }
 
     function testPostStateRefusesAMissingRecord() external {
         GrantEuAuthoriserRolesHarness script = fork(LibRainDeploy.BASE, "unrecorded");
+        if (address(script) == address(0)) return;
         vm.expectRevert(
             abi.encodeWithSelector(RecordMismatch.selector, grantEuAuthoriserRolesDeclaration().id, block.timestamp, 0)
         );

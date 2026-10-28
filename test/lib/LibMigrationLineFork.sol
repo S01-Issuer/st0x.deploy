@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
+import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
 
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
@@ -48,10 +49,17 @@ library LibMigrationLineFork {
     }
 
     /// @notice `WRITER` records every migration before `declared`, so the
-    /// line's head is `declared.onto`.
+    /// line's head is `declared.onto`, unless the line already records
+    /// `declared`: a record is never undone, so that head is out of reach and
+    /// nothing is recorded.
     /// @param vm The cheatcodes.
     /// @param declared The migration about to be applied.
-    function recordOnto(Vm vm, ScriptDeclaration memory declared) internal {
+    /// @return Whether the line already records `declared`.
+    function recordOnto(Vm vm, ScriptDeclaration memory declared) internal returns (bool) {
+        if (LibStoxMigrations.applied(declared.id) != 0) {
+            console2.log("SPENT: the line records", vm.toString(declared.id));
+            return true;
+        }
         ScriptDeclaration[] memory all = line();
         for (uint256 i = 0; i < all.length && all[i].id != declared.id; i++) {
             if (LibStoxMigrations.applied(all[i].id) != 0) continue;
@@ -60,5 +68,6 @@ library LibMigrationLineFork {
                 LibStoxMigrations.WRITER, LibStoxMigrations.NAMESPACE, all[i].id, LibStoxMigrations.onto(all[i].onto)
             );
         }
+        return false;
     }
 }

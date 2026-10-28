@@ -27,7 +27,7 @@ contract GrantOrchestratorEmergencyTest is LocalBaseOrchestratorFixture {
         buildLocalBase();
         script = new GrantOrchestratorEmergencyHarness("test");
         LibMigrationLineFork.approve(vm, address(safe));
-        LibMigrationLineFork.recordOnto(vm, grantOrchestratorEmergencyDeclaration());
+        assertFalse(LibMigrationLineFork.recordOnto(vm, grantOrchestratorEmergencyDeclaration()));
     }
 
     function executeGrant() internal {
