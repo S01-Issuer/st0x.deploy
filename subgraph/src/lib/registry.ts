@@ -1,6 +1,9 @@
 import { Bytes, crypto, ethereum } from "@graphprotocol/graph-ts";
 import {
+  ConfigBinding,
   ConfigRegister,
+  MigrationLine,
+  MigrationRecord,
   RegistryDelegate,
   RegistryDelegateChange,
   RegistryMeta,
@@ -8,6 +11,14 @@ import {
 } from "../../generated/schema";
 import { getOrCreateContract } from "./contract";
 import { logRowId } from "./event";
+import {
+  CONFIG_REGISTRY_NAME_V1,
+  CONFIG_REGISTRY_VALUE_TYPE_V1,
+  MIGRATION_REGISTRY_MIGRATION_V1,
+  MIGRATION_REGISTRY_NAMESPACE_V1,
+  PreimageCheck,
+  verifyPreimages,
+} from "./rainmeta";
 
 /** `RegistryDelegate.id`: registry ++ account ++ the `bytes32` scope ++ delegate. */
 export function registryDelegateId(
@@ -119,8 +130,7 @@ export function recordMetaSubjectRecord(
  * Record one `MetaV1_2` log from a V4 registry, linked to whatever its subject
  * names. A config subject is shared by every bind of the name, so the meta
  * links to the binding's latest `Register` only when that `Register` is in the
- * same transaction: a name is bound at most once per block, so that one is
- * the write that carried it.
+ * same transaction: a name is bound at most once per block.
  */
 export function recordRegistryMeta(
   kind: string,
@@ -139,7 +149,6 @@ export function recordRegistryMeta(
   row.sender = sender;
   row.subject = subject;
   row.meta = meta;
-  row.verified = false;
   let link = RegistryMetaSubject.load(metaSubjectId(registry.id, subject));
   if (link !== null) {
     row.configBinding = link.configBinding;
@@ -155,10 +164,43 @@ export function recordRegistryMeta(
       }
     }
   }
+  row.verified = verifyMeta(row);
   row.blockNumber = event.block.number;
   row.blockTimestamp = event.block.timestamp;
   row.transactionHash = event.transaction.hash;
   row.transactionFrom = event.transaction.from;
   row.logIndex = event.logIndex;
   row.save();
+}
+
+/** The key preimage checks for the write `row` is linked to, if any. */
+function preimageChecks(row: RegistryMeta): PreimageCheck[] | null {
+  let registerId = row.configRegister;
+  if (registerId !== null) {
+    let register = ConfigRegister.load(registerId)!;
+    let binding = ConfigBinding.load(register.binding)!;
+    let valueTypeHash = register.valueTypeHash;
+    if (valueTypeHash === null) {
+      return null;
+    }
+    return [
+      new PreimageCheck(CONFIG_REGISTRY_NAME_V1, binding.name),
+      new PreimageCheck(CONFIG_REGISTRY_VALUE_TYPE_V1, valueTypeHash),
+    ];
+  }
+  let recordId = row.migrationRecord;
+  if (recordId !== null) {
+    let record = MigrationRecord.load(recordId)!;
+    let line = MigrationLine.load(record.line)!;
+    return [
+      new PreimageCheck(MIGRATION_REGISTRY_NAMESPACE_V1, line.namespace),
+      new PreimageCheck(MIGRATION_REGISTRY_MIGRATION_V1, record.migration),
+    ];
+  }
+  return null;
+}
+
+function verifyMeta(row: RegistryMeta): boolean {
+  let checks = preimageChecks(row);
+  return checks !== null && verifyPreimages(row.meta, checks);
 }

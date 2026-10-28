@@ -1,4 +1,4 @@
-import { Bytes, ethereum } from "@graphprotocol/graph-ts";
+import { Bytes, crypto, ethereum } from "@graphprotocol/graph-ts";
 import {
   Approved,
   Register,
@@ -6,7 +6,6 @@ import {
 } from "../generated/ConfigRegistry/ConfigRegistry";
 import {
   Approved as ApprovedV4,
-  ConfigRegistryV4,
   MetaV1_2,
   Register as RegisterV4,
   Revoked as RevokedV4,
@@ -107,22 +106,12 @@ export function configMetaSubject(authority: Bytes, name: Bytes): Bytes {
   return registryMetaSubject(addressWord(authority).concat(name));
 }
 
-/**
- * A V4 `Register`. The type hash is the one `getV4` answers at the log's
- * block, not a hash of the decoded string: the event's `string` reaches the
- * mapping decoded, and an emitted type that is not valid UTF-8 would not
- * re-encode to the bytes the registry hashed. A name is bound at most once
- * per block (`TimestampNotAfterBinding`), so the block's closing state is
- * this log's binding.
- */
 export function handleConfigRegistryV4Register(event: RegisterV4): void {
   let authority = event.params.authority;
   let name = event.params.name;
-  let read = ConfigRegistryV4.bind(event.address).try_getV4(authority, name);
-  let valueTypeHash: Bytes | null = null;
-  if (!read.reverted) {
-    valueTypeHash = read.value.value2;
-  }
+  let valueTypeHash = Bytes.fromByteArray(
+    crypto.keccak256(Bytes.fromUTF8(event.params.valueType)),
+  );
   let row = recordRegister(
     ContractKind.CONFIG_REGISTRY_V4,
     event,
