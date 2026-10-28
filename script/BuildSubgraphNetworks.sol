@@ -7,7 +7,9 @@ import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRai
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibConfigRegistryDeploy.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistryDeploy.sol";
 import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V4} from "rain-deploy-v4-0.1.26/src/generated/0_1_26/ConfigRegistry.sol";
-import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V4} from "rain-deploy-v4-0.1.26/src/generated/0_1_26/MigrationRegistry.sol";
+import {
+    DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V4
+} from "rain-deploy-v4-0.1.26/src/generated/0_1_26/MigrationRegistry.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.3/src/generated/0_2_1/CloneFactory.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
