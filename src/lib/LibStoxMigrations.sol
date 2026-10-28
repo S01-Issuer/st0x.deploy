@@ -3,9 +3,9 @@
 pragma solidity ^0.8.25;
 
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
-import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
+import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
 
 import {ScriptDeclaration} from "../interface/IStoxScript.sol";
 

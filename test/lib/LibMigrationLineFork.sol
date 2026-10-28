@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
 
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";

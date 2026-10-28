@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
+import {LibSafeFork} from "rain-deploy-0.1.25/src/lib/LibSafeFork.sol";
 
 import {
     EmergencyNotGranted,

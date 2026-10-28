@@ -5,11 +5,11 @@ pragma solidity =0.8.25;
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.22/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
-import {LibSafe} from "rain-deploy-0.1.22/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.25/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
+import {LibSafe} from "rain-deploy-0.1.25/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.25/src/lib/LibSafeFork.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";

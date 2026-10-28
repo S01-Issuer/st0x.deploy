@@ -22,7 +22,10 @@ on:
           # checked against Base's CURRENT token set rather than the config
           # table the deleted scripts joined against. Their run ids are pinned
           # in `LibTokenInvariants.productionTokensEthereum()` and
-          # `productionTokensHyperEvm()`.
+          # `productionTokensHyperEvm()`. `20261006-deploy-eu-authoriser`
+          # was removed under the same rule: its successor is
+          # `manual-sol-artifacts.yaml` suite `stox-eu-assets-authoriser`, and
+          # its run id is pinned beside `STOX_EU_AUTHORISER_CLONE`.
           #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # broadcast script under `script/`. Convention:
@@ -34,7 +37,6 @@ on:
           - 20260807-deploy-missing-tokens
           - 20260729-deploy-governance-timelock
           - 20260813-execute-timelock-operations
-          - 20261006-deploy-eu-authoriser
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
@@ -92,7 +94,7 @@ jobs:
     # selected network, so all its dispatches must share ONE group — list
     # each multi-chain script in the ternary below.
     concurrency:
-      group: manual-broadcast-${{ inputs.script }}-${{ (inputs.script == '20260729-deploy-governance-timelock' || inputs.script == '20261006-deploy-eu-authoriser') && 'all-chains' || inputs.network }}
+      group: manual-broadcast-${{ inputs.script }}-${{ inputs.script == '20260729-deploy-governance-timelock' && 'all-chains' || inputs.network }}
       cancel-in-progress: false
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
