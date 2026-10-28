@@ -12,9 +12,9 @@ import {CTimelockLineSecondFixture} from "../fixture/declarations/timelock/CTime
 import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
 import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclarationFixture.s.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.26/src/interface/IMigrationRegistryV4.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.26/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
+import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.27/src/interface/IMigrationRegistryV4.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.27/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
 import {
     BuildMigrations,
     HistoryWithoutMoment,

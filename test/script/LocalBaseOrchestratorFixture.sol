@@ -5,12 +5,12 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.26/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.27/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.26/src/generated/candidate/MigrationRegistry.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.26/src/lib/LibSafe.sol";
+} from "rain-deploy-0.1.27/src/generated/candidate/MigrationRegistry.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.27/src/lib/LibSafe.sol";
 
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";

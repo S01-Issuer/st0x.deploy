@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibSafe} from "rain-deploy-0.1.26/src/lib/LibSafe.sol";
+import {LibSafe} from "rain-deploy-0.1.27/src/lib/LibSafe.sol";
 
 /// @notice No ST0x token-owner Safe address is pinned for the active chain.
 /// Deliberately a typed revert rather than a silent fallback to another

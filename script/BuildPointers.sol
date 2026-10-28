@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploySnapshot} from "rain-deploy-0.1.26/src/lib/LibRainDeploySnapshot.sol";
-import {DeployCandidate, DeploySuite} from "rain-deploy-0.1.26/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploySnapshot} from "rain-deploy-0.1.27/src/lib/LibRainDeploySnapshot.sol";
+import {DeployCandidate, DeploySuite} from "rain-deploy-0.1.27/src/abstract/RainDeploySuitesBase.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";

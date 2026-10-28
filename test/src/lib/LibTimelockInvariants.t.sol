@@ -4,12 +4,12 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
-import {LibTimelockController} from "rain-deploy-0.1.26/src/lib/LibTimelockController.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {LibTimelockController} from "rain-deploy-0.1.27/src/lib/LibTimelockController.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     CREATION_CODE as TIMELOCK_CREATION_CODE
-} from "rain-deploy-0.1.26/src/generated/0_1_18/TimelockController.sol";
+} from "rain-deploy-0.1.27/src/generated/0_1_18/TimelockController.sol";
 import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariantsHarness} from "./LibTimelockInvariantsHarness.sol";

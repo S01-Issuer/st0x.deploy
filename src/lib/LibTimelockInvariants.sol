@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibTimelockController} from "rain-deploy-0.1.26/src/lib/LibTimelockController.sol";
+import {LibTimelockController} from "rain-deploy-0.1.27/src/lib/LibTimelockController.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     CREATION_CODE as TIMELOCK_CREATION_CODE
-} from "rain-deploy-0.1.26/src/generated/0_1_18/TimelockController.sol";
+} from "rain-deploy-0.1.27/src/generated/0_1_18/TimelockController.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
 

@@ -2,17 +2,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.26/src/abstract/RainDeployVerifyDeclaration.sol";
-import {ExternalDeployment} from "rain-deploy-0.1.26/src/abstract/RainDeployDeclarationChecks.sol";
-import {RainDeploySuitesBase} from "rain-deploy-0.1.26/src/abstract/RainDeploySuitesBase.sol";
+import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.27/src/abstract/RainDeployVerifyDeclaration.sol";
+import {ExternalDeployment} from "rain-deploy-0.1.27/src/abstract/RainDeployDeclarationChecks.sol";
+import {RainDeploySuitesBase} from "rain-deploy-0.1.27/src/abstract/RainDeploySuitesBase.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
-} from "rain-factory-deploy-0.2.3/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.4/src/generated/0_1_15/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
-} from "rain-tofu-erc20-decimals-deploy-0.1.4/src/generated/0_1_0/TOFUTokenDecimals.sol";
+} from "rain-tofu-erc20-decimals-deploy-0.1.5/src/generated/0_1_0/TOFUTokenDecimals.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";

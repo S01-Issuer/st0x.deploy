@@ -4,17 +4,17 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.26/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.27/src/lib/LibMigrationRegistry.sol";
 import {
     IMigrationRegistryV4,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.26/src/interface/IMigrationRegistryV4.sol";
-import {IRegistryDelegatesV2} from "rain-deploy-0.1.26/src/interface/IRegistryDelegatesV2.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.26/src/lib/LibMigrationRegistryDeploy.sol";
+} from "rain-deploy-0.1.27/src/interface/IMigrationRegistryV4.sol";
+import {IRegistryDelegatesV2} from "rain-deploy-0.1.27/src/interface/IRegistryDelegatesV2.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.27/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.26/src/generated/candidate/MigrationRegistry.sol";
+} from "rain-deploy-0.1.27/src/generated/candidate/MigrationRegistry.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";

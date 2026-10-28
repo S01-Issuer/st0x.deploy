@@ -385,7 +385,7 @@ export function newBeaconProxyLog(
 }
 
 /**
- * `ICloneableFactoryV6`
+ * `ICloneableFactoryV7`
  * `NewRegistryBeaconProxy(address,address,address,bytes32,address,address,bytes32,bytes)`.
  */
 export function newRegistryBeaconProxyLog(

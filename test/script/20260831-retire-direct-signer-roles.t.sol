@@ -14,7 +14,7 @@ import {RetireDirectSignerRolesHarness} from "./RetireDirectSignerRolesHarness.s
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {SafeTx} from "rain-deploy-0.1.26/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.27/src/lib/LibSafeTx.sol";
 
 /// @title RetireDirectSignerRolesTest
 /// @notice Guard coverage for `20260831-retire-direct-signer-roles` without
