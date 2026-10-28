@@ -17,7 +17,7 @@ import {LibSafeFork} from "rain-deploy-0.1.26/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.26/src/lib/LibSafeTxBuilderJson.sol";
 import {LibSafe} from "rain-deploy-0.1.26/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.26/src/interface/deprecated/IMigrationRegistryV3.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.26/src/interface/IMigrationRegistryV4.sol";
 import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";

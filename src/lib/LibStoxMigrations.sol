@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {LibMigrationRegistry} from "rain-deploy-0.1.26/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.26/src/interface/deprecated/IMigrationRegistryV3.sol";
+import {Prerequisite} from "rain-deploy-0.1.26/src/interface/IMigrationRegistryV4.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
 
 import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration} from "../interface/IStoxScript.sol";
@@ -178,11 +178,12 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationV3Call(
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationV4Call(
             writerFor(declared.writer, safe, timelock),
             declared.namespace,
             declared.id,
-            prerequisitesFor(declared, safe, timelock)
+            prerequisitesFor(declared, safe, timelock),
+            ""
         );
         return (registry, data);
     }
@@ -200,12 +201,13 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryV3Call(
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryV4Call(
             writerFor(declared.writer, safe, timelock),
             declared.namespace,
             declared.id,
             appliedAt,
-            prerequisitesFor(declared, safe, timelock)
+            prerequisitesFor(declared, safe, timelock),
+            ""
         );
         return (registry, data);
     }
@@ -246,7 +248,7 @@ library LibStoxMigrations {
     /// @param migration The migration id.
     /// @return The recorded moment, or zero.
     function applied(address writer, bytes32 migration) internal view returns (uint256) {
-        return LibMigrationRegistry.appliedV3(writer, NAMESPACE, migration);
+        return LibMigrationRegistry.appliedV4(writer, NAMESPACE, migration);
     }
 
     /// @notice The migration `writer`'s line in this repo's namespace was last
@@ -254,7 +256,7 @@ library LibStoxMigrations {
     /// @param writer The account whose line to read.
     /// @return The head.
     function head(address writer) internal view returns (bytes32) {
-        return LibMigrationRegistry.headV3(writer, NAMESPACE);
+        return LibMigrationRegistry.headV4(writer, NAMESPACE);
     }
 
     /// @notice The prerequisite list for a migration applied onto

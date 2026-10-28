@@ -7,7 +7,7 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.26/src/lib/LibRainDeploy.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.26/src/interface/deprecated/IMigrationRegistryV3.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.26/src/interface/IMigrationRegistryV4.sol";
 import {IMigrationRegistryV2} from "rain-deploy-0.1.26/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {DEPLOYED_ADDRESS as REGISTRY_V2} from "rain-deploy-0.1.26/src/generated/0_1_18/MigrationRegistry.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.26/src/lib/LibMigrationRegistry.sol";
@@ -58,18 +58,18 @@ contract BackfillMigrationRegistryV3Test is Test {
             V2.applied(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
             "ORCHESTRATOR_EMERGENCY"
         );
-        assertEq(LibMigrationRegistry.appliedV3(safe, rbac, eu), V2.applied(safe, rbac, eu), "EU authoriser");
+        assertEq(LibMigrationRegistry.appliedV4(safe, rbac, eu), V2.applied(safe, rbac, eu), "EU authoriser");
         assertTrue(LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0, "emergency zero");
-        assertTrue(LibMigrationRegistry.appliedV3(safe, rbac, eu) != 0, "EU zero");
+        assertTrue(LibMigrationRegistry.appliedV4(safe, rbac, eu) != 0, "EU zero");
         assertEq(
-            LibMigrationRegistry.appliedOntoV3(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
+            LibMigrationRegistry.appliedOntoV4(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
             LibStoxMigrations.GOVERNANCE_TIMELOCK
         );
         bytes32 own = backfillMigrationRegistryV3Declaration().id;
         assertTrue(LibStoxMigrations.applied(safe, own) != 0, "own record zero");
-        assertEq(LibMigrationRegistry.appliedOntoV3(safe, ns, own), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
-        assertEq(LibMigrationRegistry.headV3(safe, rbac), eu);
-        assertEq(LibMigrationRegistry.appliedByV3(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), safe);
+        assertEq(LibMigrationRegistry.appliedOntoV4(safe, ns, own), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        assertEq(LibMigrationRegistry.headV4(safe, rbac), eu);
+        assertEq(LibMigrationRegistry.appliedByV4(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), safe);
         assertTrue(
             IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE).hasRole(keccak256("EMERGENCY"), safe),
             "Safe EMERGENCY"
@@ -220,8 +220,8 @@ contract BackfillMigrationRegistryV3Test is Test {
         if (spent()) return;
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
-        LibMigrationRegistry.applyMigrationV3(
-            safe, LibStoxMigrations.NAMESPACE, other, LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
+        LibMigrationRegistry.applyMigrationV4(
+            safe, LibStoxMigrations.NAMESPACE, other, LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS), ""
         );
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, other));
         script.callPreflight();
@@ -232,11 +232,12 @@ contract BackfillMigrationRegistryV3Test is Test {
         if (spent()) return;
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
-        LibMigrationRegistry.applyMigrationV3(
+        LibMigrationRegistry.applyMigrationV4(
             safe,
             LibRbacMigration.STOX_RBAC_NAMESPACE,
             other,
-            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS)
+            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS),
+            ""
         );
         vm.expectRevert(
             abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibRbacMigration.STOX_RBAC_NAMESPACE, other)
@@ -255,19 +256,21 @@ contract BackfillMigrationRegistryV3Test is Test {
         script.verify(cleanPath);
         uint256 euAt =
             V2.applied(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER);
-        (, bytes memory euData) = LibMigrationRegistry.applyMigrationHistoryV3Call(
+        (, bytes memory euData) = LibMigrationRegistry.applyMigrationHistoryV4Call(
             safe,
             LibRbacMigration.STOX_RBAC_NAMESPACE,
             LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
             euAt,
-            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS)
+            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS),
+            ""
         );
-        (, bytes memory tamperedData) = LibMigrationRegistry.applyMigrationHistoryV3Call(
+        (, bytes memory tamperedData) = LibMigrationRegistry.applyMigrationHistoryV4Call(
             safe,
             LibRbacMigration.STOX_RBAC_NAMESPACE,
             LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
             euAt - 1,
-            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS)
+            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS),
+            ""
         );
         string memory tampered = vm.replace(json, vm.toString(euData), vm.toString(tamperedData));
         assertTrue(keccak256(bytes(tampered)) != keccak256(bytes(json)), "tamper did not apply");
@@ -367,11 +370,12 @@ contract BackfillMigrationRegistryV3Test is Test {
         executeBackfill(script, safe);
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
-        LibMigrationRegistry.applyMigrationV3(
+        LibMigrationRegistry.applyMigrationV4(
             safe,
             LibStoxMigrations.NAMESPACE,
             other,
-            LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id)
+            LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id),
+            ""
         );
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, other));
         script.callAssertPostState();
@@ -383,13 +387,14 @@ contract BackfillMigrationRegistryV3Test is Test {
         executeBackfill(script, safe);
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
-        LibMigrationRegistry.applyMigrationV3(
+        LibMigrationRegistry.applyMigrationV4(
             safe,
             LibRbacMigration.STOX_RBAC_NAMESPACE,
             other,
             LibMigrationRegistry.onto(
                 safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
-            )
+            ),
+            ""
         );
         vm.expectRevert(
             abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibRbacMigration.STOX_RBAC_NAMESPACE, other)

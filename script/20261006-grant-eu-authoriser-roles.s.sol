@@ -7,10 +7,10 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
 import {
-    IMigrationRegistryV3,
+    IMigrationRegistryV4,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.26/src/interface/deprecated/IMigrationRegistryV3.sol";
+} from "rain-deploy-0.1.26/src/interface/IMigrationRegistryV4.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.26/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.26/src/lib/LibMigrationRegistryDeploy.sol";
 
@@ -126,12 +126,13 @@ contract GrantEuAuthoriserRoles is Script, IStoxScript {
             to: LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
             value: 0,
             data: abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationV3,
+                IMigrationRegistryV4.applyMigrationV4,
                 (
                     LibStoxMigrations.writerFor(declared.writer, safe, timelock),
                     declared.namespace,
                     declared.id,
-                    LibStoxMigrations.prerequisitesFor(declared, safe, timelock)
+                    LibStoxMigrations.prerequisitesFor(declared, safe, timelock),
+                    ""
                 )
             ),
             operation: Enum.Operation.Call

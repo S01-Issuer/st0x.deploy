@@ -29,12 +29,17 @@ contract GuardChecksTokensOwnBeaconsTest is OrchestratorIntegrationTest {
     function otherToken() internal returns (StoxReceiptVault) {
         LibTestDeploy.placeBeacon(vm, OTHER_VAULT_BEACON, LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE, BEACON_OWNER);
         LibTestDeploy.placeBeacon(vm, OTHER_RECEIPT_BEACON, LibProdDeployV4.STOX_RECEIPT_CANDIDATE, BEACON_OWNER);
-        LibTestDeploy.bind(vm, OTHER_AUTHORITY, LibStoxConfig.VAULT_BEACON_NAME, abi.encode(OTHER_VAULT_BEACON));
-        LibTestDeploy.bind(vm, OTHER_AUTHORITY, LibStoxConfig.RECEIPT_BEACON_NAME, abi.encode(OTHER_RECEIPT_BEACON));
+        LibTestDeploy.bind(
+            vm, OTHER_AUTHORITY, LibStoxConfig.VAULT_BEACON_NAME, "address", abi.encode(OTHER_VAULT_BEACON)
+        );
+        LibTestDeploy.bind(
+            vm, OTHER_AUTHORITY, LibStoxConfig.RECEIPT_BEACON_NAME, "address", abi.encode(OTHER_RECEIPT_BEACON)
+        );
         LibTestDeploy.bind(
             vm,
             OTHER_AUTHORITY,
             RBAC_NAME,
+            "(address,address)",
             abi.encode(OffchainAssetReceiptVaultRbacV1({owner: ADMIN, authorizer: IAuthorizeV1(address(authorizer))}))
         );
         return LibTestDeploy.newVault(

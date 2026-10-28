@@ -86,7 +86,9 @@ abstract contract OrchestratorIntegrationTest is Test {
         // Real authoriser clone, bound with ADMIN as owner in the RBAC the
         // vault resolves at initialize.
         authorizer = _newAuthorizer();
-        LibTestDeploy.bindRbac(vm, LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer)));
+        LibTestDeploy.bindRbac(
+            vm, LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer))
+        );
 
         // A real vault + receipt beacon-proxy pair from the clone factory, over
         // the beacon the guard version-locks against.

@@ -88,7 +88,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 ///
 /// 1. `orchestrator.grantRole(DEFAULT_ADMIN, timelock)`.
 /// 2. `orchestrator.renounceRole(DEFAULT_ADMIN, safe)`.
-/// 3. `registry.applyMigrationV3(safe, ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+/// 3. `registry.applyMigrationV4(safe, ORCHESTRATOR_ADMIN_TO_TIMELOCK,
 ///    [20261022-backfill-migration-registry-v3])`.
 ///
 /// `DEFAULT_ADMIN_ROLE` administers `MINT_ROLE`, `BURN_ROLE` and

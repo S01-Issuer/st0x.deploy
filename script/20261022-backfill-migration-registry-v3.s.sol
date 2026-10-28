@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.26/src/abstract/SafeBundleScript.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.26/src/interface/deprecated/IMigrationRegistryV3.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.26/src/interface/IMigrationRegistryV4.sol";
 import {IMigrationRegistryV2} from "rain-deploy-0.1.26/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {
     DEPLOYED_ADDRESS as REGISTRY_V2,
@@ -146,7 +146,7 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
         if (v3DeployHead != MIGRATION_HEAD_GENESIS) {
             revert UnexpectedRegistryV3Line(LibStoxMigrations.NAMESPACE, v3DeployHead);
         }
-        bytes32 v3RbacHead = LibMigrationRegistry.headV3(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
+        bytes32 v3RbacHead = LibMigrationRegistry.headV4(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
         if (v3RbacHead != MIGRATION_HEAD_GENESIS) {
             revert UnexpectedRegistryV3Line(LibRbacMigration.STOX_RBAC_NAMESPACE, v3RbacHead);
         }
@@ -187,7 +187,7 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
     function assertCarried(bytes32 namespace, bytes32 migration) internal view {
         address chainSafe = address(safe());
         uint256 expected = IMigrationRegistryV2(REGISTRY_V2).applied(chainSafe, namespace, migration);
-        uint256 actual = LibMigrationRegistry.appliedV3(chainSafe, namespace, migration);
+        uint256 actual = LibMigrationRegistry.appliedV4(chainSafe, namespace, migration);
         if (actual != expected) revert BackfillRecordMismatch(migration, expected, actual);
     }
 
@@ -212,7 +212,7 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
         if (deployHead != own) {
             revert UnexpectedRegistryV3Line(LibStoxMigrations.NAMESPACE, deployHead);
         }
-        bytes32 rbacHead = LibMigrationRegistry.headV3(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
+        bytes32 rbacHead = LibMigrationRegistry.headV4(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
         if (rbacHead != LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER) {
             revert UnexpectedRegistryV3Line(LibRbacMigration.STOX_RBAC_NAMESPACE, rbacHead);
         }
