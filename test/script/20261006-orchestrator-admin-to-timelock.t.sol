@@ -270,6 +270,10 @@ contract OrchestratorAdminToTimelockTest is Test {
 
     function testBundleSkipsTheGrantWhenTheTimelockIsAlreadyAdmin() external {
         vm.createSelectFork(LibRainDeploy.BASE);
+        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0) {
+            console2.log("SPENT: the admin move has executed on this chain");
+            return;
+        }
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         approveSafe(safe);
@@ -280,6 +284,29 @@ contract OrchestratorAdminToTimelockTest is Test {
         SafeTx[] memory txs = script.callAuthorBundle();
         assertEq(txs.length, 2);
         assertEq(txs[0].data, abi.encodeCall(IAccessControl.renounceRole, (bytes32(0), safe)));
+    }
+
+    /// @notice Where the move's effect already holds, the bundle is the
+    /// record alone.
+    function testBundleIsTheRecordAloneWhenTheMoveAlreadyHolds() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        if (LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0) {
+            console2.log("SPENT: the admin move has executed on this chain");
+            return;
+        }
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        approveSafe(safe);
+        OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("moveHolds");
+        vm.startPrank(safe);
+        ORCHESTRATOR.grantRole(bytes32(0), timelock);
+        ORCHESTRATOR.renounceRole(bytes32(0), safe);
+        vm.stopPrank();
+        SafeTx[] memory txs = script.callAuthorBundle();
+        assertEq(txs.length, 1);
+        (address registry, bytes memory data) = LibStoxMigrations.recordCall(orchestratorAdminToTimelockDeclaration());
+        assertEq(txs[0].to, registry);
+        assertEq(txs[0].data, data);
     }
 
     function testPostStateRefusesASafeStillAdmin() external {
