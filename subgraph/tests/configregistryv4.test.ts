@@ -564,11 +564,11 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
       ),
     );
     assert.fieldEquals("RegistryMeta", rowIdIn(OTHER_TX, 0), "verified", "false");
-    assert.assertNull(RegistryMeta.load(Bytes.fromHexString(rowIdIn(OTHER_TX, 0)))!.nameString);
+    assert.assertNull<string | null>(RegistryMeta.load(Bytes.fromHexString(rowIdIn(OTHER_TX, 0)))!.nameString);
     clearStore();
     meta(EU_NAME, META_OK, 100, 4);
     assert.fieldEquals("RegistryMeta", mockRowId(4), "verified", "false");
-    assert.assertNull(RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!.nameString);
+    assert.assertNull<string | null>(RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!.nameString);
   });
 });
 

@@ -202,7 +202,10 @@ function preimageChecks(row: RegistryMeta): PreimageCheck[] | null {
 
 function verifyMeta(row: RegistryMeta): void {
   let checks = preimageChecks(row);
-  let preimages = checks === null ? null : verifyPreimages(row.meta, checks);
+  let preimages: Bytes[] | null = null;
+  if (checks !== null) {
+    preimages = verifyPreimages(row.meta, checks);
+  }
   row.verified = preimages !== null;
   if (preimages === null) {
     return;
