@@ -2,7 +2,7 @@
   description = "Flake for development workflows.";
 
   inputs = {
-    rainix.url = "github:rainlanguage/rainix";
+    rainix.url = "github:rainprotocol/rainix";
     flake-utils.url = "github:numtide/flake-utils";
     rain.url = "github:rainlanguage/rain.cli";
     # rain.cli pulls its own rainix; make it follow ours so the lock has a
