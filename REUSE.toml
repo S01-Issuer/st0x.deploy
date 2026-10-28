@@ -4,6 +4,7 @@ version = 1
 path = [
   ".gas-snapshot",
   ".github/workflows/**/",
+  ".github/pull_request_template.md",
   ".gitignore",
   ".soldeerignore",
   "remappings.txt",
