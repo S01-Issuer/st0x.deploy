@@ -11,6 +11,9 @@
 - **`optimizer_runs` lowered 1666 → 200 to fit EIP-170.** At 200 runs the
   runtime is 24,418 bytes (158 spare). As with every optimizer change, this
   moves every candidate Zoltu address; the candidate pins are regenerated.
+- **`optimizer_runs` lowered 200 → 190 to fit the rain-deploy 0.1.26 V4 registry
+  reads under EIP-170.** At 190 runs the runtime is 24,402 bytes (174 spare); at
+  200 it is 24,601. The candidate pins are regenerated.
 
 ### StoxReceipt
 
