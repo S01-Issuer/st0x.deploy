@@ -52,6 +52,7 @@ contract GuardChecksTokensOwnBeaconsTest is OrchestratorIntegrationTest {
 
     function mintVault(address token, bytes memory err) internal {
         (address eoa, uint256 pk) = makeAddrAndKey("own-beacon-recipient");
+        _allowRecipient(eoa);
         MintAuthV1 memory auth = _signedMintAuth(token, eoa, 1e18, keccak256(abi.encode(token, err)), pk);
         if (err.length > 0) {
             vm.expectRevert(err);

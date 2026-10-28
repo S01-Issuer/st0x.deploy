@@ -69,6 +69,14 @@ abstract contract LocalBaseOrchestratorFixture is Test {
 
         LibRainDeploy.etchZoltuFactory(vm);
         timelock = LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(address(safe)));
+        // The 0.1.30 orchestrator's initializer reads the 0.1.30 vault beacon
+        // set deployer, whose constructor beacons the 0.1.30 implementations.
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_0_1_30);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_30);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_30);
+        LibRainDeploy.deployZoltu(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30
+        );
         LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_30);
         address setDeployer =
             LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30);
