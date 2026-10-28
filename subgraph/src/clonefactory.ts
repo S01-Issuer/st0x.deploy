@@ -1,6 +1,7 @@
 import { Address, BigInt, dataSource } from "@graphprotocol/graph-ts";
 import { NewBeaconProxy } from "../generated/CloneFactoryV5/CloneFactoryV5";
 import { NewRegistryBeaconProxy } from "../generated/CloneFactoryV6/CloneFactoryV6";
+import { NewRegistryBeaconProxy as NewRegistryBeaconProxyV7 } from "../generated/CloneFactoryV7/CloneFactoryV7";
 import { OffchainAssetReceiptVaultBeaconSetDeployer } from "../generated/CloneFactoryV6/OffchainAssetReceiptVaultBeaconSetDeployer";
 import { Contract } from "../generated/schema";
 import { ReceiptVault } from "../generated/templates";
@@ -96,11 +97,23 @@ export function handleCloneFactoryV5NewBeaconProxy(
 }
 
 /**
- * `ICloneableFactoryV7.NewRegistryBeaconProxy`. The event carries the beacon the
+ * `ICloneableFactoryV6.NewRegistryBeaconProxy`. The event carries the beacon the
  * binding resolved to, which is the one the proxy keeps.
  */
 export function handleCloneFactoryV6NewRegistryBeaconProxy(
   event: NewRegistryBeaconProxy,
+): void {
+  discoverFactoryVault(
+    event.address,
+    event.params.beacon,
+    event.params.proxy,
+    event.block.number,
+  );
+}
+
+/** `ICloneableFactoryV7.NewRegistryBeaconProxy`, the same event. */
+export function handleCloneFactoryV7NewRegistryBeaconProxy(
+  event: NewRegistryBeaconProxyV7,
 ): void {
   discoverFactoryVault(
     event.address,
