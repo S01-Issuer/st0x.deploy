@@ -165,10 +165,12 @@ contract DeployMissingTokensTest is Test {
         for (uint256 i = 0; i < configs.length; i++) {
             ahead[i] = configs[i];
         }
-        ahead[configs.length] =
-            TokenConfig({underlying: "AAAA", name: "Ahead Of Base One ST0x", symbol: "tAAAA", region: Region.US});
-        ahead[configs.length + 1] =
-            TokenConfig({underlying: "BBBB", name: "Ahead Of Base Two ST0x", symbol: "tBBBB", region: Region.US});
+        ahead[configs.length] = TokenConfig({
+            underlying: "AAAA", name: "Ahead Of Base One ST0x", symbol: "tAAAA", region: Region.US, underlyingName: ""
+        });
+        ahead[configs.length + 1] = TokenConfig({
+            underlying: "BBBB", name: "Ahead Of Base Two ST0x", symbol: "tBBBB", region: Region.US, underlyingName: ""
+        });
 
         TokenConfig[] memory missing = harness.selectMissing(ahead, base, new TokenInstance[](0));
         assertEq(missing.length, base.length, "the un-deployed rows must not be selected");
@@ -386,8 +388,10 @@ contract DeployMissingTokensTest is Test {
     /// @notice A US token is wired to the chain's V4 authoriser, an EU token
     /// to the chain's EU assets authoriser, on every target chain.
     function testAuthoriserForRoutesByRegion() external {
-        TokenConfig memory us = TokenConfig({underlying: "WMT", name: "n", symbol: "s", region: Region.US});
-        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        TokenConfig memory us =
+            TokenConfig({underlying: "WMT", name: "n", symbol: "s", region: Region.US, underlyingName: ""});
+        TokenConfig memory eu =
+            TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU, underlyingName: ""});
         uint256[4] memory chains = [
             LibSafeInvariants.ETHEREUM_CHAIN_ID,
             LibSafeInvariants.HYPEREVM_CHAIN_ID,
@@ -412,7 +416,8 @@ contract DeployMissingTokensTest is Test {
     /// @notice An EU token is refused when the chain's EU clone is missing or
     /// is not the audited clone, rather than falling back to the V4 one.
     function testAuthoriserForRefusesAnEuTokenWithoutTheEuClone() external {
-        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        TokenConfig memory eu =
+            TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU, underlyingName: ""});
         vm.chainId(LibSafeInvariants.BSC_CHAIN_ID);
         address euClone = LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.BSC_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(EuAuthoriserNotReady.selector, euClone));
@@ -452,7 +457,8 @@ contract DeployMissingTokensTest is Test {
             LibStoxDeployNetworks.ROBINHOOD,
             LibStoxDeployNetworks.BSC
         ];
-        TokenConfig memory eu = TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU});
+        TokenConfig memory eu =
+            TokenConfig({underlying: "MC", name: "n", symbol: "s", region: Region.EU, underlyingName: ""});
         for (uint256 i = 0; i < networks.length; i++) {
             vm.createSelectFork(networks[i]);
             DeployMissingTokensHarness forked = new DeployMissingTokensHarness();

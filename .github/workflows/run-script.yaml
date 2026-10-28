@@ -31,6 +31,8 @@ on:
           - 20261006-orchestrator-admin-to-timelock
           - 20260619-migrate-multisig-threshold
           - 20261022-backfill-migration-registry-v3
+          - 20261021-schedule-underlying-naming-beacons
+          - 20261021-schedule-underlying-naming-rename
       network:
         description: 'Network to author against (default: base)'
         required: true
