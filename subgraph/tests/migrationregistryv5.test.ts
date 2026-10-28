@@ -4,16 +4,20 @@ import { MigrationRecord, RegistryMeta } from "../generated/schema";
 import { Migrated } from "../generated/MigrationRegistry/MigrationRegistry";
 import {
   Approved,
+  ApprovedUnscoped,
   MetaV1_2,
-  Migrated as MigratedV4,
+  Migrated as MigratedV5,
   Revoked,
-} from "../generated/MigrationRegistryV4/MigrationRegistryV4";
+  RevokedUnscoped,
+} from "../generated/MigrationRegistryV5/MigrationRegistryV5";
 import {
   handleMigrationRegistryMigrated,
-  handleMigrationRegistryV4Approved,
-  handleMigrationRegistryV4MetaV1_2,
-  handleMigrationRegistryV4Migrated,
-  handleMigrationRegistryV4Revoked,
+  handleMigrationRegistryV5Approved,
+  handleMigrationRegistryV5ApprovedUnscoped,
+  handleMigrationRegistryV5MetaV1_2,
+  handleMigrationRegistryV5Migrated,
+  handleMigrationRegistryV5Revoked,
+  handleMigrationRegistryV5RevokedUnscoped,
 } from "../src/migrationregistry";
 import {
   delegateChangeLog,
@@ -22,6 +26,7 @@ import {
   mockRowId,
   TX_FROM,
   TX_HASH,
+  unscopedDelegateChangeLog,
 } from "./event-mocks.test";
 
 const REGISTRY = "0x1a4b89828eb2dd5f3a353bd98472512f371ce408";
@@ -66,8 +71,8 @@ function lineId(registry: string): string {
 }
 
 function migrate(migration: string, blockNumber: i32, logIndex: i32): void {
-  handleMigrationRegistryV4Migrated(
-    changetype<MigratedV4>(
+  handleMigrationRegistryV5Migrated(
+    changetype<MigratedV5>(
       migratedLog(
         Address.fromString(REGISTRY),
         Address.fromString(SAFE),
@@ -88,7 +93,7 @@ function meta(
   blockNumber: i32,
   logIndex: i32,
 ): void {
-  handleMigrationRegistryV4MetaV1_2(
+  handleMigrationRegistryV5MetaV1_2(
     changetype<MetaV1_2>(
       metaV1_2Log(
         Address.fromString(REGISTRY),
@@ -102,10 +107,10 @@ function meta(
   );
 }
 
-describe("MigrationRegistryV4 Migrated", () => {
+describe("MigrationRegistryV5 Migrated", () => {
   afterEach(clearStore);
 
-  test("a first Migrated records onto genesis under the V4 registry, with its meta subject", () => {
+  test("a first Migrated records onto genesis under the V5 registry, with its meta subject", () => {
     migrate(MIGRATION_1, 100, 2);
 
     let row = mockRowId(2);
@@ -118,7 +123,7 @@ describe("MigrationRegistryV4 Migrated", () => {
     assert.fieldEquals("MigrationRecord", row, "metaSubject", SUBJECT_1);
     assert.fieldEquals("MigrationLine", lineId(REGISTRY), "head", MIGRATION_1);
     assert.fieldEquals("MigrationLine", lineId(REGISTRY), "recordCount", "1");
-    assert.fieldEquals("Contract", REGISTRY, "kind", "MIGRATION_REGISTRY_V4");
+    assert.fieldEquals("Contract", REGISTRY, "kind", "MIGRATION_REGISTRY_V5");
   });
 
   test("a second Migrated chains onto the first and a replay counts once", () => {
@@ -169,7 +174,7 @@ describe("MigrationRegistryV4 Migrated", () => {
   });
 });
 
-describe("MigrationRegistryV4 MetaV1_2", () => {
+describe("MigrationRegistryV5 MetaV1_2", () => {
   afterEach(clearStore);
 
   test("a write's meta links to its record, raw", () => {
@@ -221,11 +226,11 @@ describe("MigrationRegistryV4 MetaV1_2", () => {
   });
 });
 
-describe("MigrationRegistryV4 delegates", () => {
+describe("MigrationRegistryV5 delegates", () => {
   afterEach(clearStore);
 
-  test("Approved then Revoked move an approval under the V4 registry", () => {
-    handleMigrationRegistryV4Approved(
+  test("Approved then Revoked move an approval under the V5 registry", () => {
+    handleMigrationRegistryV5Approved(
       changetype<Approved>(
         delegateChangeLog(
           Address.fromString(REGISTRY),
@@ -241,9 +246,9 @@ describe("MigrationRegistryV4 delegates", () => {
       .concat(NAMESPACE.slice(2))
       .concat(SAFE.slice(2));
     assert.fieldEquals("RegistryDelegate", id, "approved", "true");
-    assert.fieldEquals("Contract", REGISTRY, "kind", "MIGRATION_REGISTRY_V4");
+    assert.fieldEquals("Contract", REGISTRY, "kind", "MIGRATION_REGISTRY_V5");
 
-    handleMigrationRegistryV4Revoked(
+    handleMigrationRegistryV5Revoked(
       changetype<Revoked>(
         delegateChangeLog(
           Address.fromString(REGISTRY),
@@ -261,6 +266,145 @@ describe("MigrationRegistryV4 delegates", () => {
   });
 });
 
+function approveUnscoped(blockNumber: i32, logIndex: i32): void {
+  handleMigrationRegistryV5ApprovedUnscoped(
+    changetype<ApprovedUnscoped>(
+      unscopedDelegateChangeLog(
+        Address.fromString(REGISTRY),
+        Address.fromString(WRITER),
+        Address.fromString(SAFE),
+        blockNumber,
+        logIndex,
+      ),
+    ),
+  );
+}
+
+function revokeUnscoped(blockNumber: i32, logIndex: i32): void {
+  handleMigrationRegistryV5RevokedUnscoped(
+    changetype<RevokedUnscoped>(
+      unscopedDelegateChangeLog(
+        Address.fromString(REGISTRY),
+        Address.fromString(WRITER),
+        Address.fromString(SAFE),
+        blockNumber,
+        logIndex,
+      ),
+    ),
+  );
+}
+
+const UNSCOPED_ID = REGISTRY.concat(WRITER.slice(2)).concat(SAFE.slice(2));
+
+describe("MigrationRegistryV5 unscoped delegates", () => {
+  afterEach(clearStore);
+
+  test("ApprovedUnscoped then RevokedUnscoped move an unscoped approval", () => {
+    approveUnscoped(300, 4);
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "approved",
+      "true",
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "account",
+      WRITER,
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "delegate",
+      SAFE,
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "approvedAtBlock",
+      "300",
+    );
+    assert.fieldEquals("Contract", REGISTRY, "kind", "MIGRATION_REGISTRY_V5");
+
+    revokeUnscoped(400, 2);
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "approved",
+      "false",
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "revokedAtBlock",
+      "400",
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "approvedAtBlock",
+      "300",
+    );
+    assert.entityCount("RegistryUnscopedDelegateChange", 2);
+    assert.fieldEquals(
+      "RegistryUnscopedDelegateChange",
+      mockRowId(2),
+      "approved",
+      "false",
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegateChange",
+      mockRowId(2),
+      "registryUnscopedDelegate",
+      UNSCOPED_ID,
+    );
+    assert.entityCount("RegistryDelegate", 0);
+  });
+
+  test("a replayed ApprovedUnscoped after a RevokedUnscoped leaves the revoke standing", () => {
+    approveUnscoped(300, 4);
+    revokeUnscoped(400, 2);
+    approveUnscoped(300, 4);
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "approved",
+      "false",
+    );
+    assert.entityCount("RegistryUnscopedDelegateChange", 2);
+  });
+
+  test("RevokedUnscoped leaves a scoped approval of the same delegate standing", () => {
+    handleMigrationRegistryV5Approved(
+      changetype<Approved>(
+        delegateChangeLog(
+          Address.fromString(REGISTRY),
+          Address.fromString(WRITER),
+          Bytes.fromHexString(NAMESPACE),
+          Address.fromString(SAFE),
+          300,
+          1,
+        ),
+      ),
+    );
+    approveUnscoped(300, 2);
+    revokeUnscoped(400, 3);
+    let scoped = REGISTRY.concat(WRITER.slice(2))
+      .concat(NAMESPACE.slice(2))
+      .concat(SAFE.slice(2));
+    assert.fieldEquals("RegistryDelegate", scoped, "approved", "true");
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      UNSCOPED_ID,
+      "approved",
+      "false",
+    );
+    assert.entityCount("RegistryDelegateChange", 1);
+    assert.entityCount("RegistryUnscopedDelegateChange", 2);
+  });
+});
+
 const VERIFIED = "true|st0x.deploy|st0x.deploy.v4-registries";
 const UNVERIFIED = "false|null|null";
 function verifiedFor(metaHex: string): string {
@@ -275,7 +419,7 @@ function verifiedFor(metaHex: string): string {
     .concat(migration === null ? "null" : migration!);
 }
 
-describe("MigrationRegistryV4 MetaV1_2 verification", () => {
+describe("MigrationRegistryV5 MetaV1_2 verification", () => {
   afterEach(clearStore);
 
   test("namespace and migration preimages that hash to the record verify", () => {

@@ -8,6 +8,8 @@ import {
   RegistryDelegateChange,
   RegistryMeta,
   RegistryMetaSubject,
+  RegistryUnscopedDelegate,
+  RegistryUnscopedDelegateChange,
 } from "../../generated/schema";
 import { getOrCreateContract } from "./contract";
 import { logRowId } from "./event";
@@ -79,7 +81,63 @@ export function recordDelegateChange(
   row.save();
 }
 
-/** `keccak256` of an `abi.encode` of static words: a V4 `MetaV1_2` subject. */
+/** `RegistryUnscopedDelegate.id`: registry ++ account ++ delegate. */
+export function registryUnscopedDelegateId(
+  registry: Bytes,
+  account: Bytes,
+  delegate: Bytes,
+): Bytes {
+  return registry.concat(account).concat(delegate);
+}
+
+/**
+ * Record one `IRegistryDelegatesV3` `ApprovedUnscoped` (`approved` true) or
+ * `RevokedUnscoped` (false). Either log is emitted whatever the prior state, so
+ * the log sets `approved`, and a replay returns before touching it, as
+ * `recordDelegateChange` does for the scoped logs.
+ */
+export function recordUnscopedDelegateChange(
+  kind: string,
+  event: ethereum.Event,
+  account: Bytes,
+  delegate: Bytes,
+  approved: boolean,
+): void {
+  let rowId = logRowId(event);
+  if (RegistryUnscopedDelegateChange.load(rowId) !== null) {
+    return;
+  }
+  let registry = getOrCreateContract(event.address, kind, event.block.number);
+  let id = registryUnscopedDelegateId(registry.id, account, delegate);
+  let entity = RegistryUnscopedDelegate.load(id);
+  if (entity === null) {
+    entity = new RegistryUnscopedDelegate(id);
+    entity.registry = registry.id;
+    entity.account = account;
+    entity.delegate = delegate;
+  }
+  entity.approved = approved;
+  if (approved) {
+    entity.approvedAtBlock = event.block.number;
+    entity.approvedAtTimestamp = event.block.timestamp;
+  } else {
+    entity.revokedAtBlock = event.block.number;
+    entity.revokedAtTimestamp = event.block.timestamp;
+  }
+  entity.save();
+
+  let row = new RegistryUnscopedDelegateChange(rowId);
+  row.registryUnscopedDelegate = id;
+  row.approved = approved;
+  row.blockNumber = event.block.number;
+  row.blockTimestamp = event.block.timestamp;
+  row.transactionHash = event.transaction.hash;
+  row.transactionFrom = event.transaction.from;
+  row.logIndex = event.logIndex;
+  row.save();
+}
+
+/** `keccak256` of an `abi.encode` of static words: a V5 `MetaV1_2` subject. */
 export function registryMetaSubject(encoded: Bytes): Bytes {
   return Bytes.fromByteArray(crypto.keccak256(encoded));
 }
@@ -95,7 +153,7 @@ function metaSubjectId(registry: Bytes, subject: Bytes): Bytes {
 }
 
 /**
- * Point a V4 config registry's subject at the binding and the `Register` that
+ * Point a V5 config registry's subject at the binding and the `Register` that
  * most recently wrote it. The registry emits a write's `MetaV1_2` after its
  * `Register` in the same call, so the subject always resolves by then.
  */
@@ -115,7 +173,7 @@ export function recordMetaSubjectBinding(
   entity.save();
 }
 
-/** Point a V4 migration registry's subject at the record it names. */
+/** Point a V5 migration registry's subject at the record it names. */
 export function recordMetaSubjectRecord(
   registry: Bytes,
   subject: Bytes,
@@ -127,7 +185,7 @@ export function recordMetaSubjectRecord(
 }
 
 /**
- * Record one `MetaV1_2` log from a V4 registry, linked to whatever its subject
+ * Record one `MetaV1_2` log from a V5 registry, linked to whatever its subject
  * names. A config subject is shared by every bind of the name, so the meta
  * links to the binding's latest `Register` only when that `Register` is in the
  * same transaction: a name is bound at most once per block.

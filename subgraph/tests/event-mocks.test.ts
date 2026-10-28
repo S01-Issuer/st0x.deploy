@@ -314,8 +314,8 @@ export function registerLog(
   ]);
 }
 
-/** `IConfigRegistryV4` `Register(address,address,bytes32,string,bytes)`. */
-export function registerV4Log(
+/** `IConfigRegistryV5` `Register(address,address,bytes32,string,bytes)`. */
+export function registerV5Log(
   registry: Address,
   sender: Address,
   authority: Address,
@@ -371,6 +371,23 @@ export function delegateChangeLog(
   return mockLog(registry, blockNumber, logIndex, [
     new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
     new ethereum.EventParam("scope", ethereum.Value.fromFixedBytes(scope)),
+    new ethereum.EventParam("delegate", ethereum.Value.fromAddress(delegate)),
+  ]);
+}
+
+/**
+ * `IRegistryDelegatesV3` `ApprovedUnscoped(address,address)` or
+ * `RevokedUnscoped(address,address)`: the same two params.
+ */
+export function unscopedDelegateChangeLog(
+  registry: Address,
+  sender: Address,
+  delegate: Address,
+  blockNumber: i32,
+  logIndex: i32,
+): ethereum.Event {
+  return mockLog(registry, blockNumber, logIndex, [
+    new ethereum.EventParam("sender", ethereum.Value.fromAddress(sender)),
     new ethereum.EventParam("delegate", ethereum.Value.fromAddress(delegate)),
   ]);
 }

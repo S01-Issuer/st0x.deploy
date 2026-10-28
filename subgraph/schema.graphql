@@ -27,10 +27,10 @@ enum ContractKind {
   CONFIG_REGISTRY
   "The chain's V3 `MigrationRegistry`."
   MIGRATION_REGISTRY
-  "The chain's V4 `ConfigRegistry`."
-  CONFIG_REGISTRY_V4
-  "The chain's V4 `MigrationRegistry`."
-  MIGRATION_REGISTRY_V4
+  "The chain's V5 `ConfigRegistry`."
+  CONFIG_REGISTRY_V5
+  "The chain's V5 `MigrationRegistry`."
+  MIGRATION_REGISTRY_V5
 }
 
 """
@@ -541,6 +541,61 @@ type RegistryDelegateChange @entity(immutable: true) {
 }
 
 """
+One delegate an account has approved or revoked unscoped in a V5 registry: it
+may write under the account in every name (`ConfigRegistry`) or namespace
+(`MigrationRegistry`), alongside any scoped `RegistryDelegate`. Created by the
+first `ApprovedUnscoped` or `RevokedUnscoped` naming the pair and kept after a
+revoke, with `approved` false. A `RevokedUnscoped` leaves scoped approvals as
+they were.
+
+As with the scoped logs, either log is emitted whatever the prior state, so
+`approved` is the state after the most recent of them.
+"""
+type RegistryUnscopedDelegate @entity {
+  "`registry` address ++ `account` ++ `delegate`."
+  id: Bytes!
+  "The registry the approval is held in."
+  registry: Contract!
+  "The approving account: the `ConfigRegistry` authority or the `MigrationRegistry` writer. The events' `sender`."
+  account: Bytes!
+  "The approved account."
+  delegate: Bytes!
+  "Whether `delegate` may write under `account` in every scope right now."
+  approved: Boolean!
+  "Block of the most recent `ApprovedUnscoped`, null if never approved."
+  approvedAtBlock: BigInt
+  "Timestamp of that block."
+  approvedAtTimestamp: BigInt
+  "Block of the most recent `RevokedUnscoped`, null if never revoked."
+  revokedAtBlock: BigInt
+  "Timestamp of that block."
+  revokedAtTimestamp: BigInt
+  "Every `ApprovedUnscoped` and `RevokedUnscoped` for the pair, unordered: sort by `blockNumber` then `logIndex`."
+  changes: [RegistryUnscopedDelegateChange!]!
+    @derivedFrom(field: "registryUnscopedDelegate")
+}
+
+"One `ApprovedUnscoped` or `RevokedUnscoped` log from a V5 registry."
+type RegistryUnscopedDelegateChange @entity(immutable: true) {
+  "Transaction hash ++ log index."
+  id: Bytes!
+  "The approval it moved."
+  registryUnscopedDelegate: RegistryUnscopedDelegate!
+  "True for `ApprovedUnscoped`, false for `RevokedUnscoped`."
+  approved: Boolean!
+  "Block the log was emitted in."
+  blockNumber: BigInt!
+  "Timestamp of that block."
+  blockTimestamp: BigInt!
+  "Hash of the transaction the log was emitted in."
+  transactionHash: Bytes!
+  "The EOA or account that submitted the transaction. Differs from `account` when the account is a Safe or timelock."
+  transactionFrom: Bytes!
+  "Index of the log within its block."
+  logIndex: BigInt!
+}
+
+"""
 One writer's line in one namespace of the chain's `MigrationRegistry`. Created
 by its first `Migrated`. A migration is applied at most once per line and never
 unrecorded, so the line's records in log order are its whole history and each
@@ -600,7 +655,7 @@ type MigrationRecord @entity(immutable: true) {
   metas: [RegistryMeta!]! @derivedFrom(field: "migrationRecord")
 }
 
-"One `MetaV1_2` log from a V4 registry."
+"One `MetaV1_2` log from a V5 registry."
 type RegistryMeta @entity(immutable: true) {
   "Transaction hash ++ log index."
   id: Bytes!
@@ -638,7 +693,7 @@ type RegistryMeta @entity(immutable: true) {
   logIndex: BigInt!
 }
 
-"Internal: the write a V4 `MetaV1_2` subject names."
+"Internal: the write a V5 `MetaV1_2` subject names."
 type RegistryMetaSubject @entity {
   "`registry` address ++ `subject`."
   id: Bytes!

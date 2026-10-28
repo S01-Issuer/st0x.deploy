@@ -8,16 +8,20 @@ import {
 import { Register } from "../generated/ConfigRegistry/ConfigRegistry";
 import {
   Approved,
+  ApprovedUnscoped,
   MetaV1_2,
-  Register as RegisterV4,
+  Register as RegisterV5,
   Revoked,
-} from "../generated/ConfigRegistryV4/ConfigRegistryV4";
+  RevokedUnscoped,
+} from "../generated/ConfigRegistryV5/ConfigRegistryV5";
 import {
   handleConfigRegistryRegister,
-  handleConfigRegistryV4Approved,
-  handleConfigRegistryV4MetaV1_2,
-  handleConfigRegistryV4Register,
-  handleConfigRegistryV4Revoked,
+  handleConfigRegistryV5Approved,
+  handleConfigRegistryV5ApprovedUnscoped,
+  handleConfigRegistryV5MetaV1_2,
+  handleConfigRegistryV5Register,
+  handleConfigRegistryV5Revoked,
+  handleConfigRegistryV5RevokedUnscoped,
 } from "../src/configregistry";
 import {
   delegateChangeLog,
@@ -25,9 +29,10 @@ import {
   metaV1_2Log,
   mockRowId,
   registerLog,
-  registerV4Log,
+  registerV5Log,
   TX_FROM,
   TX_HASH,
+  unscopedDelegateChangeLog,
 } from "./event-mocks.test";
 
 const REGISTRY = "0xdc3909127e51dcb3ab7d43eee585dd351f77c285";
@@ -174,7 +179,7 @@ function registerEvent(
   blockNumber: i32,
   logIndex: i32,
 ): ethereum.Event {
-  return registerV4Log(
+  return registerV5Log(
     Address.fromString(REGISTRY),
     Address.fromString(sender),
     Address.fromString(AUTHORITY),
@@ -194,8 +199,8 @@ function register(
   blockNumber: i32,
   logIndex: i32,
 ): void {
-  handleConfigRegistryV4Register(
-    changetype<RegisterV4>(
+  handleConfigRegistryV5Register(
+    changetype<RegisterV5>(
       registerEvent(sender, name, valueType, value, blockNumber, logIndex),
     ),
   );
@@ -223,12 +228,12 @@ function meta(
   blockNumber: i32,
   logIndex: i32,
 ): void {
-  handleConfigRegistryV4MetaV1_2(
+  handleConfigRegistryV5MetaV1_2(
     changetype<MetaV1_2>(metaEvent(subject, metaHex, blockNumber, logIndex)),
   );
 }
 
-describe("ConfigRegistryV4 Register", () => {
+describe("ConfigRegistryV5 Register", () => {
   afterEach(clearStore);
 
   test("a first Register binds the value, its type and its type hash", () => {
@@ -270,7 +275,7 @@ describe("ConfigRegistryV4 Register", () => {
     );
     assert.fieldEquals("ConfigRegister", row, "logIndex", "3");
 
-    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V4");
+    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V5");
     assert.fieldEquals("Contract", REGISTRY, "firstIndexedBlock", "100");
   });
 
@@ -334,7 +339,7 @@ describe("ConfigRegistryV4 Register", () => {
     assert.entityCount("ConfigRegister", 2);
   });
 
-  test("a V3 and a V4 binding of one name are separate rows, the V3 one untyped", () => {
+  test("a V3 and a V5 binding of one name are separate rows, the V3 one untyped", () => {
     handleConfigRegistryRegister(
       changetype<Register>(
         registerLog(
@@ -353,7 +358,7 @@ describe("ConfigRegistryV4 Register", () => {
     assert.entityCount("ConfigBinding", 2);
     assert.entityCount("Contract", 2);
     assert.fieldEquals("Contract", REGISTRY_V3, "kind", "CONFIG_REGISTRY");
-    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V4");
+    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V5");
     let v3 = ConfigBinding.load(
       Bytes.fromHexString(bindingId(REGISTRY_V3, AUTHORITY, US_NAME)),
     )!;
@@ -373,7 +378,7 @@ describe("ConfigRegistryV4 Register", () => {
   });
 });
 
-describe("ConfigRegistryV4 MetaV1_2", () => {
+describe("ConfigRegistryV5 MetaV1_2", () => {
   afterEach(clearStore);
 
   test("a bind's meta links to its binding and its Register, raw", () => {
@@ -416,8 +421,8 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
   test("a rebind's meta links to the rebind's Register, not the first", () => {
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
     meta(US_SUBJECT, META, 100, 4);
-    handleConfigRegistryV4Register(
-      changetype<RegisterV4>(
+    handleConfigRegistryV5Register(
+      changetype<RegisterV5>(
         inTx(
           registerEvent(
             AUTHORITY,
@@ -431,7 +436,7 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
         ),
       ),
     );
-    handleConfigRegistryV4MetaV1_2(
+    handleConfigRegistryV5MetaV1_2(
       changetype<MetaV1_2>(
         inTx(
           metaEvent(US_SUBJECT, META, 250, 2),
@@ -464,7 +469,7 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
 
   test("a meta outside its binding's latest Register transaction links the binding only", () => {
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
-    handleConfigRegistryV4MetaV1_2(
+    handleConfigRegistryV5MetaV1_2(
       changetype<MetaV1_2>(
         inTx(
           metaEvent(US_SUBJECT, META, 300, 0),
@@ -492,7 +497,7 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
     assert.assertTrue(entity.configRegister === null);
     assert.assertTrue(entity.migrationRecord === null);
     assert.fieldEquals("RegistryMeta", mockRowId(4), "meta", META);
-    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V4");
+    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V5");
   });
 
   test("a replayed meta writes one row", () => {
@@ -516,7 +521,7 @@ function verifiedFor(metaHex: string, valueType: string): string {
   );
 }
 
-describe("ConfigRegistryV4 MetaV1_2 verification", () => {
+describe("ConfigRegistryV5 MetaV1_2 verification", () => {
   afterEach(clearStore);
 
   test("name and value type preimages that hash to the binding verify", () => {
@@ -619,7 +624,7 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
 
   test("meta with no Register in its transaction does not verify", () => {
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
-    handleConfigRegistryV4MetaV1_2(
+    handleConfigRegistryV5MetaV1_2(
       changetype<MetaV1_2>(
         inTx(
           metaEvent(US_SUBJECT, META_OK, 300, 0),
@@ -645,11 +650,11 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
   });
 });
 
-describe("ConfigRegistryV4 delegates", () => {
+describe("ConfigRegistryV5 delegates", () => {
   afterEach(clearStore);
 
-  test("Approved then Revoked move an approval under the V4 registry", () => {
-    handleConfigRegistryV4Approved(
+  test("Approved then Revoked move an approval under the V5 registry", () => {
+    handleConfigRegistryV5Approved(
       changetype<Approved>(
         delegateChangeLog(
           Address.fromString(REGISTRY),
@@ -664,9 +669,9 @@ describe("ConfigRegistryV4 delegates", () => {
     let id = delegateId(REGISTRY, AUTHORITY, US_NAME, DELEGATE);
     assert.fieldEquals("RegistryDelegate", id, "approved", "true");
     assert.fieldEquals("RegistryDelegate", id, "registry", REGISTRY);
-    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V4");
+    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V5");
 
-    handleConfigRegistryV4Revoked(
+    handleConfigRegistryV5Revoked(
       changetype<Revoked>(
         delegateChangeLog(
           Address.fromString(REGISTRY),
@@ -682,5 +687,52 @@ describe("ConfigRegistryV4 delegates", () => {
     assert.fieldEquals("RegistryDelegate", id, "approvedAtBlock", "300");
     assert.fieldEquals("RegistryDelegate", id, "revokedAtBlock", "400");
     assert.entityCount("RegistryDelegateChange", 2);
+  });
+});
+
+function unscoped(approved: boolean, blockNumber: i32, logIndex: i32): void {
+  let log = unscopedDelegateChangeLog(
+    Address.fromString(REGISTRY),
+    Address.fromString(AUTHORITY),
+    Address.fromString(DELEGATE),
+    blockNumber,
+    logIndex,
+  );
+  if (approved) {
+    handleConfigRegistryV5ApprovedUnscoped(changetype<ApprovedUnscoped>(log));
+  } else {
+    handleConfigRegistryV5RevokedUnscoped(changetype<RevokedUnscoped>(log));
+  }
+}
+
+describe("ConfigRegistryV5 unscoped delegates", () => {
+  afterEach(clearStore);
+
+  test("ApprovedUnscoped then RevokedUnscoped move an unscoped approval", () => {
+    unscoped(true, 300, 4);
+    let id = REGISTRY.concat(AUTHORITY.slice(2)).concat(DELEGATE.slice(2));
+    assert.fieldEquals("RegistryUnscopedDelegate", id, "approved", "true");
+    assert.fieldEquals("RegistryUnscopedDelegate", id, "registry", REGISTRY);
+    assert.fieldEquals("RegistryUnscopedDelegate", id, "account", AUTHORITY);
+    assert.fieldEquals("RegistryUnscopedDelegate", id, "delegate", DELEGATE);
+    assert.fieldEquals("Contract", REGISTRY, "kind", "CONFIG_REGISTRY_V5");
+
+    unscoped(false, 400, 2);
+    assert.fieldEquals("RegistryUnscopedDelegate", id, "approved", "false");
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      id,
+      "approvedAtBlock",
+      "300",
+    );
+    assert.fieldEquals("RegistryUnscopedDelegate", id, "revokedAtBlock", "400");
+    assert.entityCount("RegistryUnscopedDelegateChange", 2);
+    assert.fieldEquals(
+      "RegistryUnscopedDelegateChange",
+      mockRowId(4),
+      "approved",
+      "true",
+    );
+    assert.entityCount("RegistryDelegate", 0);
   });
 });

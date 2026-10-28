@@ -5,17 +5,20 @@ import {
   Revoked,
 } from "../generated/ConfigRegistry/ConfigRegistry";
 import {
-  Approved as ApprovedV4,
+  Approved as ApprovedV5,
+  ApprovedUnscoped,
   MetaV1_2,
-  Register as RegisterV4,
-  Revoked as RevokedV4,
-} from "../generated/ConfigRegistryV4/ConfigRegistryV4";
+  Register as RegisterV5,
+  Revoked as RevokedV5,
+  RevokedUnscoped,
+} from "../generated/ConfigRegistryV5/ConfigRegistryV5";
 import { ConfigBinding, ConfigRegister } from "../generated/schema";
 import { ContractKind, getOrCreateContract } from "./lib/contract";
 import { logRowId } from "./lib/event";
 import {
   addressWord,
   recordDelegateChange,
+  recordUnscopedDelegateChange,
   recordRegistryMeta,
   recordMetaSubjectBinding,
   registryMetaSubject,
@@ -32,7 +35,7 @@ export function configBindingId(
 
 /**
  * Record one `Register` and move the binding to its value. The most recent
- * `Register` for an (authority, name) is the binding `getV2` / `getV4` answers,
+ * `Register` for an (authority, name) is the binding `getV2` / `getV5` answers,
  * so the log is the whole truth. `registerCount` moves only for a log not seen
  * before: a replay of the same log rewrites the same `ConfigRegister` row and
  * must not count twice. Returns null for a replay.
@@ -99,21 +102,21 @@ export function handleConfigRegistryRegister(event: Register): void {
 }
 
 /**
- * The `IConfigRegistryV4` `MetaV1_2` subject for a binding:
+ * The `IConfigRegistryV5` `MetaV1_2` subject for a binding:
  * `keccak256(abi.encode(authority, name))`.
  */
 export function configMetaSubject(authority: Bytes, name: Bytes): Bytes {
   return registryMetaSubject(addressWord(authority).concat(name));
 }
 
-export function handleConfigRegistryV4Register(event: RegisterV4): void {
+export function handleConfigRegistryV5Register(event: RegisterV5): void {
   let authority = event.params.authority;
   let name = event.params.name;
   let valueTypeHash = Bytes.fromByteArray(
     crypto.keccak256(Bytes.fromUTF8(event.params.valueType)),
   );
   let row = recordRegister(
-    ContractKind.CONFIG_REGISTRY_V4,
+    ContractKind.CONFIG_REGISTRY_V5,
     event,
     event.params.sender,
     authority,
@@ -154,9 +157,9 @@ export function handleConfigRegistryRevoked(event: Revoked): void {
   );
 }
 
-export function handleConfigRegistryV4Approved(event: ApprovedV4): void {
+export function handleConfigRegistryV5Approved(event: ApprovedV5): void {
   recordDelegateChange(
-    ContractKind.CONFIG_REGISTRY_V4,
+    ContractKind.CONFIG_REGISTRY_V5,
     event,
     event.params.sender,
     event.params.scope,
@@ -165,9 +168,9 @@ export function handleConfigRegistryV4Approved(event: ApprovedV4): void {
   );
 }
 
-export function handleConfigRegistryV4Revoked(event: RevokedV4): void {
+export function handleConfigRegistryV5Revoked(event: RevokedV5): void {
   recordDelegateChange(
-    ContractKind.CONFIG_REGISTRY_V4,
+    ContractKind.CONFIG_REGISTRY_V5,
     event,
     event.params.sender,
     event.params.scope,
@@ -176,12 +179,36 @@ export function handleConfigRegistryV4Revoked(event: RevokedV4): void {
   );
 }
 
-export function handleConfigRegistryV4MetaV1_2(event: MetaV1_2): void {
+export function handleConfigRegistryV5MetaV1_2(event: MetaV1_2): void {
   recordRegistryMeta(
-    ContractKind.CONFIG_REGISTRY_V4,
+    ContractKind.CONFIG_REGISTRY_V5,
     event,
     event.params.sender,
     event.params.subject,
     event.params.meta,
+  );
+}
+
+export function handleConfigRegistryV5ApprovedUnscoped(
+  event: ApprovedUnscoped,
+): void {
+  recordUnscopedDelegateChange(
+    ContractKind.CONFIG_REGISTRY_V5,
+    event,
+    event.params.sender,
+    event.params.delegate,
+    true,
+  );
+}
+
+export function handleConfigRegistryV5RevokedUnscoped(
+  event: RevokedUnscoped,
+): void {
+  recordUnscopedDelegateChange(
+    ContractKind.CONFIG_REGISTRY_V5,
+    event,
+    event.params.sender,
+    event.params.delegate,
+    false,
   );
 }

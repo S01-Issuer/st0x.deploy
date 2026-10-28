@@ -276,12 +276,12 @@ dataSources:
           handler: handleMigrationRegistryRevoked
       file: ./src/migrationregistry.ts
   - kind: ethereum/contract
-    name: ConfigRegistryV4
+    name: ConfigRegistryV5
     network: robinhood
     source:
-      abi: ConfigRegistryV4
-      address: "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6"
-      startBlock: 99511910
+      abi: ConfigRegistryV5
+      address: "0x82b7e6FDfD25EF64b013F98e8F2c1fC1D1872eC9"
+      startBlock: 100259389
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -292,28 +292,34 @@ dataSources:
         - ConfigRegister
         - RegistryDelegate
         - RegistryDelegateChange
+        - RegistryUnscopedDelegate
+        - RegistryUnscopedDelegateChange
         - RegistryMeta
         - RegistryMetaSubject
       abis:
-        - name: ConfigRegistryV4
-          file: ./abis/ConfigRegistryV4.json
+        - name: ConfigRegistryV5
+          file: ./abis/ConfigRegistryV5.json
       eventHandlers:
         - event: Register(address,address,bytes32,string,bytes)
-          handler: handleConfigRegistryV4Register
+          handler: handleConfigRegistryV5Register
         - event: Approved(address,bytes32,address)
-          handler: handleConfigRegistryV4Approved
+          handler: handleConfigRegistryV5Approved
         - event: Revoked(address,bytes32,address)
-          handler: handleConfigRegistryV4Revoked
+          handler: handleConfigRegistryV5Revoked
+        - event: ApprovedUnscoped(address,address)
+          handler: handleConfigRegistryV5ApprovedUnscoped
+        - event: RevokedUnscoped(address,address)
+          handler: handleConfigRegistryV5RevokedUnscoped
         - event: MetaV1_2(address,bytes32,bytes)
-          handler: handleConfigRegistryV4MetaV1_2
+          handler: handleConfigRegistryV5MetaV1_2
       file: ./src/configregistry.ts
   - kind: ethereum/contract
-    name: MigrationRegistryV4
+    name: MigrationRegistryV5
     network: robinhood
     source:
-      abi: MigrationRegistryV4
-      address: "0x172e587adcf5cadD70B2B13F720171a9F5BeC591"
-      startBlock: 99518123
+      abi: MigrationRegistryV5
+      address: "0xd708186f68D527B64c001398550627508205EE31"
+      startBlock: 100268990
     mapping:
       kind: ethereum/events
       apiVersion: 0.0.7
@@ -324,20 +330,26 @@ dataSources:
         - MigrationRecord
         - RegistryDelegate
         - RegistryDelegateChange
+        - RegistryUnscopedDelegate
+        - RegistryUnscopedDelegateChange
         - RegistryMeta
         - RegistryMetaSubject
       abis:
-        - name: MigrationRegistryV4
-          file: ./abis/MigrationRegistryV4.json
+        - name: MigrationRegistryV5
+          file: ./abis/MigrationRegistryV5.json
       eventHandlers:
         - event: Migrated(address,address,bytes32,bytes32,uint256)
-          handler: handleMigrationRegistryV4Migrated
+          handler: handleMigrationRegistryV5Migrated
         - event: Approved(address,bytes32,address)
-          handler: handleMigrationRegistryV4Approved
+          handler: handleMigrationRegistryV5Approved
         - event: Revoked(address,bytes32,address)
-          handler: handleMigrationRegistryV4Revoked
+          handler: handleMigrationRegistryV5Revoked
+        - event: ApprovedUnscoped(address,address)
+          handler: handleMigrationRegistryV5ApprovedUnscoped
+        - event: RevokedUnscoped(address,address)
+          handler: handleMigrationRegistryV5RevokedUnscoped
         - event: MetaV1_2(address,bytes32,bytes)
-          handler: handleMigrationRegistryV4MetaV1_2
+          handler: handleMigrationRegistryV5MetaV1_2
       file: ./src/migrationregistry.ts
   - kind: ethereum/contract
     name: CloneFactoryV5

@@ -2796,6 +2796,323 @@ export class RegistryDelegateChange extends Entity {
   }
 }
 
+export class RegistryUnscopedDelegate extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save RegistryUnscopedDelegate entity without an ID",
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type RegistryUnscopedDelegate must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("RegistryUnscopedDelegate", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): RegistryUnscopedDelegate | null {
+    return changetype<RegistryUnscopedDelegate | null>(
+      store.get_in_block("RegistryUnscopedDelegate", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): RegistryUnscopedDelegate | null {
+    return changetype<RegistryUnscopedDelegate | null>(
+      store.get("RegistryUnscopedDelegate", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get registry(): Bytes {
+    let value = this.get("registry");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set registry(value: Bytes) {
+    this.set("registry", Value.fromBytes(value));
+  }
+
+  get account(): Bytes {
+    let value = this.get("account");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set account(value: Bytes) {
+    this.set("account", Value.fromBytes(value));
+  }
+
+  get delegate(): Bytes {
+    let value = this.get("delegate");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set delegate(value: Bytes) {
+    this.set("delegate", Value.fromBytes(value));
+  }
+
+  get approved(): boolean {
+    let value = this.get("approved");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set approved(value: boolean) {
+    this.set("approved", Value.fromBoolean(value));
+  }
+
+  get approvedAtBlock(): BigInt | null {
+    let value = this.get("approvedAtBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set approvedAtBlock(value: BigInt | null) {
+    if (!value) {
+      this.unset("approvedAtBlock");
+    } else {
+      this.set("approvedAtBlock", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get approvedAtTimestamp(): BigInt | null {
+    let value = this.get("approvedAtTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set approvedAtTimestamp(value: BigInt | null) {
+    if (!value) {
+      this.unset("approvedAtTimestamp");
+    } else {
+      this.set("approvedAtTimestamp", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get revokedAtBlock(): BigInt | null {
+    let value = this.get("revokedAtBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set revokedAtBlock(value: BigInt | null) {
+    if (!value) {
+      this.unset("revokedAtBlock");
+    } else {
+      this.set("revokedAtBlock", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get revokedAtTimestamp(): BigInt | null {
+    let value = this.get("revokedAtTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set revokedAtTimestamp(value: BigInt | null) {
+    if (!value) {
+      this.unset("revokedAtTimestamp");
+    } else {
+      this.set("revokedAtTimestamp", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get changes(): RegistryUnscopedDelegateChangeLoader {
+    return new RegistryUnscopedDelegateChangeLoader(
+      "RegistryUnscopedDelegate",
+      this.get("id")!.toBytes().toHexString(),
+      "changes",
+    );
+  }
+}
+
+export class RegistryUnscopedDelegateChange extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save RegistryUnscopedDelegateChange entity without an ID",
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type RegistryUnscopedDelegateChange must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set(
+        "RegistryUnscopedDelegateChange",
+        id.toBytes().toHexString(),
+        this,
+      );
+    }
+  }
+
+  static loadInBlock(id: Bytes): RegistryUnscopedDelegateChange | null {
+    return changetype<RegistryUnscopedDelegateChange | null>(
+      store.get_in_block("RegistryUnscopedDelegateChange", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): RegistryUnscopedDelegateChange | null {
+    return changetype<RegistryUnscopedDelegateChange | null>(
+      store.get("RegistryUnscopedDelegateChange", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get registryUnscopedDelegate(): Bytes {
+    let value = this.get("registryUnscopedDelegate");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set registryUnscopedDelegate(value: Bytes) {
+    this.set("registryUnscopedDelegate", Value.fromBytes(value));
+  }
+
+  get approved(): boolean {
+    let value = this.get("approved");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set approved(value: boolean) {
+    this.set("approved", Value.fromBoolean(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get transactionHash(): Bytes {
+    let value = this.get("transactionHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionHash(value: Bytes) {
+    this.set("transactionHash", Value.fromBytes(value));
+  }
+
+  get transactionFrom(): Bytes {
+    let value = this.get("transactionFrom");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionFrom(value: Bytes) {
+    this.set("transactionFrom", Value.fromBytes(value));
+  }
+
+  get logIndex(): BigInt {
+    let value = this.get("logIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set logIndex(value: BigInt) {
+    this.set("logIndex", Value.fromBigInt(value));
+  }
+}
+
 export class MigrationLine extends Entity {
   constructor(id: Bytes) {
     super();
@@ -3740,6 +4057,24 @@ export class RegistryDelegateChangeLoader extends Entity {
   load(): RegistryDelegateChange[] {
     let value = store.loadRelated(this._entity, this._id, this._field);
     return changetype<RegistryDelegateChange[]>(value);
+  }
+}
+
+export class RegistryUnscopedDelegateChangeLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): RegistryUnscopedDelegateChange[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<RegistryUnscopedDelegateChange[]>(value);
   }
 }
 

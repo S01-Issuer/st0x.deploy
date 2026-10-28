@@ -11,17 +11,20 @@ import {
   Revoked,
 } from "../generated/MigrationRegistry/MigrationRegistry";
 import {
-  Approved as ApprovedV4,
+  Approved as ApprovedV5,
+  ApprovedUnscoped,
   MetaV1_2,
-  Migrated as MigratedV4,
-  Revoked as RevokedV4,
-} from "../generated/MigrationRegistryV4/MigrationRegistryV4";
+  Migrated as MigratedV5,
+  Revoked as RevokedV5,
+  RevokedUnscoped,
+} from "../generated/MigrationRegistryV5/MigrationRegistryV5";
 import { MigrationLine, MigrationRecord } from "../generated/schema";
 import { ContractKind, getOrCreateContract } from "./lib/contract";
 import { logRowId } from "./lib/event";
 import {
   addressWord,
   recordDelegateChange,
+  recordUnscopedDelegateChange,
   recordMetaSubjectRecord,
   recordRegistryMeta,
   registryMetaSubject,
@@ -46,7 +49,7 @@ export function migrationLineId(
 }
 
 /**
- * The `IMigrationRegistryV4` `MetaV1_2` subject for a record:
+ * The `IMigrationRegistryV5` `MetaV1_2` subject for a record:
  * `keccak256(abi.encode(writer, namespace, migration))`.
  */
 export function migrationMetaSubject(
@@ -130,14 +133,14 @@ export function handleMigrationRegistryMigrated(event: Migrated): void {
   );
 }
 
-export function handleMigrationRegistryV4Migrated(event: MigratedV4): void {
+export function handleMigrationRegistryV5Migrated(event: MigratedV5): void {
   let subject = migrationMetaSubject(
     event.params.writer,
     event.params.namespace,
     event.params.migration,
   );
   let row = recordMigrated(
-    ContractKind.MIGRATION_REGISTRY_V4,
+    ContractKind.MIGRATION_REGISTRY_V5,
     event,
     event.params.sender,
     event.params.writer,
@@ -173,9 +176,9 @@ export function handleMigrationRegistryRevoked(event: Revoked): void {
   );
 }
 
-export function handleMigrationRegistryV4Approved(event: ApprovedV4): void {
+export function handleMigrationRegistryV5Approved(event: ApprovedV5): void {
   recordDelegateChange(
-    ContractKind.MIGRATION_REGISTRY_V4,
+    ContractKind.MIGRATION_REGISTRY_V5,
     event,
     event.params.sender,
     event.params.scope,
@@ -184,9 +187,9 @@ export function handleMigrationRegistryV4Approved(event: ApprovedV4): void {
   );
 }
 
-export function handleMigrationRegistryV4Revoked(event: RevokedV4): void {
+export function handleMigrationRegistryV5Revoked(event: RevokedV5): void {
   recordDelegateChange(
-    ContractKind.MIGRATION_REGISTRY_V4,
+    ContractKind.MIGRATION_REGISTRY_V5,
     event,
     event.params.sender,
     event.params.scope,
@@ -195,12 +198,36 @@ export function handleMigrationRegistryV4Revoked(event: RevokedV4): void {
   );
 }
 
-export function handleMigrationRegistryV4MetaV1_2(event: MetaV1_2): void {
+export function handleMigrationRegistryV5MetaV1_2(event: MetaV1_2): void {
   recordRegistryMeta(
-    ContractKind.MIGRATION_REGISTRY_V4,
+    ContractKind.MIGRATION_REGISTRY_V5,
     event,
     event.params.sender,
     event.params.subject,
     event.params.meta,
+  );
+}
+
+export function handleMigrationRegistryV5ApprovedUnscoped(
+  event: ApprovedUnscoped,
+): void {
+  recordUnscopedDelegateChange(
+    ContractKind.MIGRATION_REGISTRY_V5,
+    event,
+    event.params.sender,
+    event.params.delegate,
+    true,
+  );
+}
+
+export function handleMigrationRegistryV5RevokedUnscoped(
+  event: RevokedUnscoped,
+): void {
+  recordUnscopedDelegateChange(
+    ContractKind.MIGRATION_REGISTRY_V5,
+    event,
+    event.params.sender,
+    event.params.delegate,
+    false,
   );
 }
