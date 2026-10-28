@@ -67,5 +67,28 @@
       "survivedAfter": 0,
       "notes": "BEFORE survivor M05: the admin move bundle with the Safe renounce forced in survived because no test drove a Safe that no longer holds admin. testBundleIsTheRecordAloneWhenTheMoveAlreadyHolds kills it: with the timelock already admin and the Safe renounced, the bundle is the record alone. The new moved-line branches (MigrationLine replay from the live head, the threshold recorded branch) are test code, so they are exercised by testLineReplaysFromAMovedHead and testRunRefusesWhereTheThresholdIsRecorded instead of being mutated."
     }
+  },
+  {
+    "timestamp": "2026-10-28T13:17:29Z",
+    "commit": "8bf793df105deb1210fdd012ed5f81a073be385f",
+    "testsAfterCommit": "bf1c07e8f3db0653c5b9d1a068d5caa8fefa89a3",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 536,
+    "scope": "pr:512 second review round, two runs. Run 1 at commit: 10 mutants on the source the live-line fixes test against (LibStoxMigrations.assertNext head check and its reported head, the retire bundle schedule/execute choice, the retire inside-delay refusal, RETIRE_SALT, and LibMigrationLineFork.recordOnto spent guard and predecessor skip), suite forge test over MigrationLineTest, MigrationLineForkTest, GrantEuAuthoriserRolesTest and RetireDirectSignerRolesProdTest (27 tests). Run 2: 11 mutants on script/20260831-retire-direct-signer-roles.s.sol (preflight inside-delay refusal: ready exemption, removal, error; bundle always schedules, always executes; schedule delay; post-state ready and unscheduled refusals; post-state executed check; salt; checked operation id), suite MigrationLineTest, MigrationLineForkTest and RetireDirectSignerRolesProdTest, BEFORE at 3971315cffd6a364f8c643edd812b81624eb3b35 (the retire tests guarded on the batch live timelock stage, 19 tests) and AFTER at testsAfterCommit (testRetireHoldsFromAScheduledBatch added, 20 tests). Forked from public RPCs.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 21,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 27,
+      "testsAfter": 28,
+      "filed": [],
+      "killedBefore": 21,
+      "survivedBefore": 0,
+      "killedAfter": 21,
+      "survivedAfter": 0,
+      "notes": "Run 1: 10/10 KILLED at commit. Run 2: 11/11 KILLED at 3971315c and again 11/11 at testsAfterCommit, where testRetireHoldsFromAScheduledBatch joins the killers of R01, R02, R03, R04 and R07 by running the rollout, the run artifact and the post-state refusals from a batch the timelock already holds, inside its delay and once ready. Run 1 was not re-probed at testsAfterCommit; its 10 killers are unchanged there apart from the retire tests now taking the live stage, which run 2 re-probed. Every run-2 AFTER kill was read from the suite output: custom-error reverts (RetireInsideDelay, RetireNotScheduled, TimelockUnexpectedOperationState, GS013 from the Safe), expectRevert mismatches, or assertion failures; no RPC error. One AFTER baseline attempt failed on a HyperEVM RPC -32603 invalid block height and was re-run green before any mutant was probed. No survivors, so nothing is added to known-false-positives.md."
+    }
   }
 ]
