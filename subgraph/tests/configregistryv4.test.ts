@@ -86,7 +86,10 @@ const META_EXOTIC = P.concat(
   .concat(NAME_US)
   .concat(TYPE_ADDRESS);
 /** Hand-built, each rejected by `cbor_decode`. */
-const META_RESERVED_INFO = P.concat("a3004161011bff13109e41336ff2051c")
+const FOREIGN_KEY_5 = "a3004161011bff13109e41336ff205";
+const META_RESERVED_INFO = P.concat(FOREIGN_KEY_5)
+  .concat("1c")
+  .concat("00".repeat(16))
   .concat(NAME_US)
   .concat(TYPE_ADDRESS);
 const META_TEXT_KEY = P.concat("a261304161011bff13109e41336ff2")
@@ -103,6 +106,38 @@ const META_TOO_DEEP = P.concat("a3004161011bff13109e41336ff205")
   .concat("00")
   .concat(NAME_US)
   .concat(TYPE_ADDRESS);
+const META_INDEFINITE_INT = P.concat(FOREIGN_KEY_5)
+  .concat("1f")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_MIXED_CHUNK = P.concat(FOREIGN_KEY_5)
+  .concat("5f6141ff")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_INDEFINITE_TAG = P.concat(FOREIGN_KEY_5)
+  .concat("df00")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_LONE_BREAK = P.concat(FOREIGN_KEY_5)
+  .concat("ff")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_EMPTY_TEXT_KEY = P.concat("a2604161011bff13109e41336ff2")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_NEGATIVE_MAGIC = P.concat("a20041610120")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_TRUNCATED_ITEM = META_OK.concat("a2004161");
+/** Accepted by `cbor_decode`: a foreign item holding a definite map. */
+const META_NESTED_MAP = P.concat(FOREIGN_KEY_5)
+  .concat("a10102")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+/** The name raw but declared `deflate`. */
+const META_RAW_DECLARED_DEFLATE = P.concat(
+  "a3004f737430782e726261632e75732e7631011bffcdcfae6227d5e903676465666c617465",
+).concat(TYPE_ADDRESS);
 const OTHER_TX =
   "0xdeadbeef00000000000000000000000000000000000000000000000000000002";
 
@@ -529,10 +564,29 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
     assert.stringEquals(verifiedFor(META_FOREIGN, "address"), VERIFIED);
     clearStore();
     assert.stringEquals(verifiedFor(META_EXOTIC, "address"), VERIFIED);
+    clearStore();
+    assert.stringEquals(verifiedFor(META_NESTED_MAP, "address"), VERIFIED);
   });
 
   test("a deflated preimage does not verify", () => {
     assert.stringEquals(verifiedFor(META_DEFLATE, "address"), UNVERIFIED);
+  });
+
+  test("a raw preimage declared deflated does not verify", () => {
+    assert.stringEquals(
+      verifiedFor(META_RAW_DECLARED_DEFLATE, "address"),
+      UNVERIFIED,
+    );
+  });
+
+  test("items under another document magic do not verify", () => {
+    assert.stringEquals(
+      verifiedFor(
+        "0xffcdcfae6227d5e9".concat(NAME_US).concat(TYPE_ADDRESS),
+        "address",
+      ),
+      UNVERIFIED,
+    );
   });
 
   test("malformed meta does not verify", () => {
@@ -549,6 +603,13 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
       META_NO_PAYLOAD,
       META_TRAILING_BREAK,
       META_TOO_DEEP,
+      META_INDEFINITE_INT,
+      META_MIXED_CHUNK,
+      META_INDEFINITE_TAG,
+      META_LONE_BREAK,
+      META_EMPTY_TEXT_KEY,
+      META_NEGATIVE_MAGIC,
+      META_TRUNCATED_ITEM,
     ];
     for (let i = 0; i < cases.length; i++) {
       clearStore();
