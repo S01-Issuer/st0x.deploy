@@ -174,7 +174,12 @@ class CborReader {
       }
       read += 1;
       let key = this.head();
-      if (!this.ok || this.major != 0 || key == INDEFINITE || seen.includes(key)) {
+      if (
+        !this.ok ||
+        this.major != 0 ||
+        key == INDEFINITE ||
+        seen.includes(key)
+      ) {
         this.fail();
         return null;
       }
@@ -189,7 +194,8 @@ class CborReader {
         }
       } else if (key == 3) {
         let encoding = this.definite(3);
-        plain = encoding !== null && encoding.equals(Bytes.fromUTF8("identity"));
+        plain =
+          encoding !== null && encoding.equals(Bytes.fromUTF8("identity"));
       } else {
         this.skip(1);
       }

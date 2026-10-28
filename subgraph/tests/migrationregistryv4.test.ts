@@ -310,7 +310,12 @@ describe("MigrationRegistryV4 MetaV1_2 verification", () => {
   });
 
   test("meta whose subject names no record does not verify", () => {
-    meta(SUBJECT_NAMED, P.concat(NAMESPACE_ITEM).concat(MIGRATION_ITEM), 100, 3);
+    meta(
+      SUBJECT_NAMED,
+      P.concat(NAMESPACE_ITEM).concat(MIGRATION_ITEM),
+      100,
+      3,
+    );
     assert.fieldEquals("RegistryMeta", mockRowId(3), "verified", "false");
   });
 });

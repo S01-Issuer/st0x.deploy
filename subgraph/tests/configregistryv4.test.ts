@@ -1,10 +1,4 @@
-import {
-  afterEach,
-  assert,
-  clearStore,
-  describe,
-  test,
-} from "matchstick-as";
+import { afterEach, assert, clearStore, describe, test } from "matchstick-as";
 import { Address, Bytes, ethereum } from "@graphprotocol/graph-ts";
 import {
   ConfigBinding,
@@ -73,9 +67,7 @@ const TYPE_ADDRESS = "a2004761646472657373011bffcdb2cc1b1d53be";
 const TYPE_UINT256 = "a2004775696e74323536011bffcdb2cc1b1d53be";
 const META_OK = P.concat(NAME_US).concat(TYPE_ADDRESS);
 /** A rainlang source item, the type, then the name with `identity` encoding. */
-const META_FOREIGN = P.concat(
-  "a200455f3a20313b011bff13109e41336ff2",
-)
+const META_FOREIGN = P.concat("a200455f3a20313b011bff13109e41336ff2")
   .concat(TYPE_ADDRESS)
   .concat(
     "a3004f737430782e726261632e75732e7631011bffcdcfae6227d5e903686964656e74697479",
@@ -406,7 +398,10 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
     );
     handleConfigRegistryV4MetaV1_2(
       changetype<MetaV1_2>(
-        inTx(metaEvent(US_SUBJECT, META, 250, 2), Bytes.fromHexString(OTHER_TX)),
+        inTx(
+          metaEvent(US_SUBJECT, META, 250, 2),
+          Bytes.fromHexString(OTHER_TX),
+        ),
       ),
     );
 
@@ -436,7 +431,10 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
     handleConfigRegistryV4MetaV1_2(
       changetype<MetaV1_2>(
-        inTx(metaEvent(US_SUBJECT, META, 300, 0), Bytes.fromHexString(OTHER_TX)),
+        inTx(
+          metaEvent(US_SUBJECT, META, 300, 0),
+          Bytes.fromHexString(OTHER_TX),
+        ),
       ),
     );
 
@@ -478,7 +476,9 @@ function verifiedFor(metaHex: string, valueType: string): string {
   meta(US_SUBJECT, metaHex, 100, 4);
   let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!;
   let name = row.nameString;
-  return (row.verified ? "true|" : "false|").concat(name === null ? "null" : name!);
+  return (row.verified ? "true|" : "false|").concat(
+    name === null ? "null" : name!,
+  );
 }
 
 describe("ConfigRegistryV4 MetaV1_2 verification", () => {
@@ -560,15 +560,27 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
     handleConfigRegistryV4MetaV1_2(
       changetype<MetaV1_2>(
-        inTx(metaEvent(US_SUBJECT, META_OK, 300, 0), Bytes.fromHexString(OTHER_TX)),
+        inTx(
+          metaEvent(US_SUBJECT, META_OK, 300, 0),
+          Bytes.fromHexString(OTHER_TX),
+        ),
       ),
     );
-    assert.fieldEquals("RegistryMeta", rowIdIn(OTHER_TX, 0), "verified", "false");
-    assert.assertNull<string | null>(RegistryMeta.load(Bytes.fromHexString(rowIdIn(OTHER_TX, 0)))!.nameString);
+    assert.fieldEquals(
+      "RegistryMeta",
+      rowIdIn(OTHER_TX, 0),
+      "verified",
+      "false",
+    );
+    assert.assertNull<string | null>(
+      RegistryMeta.load(Bytes.fromHexString(rowIdIn(OTHER_TX, 0)))!.nameString,
+    );
     clearStore();
     meta(EU_NAME, META_OK, 100, 4);
     assert.fieldEquals("RegistryMeta", mockRowId(4), "verified", "false");
-    assert.assertNull<string | null>(RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!.nameString);
+    assert.assertNull<string | null>(
+      RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!.nameString,
+    );
   });
 });
 
