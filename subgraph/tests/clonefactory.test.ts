@@ -10,9 +10,11 @@ import {
 import { Address, ethereum } from "@graphprotocol/graph-ts";
 import { NewBeaconProxy } from "../generated/CloneFactoryV5/CloneFactoryV5";
 import { NewRegistryBeaconProxy } from "../generated/CloneFactoryV6/CloneFactoryV6";
+import { NewRegistryBeaconProxy as NewRegistryBeaconProxyV7 } from "../generated/CloneFactoryV7/CloneFactoryV7";
 import {
   handleCloneFactoryV5NewBeaconProxy,
   handleCloneFactoryV6NewRegistryBeaconProxy,
+  handleCloneFactoryV7NewRegistryBeaconProxy,
 } from "../src/clonefactory";
 import {
   newBeaconProxyLog,
@@ -29,6 +31,8 @@ import {
 const FACTORY_V5 = "0xda3f8841b3f6640ab623050fbba9badc0ccd11b0";
 /** rain-factory-deploy 0.2.2's V6 clone factory. */
 const FACTORY = "0xb8434a191846f6c3930648aaf264c8e86bf08c62";
+/** rain-factory-deploy 0.2.4's V7 clone factory. */
+const FACTORY_V7 = "0x087e1d6449a24ff33d30d8d5af260e9b64dad355";
 /** st0x `LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1`. */
 const BASE_BEACON = "0xea084c8f4331cdf3328e772781b59f8a24f28f1a";
 /** st0x `LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1`. */
@@ -98,6 +102,28 @@ function newProxyV5(
   );
 }
 
+function newProxyV7(
+  network: string,
+  beacon: string,
+  proxy: string,
+  blockNumber: i32,
+  logIndex: i32,
+): void {
+  dataSourceMock.setNetwork(network);
+  handleCloneFactoryV7NewRegistryBeaconProxy(
+    changetype<NewRegistryBeaconProxyV7>(
+      newRegistryBeaconProxyLog(
+        Address.fromString(FACTORY_V7),
+        Address.fromString(SENDER),
+        Address.fromString(beacon),
+        Address.fromString(proxy),
+        blockNumber,
+        logIndex,
+      ),
+    ),
+  );
+}
+
 function assertSkipped(proxy: string): void {
   assert.notInStore("Contract", proxy);
   assert.entityCount("Contract", 0);
@@ -136,6 +162,17 @@ describe("Clone factory vault discovery", () => {
       0,
     );
     assertSkipped("0x00000000000000000000000000000000000001a1");
+  });
+
+  test("V7: skips a proxy over another beacon on base", () => {
+    newProxyV7(
+      "base",
+      OTHER_BEACON,
+      "0x00000000000000000000000000000000000007a1",
+      10,
+      0,
+    );
+    assertSkipped("0x00000000000000000000000000000000000007a1");
   });
 
   test("V5: skips a proxy over another beacon on base", () => {
@@ -327,6 +364,37 @@ describe("Clone factory vault discovery", () => {
       FACTORY_V5,
       "0x00000000000000000000000000000000000005e2",
       "51",
+    );
+  });
+
+  test("V7: matches Base's beacon and records the V7 factory", () => {
+    newProxyV7(
+      "base",
+      BASE_BEACON,
+      "0x00000000000000000000000000000000000007e1",
+      60,
+      0,
+    );
+    assertMatchedBy(
+      FACTORY_V7,
+      "0x00000000000000000000000000000000000007e1",
+      "60",
+    );
+  });
+
+  test("V7: matches the deployer's beacon on robinhood", () => {
+    mockDeployerBeacon(BEACON_0_1_1);
+    newProxyV7(
+      "robinhood",
+      BEACON_0_1_1,
+      "0x00000000000000000000000000000000000007e2",
+      61,
+      0,
+    );
+    assertMatchedBy(
+      FACTORY_V7,
+      "0x00000000000000000000000000000000000007e2",
+      "61",
     );
   });
 

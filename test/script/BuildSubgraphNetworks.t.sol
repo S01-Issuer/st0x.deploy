@@ -3,12 +3,13 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibConfigRegistryDeploy.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistryDeploy.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.3/src/generated/0_2_1/CloneFactory.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.3/src/lib/LibCloneFactoryDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.27/src/lib/LibConfigRegistryDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.27/src/lib/LibMigrationRegistryDeploy.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.4/src/generated/0_2_1/CloneFactory.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.4/src/generated/0_2_2/CloneFactory.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V7} from "rain-factory-deploy-0.2.4/src/generated/0_2_4/CloneFactory.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.4/src/lib/LibCloneFactoryDeploy.sol";
 import {BuildSubgraphNetworks} from "../../script/BuildSubgraphNetworks.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -37,7 +38,7 @@ contract BuildSubgraphNetworksTest is Test {
         SupportedNetwork[] memory nets = networks();
         assertEq(vm.parseJsonKeys(json, ".").length, nets.length);
         for (uint256 i = 0; i < nets.length; i++) {
-            assertEq(vm.parseJsonKeys(json, string.concat(".", build.graphNetwork(nets[i]))).length, 12);
+            assertEq(vm.parseJsonKeys(json, string.concat(".", build.graphNetwork(nets[i]))).length, 13);
         }
     }
 
@@ -50,13 +51,14 @@ contract BuildSubgraphNetworksTest is Test {
             assertEq(at(json, n, "MigrationRegistry"), LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
             assertEq(at(json, n, "CloneFactoryV5"), CLONE_FACTORY_V5);
             assertEq(at(json, n, "CloneFactoryV6"), CLONE_FACTORY_V6);
+            assertEq(at(json, n, "CloneFactoryV7"), CLONE_FACTORY_V7);
         }
     }
 
     /// A rain-factory-deploy bump that moves the factory fails here until the
     /// new version is its own data source.
     function testNewestFactorySourceIsThePinnedFactory() external pure {
-        assertEq(CLONE_FACTORY_V6, LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS);
+        assertEq(CLONE_FACTORY_V7, LibCloneFactoryDeploy.CLONE_FACTORY_DEPLOYED_ADDRESS);
     }
 
     function testPrincipalsAreTheChainsPins() external {

@@ -12,8 +12,12 @@
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 52953832
     },
+    "CloneFactoryV7": {
+      "address": "0x087e1D6449A24ff33d30D8D5aF260e9b64DAd355",
+      "startBlock": 52953832
+    },
     "ConfigRegistry": {
-      "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
       "startBlock": 52910632
     },
     "EuAuthorizer": {
@@ -25,7 +29,7 @@
       "startBlock": 49872773
     },
     "MigrationRegistry": {
-      "address": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0",
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
       "startBlock": 52911372
     },
     "OrchestratorBeacon": {
@@ -62,8 +66,12 @@
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 129185296
     },
+    "CloneFactoryV7": {
+      "address": "0x087e1D6449A24ff33d30D8D5aF260e9b64DAd355",
+      "startBlock": 129185296
+    },
     "ConfigRegistry": {
-      "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
       "startBlock": 128993384
     },
     "EuAuthorizer": {
@@ -75,7 +83,7 @@
       "startBlock": 121163215
     },
     "MigrationRegistry": {
-      "address": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0",
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
       "startBlock": 128996673
     },
     "OrchestratorBeacon": {
@@ -112,8 +120,12 @@
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 49247677
     },
+    "CloneFactoryV7": {
+      "address": "0x087e1D6449A24ff33d30D8D5aF260e9b64DAd355",
+      "startBlock": 49247677
+    },
     "ConfigRegistry": {
-      "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
       "startBlock": 49159867
     },
     "EuAuthorizer": {
@@ -125,7 +137,7 @@
       "startBlock": 42984015
     },
     "MigrationRegistry": {
-      "address": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0",
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
       "startBlock": 49161392
     },
     "OrchestratorBeacon": {
@@ -162,8 +174,12 @@
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 26250225
     },
+    "CloneFactoryV7": {
+      "address": "0x087e1D6449A24ff33d30D8D5aF260e9b64DAd355",
+      "startBlock": 26250225
+    },
     "ConfigRegistry": {
-      "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
       "startBlock": 26243049
     },
     "EuAuthorizer": {
@@ -175,7 +191,7 @@
       "startBlock": 25738726
     },
     "MigrationRegistry": {
-      "address": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0",
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
       "startBlock": 26243172
     },
     "OrchestratorBeacon": {
@@ -212,8 +228,12 @@
       "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
       "startBlock": 95351301
     },
+    "CloneFactoryV7": {
+      "address": "0x087e1D6449A24ff33d30D8D5aF260e9b64DAd355",
+      "startBlock": 95351301
+    },
     "ConfigRegistry": {
-      "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
       "startBlock": 94523212
     },
     "EuAuthorizer": {
@@ -225,7 +245,7 @@
       "startBlock": 59818983
     },
     "MigrationRegistry": {
-      "address": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0",
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
       "startBlock": 94537781
     },
     "OrchestratorBeacon": {

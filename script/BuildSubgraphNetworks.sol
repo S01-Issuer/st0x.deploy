@@ -3,11 +3,12 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibConfigRegistryDeploy.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistryDeploy.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.3/src/generated/0_2_1/CloneFactory.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.27/src/lib/LibConfigRegistryDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.27/src/lib/LibMigrationRegistryDeploy.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.4/src/generated/0_2_1/CloneFactory.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.4/src/generated/0_2_2/CloneFactory.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V7} from "rain-factory-deploy-0.2.4/src/generated/0_2_4/CloneFactory.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
@@ -23,10 +24,11 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 contract BuildSubgraphNetworks is Script {
     string internal constant PATH = "subgraph/networks.json";
 
-    string[12] internal NAMES = [
+    string[13] internal NAMES = [
         "Authorizer",
         "CloneFactoryV5",
         "CloneFactoryV6",
+        "CloneFactoryV7",
         "ConfigRegistry",
         "EuAuthorizer",
         "GovernanceTimelock",
@@ -43,13 +45,14 @@ contract BuildSubgraphNetworks is Script {
         return network.chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID ? "mainnet" : network.name;
     }
 
-    function addresses(uint256 chainId) public pure returns (address[12] memory) {
+    function addresses(uint256 chainId) public pure returns (address[13] memory) {
         address[4] memory beacons = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
         address receiptVaultDeployer = LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId);
         return [
             LibAuthoriserInvariants.authoriserForChainId(chainId),
             CLONE_FACTORY_V5,
             CLONE_FACTORY_V6,
+            CLONE_FACTORY_V7,
             LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS,
             LibAuthoriserInvariants.euAuthoriserForChainId(chainId),
             LibTimelockInvariants.timelockForChainId(chainId),
@@ -70,7 +73,7 @@ contract BuildSubgraphNetworks is Script {
         string memory root;
         for (uint256 i = 0; i < networks.length; i++) {
             string memory network = graphNetwork(networks[i]);
-            address[12] memory pins = addresses(networks[i].chainId);
+            address[13] memory pins = addresses(networks[i].chainId);
             string memory sources;
             for (uint256 j = 0; j < NAMES.length; j++) {
                 string memory key = string.concat(network, ".", NAMES[j]);

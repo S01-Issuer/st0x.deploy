@@ -20,12 +20,12 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.12/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.12/src/interface/IReceiptV3.sol";
-import {IAuthorizableV1} from "rain-vats-0.2.12/src/interface/IAuthorizableV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
-import {ICertifiableV1} from "rain-vats-0.2.12/src/interface/ICertifiableV1.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.13/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.13/src/interface/IReceiptV3.sol";
+import {IAuthorizableV1} from "rain-vats-0.2.13/src/interface/IAuthorizableV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.13/src/interface/ICertifiableV1.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title V3UpgradeShadowForkTest

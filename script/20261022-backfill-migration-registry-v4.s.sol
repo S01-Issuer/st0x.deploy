@@ -4,15 +4,15 @@ pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.25/src/abstract/SafeBundleScript.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.25/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.27/src/abstract/SafeBundleScript.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.27/src/interface/IMigrationRegistryV4.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.27/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {
     DEPLOYED_ADDRESS as REGISTRY_V2,
     BYTECODE_HASH as REGISTRY_V2_CODEHASH
-} from "rain-deploy-0.1.25/src/generated/0_1_18/MigrationRegistry.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
-import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
+} from "rain-deploy-0.1.27/src/generated/0_1_18/MigrationRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.27/src/lib/LibMigrationRegistry.sol";
+import {SafeTx} from "rain-deploy-0.1.27/src/lib/LibSafeTx.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
@@ -48,17 +48,17 @@ error UnexpectedRegistryV2Order(bytes32 migration, bytes32 onto);
 /// @param recorded The V2 moment.
 error GovernanceTimelockMomentMismatch(uint256 pinned, uint256 recorded);
 
-/// @notice A V3 line is not at genesis: the backfill has already executed,
+/// @notice A V4 line is not at genesis: the backfill has already executed,
 /// or something else was written first.
 /// @param namespace The line's namespace.
-/// @param head The line's V3 head.
-error UnexpectedRegistryV3Line(bytes32 namespace, bytes32 head);
+/// @param head The line's V4 head.
+error UnexpectedRegistryV4Line(bytes32 namespace, bytes32 head);
 
-/// @notice After the bundle, a V3 record differs from the moment it must
+/// @notice After the bundle, a V4 record differs from the moment it must
 /// carry: its V2 moment, or this block for this script's own record.
 /// @param migration The record.
 /// @param expected The moment it must carry.
-/// @param actual The V3 moment.
+/// @param actual The V4 moment.
 error BackfillRecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 
 /// @notice After the bundle, the Safe does not hold `EMERGENCY_ROLE` on the
@@ -67,21 +67,21 @@ error BackfillRecordMismatch(bytes32 migration, uint256 expected, uint256 actual
 error EmergencyNotHeld(address safe);
 
 /// @notice This script's declaration: the Safe's record after the V2
-/// records it carries into V3.
+/// records it carries into V4.
 /// @return The declaration.
-function backfillMigrationRegistryV3Declaration() pure returns (ScriptDeclaration memory) {
+function backfillMigrationRegistryV4Declaration() pure returns (ScriptDeclaration memory) {
     return LibStoxMigrations.safeMigrationOnto(
         LibStoxMigrations.NAMESPACE,
-        keccak256("script/20261022-backfill-migration-registry-v3.s.sol"),
+        keccak256("script/20261022-backfill-migration-registry-v4.s.sol"),
         grantOrchestratorEmergencyDeclaration().id,
         false
     );
 }
 
-/// @title BackfillMigrationRegistryV3
+/// @title BackfillMigrationRegistryV4
 /// @notice Authors the per-chain Safe Tx Builder bundle that carries the
 /// chain's token-owner Safe's records from the frozen V2 `MigrationRegistry`
-/// into V3, each as history at its V2 moment and onto the same predecessor:
+/// into V4, each as history at its V2 moment and onto the same predecessor:
 ///
 /// 1. `st0x.deploy`: `GOVERNANCE_TIMELOCK` onto genesis.
 /// 2. `st0x.deploy`: `ORCHESTRATOR_EMERGENCY` onto `GOVERNANCE_TIMELOCK`.
@@ -89,22 +89,22 @@ function backfillMigrationRegistryV3Declaration() pure returns (ScriptDeclaratio
 /// 4. `st0x.deploy`: this script's own record onto `ORCHESTRATOR_EMERGENCY`.
 ///
 /// @dev Dispatch via `Actions → run-script` with
-/// `script = 20261022-backfill-migration-registry-v3` per chain. Refuses once
-/// either V3 line has moved off genesis (`UnexpectedRegistryV3Line`).
-contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
+/// `script = 20261022-backfill-migration-registry-v4` per chain. Refuses once
+/// either V4 line has moved off genesis (`UnexpectedRegistryV4Line`).
+contract BackfillMigrationRegistryV4 is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return backfillMigrationRegistryV3Declaration();
+        return backfillMigrationRegistryV4Declaration();
     }
 
     /// @inheritdoc SafeBundleScript
     function bundleName() internal pure override returns (string memory) {
-        return "ST0x: backfill MigrationRegistry V3 from V2";
+        return "ST0x: backfill MigrationRegistry V4 from V2";
     }
 
     /// @inheritdoc SafeBundleScript
     function artifactPath() internal view virtual override returns (string memory) {
-        return string.concat("out/20261022-backfill-migration-registry-v3-", vm.toString(block.chainid), ".json");
+        return string.concat("out/20261022-backfill-migration-registry-v4-", vm.toString(block.chainid), ".json");
     }
 
     /// @inheritdoc SafeBundleScript
@@ -123,7 +123,7 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe and timelock are what this repo pins, the V2 lines hold
-    /// exactly the three records in order, and both V3 lines are at genesis.
+    /// exactly the three records in order, and both V4 lines are at genesis.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.timelockForChainId(block.chainid), chainSafe);
@@ -142,13 +142,13 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
             v2Moment(LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, MIGRATION_HEAD_GENESIS);
         if (recorded != pinned) revert GovernanceTimelockMomentMismatch(pinned, recorded);
 
-        bytes32 v3DeployHead = LibStoxMigrations.head(chainSafe);
-        if (v3DeployHead != MIGRATION_HEAD_GENESIS) {
-            revert UnexpectedRegistryV3Line(LibStoxMigrations.NAMESPACE, v3DeployHead);
+        bytes32 v4DeployHead = LibStoxMigrations.head(chainSafe);
+        if (v4DeployHead != MIGRATION_HEAD_GENESIS) {
+            revert UnexpectedRegistryV4Line(LibStoxMigrations.NAMESPACE, v4DeployHead);
         }
-        bytes32 v3RbacHead = LibMigrationRegistry.headV3(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
-        if (v3RbacHead != MIGRATION_HEAD_GENESIS) {
-            revert UnexpectedRegistryV3Line(LibRbacMigration.STOX_RBAC_NAMESPACE, v3RbacHead);
+        bytes32 v4RbacHead = LibMigrationRegistry.headV4(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
+        if (v4RbacHead != MIGRATION_HEAD_GENESIS) {
+            revert UnexpectedRegistryV4Line(LibRbacMigration.STOX_RBAC_NAMESPACE, v4RbacHead);
         }
     }
 
@@ -177,22 +177,22 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
         txs[1] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
         (to, data) = LibStoxMigrations.historyCall(grantEuAuthoriserRolesDeclaration(), euAt, chainSafe, timelock);
         txs[2] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
-        (to, data) = LibStoxMigrations.recordCall(backfillMigrationRegistryV3Declaration(), chainSafe, timelock);
+        (to, data) = LibStoxMigrations.recordCall(backfillMigrationRegistryV4Declaration(), chainSafe, timelock);
         txs[3] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
         return txs;
     }
 
-    /// @notice Reverts unless the Safe's V3 record for `migration` equals its
+    /// @notice Reverts unless the Safe's V4 record for `migration` equals its
     /// V2 record.
     function assertCarried(bytes32 namespace, bytes32 migration) internal view {
         address chainSafe = address(safe());
         uint256 expected = IMigrationRegistryV2(REGISTRY_V2).applied(chainSafe, namespace, migration);
-        uint256 actual = LibMigrationRegistry.appliedV3(chainSafe, namespace, migration);
+        uint256 actual = LibMigrationRegistry.appliedV4(chainSafe, namespace, migration);
         if (actual != expected) revert BackfillRecordMismatch(migration, expected, actual);
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Every carried V3 record equals its V2 record, this script's record
+    /// @dev Every carried V4 record equals its V2 record, this script's record
     /// carries this block and heads the deploy line, the rbac head equals the
     /// V2 head, the Safe holds `EMERGENCY_ROLE`, and the orchestrator invariant
     /// holds.
@@ -201,7 +201,7 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
         assertCarried(LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK);
         assertCarried(LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         assertCarried(LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER);
-        bytes32 own = backfillMigrationRegistryV3Declaration().id;
+        bytes32 own = backfillMigrationRegistryV4Declaration().id;
         uint256 ownAt = LibStoxMigrations.applied(chainSafe, own);
         // forge-lint: disable-next-line(block-timestamp)
         if (ownAt != block.timestamp) {
@@ -210,11 +210,11 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
         }
         bytes32 deployHead = LibStoxMigrations.head(chainSafe);
         if (deployHead != own) {
-            revert UnexpectedRegistryV3Line(LibStoxMigrations.NAMESPACE, deployHead);
+            revert UnexpectedRegistryV4Line(LibStoxMigrations.NAMESPACE, deployHead);
         }
-        bytes32 rbacHead = LibMigrationRegistry.headV3(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
+        bytes32 rbacHead = LibMigrationRegistry.headV4(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
         if (rbacHead != LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER) {
-            revert UnexpectedRegistryV3Line(LibRbacMigration.STOX_RBAC_NAMESPACE, rbacHead);
+            revert UnexpectedRegistryV4Line(LibRbacMigration.STOX_RBAC_NAMESPACE, rbacHead);
         }
         ST0xOrchestrator orchestrator = ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
         if (!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), chainSafe)) {

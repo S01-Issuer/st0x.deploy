@@ -6,16 +6,16 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.25/src/interface/deprecated/IMigrationRegistryV2.sol";
-import {DEPLOYED_ADDRESS as REGISTRY_V2} from "rain-deploy-0.1.25/src/generated/0_1_18/MigrationRegistry.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
-import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
-import {LibSafe} from "rain-deploy-0.1.25/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.25/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.25/src/lib/LibSafeTxBuilderJson.sol";
-import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.25/src/lib/LibTimelockController.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.27/src/interface/IMigrationRegistryV4.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.27/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {DEPLOYED_ADDRESS as REGISTRY_V2} from "rain-deploy-0.1.27/src/generated/0_1_18/MigrationRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.27/src/lib/LibMigrationRegistry.sol";
+import {SafeTx} from "rain-deploy-0.1.27/src/lib/LibSafeTx.sol";
+import {LibSafe} from "rain-deploy-0.1.27/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.27/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.27/src/lib/LibSafeTxBuilderJson.sol";
+import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.27/src/lib/LibTimelockController.sol";
 
 import {
     BackfillRecordMismatch,
@@ -23,11 +23,11 @@ import {
     UnexpectedRegistryV2CodeHash,
     UnexpectedRegistryV2Line,
     UnexpectedRegistryV2Order,
-    UnexpectedRegistryV3Line,
+    UnexpectedRegistryV4Line,
     EmergencyNotHeld,
-    backfillMigrationRegistryV3Declaration
-} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
-import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
+    backfillMigrationRegistryV4Declaration
+} from "../../script/20261022-backfill-migration-registry-v4.s.sol";
+import {BackfillMigrationRegistryV4Harness} from "./BackfillMigrationRegistryV4Harness.sol";
 import {grantEuAuthoriserRolesDeclaration} from "../../script/20261006-grant-eu-authoriser-roles.s.sol";
 import {grantOrchestratorEmergencyDeclaration} from "../../script/20261006-grant-orchestrator-emergency.s.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
@@ -38,10 +38,10 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
-/// @title BackfillMigrationRegistryV3Test
-/// @notice Per network: the bundle carries every V2 record into V3 at its V2
+/// @title BackfillMigrationRegistryV4Test
+/// @notice Per network: the bundle carries every V2 record into V4 at its V2
 /// moment and the invariants then hold; once executed the script refuses.
-contract BackfillMigrationRegistryV3Test is Test {
+contract BackfillMigrationRegistryV4Test is Test {
     IMigrationRegistryV2 internal constant V2 = IMigrationRegistryV2(REGISTRY_V2);
 
     function assertCarried(address safe) internal view {
@@ -58,18 +58,18 @@ contract BackfillMigrationRegistryV3Test is Test {
             V2.applied(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
             "ORCHESTRATOR_EMERGENCY"
         );
-        assertEq(LibMigrationRegistry.appliedV3(safe, rbac, eu), V2.applied(safe, rbac, eu), "EU authoriser");
+        assertEq(LibMigrationRegistry.appliedV4(safe, rbac, eu), V2.applied(safe, rbac, eu), "EU authoriser");
         assertTrue(LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0, "emergency zero");
-        assertTrue(LibMigrationRegistry.appliedV3(safe, rbac, eu) != 0, "EU zero");
+        assertTrue(LibMigrationRegistry.appliedV4(safe, rbac, eu) != 0, "EU zero");
         assertEq(
-            LibMigrationRegistry.appliedOntoV3(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
+            LibMigrationRegistry.appliedOntoV4(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
             LibStoxMigrations.GOVERNANCE_TIMELOCK
         );
-        bytes32 own = backfillMigrationRegistryV3Declaration().id;
+        bytes32 own = backfillMigrationRegistryV4Declaration().id;
         assertTrue(LibStoxMigrations.applied(safe, own) != 0, "own record zero");
-        assertEq(LibMigrationRegistry.appliedOntoV3(safe, ns, own), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
-        assertEq(LibMigrationRegistry.headV3(safe, rbac), eu);
-        assertEq(LibMigrationRegistry.appliedByV3(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), safe);
+        assertEq(LibMigrationRegistry.appliedOntoV4(safe, ns, own), LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        assertEq(LibMigrationRegistry.headV4(safe, rbac), eu);
+        assertEq(LibMigrationRegistry.appliedByV4(safe, ns, LibStoxMigrations.ORCHESTRATOR_EMERGENCY), safe);
         assertTrue(
             IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE).hasRole(keccak256("EMERGENCY"), safe),
             "Safe EMERGENCY"
@@ -79,14 +79,14 @@ contract BackfillMigrationRegistryV3Test is Test {
 
     function assertBundle(string memory network) internal {
         vm.createSelectFork(network);
-        BackfillMigrationRegistryV3Harness script = new BackfillMigrationRegistryV3Harness(network);
+        BackfillMigrationRegistryV4Harness script = new BackfillMigrationRegistryV4Harness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
 
         if (LibStoxMigrations.head(safe) != MIGRATION_HEAD_GENESIS) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the backfilled state"));
             assertCarried(safe);
             // Selector only: a later recorded migration moves the head.
-            vm.expectPartialRevert(UnexpectedRegistryV3Line.selector);
+            vm.expectPartialRevert(UnexpectedRegistryV4Line.selector);
             script.callPreflight();
             return;
         }
@@ -104,10 +104,10 @@ contract BackfillMigrationRegistryV3Test is Test {
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
         assertCarried(safe);
-        bytes32 own = backfillMigrationRegistryV3Declaration().id;
+        bytes32 own = backfillMigrationRegistryV4Declaration().id;
         assertEq(LibStoxMigrations.applied(safe, own), block.timestamp, "own record moment");
         assertEq(LibStoxMigrations.head(safe), own);
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, own));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV4Line.selector, LibStoxMigrations.NAMESPACE, own));
         script.callPreflight();
     }
 
@@ -140,13 +140,13 @@ contract BackfillMigrationRegistryV3Test is Test {
         return false;
     }
 
-    function setUpBase() internal returns (BackfillMigrationRegistryV3Harness, address) {
+    function setUpBase() internal returns (BackfillMigrationRegistryV4Harness, address) {
         vm.createSelectFork(LibRainDeploy.BASE);
-        return (new BackfillMigrationRegistryV3Harness("refusal"), LibSafeInvariants.safeForChainId(block.chainid));
+        return (new BackfillMigrationRegistryV4Harness("refusal"), LibSafeInvariants.safeForChainId(block.chainid));
     }
 
     function testRefusesUnpinnedRegistryV2Code() external {
-        (BackfillMigrationRegistryV3Harness script,) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script,) = setUpBase();
         if (spent()) return;
         vm.etch(REGISTRY_V2, hex"00");
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2CodeHash.selector, keccak256(hex"00")));
@@ -154,7 +154,7 @@ contract BackfillMigrationRegistryV3Test is Test {
     }
 
     function testRefusesUnexpectedV2DeployHead() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         bytes32 other = keccak256("some other migration");
         vm.mockCall(
@@ -167,7 +167,7 @@ contract BackfillMigrationRegistryV3Test is Test {
     }
 
     function testRefusesUnexpectedV2RbacHead() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         bytes32 other = keccak256("some other migration");
         vm.mockCall(
@@ -182,7 +182,7 @@ contract BackfillMigrationRegistryV3Test is Test {
     }
 
     function testRefusesGovernanceTimelockMomentMismatch() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         (uint256 pinned,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
         vm.mockCall(
@@ -197,7 +197,7 @@ contract BackfillMigrationRegistryV3Test is Test {
     }
 
     function testRefusesUnexpectedV2Order() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         vm.mockCall(
             REGISTRY_V2,
@@ -215,71 +215,74 @@ contract BackfillMigrationRegistryV3Test is Test {
         script.callAuthorBundle();
     }
 
-    function testRefusesV3DeployLineOffGenesis() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+    function testRefusesV4DeployLineOffGenesis() external {
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
-        LibMigrationRegistry.applyMigrationV3(
-            safe, LibStoxMigrations.NAMESPACE, other, LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS)
+        LibMigrationRegistry.applyMigrationV4(
+            safe, LibStoxMigrations.NAMESPACE, other, LibStoxMigrations.onto(safe, MIGRATION_HEAD_GENESIS), ""
         );
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, other));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV4Line.selector, LibStoxMigrations.NAMESPACE, other));
         script.callPreflight();
     }
 
-    function testRefusesV3RbacLineOffGenesis() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+    function testRefusesV4RbacLineOffGenesis() external {
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
-        LibMigrationRegistry.applyMigrationV3(
+        LibMigrationRegistry.applyMigrationV4(
             safe,
             LibRbacMigration.STOX_RBAC_NAMESPACE,
             other,
-            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS)
+            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS),
+            ""
         );
         vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibRbacMigration.STOX_RBAC_NAMESPACE, other)
+            abi.encodeWithSelector(UnexpectedRegistryV4Line.selector, LibRbacMigration.STOX_RBAC_NAMESPACE, other)
         );
         script.callPreflight();
     }
 
     function testVerifyRefusesTamperedArtifact() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         string memory json =
             LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, "tamper test", script.callAuthorBundle());
         string memory cleanPath =
-            string.concat("out/20261022-backfill-migration-registry-v3-clean-", vm.toString(block.chainid), ".json");
+            string.concat("out/20261022-backfill-migration-registry-v4-clean-", vm.toString(block.chainid), ".json");
         vm.writeFile(cleanPath, json);
         script.verify(cleanPath);
         uint256 euAt =
             V2.applied(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER);
-        (, bytes memory euData) = LibMigrationRegistry.applyMigrationHistoryV3Call(
+        (, bytes memory euData) = LibMigrationRegistry.applyMigrationHistoryV4Call(
             safe,
             LibRbacMigration.STOX_RBAC_NAMESPACE,
             LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
             euAt,
-            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS)
+            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS),
+            ""
         );
-        (, bytes memory tamperedData) = LibMigrationRegistry.applyMigrationHistoryV3Call(
+        (, bytes memory tamperedData) = LibMigrationRegistry.applyMigrationHistoryV4Call(
             safe,
             LibRbacMigration.STOX_RBAC_NAMESPACE,
             LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
             euAt - 1,
-            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS)
+            LibMigrationRegistry.onto(safe, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS),
+            ""
         );
         string memory tampered = vm.replace(json, vm.toString(euData), vm.toString(tamperedData));
         assertTrue(keccak256(bytes(tampered)) != keccak256(bytes(json)), "tamper did not apply");
         string memory tamperedPath =
-            string.concat("out/20261022-backfill-migration-registry-v3-tampered-", vm.toString(block.chainid), ".json");
+            string.concat("out/20261022-backfill-migration-registry-v4-tampered-", vm.toString(block.chainid), ".json");
         vm.writeFile(tamperedPath, tampered);
         vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
         script.verify(tamperedPath);
     }
 
     function testPreflightRefusesSafeOffPolicy() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(1)));
         vm.expectRevert(
@@ -291,7 +294,7 @@ contract BackfillMigrationRegistryV3Test is Test {
     }
 
     function testPreflightRefusesTimelockOffState() external {
-        (BackfillMigrationRegistryV3Harness script,) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script,) = setUpBase();
         if (spent()) return;
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         vm.mockCall(timelock, abi.encodeCall(ITimelockControllerState.getMinDelay, ()), abi.encode(uint256(1)));
@@ -307,7 +310,7 @@ contract BackfillMigrationRegistryV3Test is Test {
     }
 
     function testPostStateRefusesUncarriedRecord() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -322,7 +325,7 @@ contract BackfillMigrationRegistryV3Test is Test {
 
     /// @dev Record `index` carried one second off its V2 moment is refused.
     function assertPostStateRefusesMiscarried(uint256 index, ScriptDeclaration memory declared) internal {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         SafeTx[] memory txs = script.callAuthorBundle();
         uint256 v2Moment = V2.applied(safe, declared.namespace, declared.id);
@@ -342,63 +345,65 @@ contract BackfillMigrationRegistryV3Test is Test {
         assertPostStateRefusesMiscarried(2, grantEuAuthoriserRolesDeclaration());
     }
 
-    function executeBackfill(BackfillMigrationRegistryV3Harness script, address safe) internal {
+    function executeBackfill(BackfillMigrationRegistryV4Harness script, address safe) internal {
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
         script.callAssertPostState();
     }
 
     function testPostStateRefusesOwnRecordFromAnotherBlock() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         executeBackfill(script, safe);
         uint256 recordedAt = block.timestamp;
         vm.warp(recordedAt + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                BackfillRecordMismatch.selector, backfillMigrationRegistryV3Declaration().id, recordedAt + 1, recordedAt
+                BackfillRecordMismatch.selector, backfillMigrationRegistryV4Declaration().id, recordedAt + 1, recordedAt
             )
         );
         script.callAssertPostState();
     }
 
     function testPostStateRefusesDeployLineMovedOn() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         executeBackfill(script, safe);
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
-        LibMigrationRegistry.applyMigrationV3(
+        LibMigrationRegistry.applyMigrationV4(
             safe,
             LibStoxMigrations.NAMESPACE,
             other,
-            LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id)
+            LibStoxMigrations.onto(safe, backfillMigrationRegistryV4Declaration().id),
+            ""
         );
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibStoxMigrations.NAMESPACE, other));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV4Line.selector, LibStoxMigrations.NAMESPACE, other));
         script.callAssertPostState();
     }
 
     function testPostStateRefusesRbacLineMovedOn() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         executeBackfill(script, safe);
         bytes32 other = keccak256("some other migration");
         vm.prank(safe);
-        LibMigrationRegistry.applyMigrationV3(
+        LibMigrationRegistry.applyMigrationV4(
             safe,
             LibRbacMigration.STOX_RBAC_NAMESPACE,
             other,
             LibMigrationRegistry.onto(
                 safe, LibRbacMigration.STOX_RBAC_NAMESPACE, LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER
-            )
+            ),
+            ""
         );
         vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedRegistryV3Line.selector, LibRbacMigration.STOX_RBAC_NAMESPACE, other)
+            abi.encodeWithSelector(UnexpectedRegistryV4Line.selector, LibRbacMigration.STOX_RBAC_NAMESPACE, other)
         );
         script.callAssertPostState();
     }
 
     function testPostStateRefusesOrchestratorMissingEmergency() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         executeBackfill(script, safe);
         address instance = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
@@ -408,7 +413,7 @@ contract BackfillMigrationRegistryV3Test is Test {
     }
 
     function testPostStateRefusesSafeOffPolicy() external {
-        (BackfillMigrationRegistryV3Harness script, address safe) = setUpBase();
+        (BackfillMigrationRegistryV4Harness script, address safe) = setUpBase();
         if (spent()) return;
         executeBackfill(script, safe);
         vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(1)));
