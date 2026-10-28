@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {AuthoringMetaV2} from "rainlang-interface-0.2.13/src/interface/ISubParserV4.sol";
-import {LibGenParseMeta} from "rainlang-interface-0.2.13/src/lib/codegen/LibGenParseMeta.sol";
+import {AuthoringMetaV2} from "rainlang-interface-0.2.15/src/interface/ISubParserV4.sol";
+import {LibGenParseMeta} from "rainlang-interface-0.2.15/src/lib/codegen/LibGenParseMeta.sol";
 
 import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";
 import {

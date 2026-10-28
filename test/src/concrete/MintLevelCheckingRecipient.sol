@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xOrchestratorV2, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 
 /// @dev Accepts a mint only if, at callback time, both its own recipient
 /// bucket and `MINTER`'s bucket already hold `EXPECTED_LEVEL`.

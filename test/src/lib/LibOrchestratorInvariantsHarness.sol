@@ -12,8 +12,8 @@ contract LibOrchestratorInvariantsHarness {
         LibOrchestratorInvariants.assertBeaconSet();
     }
 
-    function callAssertInstance(address chainSafe) external view {
-        LibOrchestratorInvariants.assertInstance(chainSafe);
+    function callAssertInstance() external view {
+        LibOrchestratorInvariants.assertInstance();
     }
 
     function callAssertMintCapsBeaconSet() external view {

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {IOwnable} from "rain-extrospection-0.1.14/src/interface/IOwnable.sol";
+import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
 import {LibProdTokenConfig, Region} from "./LibProdTokenConfig.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
@@ -30,7 +30,9 @@ struct TokenInstance {
 }
 
 /// @notice A production receipt vault's `owner()` does not match the owner
-/// every vault is expected to share.
+/// the uniform-ownership invariant expected every vault to share. Surfaces
+/// the exact vault address that breaks the invariant rather than a generic
+/// mismatch.
 /// @param vault The receipt vault whose owner was read.
 /// @param expected The address every vault is expected to report as
 /// `owner()`.
@@ -38,7 +40,8 @@ struct TokenInstance {
 error ReceiptVaultOwnerMismatch(address vault, address expected, address actual);
 
 /// @notice A production receipt vault's `authorizer()` does not match the
-/// authoriser every vault is expected to share.
+/// authoriser every vault is expected to share. Surfaces the exact vault
+/// that breaks the uniform-authoriser invariant.
 /// @param vault The receipt vault whose authoriser was read.
 /// @param expected The authoriser address every vault is expected to share.
 /// @param actual The authoriser address returned by `vault.authorizer()`.
@@ -52,10 +55,10 @@ error ReceiptVaultAuthoriserMismatch(address vault, address expected, address ac
 /// or reverts with a typed error that pinpoints the offending vault.
 /// @dev These are token-side prod invariants: a receipt vault's owner and
 /// authoriser uniformity is a property of the token deployment, not of the
-/// Safe multisig. `LibInvariants.assertAll` composes this lib's `assertAll`
-/// alongside the Safe-side checks in `LibInvariants.assertAll` so consumers asserting the full
-/// production state get both. Individual asserts are also callable
-/// standalone for focused drift detection.
+/// Safe multisig. `LibInvariants` composes the authoriser check alongside the
+/// Safe-side checks. Live vault ownership is watched by the rain-org-health
+/// dashboard; `assertUniformOwnership` is for a script's post-state check of
+/// a bundle it authors.
 library LibTokenInvariants {
     // =========================================================================
     // Production token instance addresses on Base. Each token set is a
@@ -1547,7 +1550,7 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on Robinhood
-    /// Chain (chain id 4663): Base's underlyings in Base row order, so the
+    /// Chain (chain id 4663) — Base's underlyings in Base row order, so the
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
     /// @return tokens The production token instances on Robinhood Chain.
@@ -1892,7 +1895,7 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
-    /// Chain (chain id 56): Base's underlyings in Base row order, so the
+    /// Chain (chain id 56) — Base's underlyings in Base row order, so the
     /// tables pair by index as well as by key (the cross-chain parity pin
     /// asserts the alignment).
     /// @return tokens The production token instances on BNB Smart Chain.
@@ -2278,9 +2281,7 @@ library LibTokenInvariants {
     /// vault.
     /// @dev A divergent owner means a token is controlled by a different
     /// account than the rest of the system — the class of inconsistency
-    /// this invariant exists to prevent. Composed into `assertAll` (with
-    /// the governance timelock as the expected owner) and through there into
-    /// `LibInvariants.assertAll`; also callable standalone.
+    /// this invariant exists to prevent.
     /// @param expectedOwner The address every production receipt vault is
     /// expected to report as `owner()`.
     function assertUniformOwnership(address expectedOwner) internal view {
@@ -2289,6 +2290,10 @@ library LibTokenInvariants {
 
     /// @notice Chain-parametric `assertUniformOwnership`: assert every
     /// receipt vault in the supplied token table reports `expectedOwner`.
+    /// The Base no-arg-table overload delegates here with
+    /// `productionTokensBase()`; a multichain caller passes another chain's
+    /// table so the same uniform-ownership invariant runs against every
+    /// chain with that chain's vaults and Safe.
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param expectedOwner The address every receipt vault must report as
     /// `owner()`.
@@ -2301,12 +2306,13 @@ library LibTokenInvariants {
         }
     }
 
-    /// @notice Assert that every Base production receipt vault reports
-    /// `expected` as `authorizer()`. Reverts with
-    /// `ReceiptVaultAuthoriserMismatch` on the first vault whose
-    /// `authorizer()` diverges.
-    /// @dev Composed into `assertAll` and through there into
-    /// `LibInvariants.assertAll`; also callable standalone.
+    /// @notice Assert that every production receipt vault reports the same
+    /// authoriser. Iterates `productionReceiptVaults` and
+    /// reverts with `ReceiptVaultAuthoriserMismatch` on the first vault whose
+    /// `authorizer()` diverges from `expected`, surfacing the offending vault.
+    /// @dev A divergent authoriser means a token is gated by a different RBAC
+    /// contract than the rest of the system — the class of inconsistency this
+    /// invariant exists to prevent. Composed into `LibInvariants.assertAll`.
     /// @param expected The authoriser address every production receipt vault
     /// is expected to share.
     function assertUniformAuthoriser(address expected) internal view {
@@ -2335,35 +2341,5 @@ library LibTokenInvariants {
                 revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expectedForToken, actual);
             }
         }
-    }
-
-    /// @notice Full token-side invariant bundle: every Base production
-    /// receipt vault reports `owner` as its `owner()` AND the supplied
-    /// authoriser as its `authorizer()`. Composed into the full production
-    /// bundle by `LibInvariants.assertAll`.
-    /// @dev Each leg performs one external call per production token
-    /// instance. Both principals are parameterised so this lib stays free of
-    /// cross-facet dependencies; the orchestrator supplies the pinned
-    /// addresses (the governance timelock as owner in production).
-    /// @param owner The address every production receipt vault is expected
-    /// to report as `owner()`.
-    /// @param expectedAuthoriser The authoriser address every production
-    /// receipt vault is expected to report as `authorizer()`.
-    function assertAll(address owner, address expectedAuthoriser) internal view {
-        assertAll(productionTokensBase(), owner, expectedAuthoriser);
-    }
-
-    /// @notice Chain-parametric token-side bundle: every receipt vault in
-    /// the supplied table reports `owner` as `owner()` and
-    /// `expectedAuthoriser` as `authorizer()`. The Base overload delegates
-    /// here with `productionTokensBase()`; `LibInvariants.assertProductionState`
-    /// calls this with each chain's own table.
-    /// @param tokens The chain's token table.
-    /// @param owner The address every receipt vault must report as `owner()`.
-    /// @param expectedAuthoriser The authoriser every receipt vault must
-    /// report as `authorizer()`.
-    function assertAll(TokenInstance[] memory tokens, address owner, address expectedAuthoriser) internal view {
-        assertUniformOwnership(tokens, owner);
-        assertUniformAuthoriser(tokens, expectedAuthoriser);
     }
 }

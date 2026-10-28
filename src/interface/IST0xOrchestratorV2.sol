@@ -2,10 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {Float} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
+import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
 
-import {Digest, MintAuthV1} from "./IST0xOrchestratorV1.sol";
+import {Digest, MintAuthV1} from "./deprecated/IST0xOrchestratorV1.sol";
 
 /// @dev A leaky-bucket mint cap. Both policy numbers are Rain `Float`s in the
 /// units of the mint weighting's output (see `setMintWeighting`), which is
@@ -94,11 +94,14 @@ interface IST0xOrchestratorV2 {
     error NonceReplayed(address to, bytes32 nonce);
     error BadRecipientSignature();
     error RecipientCallbackRejected(address recipient);
-    /// @notice The production receipt-vault beacon does not point at the
-    /// implementation this orchestrator was built against.
+    /// @notice `account`, a token or its receipt, is not a registry beacon
+    /// proxy.
+    error NotRegistryBeaconProxy(address account);
+    /// @notice The token's beacon serves a vault implementation other than the
+    /// one this orchestrator was built against.
     error VaultLogicMismatch(address expected, address actual);
-    /// @notice The production receipt beacon does not point at the
-    /// implementation this orchestrator was built against.
+    /// @notice The token's receipt's beacon serves a receipt implementation
+    /// other than the one this orchestrator was built against.
     error ReceiptLogicMismatch(address expected, address actual);
     /// @notice The burn walk exhausted the orchestrator's held receipts for
     /// `token` with `shortfall` still unburned. The orchestrator never mints
@@ -278,8 +281,8 @@ interface IST0xOrchestratorV2 {
     /// filled, set or not.
     function recipientMintLevel(address recipient) external view returns (Float);
 
-    /// @notice True if the production vault + receipt beacons currently point
-    /// at the implementations this orchestrator expects, so `mint`/`burn` are
-    /// not version-locked.
-    function vaultLogicIsExpected() external view returns (bool);
+    /// @notice True if `token` and its receipt are registry beacon proxies
+    /// whose beacons serve the implementations this orchestrator expects, so
+    /// mint/burn on `token` pass the vault-logic guard.
+    function vaultLogicIsExpected(address token) external view returns (bool);
 }

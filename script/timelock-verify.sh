@@ -4,7 +4,7 @@
 set -euo pipefail
 
 CONTRACT=dependencies/@openzeppelin-contracts-5.7.0/governance/TimelockController.sol:TimelockController
-SNAPSHOT=dependencies/rain-deploy-0.1.21/src/generated/0_1_18/TimelockController.sol
+SNAPSHOT=dependencies/rain-deploy-0.1.25/src/generated/0_1_18/TimelockController.sol
 # rain-deploy's timelock build settings; without `--compilation-profile` forge uses the cached build's instead.
 COMPILE_ARGS=(--compilation-profile default --compiler-version 0.8.25 --num-of-optimizations 2000 --evm-version cancun)
 

@@ -17,10 +17,7 @@ forge build
 forge test
 ```
 
-Fork tests read the `*_RPC_URL` variables named in `foundry.toml`'s
-`[rpc_endpoints]` (`BASE_RPC_URL`, `ETHEREUM_RPC_URL`, `HYPEREVM_RPC_URL`,
-`ROBINHOOD_RPC_URL`, `BSC_RPC_URL`); CI maps the `RPC_URL_*_FORK` secrets onto
-them.
+Fork tests require `RPC_URL_BASE_FORK` in `.env`.
 
 ## Architecture
 
@@ -71,9 +68,8 @@ them.
 │    LibCorporateActionReceipt — receipt cursor storage   │
 │                                                         │
 │  Production deploy constants                            │
-│    LibProdDeployV1 / V2 / V2BaseOverrides               │
-│    src/generated/LibProdDeployV4 (current)              │
-│    LibTokenInvariants / LibProdTokenConfig              │
+│    LibProdDeployV1 / V2 / V2BaseOverrides / V3          │
+│    LibProdTokensBase                                    │
 └────────────────────────────────────────────────────────┘
 ```
 
@@ -88,7 +84,7 @@ them.
 ### Corporate Actions
 
 The corporate actions system adds stock split support via a diamond facet that
-is delegatecalled by the vault. Properties:
+is delegatecalled by the vault. Key design choices:
 
 - **No stored status** — an action is complete when
   `effectiveTime <= block.timestamp`
@@ -161,7 +157,7 @@ The `multisig-artifact` GitHub workflow runs the dry-run on `workflow_dispatch`
 dependencies, uploading `out/*.json` as a build artifact so reviewers can
 download the bundle directly from the run.
 
-### Receipt vault V3 shadow fork
+### Receipt vault V3 upgrade
 
 The receipt vault beacon points at the V3 implementation (corporate actions).
 The beacon is owned by the governance timelock, so any further upgrade is a

@@ -2,10 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
@@ -93,7 +96,12 @@ error DeployerHoldsTimelockRole(bytes32 role, address deployer);
 /// chain's `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK*` pin with the
 /// logged address (`testPinsMatchDerivedAddressesOnceHydrated` pins the
 /// hydrated value to the derivation).
-contract DeployGovernanceTimelock is Script {
+contract DeployGovernanceTimelock is Script, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return LibStoxMigrations.notAMigration();
+    }
+
     /// @notice Where `run()` writes the per-chain deployed addresses, so a
     /// verification step can target every chain without re-deriving them.
     string internal constant DEPLOYMENTS_PATH = "out/20260729-governance-timelock-deployments.json";
@@ -135,14 +143,11 @@ contract DeployGovernanceTimelock is Script {
     function run() external {
         string[] memory nets = networks();
         string memory manifest = "";
-        // Every fork is created before the first is selected, as
-        // `LibRainDeploy.deployToNetworks` does. Foundry seeds each fork
-        // created after the first selection with the pre-fork account set, so
-        // creating them inside the loop reads networks 2..N against the
-        // default EVM rather than against their own chain.
-        uint256[] memory forkIds = LibRainDeploy.createForks(vm, nets);
         for (uint256 i = 0; i < nets.length; i++) {
-            vm.selectFork(forkIds[i]);
+            // The fork id is unused; bind it so the unused-return lint stays
+            // satisfied, matching `LibRainDeploy.deployToNetworks`.
+            uint256 forkId = vm.createSelectFork(nets[i]);
+            (forkId);
             console2.log("==== NETWORK:", nets[i]);
             address timelock = _deployOnActiveChain();
             manifest = string.concat(

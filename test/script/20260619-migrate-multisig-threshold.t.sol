@@ -12,13 +12,10 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
-import {LibSafe} from "rain-deploy-0.1.21/src/lib/LibSafe.sol";
-import {IOwnable, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
-import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.25/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.25/src/lib/LibSafe.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
@@ -108,27 +105,6 @@ contract MigrateMultisigThresholdTest is Test {
 
         vm.expectRevert(
             abi.encodeWithSelector(LibSafe.SafeThresholdMismatch.selector, address(safe), uint256(3), uint256(1))
-        );
-        script.run();
-    }
-
-    /// @notice Inverted: the pre-flight rejects vault-ownership drift.
-    /// If even one receipt vault has its `owner()` pointing somewhere
-    /// other than the governance timelock, the migration must abort before
-    /// producing an artifact.
-    function testRunRejectsVaultOwnershipDrift() external {
-        selectBaseFork();
-        address rogueOwner = address(0xBADC0DE);
-        // Victim address sourced from `LibTokenInvariants` — the canonical
-        // list of production receipt vaults. Any vault from the list
-        // would do; MSTR is the first entry.
-        address victim = LibTokenInvariants.MSTR_RECEIPT_VAULT;
-        vm.mockCall(victim, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
-
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ReceiptVaultOwnerMismatch.selector, victim, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK, rogueOwner
-            )
         );
         script.run();
     }

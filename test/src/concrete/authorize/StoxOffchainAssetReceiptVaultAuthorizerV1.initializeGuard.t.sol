@@ -7,13 +7,13 @@ import {Clones} from "@openzeppelin-contracts-5.7.0/proxy/Clones.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../../src/lib/LibCorporateAction.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.12/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {FailingSuperInitAuthorizer} from "./FailingSuperInitAuthorizer.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.4/src/interface/ICloneableV2.sol";
+import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.5/src/interface/ICloneableV2.sol";
 
 contract StoxOffchainAssetReceiptVaultAuthorizerV1InitializeGuardTest is Test {
     address constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));

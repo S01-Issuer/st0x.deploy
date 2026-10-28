@@ -2,10 +2,10 @@
 
 ## What it is
 
-An **unmodified OpenZeppelin `TimelockController`** (compiled from the
-version-locked `@openzeppelin-contracts` 5.6.1 soldeer dependency) that sits
+An **unmodified, pre-audited OpenZeppelin `TimelockController`** (compiled from
+the version-locked `@openzeppelin-contracts` 5.6.1 soldeer dependency) that sits
 between the token-owner Safe and the privileged surfaces of the ST0x deployment.
-Once the governance migration has executed, the timelock is:
+After the migration executes, the timelock is:
 
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
   `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
@@ -34,84 +34,46 @@ The Safe **keeps its three direct action roles** (`DEPOSIT`, `WITHDRAW`,
 `CERTIFY`) and the service signer keeps its operational grants: day-to-day
 operations are NOT timelocked. Only admin power is.
 
-No deployed ST0x contract changes for any of this: the owner/admin principal
-moves from the Safe to the timelock.
-
-## The mint-caps orchestrator
-
-The mint-caps `ST0xOrchestrator` is a fresh deployment that runs next to the
-live orchestrator (`0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2`) while it is
-bootstrapped; minters move over once it is ready. The live orchestrator and its
-beacon are not upgraded in place. The new one has its own beacon, because
-different code needs a different beacon.
-
-The timelock holds its admin power from the start, so no migration bundle moves
-it:
-
-- **Beacon.** `ST0xOrchestratorBeaconSetDeployer`'s constructor creates the
-  beacon with `timelockForChainId(block.chainid)` as owner, so there is no
-  window in which the deploy key owns it. `upgradeTo` is delay-gated.
-- **Instance.** `initialize` grants the timelock `DEFAULT_ADMIN_ROLE`,
-  `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, and nothing
-  else. It takes no owner argument, and `deploy()` takes none either, so a
-  caller of the permissionless deployer cannot seat an admin of its own. Both
-  revert on a chain with no pinned timelock.
-- **Operating roles** (`MINT_ROLE`, `BURN_ROLE`, `EMERGENCY_ROLE`) are granted
-  by their admin role, so each grant is a scheduled timelock operation. The Safe
-  may hold `EMERGENCY_ROLE`; it holds no admin role and neither `MINT_ROLE` nor
-  `BURN_ROLE`. The deploy key holds nothing.
-- **Configuration.** The mint weighting and the per-minter and per-recipient
-  mint limits are `MINT_ADMIN_ROLE` surfaces, so setting or changing them waits
-  out the delay too.
-
-Each admin role administers its operating role and itself, so
-`DEFAULT_ADMIN_ROLE` cannot grant an admin role: the grants in `initialize` are
-the only way a first holder is seated, and losing every holder of one takes a
-beacon upgrade to recover.
-
-Bootstrapping is `script/20261011-bootstrap-mint-caps-orchestrator.s.sol`, a
-Safe bundle per chain: deploy the implementation and the beacon-set deployer,
-`deploy()` the instance, then schedule one timelock batch with the weighting,
-the limits, the operating-role grants and the timelock's registry record. The
-instance's `DEPOSIT`/`WITHDRAW` grants on the vault authoriser are made by
-whichever principal holds `DEPOSIT_ADMIN` / `WITHDRAW_ADMIN` there: directly by
-the Safe, or in the batch once the timelock holds them.
+No deployed ST0x contract changes for any of this — the timelock is purely a
+deployment-config choice (the owner/admin principal moves from the Safe to the
+timelock). That keeps the audited contract set untouched.
 
 ## Role model
 
-| Role on the timelock | Holder                                              | Meaning                                                         |
-| -------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| `PROPOSER_ROLE`      | token-owner Safe                                    | schedules operations                                            |
-| `CANCELLER_ROLE`     | token-owner Safe (+ dedicated canceller, if pinned) | vetoes a scheduled operation inside the window                  |
-| `EXECUTOR_ROLE`      | `address(0)` — i.e. anyone                          | executes once the delay elapses                                 |
-| `DEFAULT_ADMIN_ROLE` | the timelock itself                                 | role changes are themselves timelocked (OZ self-administration) |
+| Role on the timelock | Holder                                                 | Meaning                                                         |
+| -------------------- | ------------------------------------------------------ | --------------------------------------------------------------- |
+| `PROPOSER_ROLE`      | token-owner Safe                                       | schedules operations                                            |
+| `CANCELLER_ROLE`     | token-owner Safe (+ dedicated canceller, once decided) | vetoes a scheduled operation inside the window                  |
+| `EXECUTOR_ROLE`      | `address(0)` — i.e. anyone                             | executes once the delay elapses                                 |
+| `DEFAULT_ADMIN_ROLE` | the timelock itself                                    | role changes are themselves timelocked (OZ self-administration) |
 
 - **Execution is permissionless.** `EXECUTOR_ROLE` is granted to `address(0)`,
   which OZ's `onlyRoleOrOpenRole` reads as "open to everyone", so once the delay
   has run ANYONE may execute a scheduled operation. The operator cannot censor a
   matured operation, and the Safe executes as a member of the public rather than
   by privilege. `cancel()` has no open-role path in OZ, so vetoing stays
-  privileged.
+  privileged — the asymmetry is the design.
 - **Operations never expire.** OZ keeps a matured operation executable
   indefinitely. With open execution that means a scheduled-then-abandoned
-  operation can be executed by anyone, at any later time. An operation that must
-  not run has to be CANCELLED, not merely left unexecuted.
+  operation can be executed by anyone, at any later time. An operation you
+  decide against must be CANCELLED, not merely left unexecuted.
 - **Min delay: 48 hours** (`LibTimelockInvariants.TIMELOCK_MIN_DELAY`). Changing
   it is a timelocked `updateDelay` operation and must update the pin in the same
   operational window.
-- **The CI deploy key holds nothing.** The deploy passes `admin = address(0)`,
-  so the constructor grants the deployer no role; the deploy script's post-state
-  asserts it.
+- **The CI deploy key holds nothing, ever.** The deploy passes
+  `admin = address(0)`, so the constructor grants the deployer no role — there
+  is no configuration window and nothing to revoke. The deploy script's
+  post-state proves it.
 - **No open roles.** OZ treats a zero-address grantee as "role open to
   everyone"; `assertTimelockState` rejects that on every lifecycle role.
 - **Dedicated canceller.** The OZ constructor grants cancellership to proposers,
   so the Safe can always cancel. A separate canceller principal is optional and
   lives in `LibTimelockInvariants.TIMELOCK_CANCELLER`: while that pin is
-  `address(0)` no extra canceller is expected, and while it is non-zero
+  `address(0)` no extra canceller is expected, and once it is non-zero
   `assertTimelockState` asserts the grant. Provisioning one is itself a
   timelocked operation — schedule `grantRole(CANCELLER_ROLE, canceller)` on the
-  timelock and set the constant in the same operational window. It cannot be set
-  in the constructor, which takes no canceller argument.
+  timelock and hydrate the constant in the same operational window. It cannot be
+  set in the constructor, which takes no canceller argument.
 
 ## Addresses
 
@@ -121,8 +83,8 @@ The chain's Safe is a constructor arg, so each chain gets a distinct,
 precomputable address —
 `LibTimelockInvariants.expectedTimelockAddress(chain's Safe)`.
 
-Constants (in `src/lib/LibTimelockInvariants.sol`) that scripts and invariants
-target:
+Constants (in `src/lib/LibTimelockInvariants.sol`) that future scripts and
+invariants target:
 
 | Constant                             | Holds                                     |
 | ------------------------------------ | ----------------------------------------- |
@@ -131,7 +93,7 @@ target:
 | `STOX_GOVERNANCE_TIMELOCK_HYPEREVM`  | the HyperEVM timelock                     |
 | `STOX_GOVERNANCE_TIMELOCK_ROBINHOOD` | the Robinhood Chain timelock              |
 | `STOX_GOVERNANCE_TIMELOCK_BSC`       | the BNB Smart Chain timelock              |
-| `TIMELOCK_CANCELLER`                 | the dedicated canceller (zero while none) |
+| `TIMELOCK_CANCELLER`                 | the dedicated canceller, once provisioned |
 
 Every pin is written with its chain arm, derived from the frozen creation
 bytecode and that chain's Safe pin before any deploy —
@@ -144,19 +106,23 @@ pins.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
-1. **Deploy** — Actions → `manual-broadcast` →
+1. **Chain arm + pin** — a governed chain's `LibTimelockInvariants` arm is added
+   WITH its pin, derived from the frozen creation bytecode and the chain's Safe
+   pin (`expectedTimelockAddress`). The deploy refuses a zero pin, so the arm
+   always precedes the broadcast.
+2. **Deploy** — Actions → `manual-broadcast` →
    `20260729-deploy-governance-timelock`. One dispatch covers every governed
    chain: the script iterates `networks()`, skips-with-assert any chain already
    carrying its timelock, and the CI deploy key broadcasts the rest — each
    landing at its derived address, fully configured by its constructor.
-2. **Author the migration bundle** — Actions → `run-script` →
+3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
    `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
    (`out/20260729-governance-timelock-migration-<chainid>.json`) after a full
    pre-flight, simulation, post-state assertion, and an end-to-end schedule →
    48h → execute proof on the fork. The logged MultiSend `SafeTxHash` is the
    signer cross-check.
-3. **Sign + execute** — import the CI-authored artifact into the Safe UI (never
+4. **Sign + execute** — import the CI-authored artifact into the Safe UI (never
    a locally generated JSON). Before signing, each signer runs the local
    integrity check against a live fork —
    `forge script script/20260729-migrate-governance-to-timelock.s.sol --sig 'verify(string)' <downloaded.json> --rpc-url <network>`
@@ -165,7 +131,7 @@ pins.
    to cross-check in the Safe UI. Then execute. The bundle is atomic: 7 `_ADMIN`
    grants to the timelock → N vault `transferOwnership` → one beacon
    `transferOwnership` per in-use beacon (four) → 7 Safe renounces.
-4. **Post-execution flip** — every production invariant asserts the timelock
+5. **Post-execution flip** — every production invariant asserts the timelock
    exactly: vault owner (`LibTokenInvariants.assertAll` / `LibInvariants`),
    beacon owner (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,
    `LibOrchestratorInvariants.assertBeaconSet`) and `_ADMIN` holder
@@ -178,12 +144,14 @@ the timelock's powers, so the script stays re-dispatchable and proven.
 
 ## Rehearsing the timelock
 
-The rehearsal exercises the timelock end-to-end. The rehearsed operation is
-`timelock.updateDelay(TIMELOCK_MIN_DELAY)` — re-setting the delay to the value
-it already holds. It is a no-op, it targets the timelock rather than any
-production contract, and OZ rejects `updateDelay` from any caller other than the
-timelock itself, so it can only happen via the full schedule → delay → execute
-path.
+The timelock can be exercised end-to-end BEFORE any governance is handed to it,
+so signers see the real loop before it controls anything. The rehearsed
+operation is `timelock.updateDelay(TIMELOCK_MIN_DELAY)` — re-setting the delay
+to the value it already holds. It is a genuine no-op, it targets the timelock
+rather than any production contract, and OZ rejects `updateDelay` from any
+caller other than the timelock itself, so it can only happen via the full
+schedule → delay → execute path. Rehearsing it therefore exercises the real
+mechanism rather than a shortcut.
 
 Stages 1–3 are Safe actions, dispatched via `Actions → run-script`:
 
@@ -198,7 +166,8 @@ Stages 1–3 are Safe actions, dispatched via `Actions → run-script`:
 Then wait out the delay and execute. Execution is **not** a Safe action: the
 executor role is open, so anyone may execute. `Actions → manual-broadcast` →
 `20260813-execute-timelock-operations` does it from the CI deploy key, which
-holds no role on the timelock.
+holds no role on the timelock — if that succeeds, permissionless execution is
+demonstrated rather than merely configured.
 
 Each stage refuses to author a bundle whose call would revert: cancelling
 nothing, or scheduling something already scheduled, fails at authoring time
@@ -214,7 +183,7 @@ rehearsal has been executed on a chain, every later
 rehearsing again _after_ an execution needs a new salt, i.e. a new dated
 rehearsal.
 
-## Operating under the timelock
+## Operating under the timelock (future governance actions)
 
 Every admin action becomes two Safe transactions separated by ≥48h:
 
@@ -232,15 +201,16 @@ Every admin action becomes two Safe transactions separated by ≥48h:
 3. **Execute**: Safe → `timelock.execute(target, 0, data, 0, salt)` (or
    `executeBatch`) with the identical arguments.
 
-Operational scripts that author such bundles follow the dated `run-script`
-pattern: they build the schedule/execute calldata against
-`LibTimelockInvariants` constants, and each script's simulation includes the
-same warp-and-execute loop proof the migration script uses.
+Operational scripts that author such bundles follow the existing dated
+`run-script` pattern — they should build the schedule/execute calldata against
+`LibTimelockInvariants` constants, and each script's simulation should include
+the same warp-and-execute loop proof the migration script uses.
 
-**Key invariant for script authors**: the Safe cannot call `onlyOwner` /
+**Key invariant for script authors**: the Safe can no longer call `onlyOwner` /
 `_ADMIN`-gated functions directly. Any script that authors a Safe bundle
-targeting those surfaces must target the timelock instead, resolved via
-`LibTimelockInvariants.timelockForChainId(block.chainid)`.
+targeting those surfaces must target the timelock instead, and
+`LibTimelockInvariants.timelockForChainId(block.chainid)` is the only sanctioned
+way to resolve it.
 
 ## Invariants
 
@@ -258,13 +228,6 @@ targeting those surfaces must target the timelock instead, resolved via
   `LibBeaconInvariants.assertProdBeaconsOwnedBy` /
   `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
   exclusive `_ADMIN` holding on the timelock, per chain.
-- `LibOrchestratorInvariants.assertMintCapsBeaconSet()` /
-  `assertMintCapsInstance(safe)` — the mint-caps orchestrator: the beacon is
-  owned by the timelock and points at the current implementation; the timelock
-  holds the four admin roles and no operating role; the Safe holds no admin
-  role, `MINT_ROLE` or `BURN_ROLE`; the deploy key holds nothing; and every
-  `getRoleAdmin` wiring is as `initialize` sets it. The live orchestrator keeps
-  `assertBeaconSet` / `assertInstance` while both run.
 
 ## Orchestrator roles
 
@@ -279,6 +242,10 @@ records imply:
 2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
    the Safe to the timelock, recorded onto the grant, so the registry refuses it
    on a chain where step 1 has not executed.
+
+Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
+are read from V3, so `20261022-backfill-migration-registry-v3` carries them over
+as history, per chain, before step 2 can run.
 
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a

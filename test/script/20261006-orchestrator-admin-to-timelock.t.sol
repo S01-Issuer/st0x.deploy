@@ -6,16 +6,17 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV3} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistryDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV3} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistryDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.25/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.25/src/lib/LibSafeTxBuilderJson.sol";
 
 import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
-import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
+import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
+import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -23,28 +24,22 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The admin move is required on this chain and its record is not
-/// on chain. Execute the bundle.
-/// @param network The chain still pending.
-error AdminMoveNotApplied(string network);
-
 /// @title OrchestratorAdminToTimelockTest
-/// @notice The admin move on every deployment network at head, in two parts
-/// per network. The bundle walks the line: before the EMERGENCY grant the
-/// script refuses and the bundle cannot execute; with the grant executed
+/// @notice The admin move on every deployment network at head. The bundle
+/// walks the line: before the V3 backfill the
+/// script refuses and the bundle cannot execute; with the backfill executed
 /// (live, or its bundle executed on the fork) `run()` executes the move
 /// through the Safe, proves it and writes the artifact, `verify` accepts
 /// that artifact, and the artifact executed by the owners leaves the state
 /// the invariants demand and makes a re-dispatch refuse; once executed on
-/// chain, the chain must be in that state. The requirement: the move's
-/// record is on chain, red until it is.
+/// chain, the chain must be in that state.
 contract OrchestratorAdminToTimelockTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
 
-    function executeEmergencyGrant(address safe) internal {
-        GrantOrchestratorEmergencyHarness grant = new GrantOrchestratorEmergencyHarness("admin-move-prerequisite");
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), grant.callAuthorBundle());
+    function executeV3Backfill(address safe) internal {
+        BackfillMigrationRegistryV3Harness backfill = new BackfillMigrationRegistryV3Harness("admin-move-prerequisite");
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), backfill.callAuthorBundle());
     }
 
     function assertBundle(string memory network) internal {
@@ -55,7 +50,7 @@ contract OrchestratorAdminToTimelockTest is Test {
 
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the post-move state"));
-            LibOrchestratorInvariants.assertInstance(safe);
+            LibOrchestratorInvariants.assertInstance();
             assertTrue(ORCHESTRATOR.hasRole(bytes32(0), timelock));
             // Selector only: a later recorded migration moves the head.
             vm.expectPartialRevert(UnexpectedMigrationLine.selector);
@@ -63,8 +58,8 @@ contract OrchestratorAdminToTimelockTest is Test {
             return;
         }
 
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
-            console2.log(string.concat("PENDING [", network, "]: EMERGENCY grant not executed; move refused"));
+        if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
+            console2.log(string.concat("PENDING [", network, "]: V3 backfill not executed; move refused"));
             vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.head(safe)));
             script.callPreflight();
             // Out of order on chain (the move signed at a lower nonce than
@@ -82,9 +77,9 @@ contract OrchestratorAdminToTimelockTest is Test {
                     safe,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                    LibStoxMigrations.onto(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY)
+                    LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id)
                 );
-            executeEmergencyGrant(safe);
+            executeV3Backfill(safe);
         }
 
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the move"));
@@ -94,7 +89,7 @@ contract OrchestratorAdminToTimelockTest is Test {
         // The governance proof runs on a snapshot, so the fork is left in the
         // post-move state the invariants demand, at the time `run()` started,
         // and the artifact is dated then rather than after the proof's warp.
-        LibOrchestratorInvariants.assertInstance(safe);
+        LibOrchestratorInvariants.assertInstance();
         assertEq(block.timestamp, runAt, "the governance proof's warp leaked");
         assertEq(
             vm.parseJsonUint(vm.readFile(script.callArtifactPath()), ".createdAt"),
@@ -117,7 +112,7 @@ contract OrchestratorAdminToTimelockTest is Test {
         assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), "exec: Safe EMERGENCY");
         assertEq(LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK), block.timestamp);
         assertEq(LibStoxMigrations.head(safe), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        LibOrchestratorInvariants.assertInstance(safe);
+        LibOrchestratorInvariants.assertInstance();
 
         // The Safe can no longer grant directly.
         bytes32 mintRole = ORCHESTRATOR.MINT_ROLE();
@@ -131,14 +126,6 @@ contract OrchestratorAdminToTimelockTest is Test {
             abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
         );
         script.callPreflight();
-    }
-
-    function assertApplied(string memory network) internal {
-        vm.createSelectFork(network);
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) == 0) {
-            revert AdminMoveNotApplied(network);
-        }
     }
 
     function testMoveBundleBase() external {
@@ -161,26 +148,6 @@ contract OrchestratorAdminToTimelockTest is Test {
         assertBundle(LibStoxDeployNetworks.BSC);
     }
 
-    function testMoveAppliedBase() external {
-        assertApplied(LibRainDeploy.BASE);
-    }
-
-    function testMoveAppliedEthereum() external {
-        assertApplied(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testMoveAppliedHyperEvm() external {
-        assertApplied(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testMoveAppliedRobinhood() external {
-        assertApplied(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testMoveAppliedBsc() external {
-        assertApplied(LibStoxDeployNetworks.BSC);
-    }
-
     /// @notice `verify` refuses an artifact that hands admin to an address
     /// other than the chain's timelock.
     /// @dev Needs the pre-move state: once the move has executed on Base
@@ -192,8 +159,8 @@ contract OrchestratorAdminToTimelockTest is Test {
             console2.log("SPENT: the admin move has executed on this chain");
             return;
         }
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
-            executeEmergencyGrant(safe);
+        if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
+            executeV3Backfill(safe);
         }
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("tamper");
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);

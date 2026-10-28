@@ -7,10 +7,10 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../../../src/lib/LibTimelockInvariants.sol";
 import {St0xAttestSubParserTest} from "./St0xAttestSubParserTest.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
-import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
-import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
+import {LibTestRegistryBeaconProxy} from "../../lib/LibTestRegistryBeaconProxy.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
@@ -30,10 +30,10 @@ import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {ReceiptVault} from "rain-vats-0.2.7/src/abstract/ReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.7/src/interface/IReceiptV3.sol";
-import {SignedContextV1, EvaluableV4} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.12/src/abstract/OffchainAssetReceiptVault.sol";
+import {ReceiptVault} from "rain-vats-0.2.12/src/abstract/ReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.12/src/interface/IReceiptV3.sol";
+import {SignedContextV1, EvaluableV4} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
 /// @dev Unit and fuzz tests for the singleton `ST0xOrchestrator`. The vault,
@@ -80,11 +80,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// `setUp` runs on Base's chain id.
     address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
-    /// The vault-version guard reads these fixed production addresses. The
-    /// orchestrator's `_checkVaultLogic` reads the current-release (candidate) pins,
-    /// so the mocks target the candidate deployer and impls.
-    address internal constant DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
+    /// Each token's and each receipt's own beacon, which the vault-logic guard
+    /// reads from the proxy bytecode.
     address internal constant VAULT_BEACON = address(0xBEAC04);
     address internal constant RECEIPT_BEACON = address(0xBEAC12);
     address internal constant EXPECTED_VAULT_IMPL = LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE;
@@ -124,9 +121,11 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         capRecipient = new MockMintRecipient(true);
         capRecipient2 = new MockMintRecipient(true);
         impl = new ST0xOrchestrator();
-        // `initialize` runs the vault-logic guard, so the guard mocks must be
-        // in place before the proxy is deployed.
         _makeGuardPass();
+        LibTestRegistryBeaconProxy.etch(vm, TOKEN, VAULT_BEACON);
+        LibTestRegistryBeaconProxy.etch(vm, TOKEN2, VAULT_BEACON);
+        LibTestRegistryBeaconProxy.etch(vm, RECEIPT_ADDR, RECEIPT_BEACON);
+        LibTestRegistryBeaconProxy.etch(vm, RECEIPT_ADDR2, RECEIPT_BEACON);
         orchestrator = _deployProxy();
         _setIdentityWeighting(orchestrator);
         _mockVaultTopology(TOKEN, RECEIPT_ADDR, "tAA17");
@@ -176,8 +175,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     // ------------------------------------------------------------------ //
 
     /// Deploy a fresh beacon + proxy pair pointing at `impl`, initialised on
-    /// the current chain id, so its admin is that chain's timelock. The guard
-    /// mocks must already pass.
+    /// the current chain id, so its admin is that chain's timelock.
     function _deployProxy() internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
@@ -195,17 +193,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         o.setMintWeighting(identity);
     }
 
-    /// Make the vault-logic version guard pass: the deployer resolves each
-    /// beacon and each beacon reports the expected implementation.
+    /// Make the vault-logic version guard PASS: each beacon reports the
+    /// expected implementation.
     function _makeGuardPass() internal {
-        vm.mockCall(
-            DEPLOYER,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
-        );
-        vm.mockCall(
-            DEPLOYER, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
-        );
         vm.mockCall(
             VAULT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(EXPECTED_VAULT_IMPL)
         );
@@ -394,32 +384,12 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         new BeaconProxy(address(beacon), initData);
     }
 
-    /// `initialize` runs the vault-logic guard, so a fresh proxy cannot be
-    /// deployed against unexpected vault logic — the `BeaconProxy`
-    /// constructor bubbles `VaultLogicMismatch` from the init delegatecall.
-    function testInitializeVaultGuardFailReverts() external {
+    /// `initialize` has no token, so it does not read vault logic.
+    function testInitializeIgnoresVaultLogic() external {
         _makeGuardFailVault();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
-            )
-        );
-        new BeaconProxy(address(beacon), initData);
-    }
-
-    /// Same for the receipt leg of the guard.
-    function testInitializeReceiptGuardFailReverts() external {
         _makeGuardFailReceipt();
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
-            )
-        );
-        new BeaconProxy(address(beacon), initData);
+        ST0xOrchestrator fresh = _deployProxy();
+        assertTrue(fresh.hasRole(fresh.DEFAULT_ADMIN_ROLE(), OWNER));
     }
 
     function testDoubleInitializeReverts() external {
@@ -965,6 +935,32 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
     }
 
+    function testMintNonProxyTokenReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        address token = address(0x70CE4);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, token));
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    /// A token whose code differs from a registry beacon proxy in one byte
+    /// reverts, even though its beacon word names the expected beacon.
+    function testMintAlteredProxyTokenReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        bytes memory code = TOKEN.code;
+        code[0] = 0x00;
+        vm.etch(TOKEN, code);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, TOKEN));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
+    function testMintNonProxyReceiptReverts() external {
+        _grant(orchestrator.MINT_ROLE(), address(this));
+        address receipt_ = address(0x4EC1E7);
+        _mockVaultTopology(TOKEN, receipt_);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, receipt_));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "");
+    }
+
     /// Mint never touches the burn pointer — no seeding, no walk.
     function testMintLeavesBurnPointerUntouched() external {
         (address eoa, uint256 pk) = makeAddrAndKey("recipient");
@@ -1172,6 +1168,32 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
                 IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
+        orchestrator.burn(TOKEN, 1, "");
+    }
+
+    function testBurnReceiptGuardFailReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        _makeGuardFailReceipt();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
+            )
+        );
+        orchestrator.burn(TOKEN, 1, "");
+    }
+
+    function testBurnNonProxyTokenReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        address token = address(0x70CE4);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, token));
+        orchestrator.burn(token, 1, "");
+    }
+
+    function testBurnNonProxyReceiptReverts() external {
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        address receipt_ = address(0x4EC1E7);
+        _mockVaultTopology(TOKEN, receipt_);
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, receipt_));
         orchestrator.burn(TOKEN, 1, "");
     }
 
@@ -1609,12 +1631,26 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     // ------------------------------------------------------------------ //
 
     function testVaultLogicIsExpectedTrue() external view {
-        assertTrue(orchestrator.vaultLogicIsExpected());
+        assertTrue(orchestrator.vaultLogicIsExpected(TOKEN));
     }
 
-    function testVaultLogicIsExpectedFalse() external {
+    function testVaultLogicIsExpectedFalseOnVaultImpl() external {
         _makeGuardFailVault();
-        assertFalse(orchestrator.vaultLogicIsExpected());
+        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
+    }
+
+    function testVaultLogicIsExpectedFalseOnReceiptImpl() external {
+        _makeGuardFailReceipt();
+        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
+    }
+
+    function testVaultLogicIsExpectedFalseOnNonProxyToken() external view {
+        assertFalse(orchestrator.vaultLogicIsExpected(address(0x70CE4)));
+    }
+
+    function testVaultLogicIsExpectedFalseOnNonProxyReceipt() external {
+        _mockVaultTopology(TOKEN, address(0x4EC1E7));
+        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
     }
 
     /// `burnInfo` is forwarded verbatim to `vault.redeem` as
@@ -1646,7 +1682,12 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// nested call revert `ReentrancyGuardReentrantCall`, while the outer
     /// burn completes normally.
     function testBurnReentrantCallReverts() external {
-        ReentrantBurnVault attacker = new ReentrantBurnVault(orchestrator);
+        // The attacker is the vault logic the token's beacon serves.
+        ReentrantBurnVault attacker = ReentrantBurnVault(address(0xA77AC4));
+        LibTestRegistryBeaconProxy.etch(vm, address(attacker), VAULT_BEACON);
+        vm.etch(EXPECTED_VAULT_IMPL, address(new ReentrantBurnVault(orchestrator)).code);
+        _mockVaultTopology(address(attacker), RECEIPT_ADDR);
+        _mockBalance(RECEIPT_ADDR, 0, type(uint256).max);
         _grant(orchestrator.BURN_ROLE(), address(this));
         // The nested call comes from the attacker, so it passes the role
         // check and reaches the reentrancy guard.

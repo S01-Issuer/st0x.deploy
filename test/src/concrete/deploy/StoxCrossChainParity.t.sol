@@ -7,9 +7,9 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensio
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {ERC1967Utils} from "@openzeppelin-contracts-5.7.0/proxy/ERC1967/ERC1967Utils.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {IOwnable} from "rain-extrospection-0.1.14/src/interface/IOwnable.sol";
+import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
@@ -35,9 +35,11 @@ interface IReceiptManager {
 
 /// @notice Everything the parity suite reads per token instance on one
 /// chain, captured on each chain's own fork (Base included). The vault
-/// `name`/`symbol` are asserted against the `LibProdTokenConfig` baseline;
-/// the remaining fields (decimals + the wrapped legs) are compared
-/// field-by-field across chains, with Base as the reference.
+/// `name`/`symbol` are asserted against the canonical `LibProdTokenConfig`
+/// baseline — itself pinned to live Base by `LibProdTokenConfigTest` — so
+/// every chain is checked against the pinned table, not merely against Base's
+/// live values. The remaining fields (decimals + the wrapped legs) are then
+/// compared field-by-field across chains, with Base as the reference.
 /// @param underlying The chain-agnostic join key from the token table.
 /// @param vaultName The receipt vault's ERC-20 `name()`.
 /// @param vaultSymbol The receipt vault's ERC-20 `symbol()`.
@@ -89,9 +91,16 @@ struct ChainLegs {
 }
 
 /// @title StoxCrossChainParityTest
-/// @notice The cross-chain deployment-parity pin: every ST0x chain carries
-/// identical core artifacts, identically-configured token instances and an
-/// identical permission structure. Layers, per non-baseline chain vs Base:
+/// @notice The cross-chain deployment-parity pin: an automated
+/// invariant asserting every ST0x chain carries an IDENTICAL deployment —
+/// identical core artifacts, identically-configured token instances,
+/// identical permission structure — so parity cannot silently drift once
+/// multichain is live. Runs in CI on every push and on the scheduled
+/// workflow (drift introduced on-chain between pushes — a role grant, a
+/// beacon upgrade — is caught by the schedule, not just by code changes).
+///
+/// Parity layers, per non-baseline chain vs Base (the baseline chain,
+/// which carries the original production state):
 ///
 /// 1. **Core artifacts** — the deterministic Zoltu addresses + codehashes
 ///    are asserted per-network by `StoxProdV4Test.checkProd_0_1_1OnChain`;
@@ -100,9 +109,11 @@ struct ChainLegs {
 ///    per-chain authoriser clones (the one non-deterministic core
 ///    artifact): pinned address, shared EIP-1167 codehash.
 /// 2. **Token instances** — for every underlying in the per-chain token
-///    tables: `name` / `symbol` of both vault legs equal the
-///    `LibProdTokenConfig` baseline and `decimals` equals Base's;
-///    `wrapped.asset() == receiptVault`; every receipt vault's
+///    tables: `name` / `symbol` of both vault legs equal the canonical
+///    `LibProdTokenConfig` baseline (asserted on every chain, Base included,
+///    against the pinned table) and `decimals` equals the Base baseline;
+///    receipt + wrapped wiring is internally consistent
+///    (`wrapped.asset() == receiptVault`); every receipt vault's
 ///    `authorizer()` is the chain's pinned V4 clone and its `owner()` is
 ///    the chain's governance timelock; all of a chain's proxies share one
 ///    runtime codehash per leg (beacon proxies — the codehash embeds the
@@ -119,12 +130,23 @@ struct ChainLegs {
 ///    the receipt + receipt-vault beacon impls (address + codehash) are
 ///    asserted identical across chains, as is the authoriser clone impl.
 /// 4. **Role parity** — `LibAuthoriserInvariants.assertExpectedGrants` runs
-///    against each chain's clone with that chain's token-owner Safe. The
-///    Safe policy (owner set, threshold, v1.4.1 identity) is asserted equal
-///    to Base's.
+///    against each chain's clone with that chain's token-owner Safe: the
+///    identical grant STRUCTURE on every chain, the service-signer holder
+///    shared, the Safe holder the chain's own per-chain Safe. The Safe policy
+///    (owner set, threshold, v1.4.1 identity) is asserted equal to Base's, and
+///    the Ethereum Safe's live owner set + threshold are compared directly to
+///    Base's. Per-chain: the Safe address, the clone address, the token
+///    addresses.
 ///
-/// `assertCleanV4Lineage` asserts that no non-baseline chain's beacon
-/// carries any `LibProdDeployV2BaseOverrides` implementation or owner.
+/// **Known-divergence carve-out (Base V2 beacon corruption).** Base's V2
+/// OARV beacon set was corrupted post-deploy (impl downgrade + ownership
+/// lock, pinned in `LibProdDeployV2BaseOverrides`). Production tokens on
+/// Base never used those beacons (they run on the healthy V1 set), and no
+/// new chain deploys V2 at all — Ethereum bootstraps directly at V4. The
+/// carve-out is encoded, not implied: `assertCleanV4Lineage` asserts that
+/// no non-baseline chain's token proxies resolve to ANY pinned V2 beacon
+/// address, so the corrupted artifacts can neither mask drift on Base nor
+/// leak into expectations for chains that deploy clean.
 ///
 /// **Per-leg placeholder gating.** Each chain's per-chain deploy artifacts —
 /// the token-owner Safe address, the authoriser clone address, the token
@@ -150,9 +172,9 @@ contract StoxCrossChainParityTest is Test {
     /// fork and assert the parity-specific per-token properties the shared
     /// framework does not cover: receipt/wrapped wiring, per-leg proxy
     /// codehash uniformity within the chain, and the single shared beacon.
-    /// @dev The uniform owner + sole-authoriser checks are NOT here — the token
-    /// leg in `assertChainLegs` asserts them via
-    /// `LibTokenInvariants.assertAll(tokens, timelock, clone)`; this function adds
+    /// @dev The sole-authoriser check is NOT here — the token leg in
+    /// `assertChainLegs` asserts it via
+    /// `LibTokenInvariants.assertUniformAuthoriser(tokens, clone)`; this function adds
     /// only the per-token config snapshot + within-chain uniformity that the
     /// cross-chain comparison builds on.
     /// @param tokens The chain's token table.
@@ -168,8 +190,10 @@ contract StoxCrossChainParityTest is Test {
     {
         snapshots = new TokenConfigSnapshot[](tokens.length);
 
-        // The name/symbol baseline every chain is asserted against (Base
-        // included).
+        // The canonical name/symbol baseline every chain is asserted against
+        // (Base included). `LibProdTokenConfigTest` pins this table to live
+        // Base, so parity is against a validated source of truth, not merely
+        // chain-vs-chain.
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
 
         // Per-leg proxy-codehash uniformity within the chain.
@@ -182,6 +206,10 @@ contract StoxCrossChainParityTest is Test {
         for (uint256 i = 0; i < tokens.length; i++) {
             TokenInstance memory token = tokens[i];
 
+            // Read the receipt vault + wrapped vault metadata from chain:
+            // name/symbol are asserted against the canonical config baseline
+            // below; decimals + the wrapped-vault fields feed the cross-chain
+            // snapshot comparison.
             snapshots[i] = TokenConfigSnapshot({
                 underlying: token.underlying,
                 vaultName: IERC20Metadata(token.receiptVault).name(),
@@ -192,7 +220,9 @@ contract StoxCrossChainParityTest is Test {
                 wrappedDecimals: IERC20Metadata(token.wrappedTokenVault).decimals()
             });
 
-            // The receipt vault's live name/symbol equal the config baseline.
+            // Baseline: the receipt vault's live name/symbol equal the
+            // canonical config — asserted on every chain, so parity is against
+            // the pinned table, not merely Base-vs-others.
             assertEq(
                 snapshots[i].vaultName,
                 configs[i].name,
@@ -231,9 +261,10 @@ contract StoxCrossChainParityTest is Test {
             );
 
             // ERC-1155 receipt leg: the vault points at this token's pinned
-            // receipt, the receipt points back at the vault as its manager,
-            // and the receipt proxies are uniform bytecode + share one beacon
-            // within the chain.
+            // receipt, the receipt points back at the vault as its manager (the
+            // receipt has no owner/authoriser — `manager` is its only access
+            // control), and the receipt proxies are uniform bytecode + share one
+            // beacon within the chain — the same guarantees as the vault legs.
             assertEq(
                 IReceiptVaultReceipt(token.receiptVault).receipt(),
                 token.receipt,
@@ -258,9 +289,12 @@ contract StoxCrossChainParityTest is Test {
     }
 
     /// @notice Assert the chain's authoriser clone is deployed at its
-    /// per-chain pin with the shared EIP-1167 codehash. The clone's
-    /// role-grant map is asserted in `assertChainLegs` via
-    /// `LibAuthoriserInvariants.assertExpectedGrants`.
+    /// per-chain pin with the shared EIP-1167 codehash. This is the
+    /// deploy-artifact half (address + bytecode); the clone's role-grant
+    /// map is asserted through the shared framework
+    /// (`LibInvariants.assertProductionState` →
+    /// `LibAuthoriserInvariants.assertExpectedGrants`) in
+    /// `testCrossChainParity`, so it is not repeated here.
     /// @param clone The chain's pinned V4 authoriser clone.
     function assertCloneParity(address clone) internal view {
         assertTrue(clone.code.length > 0, "V4 authoriser clone not deployed");
@@ -271,11 +305,19 @@ contract StoxCrossChainParityTest is Test {
         );
     }
 
-    /// @notice A non-baseline chain's beacon carries none of the
-    /// `LibProdDeployV2BaseOverrides` values: neither implementation nor
-    /// owner.
+    /// @notice The Base-V2-corruption carve-out, stated as a positive
+    /// invariant on clean chains. Base's V2 OARV beacons were corrupted
+    /// post-deploy (impl downgraded, ownership locked into the V2
+    /// contracts — the exact values are pinned in
+    /// `LibProdDeployV2BaseOverrides`). That corruption is a named,
+    /// Base-only exception: production tokens on Base never used those
+    /// beacons, and no clean chain deploys V2 at all. This assertion makes
+    /// the exception explicit on the clean side — a non-baseline chain's
+    /// beacon must not carry any corruption-era value — so the carve-out
+    /// can neither mask new drift on Base nor leak into expectations for
+    /// chains that bootstrap directly at V4.
     /// @param receiptVaultBeacon The beacon backing the chain's receipt
-    /// vault proxies.
+    /// vault proxies (already asserted to serve the V4 impl).
     function assertCleanV4Lineage(address receiptVaultBeacon) internal view {
         assertTrue(
             IBeacon(receiptVaultBeacon).implementation() != LibProdDeployV2BaseOverrides.RECEIPT_BEACON_IMPLEMENTATION
@@ -290,9 +332,10 @@ contract StoxCrossChainParityTest is Test {
         );
     }
 
-    /// @notice Token-table hydration state: whether any entry and whether all
+    /// @notice Token-table hydration state: whether ANY entry and whether ALL
     /// entries are fully set (all three addresses non-zero). A partially-set
-    /// table (some entries set, some placeholder) is neither.
+    /// table (some entries set, some placeholder) is neither — the caller
+    /// rejects that as an operator error.
     /// @param tokens The chain's token table.
     /// @return anySet At least one entry has a non-placeholder address.
     /// @return allSet Every entry is fully hydrated.
@@ -308,9 +351,9 @@ contract StoxCrossChainParityTest is Test {
         }
     }
 
-    /// @notice Assert two owner rosters are equal as sets (same length, same
-    /// members), order-insensitive. Safe forbids duplicate owners, so equal
-    /// lengths plus one-way membership is set equality.
+    /// @notice Assert two owner rosters are equal as SETS (same length, same
+    /// members) — order-insensitive. Safe forbids duplicate owners, so equal
+    /// lengths plus one-way membership is full set equality.
     /// @param a One roster.
     /// @param b The other roster.
     function assertSameOwnerSet(address[] memory a, address[] memory b) internal pure {
@@ -346,13 +389,14 @@ contract StoxCrossChainParityTest is Test {
         );
     }
 
-    /// @notice Assert every live leg of a chain on the active fork, skipping
-    /// (with a PENDING log) any leg whose pins are still placeholders, and
-    /// capture what it read for the cross-chain comparison. The legs nest by
-    /// dependency:
-    ///  - **Safe leg** (needs the Safe): the Safe matches the shared policy.
+    /// @notice Assert every LIVE leg of a chain on the ACTIVE fork, skipping
+    /// (with a loud PENDING log) any leg whose pins are still placeholders, and
+    /// capture what it read for the cross-chain comparison. The legs are nested
+    /// by dependency:
+    ///  - **Safe leg** (needs the Safe): the Safe matches Base's policy.
     ///  - **Authoriser leg** (needs the clone; the grant map also needs the
-    ///    Safe): the clone codehash + the role-grant map.
+    ///    Safe): the clone codehash + the role-grant map. Assertable as soon as
+    ///    the clone is up — it does NOT wait on the tokens.
     ///  - **Token leg** (needs Safe + clone + the full token table): ownership
     ///    by the governance timelock, the clone as sole authoriser, config +
     ///    beacon.
@@ -400,8 +444,8 @@ contract StoxCrossChainParityTest is Test {
         );
         legs.tokenLegLive = legs.safeLive && legs.cloneLive && allTokens;
         if (legs.tokenLegLive) {
-            // Ownership (timelock) + sole authoriser (clone) across every vault.
-            LibTokenInvariants.assertAll(tokens, LibTimelockInvariants.timelockForChainId(block.chainid), clone);
+            // Sole authoriser (clone) across every vault.
+            LibTokenInvariants.assertUniformAuthoriser(tokens, clone);
             address beacon;
             address receiptBeacon;
             (legs.tokenConfigs, beacon, receiptBeacon) = assertChainAndSnapshot(tokens);
@@ -513,26 +557,12 @@ contract StoxCrossChainParityTest is Test {
         }
     }
 
-    /// @notice The cross-chain parity pin. Asserts each chain's live legs on
+    /// @notice The cross-chain parity pin. Asserts each chain's LIVE legs on
     /// its own fork (pending legs skipped + logged), then compares whatever is
     /// live on BOTH chains, then requires every leg of every chain to have
     /// been live, so no comparison can have been skipped.
     function testCrossChainParity() external {
-        // Every fork is created before the first is selected. Foundry captures
-        // the account set of the pre-fork EVM when the first fork is selected
-        // and seeds every fork created after that capture with it, so an
-        // address this test reads on Base would be carried onto the later
-        // networks as the empty account the default EVM holds for it — the
-        // first network right and every one after it wrong.
-        string[] memory parityNetworks = new string[](5);
-        parityNetworks[0] = LibRainDeploy.BASE;
-        parityNetworks[1] = LibStoxDeployNetworks.ETHEREUM;
-        parityNetworks[2] = LibStoxDeployNetworks.HYPEREVM;
-        parityNetworks[3] = LibStoxDeployNetworks.ROBINHOOD;
-        parityNetworks[4] = LibStoxDeployNetworks.BSC;
-        uint256[] memory parityForks = LibRainDeploy.createForks(vm, parityNetworks);
-
-        vm.selectFork(parityForks[0]);
+        vm.createSelectFork(LibRainDeploy.BASE);
         ChainLegs memory base = assertChainLegs(
             "Base",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
@@ -540,7 +570,7 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensBase()
         );
 
-        vm.selectFork(parityForks[1]);
+        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
         ChainLegs memory eth = assertChainLegs(
             "Ethereum",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM,
@@ -548,7 +578,11 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensEthereum()
         );
 
-        vm.selectFork(parityForks[2]);
+        // HyperEVM forks unconditionally, like Base and Ethereum: CI supplies
+        // `HYPEREVM_RPC_URL` to the shared rainix test workflow from the
+        // `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC fails at fork time
+        // rather than leaving the legs unasserted behind a green run.
+        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         ChainLegs memory hyper = assertChainLegs(
             "HyperEVM",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM,
@@ -556,7 +590,9 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensHyperEvm()
         );
 
-        vm.selectFork(parityForks[3]);
+        // Robinhood Chain forks unconditionally too, from the
+        // `RPC_URL_ROBINHOOD_FORK` secret.
+        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
         ChainLegs memory robinhood = assertChainLegs(
             "Robinhood Chain",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD,
@@ -564,7 +600,8 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensRobinhood()
         );
 
-        vm.selectFork(parityForks[4]);
+        // BNB Smart Chain, from the `RPC_URL_BSC_FORK` secret.
+        vm.createSelectFork(LibStoxDeployNetworks.BSC);
         ChainLegs memory bsc = assertChainLegs(
             "BNB Smart Chain",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC,

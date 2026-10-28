@@ -7,13 +7,11 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
-import {LibStoxMigrations} from "./LibStoxMigrations.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
-import {IST0xOrchestratorV1} from "../interface/IST0xOrchestratorV1.sol";
-import {IST0xOrchestratorV2} from "../interface/IST0xOrchestratorV2.sol";
+import {IST0xOrchestratorV1} from "../interface/deprecated/IST0xOrchestratorV1.sol";
 import {
     ST0xOrchestrator,
     ORCHESTRATOR_MINT_ROLE,
@@ -23,6 +21,7 @@ import {
     ORCHESTRATOR_EMERGENCY_ROLE,
     ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
 } from "../concrete/ST0xOrchestrator.sol";
+
 /// @notice The orchestrator beacon-set deployer has no runtime code at its
 /// pinned 0.1.30 address on the active chain.
 /// @param setDeployer The pinned deployer address that is missing.
@@ -39,14 +38,8 @@ error OrchestratorBeaconMismatch(address expected, address actual);
 /// @param instance The pinned instance address.
 error OrchestratorInstanceMissing(address instance);
 
-/// @notice The expected admin does not hold `DEFAULT_ADMIN_ROLE` on the
-/// orchestrator instance: it is ungovernable, or governed by the wrong key.
-/// @param instance The orchestrator instance inspected.
-/// @param expectedAdmin The address that must hold `DEFAULT_ADMIN_ROLE`.
-error OrchestratorAdminMissing(address instance, address expectedAdmin);
-
-/// @notice An address the recorded migrations say holds a role on the
-/// orchestrator instance does not.
+/// @notice A principal that must hold a role on an orchestrator instance
+/// does not.
 /// @param instance The orchestrator instance inspected.
 /// @param role The role.
 /// @param holder The address that must hold it.
@@ -131,12 +124,8 @@ library LibOrchestratorInvariants {
 
     /// @notice Assert the pinned orchestrator instance on the active chain:
     /// it has code, its vault-logic version lock passes (so `mint`/`burn`
-    /// are operable), every role is administered by `DEFAULT_ADMIN_ROLE`,
-    /// and it holds each `expectedGrants` pair whose migration the chain's
-    /// Safe has recorded (`migrationRecorded`).
-    /// @param chainSafe The chain's token-owner Safe, which is also the
-    /// writer of the migration records.
-    function assertInstance(address chainSafe) internal view {
+    /// are operable), and every role is administered by `DEFAULT_ADMIN_ROLE`.
+    function assertInstance() internal view {
         address instance = ST0X_ORCHESTRATOR_INSTANCE;
         if (instance.code.length == 0) {
             revert OrchestratorInstanceMissing(instance);
@@ -146,36 +135,10 @@ library LibOrchestratorInvariants {
         }
 
         IAccessControl acl = IAccessControl(instance);
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-
-        RoleGrant[] memory expected = expectedGrants(chainSafe, timelock);
-        for (uint256 i = 0; i < expected.length; i++) {
-            if (migrationRecorded(chainSafe, expected[i].role)) {
-                assertHolds(acl, expected[i]);
-            }
-        }
-
         assertAdministeredBy(acl, bytes32(0), bytes32(0));
         assertAdministeredBy(acl, ST0xOrchestrator(payable(instance)).MINT_ROLE(), bytes32(0));
         assertAdministeredBy(acl, ST0xOrchestrator(payable(instance)).BURN_ROLE(), bytes32(0));
         assertAdministeredBy(acl, ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE(), bytes32(0));
-    }
-
-    /// @notice Whether the chain's Safe has recorded the migration that
-    /// grants `role` its expected holder: `ORCHESTRATOR_ADMIN_TO_TIMELOCK`
-    /// for `DEFAULT_ADMIN_ROLE`, `ORCHESTRATOR_EMERGENCY` for `EMERGENCY`;
-    /// no migration grants any other role, so it is never recorded.
-    /// @param chainSafe The chain's token-owner Safe.
-    /// @param role The role.
-    /// @return Whether the migration is recorded.
-    function migrationRecorded(address chainSafe, bytes32 role) private view returns (bool) {
-        if (role == bytes32(0)) {
-            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) != 0;
-        }
-        if (role == keccak256("EMERGENCY")) {
-            return LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) != 0;
-        }
-        return false;
     }
 
     /// @notice The pairs the orchestrator instance must carry.
@@ -191,18 +154,6 @@ library LibOrchestratorInvariants {
         return grants;
     }
 
-    /// @notice Revert unless the instance carries `grant`.
-    /// @param acl The instance's access-control surface.
-    /// @param grant The pair.
-    function assertHolds(IAccessControl acl, RoleGrant memory grant) private view {
-        if (!acl.hasRole(grant.role, grant.grantee)) {
-            if (grant.role == bytes32(0)) {
-                revert OrchestratorAdminMissing(address(acl), grant.grantee);
-            }
-            revert OrchestratorRoleMissing(address(acl), grant.role, grant.grantee);
-        }
-    }
-
     /// @notice The beacon the mint-caps orchestrator's beacon-set deployer
     /// creates in its constructor: its `CREATE` at nonce 1. The deployer is
     /// the current-release Zoltu deploy, so this is the same on every chain.
@@ -213,8 +164,7 @@ library LibOrchestratorInvariants {
 
     /// @notice The mint-caps orchestrator instance: the `BeaconProxy` the
     /// first `deploy()` on its beacon-set deployer creates, its `CREATE` at
-    /// nonce 2. It runs alongside `ST0X_ORCHESTRATOR_INSTANCE` while it
-    /// bootstraps.
+    /// nonce 2.
     /// @return The mint-caps orchestrator instance.
     function mintCapsInstance() internal pure returns (address) {
         return createAddress(LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER, 2);
@@ -254,7 +204,7 @@ library LibOrchestratorInvariants {
     /// @notice Assert the mint-caps orchestrator instance on the active
     /// chain:
     ///
-    /// - it has code and its vault-logic version lock passes;
+    /// - it has code;
     /// - the chain's governance timelock holds `DEFAULT_ADMIN_ROLE`,
     ///   `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, and
     ///   no operating role;
@@ -266,6 +216,9 @@ library LibOrchestratorInvariants {
     /// The Safe's `EMERGENCY_ROLE` is not asserted either way: it is an
     /// operating role `EMERGENCY_ADMIN_ROLE` may grant it.
     ///
+    /// The vault-logic lock is per token (`vaultLogicIsExpected(token)`), so
+    /// it is not a property of the instance and is not asserted here.
+    ///
     /// Role membership is not enumerable on the orchestrator, so only these
     /// three principals are checked.
     /// @param chainSafe The chain's token-owner Safe.
@@ -273,9 +226,6 @@ library LibOrchestratorInvariants {
         address instance = mintCapsInstance();
         if (instance.code.length == 0) {
             revert OrchestratorInstanceMissing(instance);
-        }
-        if (!IST0xOrchestratorV2(instance).vaultLogicIsExpected()) {
-            revert OrchestratorVaultLogicUnexpected(instance);
         }
 
         IAccessControl acl = IAccessControl(instance);

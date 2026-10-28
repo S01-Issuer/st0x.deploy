@@ -4,14 +4,13 @@ pragma solidity =0.8.25;
 
 import {IST0xOrchestratorV2} from "../../../src/interface/IST0xOrchestratorV2.sol";
 
-/// @dev Malicious "vault" used to pin `burn`'s reentrancy lock. It plays
-/// every role the burn walk touches (ERC-20 shares, vault topology, ERC-1155
-/// receipt balance, redeem) and, on the FIRST `transferFrom` the orchestrator
-/// makes into it, reenters `orchestrator.burn` and records whether that
-/// nested call succeeded or what it reverted with. With `nonReentrant` in
-/// place the nested call must revert `ReentrancyGuardReentrantCall`; the
-/// outer burn then completes normally (the hook swallows the revert and
-/// returns true).
+/// @dev Malicious vault logic used to pin `burn`'s reentrancy lock. Served
+/// behind a token's registry beacon proxy, it plays the token's ERC-20 shares
+/// and redeem legs and, on the FIRST `transferFrom` the orchestrator makes
+/// into it, reenters `orchestrator.burn` and records whether that nested call
+/// succeeded or what it reverted with. With `nonReentrant` in place the nested
+/// call must revert `ReentrancyGuardReentrantCall`; the outer burn then
+/// completes normally (the hook swallows the revert and returns true).
 contract ReentrantBurnVault {
     IST0xOrchestratorV2 public immutable ORCHESTRATOR;
 
@@ -41,18 +40,8 @@ contract ReentrantBurnVault {
         return true;
     }
 
-    /// Vault topology for the burn walk: this contract is its own receipt.
-    function receipt() external view returns (address) {
-        return address(this);
-    }
-
     function highwaterId() external pure returns (uint256) {
         return 1;
-    }
-
-    /// ERC-1155 leg: always enough balance for any walk.
-    function balanceOf(address, uint256) external pure returns (uint256) {
-        return type(uint256).max;
     }
 
     /// Redeem at the 1:1 ratio the orchestrator requires.

@@ -8,18 +8,23 @@ import {
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.1/src/concrete/CloneFactory.sol";
+} from "rain-vats-0.2.12/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.3/src/concrete/CloneFactory.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../../src/lib/LibCorporateAction.sol";
 import {MockERC20} from "../../../concrete/MockERC20.sol";
 
 /// @title PaymentMint authorizer corporate-action pairing gap
-/// @notice `StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1` does not
-/// initialise the corporate-action role admin hierarchy, so
-/// `SCHEDULE_CORPORATE_ACTION` and `CANCEL_CORPORATE_ACTION` are administered
-/// by the unassigned `DEFAULT_ADMIN_ROLE` and cannot be granted by anyone.
+/// @notice Pins the failure mode where pairing a vault with
+/// `StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1` (which does NOT
+/// initialise corporate-action role admin hierarchy) leaves
+/// `SCHEDULE_CORPORATE_ACTION` and `CANCEL_CORPORATE_ACTION` administered
+/// by the unassigned `DEFAULT_ADMIN_ROLE` — permanently ungrantable,
+/// silently disabling corporate actions. The vault then drifts from the
+/// underlying off-chain asset because no party can schedule splits.
+/// Enforcement of correct pairing lives only at the operator's manual
+/// verification step; the contracts themselves don't catch it.
 contract StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1CorporateActionPairingGapTest is Test {
     bytes32 internal constant DEFAULT_ADMIN_ROLE = 0x00;
 
@@ -58,13 +63,14 @@ contract StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1CorporateActionPair
         assertEq(IAccessControl(address(authorizer)).getRoleAdmin(CANCEL_CORPORATE_ACTION), DEFAULT_ADMIN_ROLE);
     }
 
-    /// DEFAULT_ADMIN_ROLE is itself unassigned: the PaymentMint authorizer
-    /// doesn't grant it to anyone during init, so nobody can grant
-    /// SCHEDULE_CORPORATE_ACTION or CANCEL_CORPORATE_ACTION.
+    /// DEFAULT_ADMIN_ROLE is itself unassigned — the PaymentMint authorizer
+    /// doesn't grant it to anyone during init. Combined with the previous
+    /// two assertions, this means nobody can grant SCHEDULE_CORPORATE_ACTION
+    /// or CANCEL_CORPORATE_ACTION. The roles are permanently ungrantable.
     function testDefaultAdminRoleIsUnassigned() external {
         StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 authorizer = newAuthorizer();
         assertFalse(IAccessControl(address(authorizer)).hasRole(DEFAULT_ADMIN_ROLE, OWNER));
-        // The deployer doesn't hold it either.
+        // Belt and braces: even the deployer doesn't get it.
         assertFalse(IAccessControl(address(authorizer)).hasRole(DEFAULT_ADMIN_ROLE, address(this)));
     }
 

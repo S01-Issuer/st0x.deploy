@@ -19,6 +19,8 @@ export namespace ContractKind {
   export const BEACON = "BEACON";
   export const RECEIPT_VAULT = "RECEIPT_VAULT";
   export const TOKEN_OWNER_SAFE = "TOKEN_OWNER_SAFE";
+  export const CONFIG_REGISTRY = "CONFIG_REGISTRY";
+  export const MIGRATION_REGISTRY = "MIGRATION_REGISTRY";
 }
 
 /**

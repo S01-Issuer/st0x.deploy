@@ -3,12 +3,12 @@
 pragma solidity =0.8.25;
 
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
-import {Unauthorized} from "rain-vats-0.2.7/src/interface/IAuthorizeV1.sol";
+import {Unauthorized} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV2, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
 
 /// @title MintWithEcdsaSignatureTest
 /// @notice Workflow: an EOA recipient authorises a mint with an ECDSA

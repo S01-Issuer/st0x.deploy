@@ -3,10 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 
 import {
     ST0xOrchestrator,
@@ -18,7 +17,6 @@ import {
     ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
 } from "../../../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
-import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
@@ -27,7 +25,6 @@ import {
     LibOrchestratorInvariants,
     OrchestratorSetDeployerMissing,
     OrchestratorInstanceMissing,
-    OrchestratorVaultLogicUnexpected,
     OrchestratorRoleMissing,
     OrchestratorUnexpectedRoleHolder,
     OrchestratorRoleAdminUnexpected
@@ -48,8 +45,6 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
     /// @notice OZ `AccessControlUpgradeable`'s ERC-7201 storage slot.
     bytes32 internal constant ACCESS_CONTROL_SLOT = 0x02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800;
 
-    address internal constant VAULT_BEACON = address(0xBEAC04);
-    address internal constant RECEIPT_BEACON = address(0xBEAC12);
 
     LibOrchestratorInvariantsHarness internal harness;
     address internal timelock;
@@ -61,33 +56,11 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         harness = new LibOrchestratorInvariantsHarness();
         timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         deployKey = LibProdDeployCurrent.BEACON_INITIAL_OWNER;
-        makeVaultLogic(LibProdDeployCurrent.STOX_RECEIPT_VAULT);
 
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
         setDeployer = ST0xOrchestratorBeaconSetDeployer(
             LibRainDeploy.deployZoltu(type(ST0xOrchestratorBeaconSetDeployer).creationCode)
-        );
-    }
-
-    /// @notice Point the vault beacon at `vaultImpl` and the receipt beacon
-    /// at the current release, so `vaultLogicIsExpected` passes exactly when
-    /// `vaultImpl` is the current-release vault.
-    function makeVaultLogic(address vaultImpl) internal {
-        address beaconSet = LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER;
-        vm.mockCall(
-            beaconSet,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
-        );
-        vm.mockCall(
-            beaconSet, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
-        );
-        vm.mockCall(VAULT_BEACON, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(vaultImpl));
-        vm.mockCall(
-            RECEIPT_BEACON,
-            abi.encodeWithSelector(IBeacon.implementation.selector),
-            abi.encode(LibProdDeployCurrent.STOX_RECEIPT)
         );
     }
 
@@ -173,13 +146,6 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(OrchestratorInstanceMissing.selector, LibOrchestratorInvariants.mintCapsInstance())
         );
-        harness.callAssertMintCapsInstance(SAFE);
-    }
-
-    function testAssertMintCapsInstanceRevertsOnUnexpectedVaultLogic() external {
-        IAccessControl acl = deployInstance();
-        makeVaultLogic(address(0xBAD));
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, address(acl)));
         harness.callAssertMintCapsInstance(SAFE);
     }
 

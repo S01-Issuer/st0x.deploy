@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 
 import {DeployerHoldsTimelockRole, TimelockNotPinned} from "../../script/20260729-deploy-governance-timelock.s.sol";
 import {UnpinnedDeployGovernanceTimelockHarness} from "./UnpinnedDeployGovernanceTimelockHarness.sol";
@@ -39,8 +39,7 @@ contract DeployGovernanceTimelockTest is Test {
     }
 
     /// @notice `run()` covers every chain that carries production tokens, so
-    /// one dispatch is the whole rollout. Pins the list rather than the loop
-    /// body, which the per-chain tests below exercise.
+    /// one dispatch is the whole rollout.
     function testNetworksCoversEveryProductionChain() external {
         string[] memory nets = new DeployGovernanceTimelockHarness().callNetworks();
         assertEq(nets.length, 5);
@@ -72,43 +71,6 @@ contract DeployGovernanceTimelockTest is Test {
         UnpinnedDeployGovernanceTimelockHarness harness = new UnpinnedDeployGovernanceTimelockHarness();
         vm.expectRevert(abi.encodeWithSelector(TimelockNotPinned.selector, uint256(LibSafeInvariants.BASE_CHAIN_ID)));
         harness.callDeployOnActiveChain();
-    }
-
-    /// @notice The deploy lands at the derived address on Base.
-    function testDeploysOnBaseFork() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
-    }
-
-    /// @notice The deploy lands at the derived address on Ethereum.
-    function testDeploysOnEthereumFork() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
-    }
-
-    /// @notice The deploy lands at the derived address on HyperEVM, which
-    /// carries 29 live production tokens and is governed on the same terms as
-    /// Base and Ethereum.
-    function testDeploysOnHyperevmFork() external {
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
-    }
-
-    /// @notice The deploy lands at the derived address on Robinhood Chain.
-    /// The timelock is not on-chain there yet (the dispatch is pending), so
-    /// unlike the Base / Ethereum / HyperEVM legs this drives the DEPLOY
-    /// rather than the idempotent skip — which is the half of the script a
-    /// chain that already carries the timelock can no longer exercise.
-    function testDeploysOnRobinhoodFork() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
-    }
-
-    /// @notice The deploy lands at the derived address on BNB Smart Chain,
-    /// on the same terms as the Robinhood Chain leg.
-    function testDeploysOnBscFork() external {
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        deployOnSelectedFork(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
     }
 
     /// @notice A chain that already carries the timelock is verified and

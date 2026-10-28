@@ -7,7 +7,7 @@ import {
   Entity,
   Bytes,
   Address,
-  BigInt,
+  BigInt
 } from "@graphprotocol/graph-ts";
 
 export class Deployment extends ethereum.Event {
@@ -40,7 +40,7 @@ export class ST0xOrchestratorBeaconSetDeployer extends ethereum.SmartContract {
   static bind(address: Address): ST0xOrchestratorBeaconSetDeployer {
     return new ST0xOrchestratorBeaconSetDeployer(
       "ST0xOrchestratorBeaconSetDeployer",
-      address,
+      address
     );
   }
 }

@@ -14,30 +14,31 @@ import {IERC1155Receiver} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 import {SignatureChecker} from "@openzeppelin-contracts-5.7.0/utils/cryptography/SignatureChecker.sol";
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.7/src/interface/IReceiptV3.sol";
-import {ReceiptVault} from "rain-vats-0.2.7/src/abstract/ReceiptVault.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.12/src/abstract/OffchainAssetReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.12/src/interface/IReceiptV3.sol";
+import {ReceiptVault} from "rain-vats-0.2.12/src/abstract/ReceiptVault.sol";
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
-import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.2/src/lib/LibLeakyBucket.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
+import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
 import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV4,
     EvaluableV4,
     SignedContextV1
-} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
 import {
     EvalV4,
     SourceIndexV2,
     StackItem,
     StateNamespace,
     DEFAULT_STATE_NAMESPACE
-} from "rainlang-interface-0.2.13/src/interface/IInterpreterV4.sol";
-import {LibNamespace} from "rainlang-interface-0.2.13/src/lib/ns/LibNamespace.sol";
+} from "rainlang-interface-0.2.15/src/interface/IInterpreterV4.sol";
+import {LibNamespace} from "rainlang-interface-0.2.15/src/lib/ns/LibNamespace.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
-import {IST0xVaultBeaconSet} from "../interface/IST0xVaultBeaconSet.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibTimelockInvariants} from "../lib/LibTimelockInvariants.sol";
@@ -97,10 +98,14 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// parameter and never part of the recipient's authorisation. `to ==
 /// msg.sender` reverts `SenderIsRecipient`, with no override.
 ///
-/// **Vault-logic version lock.** `initialize`, `mint` and `burn` revert
-/// unless the production vault + receipt beacons point at the implementations
-/// in `LibProdDeployCurrent`. If the vault is upgraded, the orchestrator halts
-/// until its own implementation is upgraded.
+/// **Vault-logic version lock.** So much of the burn/mint logic depends on
+/// the exact behaviour of the current receipt-vault implementation that
+/// `mint`/`burn` refuse to run unless the token and its receipt are registry
+/// beacon proxies whose own beacons serve the implementations this
+/// orchestrator was built against (`LibProdDeployCurrent`). If the vault is
+/// upgraded, the orchestrator halts until its own implementation is upgraded
+/// in lockstep. This mirrors the vault baking the corporate-actions facet
+/// address into its own bytecode.
 ///
 /// **Burn walk.** `burn` walks a per-token `nextBurnReceiptId` pointer over
 /// the orchestrator's own rebased receipt balances. Burning more than the
@@ -227,9 +232,8 @@ contract ST0xOrchestrator is
     /// timelock `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and
     /// `EMERGENCY_ADMIN_ROLE`, then delegates each operating role to its own
     /// admin. `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are granted
-    /// separately. Reverts unless the vault-logic version lock passes, and
-    /// reverts `UnsupportedChainForGovernanceTimelock` on a chain with no
-    /// pinned timelock.
+    /// separately. Reverts `UnsupportedChainForGovernanceTimelock` on a chain
+    /// with no pinned timelock.
     ///
     /// @dev The timelock is looked up rather than taken as an argument, so a
     /// caller of the permissionless beacon-set deployer cannot seat an admin
@@ -238,8 +242,6 @@ contract ST0xOrchestrator is
     /// every chain.
     function initialize() external initializer {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-
-        _checkVaultLogic();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, timelock);
@@ -271,37 +273,40 @@ contract ST0xOrchestrator is
     //                       Vault-logic version lock                     //
     // ------------------------------------------------------------------ //
 
-    /// @dev Revert unless the shared production vault + receipt beacons point
-    /// at the implementations pinned in `LibProdDeployCurrent`. Every
-    /// production token is a `BeaconProxy` of these two beacons. The check is
-    /// of the shared beacons, not the `token` argument: a `token` that is not
-    /// a proxy of the shared set is not covered by the lock, and has not
-    /// granted the orchestrator `DEPOSIT`/`WITHDRAW`, so mint/burn on it
-    /// revert at the vault authoriser.
-    modifier onlyExpectedVaultLogic() {
-        _checkVaultLogic();
+    modifier onlyExpectedVaultLogic(address token) {
+        _checkVaultLogic(token);
         _;
     }
 
-    function _checkVaultLogic() internal view {
-        IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-        address vaultImpl = beaconSet.iOffchainAssetReceiptVaultBeacon().implementation();
+    /// The implementation served by the beacon in `proxy`'s registry beacon
+    /// proxy bytecode, or false when `proxy` has other code.
+    function _beaconImplementation(address proxy) internal view returns (bool, address) {
+        (bool isProxy, address beacon) = LibExtrospectRegistryBeaconProxy.isRegistryBeaconProxy(proxy.code);
+        return (isProxy, isProxy ? IBeacon(beacon).implementation() : address(0));
+    }
+
+    function _checkVaultLogic(address token) internal view {
+        (bool isProxy, address vaultImpl) = _beaconImplementation(token);
+        if (!isProxy) revert NotRegistryBeaconProxy(token);
         if (vaultImpl != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
             revert VaultLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT_VAULT, vaultImpl);
         }
-        address receiptImpl = beaconSet.iReceiptBeacon().implementation();
+        address receipt = address(ReceiptVault(payable(token)).receipt());
+        address receiptImpl;
+        (isProxy, receiptImpl) = _beaconImplementation(receipt);
+        if (!isProxy) revert NotRegistryBeaconProxy(receipt);
         if (receiptImpl != LibProdDeployCurrent.STOX_RECEIPT) {
             revert ReceiptLogicMismatch(LibProdDeployCurrent.STOX_RECEIPT, receiptImpl);
         }
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function vaultLogicIsExpected() external view returns (bool) {
-        IST0xVaultBeaconSet beaconSet =
-            IST0xVaultBeaconSet(LibProdDeployCurrent.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-        return beaconSet.iOffchainAssetReceiptVaultBeacon().implementation() == LibProdDeployCurrent.STOX_RECEIPT_VAULT
-            && beaconSet.iReceiptBeacon().implementation() == LibProdDeployCurrent.STOX_RECEIPT;
+    function vaultLogicIsExpected(address token) external view returns (bool) {
+        // A non-proxy yields address(0), which is never an expected implementation.
+        (, address impl) = _beaconImplementation(token);
+        if (impl != LibProdDeployCurrent.STOX_RECEIPT_VAULT) return false;
+        (, impl) = _beaconImplementation(address(ReceiptVault(payable(token)).receipt()));
+        return impl == LibProdDeployCurrent.STOX_RECEIPT;
     }
 
     // ------------------------------------------------------------------ //
@@ -320,7 +325,7 @@ contract ST0xOrchestrator is
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation,
         SignedContextV1[] calldata attestations
-    ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic nonReentrant {
+    ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic(token) nonReentrant {
         if (amount == 0) revert ZeroAmount();
         // The sender and the recipient can never be the same.
         if (to == msg.sender) revert SenderIsRecipient(msg.sender);
@@ -493,7 +498,7 @@ contract ST0xOrchestrator is
     function burn(address token, uint256 amount, bytes calldata burnInfo)
         external
         onlyRole(BURN_ROLE)
-        onlyExpectedVaultLogic
+        onlyExpectedVaultLogic(token)
         nonReentrant
     {
         if (amount == 0) revert ZeroAmount();
@@ -549,7 +554,7 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @inheritdoc IST0xOrchestratorV2
-    /// @dev O(gap) hazard, both directions: set too low and the next `burn`
+    /// @dev O(gap) hazard, both directions: set too LOW and the next `burn`
     /// pays one external rebased `balanceOf` per id to cross the gap in a
     /// single tx; set too high and held receipts behind the pointer are
     /// stranded, so burns revert `InsufficientReceipts` once the receipts
@@ -614,8 +619,9 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    /// @dev The receiver hooks accept all senders, so this is the recovery
-    /// path for a foreign ERC-1155 that lands here.
+    /// @dev The receiver hooks accept all senders (a singleton cannot cheaply
+    /// identify every legitimate receipt token up front), so this is the
+    /// recovery path for a foreign ERC-1155 that lands here.
     function sweepERC1155(address erc1155, uint256 id, uint256 amount, address to)
         external
         onlyRole(EMERGENCY_ROLE)

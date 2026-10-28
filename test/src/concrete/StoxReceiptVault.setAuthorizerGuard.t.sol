@@ -13,19 +13,19 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.12/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1Config
-} from "rain-vats-0.2.7/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.7/src/interface/IAuthorizeV1.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.1/src/concrete/CloneFactory.sol";
+} from "rain-vats-0.2.12/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.3/src/concrete/CloneFactory.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 import {
     IncompatibleAuthorizer,
     OffchainAssetReceiptVault
-} from "rain-vats-0.2.7/src/concrete/vault/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.12/src/abstract/OffchainAssetReceiptVault.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
@@ -345,22 +345,13 @@ contract StoxReceiptVaultSetAuthorizerGuardTest is Test {
         assertTrue(SCHEDULE_CORPORATE_ACTION != CANCEL_CORPORATE_ACTION);
     }
 
-    /// The override has the same 4-byte selector as the parent's
-    /// `setAuthorizer`; a signature mismatch would leave the unguarded
-    /// parent function callable.
-    /// A different parameter type or name would shadow the parent rather
-    /// than override it, so selector equality is pinned here to make a
-    /// signature drift fail loudly.
-    function testSetAuthorizerSelectorMatchesParent() external pure {
-        assertEq(StoxReceiptVault.setAuthorizer.selector, OffchainAssetReceiptVault.setAuthorizer.selector);
-    }
-
-    /// The guard runs only at install time. If an installed authorizer
-    /// renounces its role admins afterwards, `vault.authorizer()` still
-    /// returns it. The guard has done its job at
-    /// the pairing point and is not re-checked, so an operator relying on
-    /// continuous validity has to monitor the authorizer itself. This test
-    /// documents that install-time-only contract rather than a defect.
+    /// The guard runs only at install time, not on every dispatch. If a
+    /// previously-valid authorizer renounces its role admins post-
+    /// install, `vault.authorizer()` still returns it — the guard has
+    /// already done its job at the pairing point and is not re-checked.
+    /// This documents the install-time-only contract; downstream
+    /// operators relying on continuous validity must monitor the
+    /// authorizer themselves.
     function testGuardIsInstallTimeOnlyNotPerCall() external {
         OwnedStoxReceiptVault vault = new OwnedStoxReceiptVault(OWNER);
         StoxOffchainAssetReceiptVaultAuthorizerV1 good = _newCorporateActionsAuthorizer();

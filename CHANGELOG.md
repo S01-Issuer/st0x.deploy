@@ -1,5 +1,23 @@
 # Changelog
 
+## Registry-config tokens (rain.vats 0.2.9)
+
+### StoxReceiptVault
+
+- **Built on rain.vats 0.2.9's abstract `OffchainAssetReceiptVault`.** It
+  initializes from the ConfigRegistry and makes its receipt as a V6 registry
+  beacon proxy, so a token has the same address on every chain. The beacon-set
+  deployers are removed; tokens are V6 `registryBeaconProxy`s.
+- **`optimizer_runs` lowered 1666 → 200 to fit EIP-170.** At 200 runs the
+  runtime is 24,418 bytes (158 spare). As with every optimizer change, this
+  moves every candidate Zoltu address; the candidate pins are regenerated.
+
+### StoxReceipt
+
+- **`uri` names "the underlying off-chain asset".** The vault's `asset()` is
+  `address(0)`, so the inherited symbol read reverted, and with it `uri`, which
+  the vault checks at `initialize`.
+
 ## V4 (rain.vats 0.1.6)
 
 ### StoxReceiptVault
@@ -92,17 +110,6 @@
     `manual-broadcast.yaml` compiles with rain-deploy's settings via
     `script/timelock-verify.sh`, whose `check` (CI: `timelock-verify-check`)
     proves that compile reproduces the pinned creation and runtime code.
-
-- **`optimizer_runs` lowered 1666 → 200 to fit the mint-capped
-  `ST0xOrchestrator` under EIP-170.** The mint caps and mint weighting grow the
-  orchestrator to 26,420 at 1666 runs (over by 1,844). Measured: `runs=1000` →
-  26,375; `runs=700` → 24,762; `runs=600` → 24,741; `runs=550` → 24,565 (11
-  spare); `runs=400` → 24,026; `runs=200` → 23,486 (**1,090 spare**); `runs=1` →
-  23,036. `StoxReceiptVault` is 21,813 at 200.
-
-  As with the earlier lowerings, every `src/generated/candidate/` pin moves and
-  the vault, facet and receipt deploy in lockstep; the frozen `0_1_1` and
-  `0_1_30` snapshots are untouched.
 
 ### Deploy scripts
 

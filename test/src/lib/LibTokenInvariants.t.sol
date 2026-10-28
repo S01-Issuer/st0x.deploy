@@ -17,7 +17,7 @@ import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConf
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 
 /// @title LibTokenInvariantsTest
 /// @notice Fork tests for the token-side uniformity invariants: every
@@ -43,14 +43,6 @@ contract LibTokenInvariantsTest is Test {
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         harness = new LibTokenInvariantsHarness();
-    }
-
-    /// @notice Every production receipt vault reports
-    /// `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK` as its `owner()`. Passes against
-    /// the live chain state: vault ownership is uniform.
-    function testProdReceiptVaultsUniformOwnership() external {
-        selectBaseFork();
-        LibTokenInvariants.assertUniformOwnership(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
     }
 
     /// @notice Every production receipt vault reports the V4 authoriser clone

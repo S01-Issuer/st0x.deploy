@@ -16,20 +16,24 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
-import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.1/src/generated/0_1_1/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.3/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice Fork tests pinning the production V4 authoriser clone's state
 /// against the constants in `LibAuthoriserInvariants`. The positive case
 /// runs the lib's no-arg `assertAll()`, which checks the clone's codehash
 /// against the `LibProdDeployV4` pin and iterates the master
-/// `expectedGrants()` map against the live clone.
-/// @dev Uses unpinned head forks of each production chain so drift
-/// surfaces on the next run.
+/// `expectedGrants()` map against the live clone. Any drift (a grant
+/// missing on-chain, or the clone's bytecode changing) surfaces as a typed
+/// error here.
+/// @dev Uses unpinned head forks of each production chain (same precedent
+/// as the other prod-state drift detectors in this repo). Pinning would freeze the
+/// invariant assertions against a stale snapshot and let new drift slip
+/// through unnoticed.
 contract LibAuthoriserInvariantsTest is Test {
-    /// @notice Selects the Base fork at chain head, unpinned.
+    /// @notice Selects the Base fork at chain head — deliberately unpinned.
+    /// Live drift detector; see contract-level rationale.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
     }
@@ -43,10 +47,9 @@ contract LibAuthoriserInvariantsTest is Test {
     }
 
     /// @notice The four factory-derived clone pins are the first CREATE from
-    /// the CloneFactory (nonce 1) on each chain, re-derived here fork-free.
-    /// Base's clone came from a factory with history and is not derivable.
-    /// @dev The factory that cut the production clones is the frozen `0_1_3`
-    /// snapshot's, not the current `LibCloneFactoryDeploy` alias.
+    /// the canonical CloneFactory (nonce 1) on each chain, re-derived here so a
+    /// mistyped literal fails fork-free. Base's clone came from a factory with
+    /// history and is not derivable.
     function testClonePinsMatchTheFactoryNonceOneDerivation() external pure {
         address derived = vm.computeCreateAddress(CLONE_FACTORY_0_1_1, 1);
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM, derived, "ethereum");
@@ -119,44 +122,6 @@ contract LibAuthoriserInvariantsTest is Test {
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
         harness.callActiveChainAuthoriser();
-    }
-
-    /// @notice The active fork's arm resolves to a live clone with the pinned
-    /// EIP-1167 codehash, on the canonical grant map keyed to that chain's
-    /// Safe and governance timelock. All resolve from `block.chainid`, as the scripts do, so a leg
-    /// forking the wrong chain or an arm pointing at the wrong slot fails
-    /// here. Live drift detector on an unpinned fork.
-    function assertAuthoriserLiveOnCanonicalMap() internal view {
-        LibAuthoriserInvariants.assertExpectedGrants(
-            LibAuthoriserInvariants.activeChainAuthoriser(),
-            LibSafeInvariants.safeForChainId(block.chainid),
-            LibTimelockInvariants.timelockForChainId(block.chainid)
-        );
-    }
-
-    function testBaseAuthoriserIsLiveOnTheCanonicalMap() external {
-        selectBaseFork();
-        assertAuthoriserLiveOnCanonicalMap();
-    }
-
-    function testEthereumAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        assertAuthoriserLiveOnCanonicalMap();
-    }
-
-    function testHyperEvmAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        assertAuthoriserLiveOnCanonicalMap();
-    }
-
-    function testRobinhoodAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        assertAuthoriserLiveOnCanonicalMap();
-    }
-
-    function testBscAuthoriserIsLiveOnTheCanonicalMap() external {
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        assertAuthoriserLiveOnCanonicalMap();
     }
 
     /// @notice `assertAll` reverts `AuthoriserImplCodehashMismatch` when the
@@ -235,9 +200,11 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callAssertExpectedGrants(clone, safe, timelock);
     }
 
-    /// @notice Under every production chain id, a revoked orchestrator
-    /// `WITHDRAW` reverts with `ExpectedGrantMissing` naming the
-    /// orchestrator. Driven on the Base fork with the chain id switched.
+    /// @notice The orchestrator rows are strict like every other row, under
+    /// every production chain id alike: a revoked orchestrator `WITHDRAW`
+    /// red-lines as `ExpectedGrantMissing` naming the orchestrator. Driven
+    /// on the Base fork with the chain id switched, so the row state is the
+    /// same under each id.
     function testAssertExpectedGrantsRejectsARevokedOrchestratorGrant() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;

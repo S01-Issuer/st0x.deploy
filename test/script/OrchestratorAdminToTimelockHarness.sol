@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
 
 import {OrchestratorAdminToTimelock} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 
@@ -26,6 +26,10 @@ contract OrchestratorAdminToTimelockHarness is OrchestratorAdminToTimelock {
 
     function callPreflight() external view {
         preflight();
+    }
+
+    function callAssertPostState() external view {
+        assertPostState();
     }
 
     function callAuthorBundle() external view returns (SafeTx[] memory) {

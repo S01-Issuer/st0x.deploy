@@ -7,10 +7,10 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
-import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
 
 /// @title GuardHaltsAfterVaultBeaconUpgradeTest
 /// @notice Workflow: upgrading the OARV vault beacon to a different
@@ -19,11 +19,9 @@ import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpre
 /// revert `VaultLogicMismatch`.
 contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
     function testGuardHaltsAfterVaultBeaconUpgrade() external {
-        assertTrue(orchestrator.vaultLogicIsExpected(), "guard passes before the upgrade");
+        assertTrue(orchestrator.vaultLogicIsExpected(address(vault)), "guard passes before the upgrade");
 
-        IBeacon vaultBeacon = IST0xVaultBeaconSet(
-                LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE
-            ).iOffchainAssetReceiptVaultBeacon();
+        IBeacon vaultBeacon = IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1);
 
         // A fresh, valid impl address (any contract with code works as an
         // UpgradeableBeacon target) that is NOT the pinned V4 vault impl.
@@ -31,7 +29,7 @@ contract GuardHaltsAfterVaultBeaconUpgradeTest is OrchestratorIntegrationTest {
         vm.prank(BEACON_OWNER);
         UpgradeableBeacon(address(vaultBeacon)).upgradeTo(newImpl);
 
-        assertFalse(orchestrator.vaultLogicIsExpected(), "guard halts after the vault beacon upgrade");
+        assertFalse(orchestrator.vaultLogicIsExpected(address(vault)), "guard halts after the vault beacon upgrade");
 
         (address eoa, uint256 pk) = makeAddrAndKey("halt-recipient");
         _allowRecipient(eoa);

@@ -19,9 +19,10 @@ import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariantsHarness} from "./LibBeaconInvariantsHarness.sol";
-import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 
 /// The frozen 0.1.30 orchestrator beacon-set deployer's beacon getter.
 interface IOrchestratorBeaconSet0_1_30 {
@@ -237,6 +238,15 @@ contract LibBeaconInvariantsTest is Test {
     /// @notice `UPGRADEABLE_BEACON_CODEHASH_0_1_30` is the runtime of the beacon
     /// the frozen 0.1.30 orchestrator beacon-set deployer builds, re-derived
     /// from its creation code rather than transcribed.
+    /// @dev The defect this exists to stop: the V1 pin was documented as "a
+    /// property of the OZ bytecode rather than of any one deployment
+    /// generation" and reused for the orchestrator beacon, which OZ 5.6.1 at
+    /// `optimizer_runs = 2000` builds 130 bytes shorter. Nothing compared the
+    /// two, so `MigrateOrchestratorBeaconOwner.run()` reverted
+    /// `BeaconCodehashMismatch` in pre-flight on every chain while the suite
+    /// stayed green. Deriving it from the frozen deployer keeps it tied to
+    /// the live beacon's bytecode, which no later OZ bump or optimizer change
+    /// moves.
     function testOrchestratorBeaconCodehashPin() external {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_30);

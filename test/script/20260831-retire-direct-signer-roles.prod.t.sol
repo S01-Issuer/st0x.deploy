@@ -5,14 +5,15 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 
 import {
     OrchestratorPathNotEnabled,
     SafeMissingRoleAdminForRetire
 } from "../../script/20260831-retire-direct-signer-roles.s.sol";
 import {RetireDirectSignerRolesHarness} from "./RetireDirectSignerRolesHarness.sol";
-import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
+import {LibOrchestratorInvariants, OrchestratorVaultLogicUnexpected} from "../../src/lib/LibOrchestratorInvariants.sol";
+import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -20,7 +21,8 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title RetireDirectSignerRolesProdTest
 /// @notice PROD coverage for the direct-role retirement: what production IS
-/// on each chain, read from a real fork with no mocks.
+/// on each chain, read from a real fork with no mocks; then the orchestrator
+/// instance invariant tripped on a Base fork.
 ///
 /// The authoriser's `_ADMIN` roles are on the governance timelock, so the
 /// Safe can no longer author the revokes this script bundles: until the
@@ -127,5 +129,27 @@ contract RetireDirectSignerRolesProdTest is Test {
     function testRetireRolloutBsc() external {
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
         assertRetireRollout("bsc", LibSafeInvariants.BSC_CHAIN_ID);
+    }
+
+    /// @notice `run()` refuses an orchestrator instance whose vault-logic
+    /// lock fails, before the burn-in gate.
+    function testRunRefusesOrchestratorInstanceOffInvariant() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness();
+        address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
+        vm.mockCall(orchestrator, abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(false));
+        vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, orchestrator));
+        script.run();
+    }
+
+    /// @notice `verify()` refuses an orchestrator instance whose vault-logic
+    /// lock fails, before it reads the artifact.
+    function testVerifyRefusesOrchestratorInstanceOffInvariant() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        RetireDirectSignerRolesHarness script = new RetireDirectSignerRolesHarness();
+        address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
+        vm.mockCall(orchestrator, abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(false));
+        vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, orchestrator));
+        script.verify("missing-artifact.json");
     }
 }

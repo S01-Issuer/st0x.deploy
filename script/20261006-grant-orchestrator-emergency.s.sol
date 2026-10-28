@@ -5,16 +5,17 @@ pragma solidity =0.8.25;
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.21/src/abstract/SafeBundleScript.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.25/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.25/src/lib/LibSafeFork.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
+import {migrateGovernanceToTimelockDeclaration} from "./20260729-migrate-governance-to-timelock.s.sol";
 
 /// @notice The Safe's line in the migration registry is not where this
 /// script applies: it has recorded something, so either this bundle has
@@ -43,6 +44,21 @@ error LineHeadMismatch(bytes32 head);
 /// holds `EMERGENCY_ROLE`.
 error EmergencyNotRevoked();
 
+/// @notice After the bundle, the Safe does not hold `EMERGENCY_ROLE`.
+error EmergencyNotGranted();
+
+/// @notice This script's declaration: the Safe's record after the
+/// governance-timelock move.
+/// @return The declaration.
+function grantOrchestratorEmergencyDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+        LibStoxMigrations.GOVERNANCE_TIMELOCK,
+        false
+    );
+}
+
 /// @title GrantOrchestratorEmergency
 /// @notice Authors the per-chain Safe Tx Builder bundle that grants the
 /// chain's token-owner Safe `EMERGENCY_ROLE` on the orchestrator, and starts
@@ -64,9 +80,6 @@ error EmergencyNotRevoked();
 /// holds, so the grant is immediate. The admin move to the timelock is
 /// `20261006-orchestrator-admin-to-timelock`, which waits on this record.
 ///
-/// `LibOrchestratorInvariants.assertInstance` reads the record: once it is
-/// recorded, the Safe must hold `EMERGENCY_ROLE`.
-///
 /// `run()` and `verify()` are `SafeBundleScript`'s: `run()` executes the
 /// bundle through the Safe on the fork, requires the post-state, proves the
 /// Safe can revoke the role again under its live threshold and writes the
@@ -76,7 +89,12 @@ error EmergencyNotRevoked();
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-grant-orchestrator-emergency` per chain. Refuses once
 /// the Safe's line has moved off genesis (`UnexpectedMigrationLine`).
-contract GrantOrchestratorEmergency is SafeBundleScript {
+contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
+    /// @inheritdoc IStoxScript
+    function declaration() external pure returns (ScriptDeclaration memory) {
+        return grantOrchestratorEmergencyDeclaration();
+    }
+
     /// @notice The orchestrator instance, typed for its role-id getters.
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
@@ -109,13 +127,13 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
         LibOrchestratorInvariants.assertBeaconSet();
 
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != MIGRATION_HEAD_GENESIS) {
+        if (head != migrateGovernanceToTimelockDeclaration().prerequisites[0].migration) {
             revert UnexpectedMigrationLine(head);
         }
         if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
             revert EmergencyAlreadyGranted();
         }
-        LibOrchestratorInvariants.assertInstance(chainSafe);
+        LibOrchestratorInvariants.assertInstance();
     }
 
     /// @inheritdoc SafeBundleScript
@@ -131,26 +149,19 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
             data: abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)),
             operation: Enum.Operation.Call
         });
-        (address historyTo, bytes memory historyData) = LibStoxMigrations.applyMigrationHistoryCall(
-            chainSafe,
-            LibStoxMigrations.GOVERNANCE_TIMELOCK,
-            executedAt,
-            LibStoxMigrations.onto(chainSafe, MIGRATION_HEAD_GENESIS)
-        );
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        (address historyTo, bytes memory historyData) =
+            LibStoxMigrations.historyCall(migrateGovernanceToTimelockDeclaration(), executedAt, chainSafe, timelock);
         txs[1] = SafeTx({to: historyTo, value: 0, data: historyData, operation: Enum.Operation.Call});
-        (address recordTo, bytes memory recordData) = LibStoxMigrations.applyMigrationCall(
-            chainSafe,
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-            LibStoxMigrations.onto(chainSafe, LibStoxMigrations.GOVERNANCE_TIMELOCK)
-        );
+        (address recordTo, bytes memory recordData) =
+            LibStoxMigrations.recordCall(grantOrchestratorEmergencyDeclaration(), chainSafe, timelock);
         txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The records are exactly the two this bundle writes, the
-    /// orchestrator's roles are what they imply, and the Safe still carries the
-    /// token-owner policy.
+    /// @dev The records are exactly the two this bundle writes, the Safe holds
+    /// `EMERGENCY_ROLE`, and the Safe still carries the token-owner policy.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
@@ -167,20 +178,19 @@ contract GrantOrchestratorEmergency is SafeBundleScript {
             revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, block.timestamp, emergencyRecord);
         }
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
+        if (head != grantOrchestratorEmergencyDeclaration().id) {
             revert LineHeadMismatch(head);
         }
-        LibOrchestratorInvariants.assertInstance(chainSafe);
+        if (!ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
+            revert EmergencyNotGranted();
+        }
+        LibOrchestratorInvariants.assertInstance();
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The Safe can still revoke the role under the live threshold. The
-    /// registry record is permanent, so a real revoke must ship with its own
-    /// recorded migration (and a matching branch in
-    /// `LibOrchestratorInvariants.assertInstance`), or every later
-    /// `assertInstance` caller reverts. Re-grants so the fork ends in the
-    /// post-bundle state.
+    /// @dev The Safe can still revoke the role under the live threshold.
+    /// Re-grants so the fork ends in the post-bundle state.
     function assertReversible() internal override {
         Safe chainSafe = safe();
         bytes32 emergencyRole = ORCHESTRATOR.EMERGENCY_ROLE();
