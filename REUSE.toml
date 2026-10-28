@@ -16,6 +16,7 @@ path = [
   "docs/**/",
   "flake.lock",
   ".prettierignore",
+  "deno.json",
   "flake.nix",
   "foundry.toml",
   "privileged-addresses.json",
