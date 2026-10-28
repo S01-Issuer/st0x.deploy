@@ -9,14 +9,15 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {ReceiptVault} from "rain-vats-0.2.12/src/abstract/ReceiptVault.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
+import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {LibSafeInvariants} from "src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "src/lib/LibTimelockInvariants.sol";
 import {MintAuthV1} from "src/interface/IST0xOrchestratorV2.sol";
-import {IST0xVaultBeaconSet} from "src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
+import {LibTestRegistryBeaconProxy} from "test/lib/LibTestRegistryBeaconProxy.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 import {MockMintRecipient} from "test/src/concrete/MockMintRecipient.sol";
 
@@ -40,9 +41,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     /// `setUp` runs on Base's chain id.
     address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
-    /// The vault-version guard reads these fixed production addresses.
-    address internal constant DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
+    /// The beacons the token and its receipt are registry beacon proxies over.
     address internal constant VAULT_BEACON = address(0xBEAC04);
     address internal constant RECEIPT_BEACON = address(0xBEAC12);
 
@@ -92,9 +91,12 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     //                              Helpers                               //
     // ------------------------------------------------------------------ //
 
-    /// Mock `token` as a vault whose ERC20 `symbol()` is `symbol_`, with
+    /// Etch `token` and its receipt as registry beacon proxies and mock
+    /// `token` as a vault whose ERC20 `symbol()` is `symbol_`, with
     /// `TOKEN_DECIMALS` decimals, a receipt, and transfers that succeed.
     function _mockToken(address token, string memory symbol_) internal {
+        LibTestRegistryBeaconProxy.etch(vm, token, VAULT_BEACON);
+        LibTestRegistryBeaconProxy.etch(vm, RECEIPT_ADDR, RECEIPT_BEACON);
         vm.mockCall(token, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(RECEIPT_ADDR));
         vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(symbol_));
         vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(TOKEN_DECIMALS));
@@ -103,14 +105,6 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
 
     /// Make the vault-logic version guard pass.
     function _makeGuardPass() internal {
-        vm.mockCall(
-            DEPLOYER,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
-        );
-        vm.mockCall(
-            DEPLOYER, abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector), abi.encode(RECEIPT_BEACON)
-        );
         vm.mockCall(
             VAULT_BEACON,
             abi.encodeWithSelector(IBeacon.implementation.selector),
@@ -148,7 +142,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     /// `rainlang`, complete with its own pragma, parsed by the test deployer
     /// and bound to the test interpreter and store.
     function _evaluable(string memory rainlang) internal view returns (EvaluableV4 memory) {
-        return EvaluableV4({interpreter: I_INTERPRETER, store: I_STORE, bytecode: I_DEPLOYER.parse2(bytes(rainlang))});
+        return EvaluableV4({interpreter: I_INTERPRETER, store: I_STORE, bytecode: I_COMPILER.parse2(bytes(rainlang))});
     }
 
     /// Install `rainlang` as the weighting, as OWNER. Parsed before the

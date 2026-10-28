@@ -16,20 +16,12 @@ import {
     LibTimelockInvariants,
     UnsupportedChainForGovernanceTimelock
 } from "../../../../src/lib/LibTimelockInvariants.sol";
-import {IST0xVaultBeaconSet} from "../../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {IST0xOrchestratorBeaconSetDeployerV2} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV2.sol";
 
 contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     // ERC-1967 beacon slot.
     bytes32 internal constant BEACON_SLOT = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
-
-    /// The orchestrator's vault-logic version guard (run by `initialize`,
-    /// i.e. inside `deploy`) reads these fixed production addresses.
-    address internal constant GUARD_DEPLOYER =
-        LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CANDIDATE;
-    address internal constant VAULT_BEACON = address(0xBEAC04);
-    address internal constant RECEIPT_BEACON = address(0xBEAC12);
 
     ST0xOrchestrator internal impl;
 
@@ -40,38 +32,9 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         // the freshly-built orchestrator runtime there — the beacon requires
         // code at that address, and `deploy` delegatecalls it via the proxy.
         vm.etch(LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, address(impl).code);
-        // `deploy` initialises the proxy, which runs the orchestrator's
-        // vault-logic version guard — install passing mocks up front.
-        _makeGuardPass();
         // `initialize` seats the chain's timelock, so the default test chain
         // id (which has none) would revert every deploy.
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
-    }
-
-    /// Make the orchestrator's vault-logic version guard PASS: the production
-    /// deployer resolves each beacon and each beacon reports the expected
-    /// implementation.
-    function _makeGuardPass() internal {
-        vm.mockCall(
-            GUARD_DEPLOYER,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
-            abi.encode(VAULT_BEACON)
-        );
-        vm.mockCall(
-            GUARD_DEPLOYER,
-            abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector),
-            abi.encode(RECEIPT_BEACON)
-        );
-        vm.mockCall(
-            VAULT_BEACON,
-            abi.encodeWithSelector(IBeacon.implementation.selector),
-            abi.encode(LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE)
-        );
-        vm.mockCall(
-            RECEIPT_BEACON,
-            abi.encodeWithSelector(IBeacon.implementation.selector),
-            abi.encode(LibProdDeployV4.STOX_RECEIPT_CANDIDATE)
-        );
     }
 
     function _deployer() internal returns (ST0xOrchestratorBeaconSetDeployer) {

@@ -24,5 +24,5 @@ rain-tofu-erc20-decimals-deploy-0.1.4/=dependencies/rain-tofu-erc20-decimals-dep
 rain-vats-0.2.12/=dependencies/rain-vats-0.2.12/
 rain-verify-interface-0.1.0/=dependencies/rain-verify-interface-0.1.0/
 rainlang-0.2.30/=dependencies/rainlang-0.2.30/
-rainlang-interface-0.2.15/=dependencies/rainlang-interface-0.2.15/
+rainlang-interface-0.2.13/=dependencies/rainlang-interface-0.2.13/
 safe-global-safe-smart-account-1.4.1-3/=dependencies/safe-global-safe-smart-account-1.4.1-3/

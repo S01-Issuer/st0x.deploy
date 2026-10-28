@@ -3,7 +3,8 @@
 pragma solidity ^0.8.25;
 
 import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4, SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
+import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 import {Digest, MintAuthV1} from "./deprecated/IST0xOrchestratorV1.sol";
 

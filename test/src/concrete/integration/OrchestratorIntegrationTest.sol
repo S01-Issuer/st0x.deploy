@@ -19,7 +19,7 @@ import {
 } from "rain-vats-0.2.12/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.2.12/src/abstract/ReceiptVault.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
-import {EvaluableV4} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
+import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
@@ -173,7 +173,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         return EvaluableV4({
             interpreter: I_INTERPRETER,
             store: I_STORE,
-            bytecode: I_DEPLOYER.parse2(bytes(string.concat(usingWords(), rainlang)))
+            bytecode: I_COMPILER.parse2(bytes(string.concat(usingWords(), rainlang)))
         });
     }
 

@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 
 import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 /// @title ReceiptTransferInLowersPointerTest
 /// @notice Workflow (ops bootstrap): receipts exist at low ids held OUTSIDE

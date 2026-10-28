@@ -102,9 +102,9 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
     /// The largest `N` the grid can address parses.
     function testOperandAtGridEdge() external view {
         uint256 lastSignerN = type(uint8).max - CONTEXT_SIGNERS_ROW_ATTESTOR_0;
-        I_DEPLOYER.parse2(bytes(string.concat(usingWords(), "_: attestor<", lastSignerN.toString(), ">();")));
+        I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: attestor<", lastSignerN.toString(), ">();")));
 
         uint256 lastColumnN = type(uint8).max - CONTEXT_ATTESTOR_0_COLUMN;
-        I_DEPLOYER.parse2(bytes(string.concat(usingWords(), "_: attested-price<", lastColumnN.toString(), ">();")));
+        I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: attested-price<", lastColumnN.toString(), ">();")));
     }
 }

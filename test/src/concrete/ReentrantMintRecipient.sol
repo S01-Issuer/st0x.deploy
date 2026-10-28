@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {IST0xOrchestratorV2, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 /// @dev Malicious callback recipient: on the first `authorizeMint` it
 /// reenters `orchestrator.mint` for itself with a fresh nonce (empty

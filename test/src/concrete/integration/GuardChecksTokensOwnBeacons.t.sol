@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.12/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
@@ -56,7 +57,7 @@ contract GuardChecksTokensOwnBeaconsTest is OrchestratorIntegrationTest {
             vm.expectRevert(err);
         }
         vm.prank(MM);
-        orchestrator.mint(token, eoa, 1e18, auth, "");
+        orchestrator.mint(token, eoa, 1e18, auth, "", new SignedContextV1[](0));
     }
 
     /// Upgrading the other token's vault beacon halts only the other token.

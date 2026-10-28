@@ -8,7 +8,7 @@ import {IReceiptV3} from "rain-vats-0.2.12/src/interface/IReceiptV3.sol";
 
 import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 /// @title BurnInfoAuditTrailTest
 /// @notice Workflow: mint, hand the shares back, then burn with a NON-EMPTY

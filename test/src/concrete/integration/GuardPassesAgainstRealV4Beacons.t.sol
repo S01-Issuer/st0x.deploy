@@ -7,7 +7,7 @@ import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.15/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 /// @title GuardPassesAgainstRealV4BeaconsTest
 /// @notice Workflow: the orchestrator's vault-logic guard reads a real
