@@ -6,6 +6,8 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibConfigRegistryDeploy.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistryDeploy.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V4} from "rain-deploy-v4-0.1.26/src/generated/0_1_26/ConfigRegistry.sol";
+import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V4} from "rain-deploy-v4-0.1.26/src/generated/0_1_26/MigrationRegistry.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.3/src/generated/0_2_1/CloneFactory.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
 import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.3/src/lib/LibCloneFactoryDeploy.sol";
@@ -37,7 +39,7 @@ contract BuildSubgraphNetworksTest is Test {
         SupportedNetwork[] memory nets = networks();
         assertEq(vm.parseJsonKeys(json, ".").length, nets.length);
         for (uint256 i = 0; i < nets.length; i++) {
-            assertEq(vm.parseJsonKeys(json, string.concat(".", build.graphNetwork(nets[i]))).length, 12);
+            assertEq(vm.parseJsonKeys(json, string.concat(".", build.graphNetwork(nets[i]))).length, 14);
         }
     }
 
@@ -48,6 +50,8 @@ contract BuildSubgraphNetworksTest is Test {
             string memory n = build.graphNetwork(nets[i]);
             assertEq(at(json, n, "ConfigRegistry"), LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
             assertEq(at(json, n, "MigrationRegistry"), LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+            assertEq(at(json, n, "ConfigRegistryV4"), CONFIG_REGISTRY_V4);
+            assertEq(at(json, n, "MigrationRegistryV4"), MIGRATION_REGISTRY_V4);
             assertEq(at(json, n, "CloneFactoryV5"), CLONE_FACTORY_V5);
             assertEq(at(json, n, "CloneFactoryV6"), CLONE_FACTORY_V6);
         }

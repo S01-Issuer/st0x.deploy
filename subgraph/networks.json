@@ -17,8 +17,8 @@
       "startBlock": 52910632
     },
     "ConfigRegistryV4": {
-      "address": "0xDc3909127e51DCb3aB7d43EeE585Dd351f77C285",
-      "startBlock": 53170801
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
+      "startBlock": 53171253
     },
     "EuAuthorizer": {
       "address": "0xDB9152e46c1D140DB6a6f814461f21c571F3275e",
@@ -33,8 +33,8 @@
       "startBlock": 52911372
     },
     "MigrationRegistryV4": {
-      "address": "0x1A4B89828Eb2dd5f3A353BD98472512f371Ce408",
-      "startBlock": 53170801
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
+      "startBlock": 53171585
     },
     "OrchestratorBeacon": {
       "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -75,8 +75,8 @@
       "startBlock": 128993384
     },
     "ConfigRegistryV4": {
-      "address": "0xDc3909127e51DCb3aB7d43EeE585Dd351f77C285",
-      "startBlock": 130149063
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
+      "startBlock": 130151074
     },
     "EuAuthorizer": {
       "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
@@ -91,8 +91,8 @@
       "startBlock": 128996673
     },
     "MigrationRegistryV4": {
-      "address": "0x1A4B89828Eb2dd5f3A353BD98472512f371Ce408",
-      "startBlock": 130149063
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
+      "startBlock": 130152550
     },
     "OrchestratorBeacon": {
       "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -133,8 +133,8 @@
       "startBlock": 49159867
     },
     "ConfigRegistryV4": {
-      "address": "0xDc3909127e51DCb3aB7d43EeE585Dd351f77C285",
-      "startBlock": 49688792
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
+      "startBlock": 49689780
     },
     "EuAuthorizer": {
       "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
@@ -149,8 +149,8 @@
       "startBlock": 49161392
     },
     "MigrationRegistryV4": {
-      "address": "0x1A4B89828Eb2dd5f3A353BD98472512f371Ce408",
-      "startBlock": 49688792
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
+      "startBlock": 49690451
     },
     "OrchestratorBeacon": {
       "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -191,8 +191,8 @@
       "startBlock": 26243049
     },
     "ConfigRegistryV4": {
-      "address": "0xDc3909127e51DCb3aB7d43EeE585Dd351f77C285",
-      "startBlock": 26286279
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
+      "startBlock": 26286354
     },
     "EuAuthorizer": {
       "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
@@ -207,8 +207,8 @@
       "startBlock": 26243172
     },
     "MigrationRegistryV4": {
-      "address": "0x1A4B89828Eb2dd5f3A353BD98472512f371Ce408",
-      "startBlock": 26286279
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
+      "startBlock": 26286410
     },
     "OrchestratorBeacon": {
       "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -249,8 +249,8 @@
       "startBlock": 94523212
     },
     "ConfigRegistryV4": {
-      "address": "0xDc3909127e51DCb3aB7d43EeE585Dd351f77C285",
-      "startBlock": 99502579
+      "address": "0x2BdB90cd0D51001ef44a4fbE6d720289818F9Dd6",
+      "startBlock": 99511910
     },
     "EuAuthorizer": {
       "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
@@ -265,8 +265,8 @@
       "startBlock": 94537781
     },
     "MigrationRegistryV4": {
-      "address": "0x1A4B89828Eb2dd5f3A353BD98472512f371Ce408",
-      "startBlock": 99502579
+      "address": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591",
+      "startBlock": 99518123
     },
     "OrchestratorBeacon": {
       "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
