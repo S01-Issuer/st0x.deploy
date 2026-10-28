@@ -86,30 +86,61 @@ contract RetireDirectSignerRolesProdTest is Test {
                 script.run();
                 continue;
             }
-            bytes32 id = operationId(script);
+            rollout(script, networks[i]);
+        }
+    }
 
-            if (!timelock().isOperation(id)) {
-                script.run();
-                assertTrue(timelock().isOperationPending(id), networks[i]);
-                assertFalse(timelock().isOperationReady(id), networks[i]);
-                assertEq(
-                    timelock().getTimestamp(id), block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY, networks[i]
-                );
-                assertEq(LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id), 0);
-            }
+    /// @notice Runs the retirement from its batch's live stage to executed:
+    /// schedules it unless the timelock holds it, is refused inside the
+    /// delay, then executes it.
+    /// @param script The harness.
+    /// @param network The fork's name, for messages.
+    function rollout(RetireDirectSignerRolesHarness script, string memory network) internal {
+        bytes32 id = operationId(script);
 
-            if (!timelock().isOperationReady(id)) {
-                vm.expectRevert(abi.encodeWithSelector(RetireInsideDelay.selector, id));
-                script.run();
-                // forge-lint: disable-next-line(block-timestamp)
-                vm.warp(timelock().getTimestamp(id));
-            }
+        if (!timelock().isOperation(id)) {
             script.run();
-            assertTrue(timelock().isOperationDone(id), networks[i]);
-            assertFalse(authoriser().hasRole(keccak256("DEPOSIT"), SIGNER), networks[i]);
-            assertFalse(authoriser().hasRole(keccak256("WITHDRAW"), SIGNER), networks[i]);
-            assertEq(LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id), block.timestamp);
-            assertEq(LibStoxMigrations.head(), retireDirectSignerRolesDeclaration().id);
+            assertTrue(timelock().isOperationPending(id), network);
+            assertFalse(timelock().isOperationReady(id), network);
+            assertEq(timelock().getTimestamp(id), block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY, network);
+            assertEq(LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id), 0);
+        }
+
+        if (!timelock().isOperationReady(id)) {
+            vm.expectRevert(abi.encodeWithSelector(RetireInsideDelay.selector, id));
+            script.run();
+            // forge-lint: disable-next-line(block-timestamp)
+            vm.warp(timelock().getTimestamp(id));
+        }
+        script.run();
+        assertTrue(timelock().isOperationDone(id), network);
+        assertFalse(authoriser().hasRole(keccak256("DEPOSIT"), SIGNER), network);
+        assertFalse(authoriser().hasRole(keccak256("WITHDRAW"), SIGNER), network);
+        assertEq(LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id), block.timestamp);
+        assertEq(LibStoxMigrations.head(), retireDirectSignerRolesDeclaration().id);
+    }
+
+    /// @notice The rollout, the run artifact and the post-state refusals
+    /// hold from a batch the timelock already holds, inside its delay and
+    /// once ready.
+    function testRetireHoldsFromAScheduledBatch() external {
+        RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "fromScheduled");
+        if (address(script) == address(0)) return;
+        bytes32 id = operationId(script);
+        if (!timelock().isOperation(id)) script.run();
+        assertTrue(timelock().isOperation(id));
+        uint256 scheduled = vm.snapshotState();
+
+        for (uint256 ready = 0; ready < 2; ready++) {
+            vm.revertToState(scheduled);
+            // forge-lint: disable-next-line(block-timestamp)
+            if (ready == 1) vm.warp(timelock().getTimestamp(id));
+            uint256 stage = vm.snapshotState();
+            rollout(script, LibRainDeploy.BASE);
+            vm.revertToState(stage);
+            verifyRunArtifact(script);
+            vm.revertToState(stage);
+            postStateRefusals(script);
         }
     }
 
@@ -182,12 +213,17 @@ contract RetireDirectSignerRolesProdTest is Test {
         script.run();
     }
 
-    /// @notice `verify` accepts the artifact `run` writes from the batch's
-    /// live stage: `scheduleBatch` unless the timelock holds it, else
-    /// `executeBatch` once its delay has run.
     function testVerifyAcceptsTheRunArtifact() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "verify");
         if (address(script) == address(0)) return;
+        verifyRunArtifact(script);
+    }
+
+    /// @notice `verify` accepts the artifact `run` writes from the batch's
+    /// live stage: `scheduleBatch` unless the timelock holds it, else
+    /// `executeBatch` once its delay has run.
+    /// @param script The harness.
+    function verifyRunArtifact(RetireDirectSignerRolesHarness script) internal {
         bytes32 id = operationId(script);
         bool scheduled = timelock().isOperation(id);
         // forge-lint: disable-next-line(block-timestamp)
@@ -233,6 +269,14 @@ contract RetireDirectSignerRolesProdTest is Test {
     function testPostStateRefusesABatchNotPendingInsideItsDelay() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "notScheduled");
         if (address(script) == address(0)) return;
+        postStateRefusals(script);
+    }
+
+    /// @notice From the batch's live stage, the post-state refuses a batch
+    /// the timelock does not hold, accepts it inside its delay, and refuses
+    /// it once ready.
+    /// @param script The harness.
+    function postStateRefusals(RetireDirectSignerRolesHarness script) internal {
         bytes32 id = operationId(script);
         if (!timelock().isOperation(id)) {
             vm.expectRevert(abi.encodeWithSelector(RetireNotScheduled.selector, id));
