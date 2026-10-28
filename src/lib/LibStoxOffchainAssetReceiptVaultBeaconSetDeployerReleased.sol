@@ -50,7 +50,9 @@ library LibStoxOffchainAssetReceiptVaultBeaconSetDeployerReleased {
             storedBytecodeHash: StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_1_BYTECODE_HASH,
             storedRuntimeCode: StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_1_RUNTIME_CODE,
             artifactPath: "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer",
-            dependencies: abi.decode(StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_1_DEPENDENCIES, (DeployDependency[])),
+            dependencies: abi.decode(
+                StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_1_DEPENDENCIES, (DeployDependency[])
+            ),
             mechanism: DeployMechanism.Zoltu,
             mechanismData: ""
         });
@@ -61,7 +63,9 @@ library LibStoxOffchainAssetReceiptVaultBeaconSetDeployerReleased {
             storedBytecodeHash: StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_30_BYTECODE_HASH,
             storedRuntimeCode: StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_30_RUNTIME_CODE,
             artifactPath: "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer",
-            dependencies: abi.decode(StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_30_DEPENDENCIES, (DeployDependency[])),
+            dependencies: abi.decode(
+                StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_30_DEPENDENCIES, (DeployDependency[])
+            ),
             mechanism: DeployMechanism.Zoltu,
             mechanismData: ""
         });

@@ -42,7 +42,9 @@ library LibStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1Released {
             storedBytecodeHash: StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1_0_1_1_BYTECODE_HASH,
             storedRuntimeCode: StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1_0_1_1_RUNTIME_CODE,
             artifactPath: "src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol:StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
-            dependencies: abi.decode(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1_0_1_1_DEPENDENCIES, (DeployDependency[])),
+            dependencies: abi.decode(
+                StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1_0_1_1_DEPENDENCIES, (DeployDependency[])
+            ),
             mechanism: DeployMechanism.Zoltu,
             mechanismData: ""
         });

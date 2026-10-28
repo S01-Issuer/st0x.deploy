@@ -45,7 +45,6 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
     /// @notice OZ `AccessControlUpgradeable`'s ERC-7201 storage slot.
     bytes32 internal constant ACCESS_CONTROL_SLOT = 0x02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800;
 
-
     LibOrchestratorInvariantsHarness internal harness;
     address internal timelock;
     address internal deployKey;

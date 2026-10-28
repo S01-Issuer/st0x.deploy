@@ -42,7 +42,9 @@ library LibStoxOffchainAssetReceiptVaultAuthorizerV1Released {
             storedBytecodeHash: StoxOffchainAssetReceiptVaultAuthorizerV1_0_1_1_BYTECODE_HASH,
             storedRuntimeCode: StoxOffchainAssetReceiptVaultAuthorizerV1_0_1_1_RUNTIME_CODE,
             artifactPath: "src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol:StoxOffchainAssetReceiptVaultAuthorizerV1",
-            dependencies: abi.decode(StoxOffchainAssetReceiptVaultAuthorizerV1_0_1_1_DEPENDENCIES, (DeployDependency[])),
+            dependencies: abi.decode(
+                StoxOffchainAssetReceiptVaultAuthorizerV1_0_1_1_DEPENDENCIES, (DeployDependency[])
+            ),
             mechanism: DeployMechanism.Zoltu,
             mechanismData: ""
         });

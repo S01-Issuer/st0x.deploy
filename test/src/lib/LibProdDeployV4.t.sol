@@ -183,7 +183,6 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CODEHASH_CANDIDATE);
     }
 
-
     // --- Non-deployed-contract constants ---
 
     /// The beacon initial owner is rainlang.eth and unchanged across versions.

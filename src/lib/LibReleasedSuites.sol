@@ -18,13 +18,21 @@ import {LibStoxUnifiedDeployerReleased} from "./LibStoxUnifiedDeployerReleased.s
 
 import {LibStoxWrappedTokenVaultBeaconReleased} from "./LibStoxWrappedTokenVaultBeaconReleased.sol";
 
-import {LibStoxWrappedTokenVaultBeaconSetDeployerReleased} from "./LibStoxWrappedTokenVaultBeaconSetDeployerReleased.sol";
+import {
+    LibStoxWrappedTokenVaultBeaconSetDeployerReleased
+} from "./LibStoxWrappedTokenVaultBeaconSetDeployerReleased.sol";
 
-import {LibStoxOffchainAssetReceiptVaultBeaconSetDeployerReleased} from "./LibStoxOffchainAssetReceiptVaultBeaconSetDeployerReleased.sol";
+import {
+    LibStoxOffchainAssetReceiptVaultBeaconSetDeployerReleased
+} from "./LibStoxOffchainAssetReceiptVaultBeaconSetDeployerReleased.sol";
 
-import {LibStoxOffchainAssetReceiptVaultAuthorizerV1Released} from "./LibStoxOffchainAssetReceiptVaultAuthorizerV1Released.sol";
+import {
+    LibStoxOffchainAssetReceiptVaultAuthorizerV1Released
+} from "./LibStoxOffchainAssetReceiptVaultAuthorizerV1Released.sol";
 
-import {LibStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1Released} from "./LibStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1Released.sol";
+import {
+    LibStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1Released
+} from "./LibStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1Released.sol";
 
 import {LibStoxCorporateActionsFacetReleased} from "./LibStoxCorporateActionsFacetReleased.sol";
 
