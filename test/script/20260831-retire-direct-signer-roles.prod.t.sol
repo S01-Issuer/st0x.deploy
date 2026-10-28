@@ -86,19 +86,24 @@ contract RetireDirectSignerRolesProdTest is Test {
                 script.run();
                 continue;
             }
-            (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
-                script.callOperation(address(authoriser()), address(timelock()));
-            bytes32 id = timelock().hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT);
+            bytes32 id = operationId(script);
 
-            script.run();
-            assertTrue(timelock().isOperationPending(id), networks[i]);
-            assertFalse(timelock().isOperationReady(id), networks[i]);
-            assertEq(LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id), 0);
+            if (!timelock().isOperation(id)) {
+                script.run();
+                assertTrue(timelock().isOperationPending(id), networks[i]);
+                assertFalse(timelock().isOperationReady(id), networks[i]);
+                assertEq(
+                    timelock().getTimestamp(id), block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY, networks[i]
+                );
+                assertEq(LibStoxMigrations.applied(retireDirectSignerRolesDeclaration().id), 0);
+            }
 
-            vm.expectRevert(abi.encodeWithSelector(RetireInsideDelay.selector, id));
-            script.run();
-
-            vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+            if (!timelock().isOperationReady(id)) {
+                vm.expectRevert(abi.encodeWithSelector(RetireInsideDelay.selector, id));
+                script.run();
+                // forge-lint: disable-next-line(block-timestamp)
+                vm.warp(timelock().getTimestamp(id));
+            }
             script.run();
             assertTrue(timelock().isOperationDone(id), networks[i]);
             assertFalse(authoriser().hasRole(keccak256("DEPOSIT"), SIGNER), networks[i]);
@@ -177,9 +182,16 @@ contract RetireDirectSignerRolesProdTest is Test {
         script.run();
     }
 
-    function testVerifyAcceptsTheScheduleArtifact() external {
+    /// @notice `verify` accepts the artifact `run` writes from the batch's
+    /// live stage: `scheduleBatch` unless the timelock holds it, else
+    /// `executeBatch` once its delay has run.
+    function testVerifyAcceptsTheRunArtifact() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "verify");
         if (address(script) == address(0)) return;
+        bytes32 id = operationId(script);
+        bool scheduled = timelock().isOperation(id);
+        // forge-lint: disable-next-line(block-timestamp)
+        if (scheduled && !timelock().isOperationReady(id)) vm.warp(timelock().getTimestamp(id));
         uint256 preRun = vm.snapshotState();
         script.run();
         string memory path = script.callArtifactPath();
@@ -188,7 +200,10 @@ contract RetireDirectSignerRolesProdTest is Test {
         SafeTx[] memory txs = script.callAuthorBundle();
         assertEq(txs.length, 1);
         assertEq(txs[0].to, address(timelock()));
-        assertEq(bytes4(txs[0].data), TimelockController.scheduleBatch.selector);
+        assertEq(
+            bytes4(txs[0].data),
+            scheduled ? TimelockController.executeBatch.selector : TimelockController.scheduleBatch.selector
+        );
     }
 
     function testRunRefusesOrchestratorInstanceOffInvariant() external {
@@ -219,11 +234,16 @@ contract RetireDirectSignerRolesProdTest is Test {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "notScheduled");
         if (address(script) == address(0)) return;
         bytes32 id = operationId(script);
-        vm.expectRevert(abi.encodeWithSelector(RetireNotScheduled.selector, id));
-        script.callAssertPostState();
-        script.run();
-        script.callAssertPostState();
-        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        if (!timelock().isOperation(id)) {
+            vm.expectRevert(abi.encodeWithSelector(RetireNotScheduled.selector, id));
+            script.callAssertPostState();
+            script.run();
+        }
+        if (!timelock().isOperationReady(id)) {
+            script.callAssertPostState();
+            // forge-lint: disable-next-line(block-timestamp)
+            vm.warp(timelock().getTimestamp(id));
+        }
         vm.expectRevert(abi.encodeWithSelector(RetireNotScheduled.selector, id));
         script.callAssertPostState();
     }
@@ -231,8 +251,10 @@ contract RetireDirectSignerRolesProdTest is Test {
     function testPostStateRefusesARecordFromAnotherBlock() external {
         RetireDirectSignerRolesHarness script = fork(LibRainDeploy.BASE, "staleRecord");
         if (address(script) == address(0)) return;
-        script.run();
-        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        bytes32 id = operationId(script);
+        if (!timelock().isOperation(id)) script.run();
+        // forge-lint: disable-next-line(block-timestamp)
+        if (!timelock().isOperationReady(id)) vm.warp(timelock().getTimestamp(id));
         script.run();
         script.callAssertPostState();
         uint256 recordedAt = block.timestamp;

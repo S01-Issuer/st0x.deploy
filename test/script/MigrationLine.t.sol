@@ -130,7 +130,12 @@ contract MigrationLineTest is Test {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibMigrationLineFork.approve(vm, timelock);
         if (LibMigrationLineFork.recordOnto(vm, retireDirectSignerRolesDeclaration())) return;
-        new RetireDirectSignerRolesHarness("scheduled").run();
+        RetireDirectSignerRolesHarness retire = new RetireDirectSignerRolesHarness("scheduled");
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            retire.callOperation(LibAuthoriserInvariants.activeChainAuthoriser(), timelock);
+        bytes32 id = TimelockController(payable(timelock))
+            .hashOperationBatch(targets, values, payloads, bytes32(0), RETIRE_SALT);
+        if (!TimelockController(payable(timelock)).isOperation(id)) retire.run();
         uint256 scheduled = vm.snapshotState();
 
         replayRetire(timelock, "pending");
