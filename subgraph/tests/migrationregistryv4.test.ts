@@ -261,15 +261,15 @@ describe("MigrationRegistryV4 delegates", () => {
   });
 });
 
+function verifiedFor(metaHex: string): string {
+  migrate(MIGRATION_NAMED, 100, 2);
+  meta(SUBJECT_NAMED, metaHex, 100, 3);
+  let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(3)))!;
+  return row.verified ? "true" : "false";
+}
+
 describe("MigrationRegistryV4 MetaV1_2 verification", () => {
   afterEach(clearStore);
-
-  function verifiedFor(metaHex: string): string {
-    migrate(MIGRATION_NAMED, 100, 2);
-    meta(SUBJECT_NAMED, metaHex, 100, 3);
-    let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(3)))!;
-    return row.verified ? "true" : "false";
-  }
 
   test("namespace and migration preimages that hash to the record verify", () => {
     assert.stringEquals(

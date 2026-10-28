@@ -471,15 +471,15 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
   });
 });
 
+function verifiedFor(metaHex: string, valueType: string): string {
+  register(AUTHORITY, US_NAME, valueType, VALUE_A, 100, 3);
+  meta(US_SUBJECT, metaHex, 100, 4);
+  let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!;
+  return row.verified ? "true" : "false";
+}
+
 describe("ConfigRegistryV4 MetaV1_2 verification", () => {
   afterEach(clearStore);
-
-  function verifiedFor(metaHex: string, valueType: string): string {
-    register(AUTHORITY, US_NAME, valueType, VALUE_A, 100, 3);
-    meta(US_SUBJECT, metaHex, 100, 4);
-    let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!;
-    return row.verified ? "true" : "false";
-  }
 
   test("name and value type preimages that hash to the binding verify", () => {
     assert.stringEquals(verifiedFor(META_OK, "address"), "true");
