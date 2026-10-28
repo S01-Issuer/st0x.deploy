@@ -244,7 +244,7 @@ records imply:
    on a chain where step 1 has not executed.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
-are read from V3, so `20261022-backfill-migration-registry-v3` carries them over
+are read from V4, so `20261022-backfill-migration-registry-v4` carries them over
 as history, per chain, before step 2 can run.
 
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the

@@ -17,7 +17,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {backfillMigrationRegistryV3Declaration} from "./20261022-backfill-migration-registry-v3.s.sol";
+import {backfillMigrationRegistryV4Declaration} from "./20261022-backfill-migration-registry-v4.s.sol";
 
 /// @notice The Safe's line in the migration registry is not at the V3
 /// backfill's record, which this migration is applied onto: the backfill
@@ -76,7 +76,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
     return LibStoxMigrations.safeMigrationOnto(
         LibStoxMigrations.NAMESPACE,
         LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        backfillMigrationRegistryV3Declaration().id,
+        backfillMigrationRegistryV4Declaration().id,
         false
     );
 }
@@ -89,7 +89,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// 1. `orchestrator.grantRole(DEFAULT_ADMIN, timelock)`.
 /// 2. `orchestrator.renounceRole(DEFAULT_ADMIN, safe)`.
 /// 3. `registry.applyMigrationV4(safe, ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-///    [20261022-backfill-migration-registry-v3])`.
+///    [20261022-backfill-migration-registry-v4])`.
 ///
 /// `DEFAULT_ADMIN_ROLE` administers `MINT_ROLE`, `BURN_ROLE` and
 /// `EMERGENCY_ROLE` on the audited 0.1.30 orchestrator, so after this every

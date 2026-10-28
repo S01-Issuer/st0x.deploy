@@ -12,7 +12,7 @@ import {
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
-} from "rain-tofu-erc20-decimals-deploy-0.1.5/src/generated/0_1_0/TOFUTokenDecimals.sol";
+} from "rain-tofu-erc20-decimals-deploy-0.1.6/src/generated/0_1_0/TOFUTokenDecimals.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";

@@ -8,7 +8,7 @@ import {SafeTx} from "rain-deploy-0.1.27/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.27/src/lib/LibSafeFork.sol";
 
 import {RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
-import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
+import {backfillMigrationRegistryV4Declaration} from "../../script/20261022-backfill-migration-registry-v4.s.sol";
 import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
 import {LocalBaseOrchestratorFixture} from "./LocalBaseOrchestratorFixture.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
@@ -25,7 +25,7 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         buildLocalBase();
         LibSafeFork.executeBundle(vm, safe, new GrantOrchestratorEmergencyHarness().callAuthorBundle());
         (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(backfillMigrationRegistryV3Declaration(), address(safe), timelock);
+            LibStoxMigrations.recordCall(backfillMigrationRegistryV4Declaration(), address(safe), timelock);
         SafeTx[] memory backfill = new SafeTx[](1);
         backfill[0] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         LibSafeFork.executeBundle(vm, safe, backfill);

@@ -24,7 +24,7 @@ import {LibExtrospectBytecode} from "rain-extrospection-0.1.16/src/lib/LibExtros
 import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.16/src/lib/LibExtrospectMetamorphic.sol";
 import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.16/src/lib/EVMOpcodes.sol";
 import {IExtrospectV1} from "rain-extrospection-0.1.16/src/interface/IExtrospectV1.sol";
-import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.3/src/generated/0_1_0/Extrospect.sol";
+import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.4/src/generated/0_1_0/Extrospect.sol";
 import {IBeacon} from "rain-extrospection-0.1.16/src/interface/IBeacon.sol";
 
 /// @title LibTokenInvariantsAddressesTest
