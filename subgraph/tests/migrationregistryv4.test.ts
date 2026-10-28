@@ -44,6 +44,22 @@ const SUBJECT_1 =
   "0x0b7c43b417d2da831de8bf4c0ddf35ac27334572da1b915eb3863a9b7f65fe6a";
 /** An empty rain meta document: just the `RainMetaDocumentV1` magic. */
 const META = "0xff0a89c674ee7874";
+/** `keccak256("st0x.deploy.v4-registries")`, from `cast keccak`. */
+const MIGRATION_NAMED =
+  "0xee8fc583fd5fffb64f1c51ed7277ef0ef797d2f9b2e1e639d669000d340bf6c9";
+/** `keccak256(abi.encode(WRITER, NAMESPACE, MIGRATION_NAMED))`, from `cast keccak $(cast abi-encode "f(address,bytes32,bytes32)" …)`. */
+const SUBJECT_NAMED =
+  "0x2dc27d3c481964e1f5751e6affc732327f92c2111eb6db6bd4db577638a4f1ef";
+/** From `RainMetaDocumentV1Item::cbor_encode_seq` (rain.metadata). */
+const P = "0xff0a89c674ee7874";
+const NAMESPACE_ITEM = "a2004b737430782e6465706c6f79011bff82e354bb91c055";
+const MIGRATION_ITEM =
+  "a2005819737430782e6465706c6f792e76342d72656769737472696573011bffae12bf8892cc25";
+const OTHER_MIGRATION_ITEM =
+  "a20051737430782e6465706c6f792e6f74686572011bffae12bf8892cc25";
+/** The namespace and migration preimages under the config registry magics. */
+const CONFIG_ITEMS =
+  "a2004b737430782e6465706c6f79011bffcdcfae6227d5e9a2005819737430782e6465706c6f792e76342d72656769737472696573011bffcdb2cc1b1d53be";
 
 function lineId(registry: string): string {
   return registry.concat(WRITER.slice(2)).concat(NAMESPACE.slice(2));
@@ -66,14 +82,19 @@ function migrate(migration: string, blockNumber: i32, logIndex: i32): void {
   );
 }
 
-function meta(subject: string, blockNumber: i32, logIndex: i32): void {
+function meta(
+  subject: string,
+  metaHex: string,
+  blockNumber: i32,
+  logIndex: i32,
+): void {
   handleMigrationRegistryV4MetaV1_2(
     changetype<MetaV1_2>(
       metaV1_2Log(
         Address.fromString(REGISTRY),
         Address.fromString(SAFE),
         Bytes.fromHexString(subject),
-        Bytes.fromHexString(META),
+        Bytes.fromHexString(metaHex),
         blockNumber,
         logIndex,
       ),
@@ -151,9 +172,9 @@ describe("MigrationRegistryV4 Migrated", () => {
 describe("MigrationRegistryV4 MetaV1_2", () => {
   afterEach(clearStore);
 
-  test("a write's meta links to its record, raw and unverified", () => {
+  test("a write's meta links to its record, raw", () => {
     migrate(MIGRATION_1, 100, 2);
-    meta(SUBJECT_1, 100, 3);
+    meta(SUBJECT_1, META, 100, 3);
 
     let row = mockRowId(3);
     assert.entityCount("RegistryMeta", 1);
@@ -184,7 +205,7 @@ describe("MigrationRegistryV4 MetaV1_2", () => {
 
   test("a meta whose subject no record has is kept, unlinked", () => {
     migrate(MIGRATION_1, 100, 2);
-    meta(MIGRATION_2, 100, 3);
+    meta(MIGRATION_2, META, 100, 3);
 
     let entity = RegistryMeta.load(Bytes.fromHexString(mockRowId(3)))!;
     assert.assertTrue(entity.migrationRecord === null);
@@ -193,8 +214,8 @@ describe("MigrationRegistryV4 MetaV1_2", () => {
 
   test("a replayed meta writes one row", () => {
     migrate(MIGRATION_1, 100, 2);
-    meta(SUBJECT_1, 100, 3);
-    meta(SUBJECT_1, 100, 3);
+    meta(SUBJECT_1, META, 100, 3);
+    meta(SUBJECT_1, META, 100, 3);
 
     assert.entityCount("RegistryMeta", 1);
   });
@@ -237,5 +258,52 @@ describe("MigrationRegistryV4 delegates", () => {
     assert.fieldEquals("RegistryDelegate", id, "approved", "false");
     assert.fieldEquals("RegistryDelegate", id, "revokedAtBlock", "400");
     assert.entityCount("RegistryDelegateChange", 2);
+  });
+});
+
+describe("MigrationRegistryV4 MetaV1_2 verification", () => {
+  afterEach(clearStore);
+
+  function verifiedFor(metaHex: string): string {
+    migrate(MIGRATION_NAMED, 100, 2);
+    meta(SUBJECT_NAMED, metaHex, 100, 3);
+    let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(3)))!;
+    return row.verified ? "true" : "false";
+  }
+
+  test("namespace and migration preimages that hash to the record verify", () => {
+    assert.stringEquals(
+      verifiedFor(P.concat(NAMESPACE_ITEM).concat(MIGRATION_ITEM)),
+      "true",
+    );
+  });
+
+  test("a migration preimage that hashes elsewhere does not verify", () => {
+    assert.stringEquals(
+      verifiedFor(P.concat(NAMESPACE_ITEM).concat(OTHER_MIGRATION_ITEM)),
+      "false",
+    );
+  });
+
+  test("a missing namespace or migration item does not verify", () => {
+    assert.stringEquals(verifiedFor(P.concat(MIGRATION_ITEM)), "false");
+    clearStore();
+    assert.stringEquals(verifiedFor(P.concat(NAMESPACE_ITEM)), "false");
+  });
+
+  test("config registry items do not verify a migration", () => {
+    assert.stringEquals(verifiedFor(P.concat(CONFIG_ITEMS)), "false");
+  });
+
+  test("malformed meta does not verify", () => {
+    let ok = P.concat(NAMESPACE_ITEM).concat(MIGRATION_ITEM);
+    assert.stringEquals(verifiedFor(ok.slice(0, ok.length - 2)), "false");
+    clearStore();
+    assert.stringEquals(verifiedFor(META), "false");
+  });
+
+  test("meta whose subject names no record does not verify", () => {
+    meta(SUBJECT_NAMED, P.concat(NAMESPACE_ITEM).concat(MIGRATION_ITEM), 100, 3);
+    assert.fieldEquals("RegistryMeta", mockRowId(3), "verified", "false");
   });
 });

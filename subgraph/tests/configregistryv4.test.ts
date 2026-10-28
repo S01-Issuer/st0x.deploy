@@ -2,11 +2,10 @@ import {
   afterEach,
   assert,
   clearStore,
-  createMockedFunction,
   describe,
   test,
 } from "matchstick-as";
-import { Address, BigInt, Bytes, ethereum } from "@graphprotocol/graph-ts";
+import { Address, Bytes, ethereum } from "@graphprotocol/graph-ts";
 import {
   ConfigBinding,
   ConfigRegister,
@@ -63,6 +62,55 @@ const VALUE_B =
   "0x0000000000000000000000000000000000000000000000000000000000000b02000000000000000000000000000000000000000000000000000000000000000c";
 /** An empty rain meta document: just the `RainMetaDocumentV1` magic. */
 const META = "0xff0a89c674ee7874";
+/*
+ * Rain meta documents from `RainMetaDocumentV1Item::cbor_encode_seq` (rain.metadata),
+ * items: config name, value type, unless named otherwise.
+ */
+const P = "0xff0a89c674ee7874";
+const NAME_US = "a2004f737430782e726261632e75732e7631011bffcdcfae6227d5e9";
+const NAME_EU = "a2004f737430782e726261632e65752e7631011bffcdcfae6227d5e9";
+const TYPE_ADDRESS = "a2004761646472657373011bffcdb2cc1b1d53be";
+const TYPE_UINT256 = "a2004775696e74323536011bffcdb2cc1b1d53be";
+const META_OK = P.concat(NAME_US).concat(TYPE_ADDRESS);
+/** A rainlang source item, the type, then the name with `identity` encoding. */
+const META_FOREIGN = P.concat(
+  "a200455f3a20313b011bff13109e41336ff2",
+)
+  .concat(TYPE_ADDRESS)
+  .concat(
+    "a3004f737430782e726261632e75732e7631011bffcdcfae6227d5e903686964656e74697479",
+  );
+/** The name deflated. */
+const META_DEFLATE = P.concat(
+  "a30057789c2b2e31a8d02b4a4a4cd62b2dd62b3304002ba10541011bffcdcfae6227d5e903676465666c617465",
+).concat(TYPE_ADDRESS);
+/**
+ * Hand-built, accepted by `cbor_decode`: an indefinite foreign item map with a
+ * tag, an indefinite byte string, a half float and a nested map.
+ */
+const META_EXOTIC = P.concat(
+  "bf004161011bff13109e41336ff2059fc11a000000015f4161426263fff93c00a10180ffff",
+)
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+/** Hand-built, each rejected by `cbor_decode`. */
+const META_RESERVED_INFO = P.concat("a3004161011bff13109e41336ff2051c")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_TEXT_KEY = P.concat("a261304161011bff13109e41336ff2")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_DUPLICATE_KEY = P.concat("a3004161004162011bff13109e41336ff2")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
+const META_NO_MAGIC = P.concat("a1004161").concat(NAME_US).concat(TYPE_ADDRESS);
+const META_NO_PAYLOAD = P.concat("a10100").concat(NAME_US).concat(TYPE_ADDRESS);
+const META_TRAILING_BREAK = META_OK.concat("ff");
+const META_TOO_DEEP = P.concat("a3004161011bff13109e41336ff205")
+  .concat("81".repeat(200))
+  .concat("00")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
 const OTHER_TX =
   "0xdeadbeef00000000000000000000000000000000000000000000000000000002";
 
@@ -89,42 +137,6 @@ function rowIdIn(tx: string, logIndex: i32): string {
     low = "0".concat(low);
   }
   return tx.concat(low).concat("000000");
-}
-
-/** What `getV4(authority, name)` answers. */
-function mockGetV4(
-  authority: string,
-  name: string,
-  value: string,
-  typeHash: string,
-): void {
-  createMockedFunction(
-    Address.fromString(REGISTRY),
-    "getV4",
-    "getV4(address,bytes32):(bytes,uint256,bytes32)",
-  )
-    .withArgs([
-      ethereum.Value.fromAddress(Address.fromString(authority)),
-      ethereum.Value.fromFixedBytes(Bytes.fromHexString(name)),
-    ])
-    .returns([
-      ethereum.Value.fromBytes(Bytes.fromHexString(value)),
-      ethereum.Value.fromUnsignedBigInt(BigInt.fromI32(1200)),
-      ethereum.Value.fromFixedBytes(Bytes.fromHexString(typeHash)),
-    ]);
-}
-
-function mockGetV4Reverts(authority: string, name: string): void {
-  createMockedFunction(
-    Address.fromString(REGISTRY),
-    "getV4",
-    "getV4(address,bytes32):(bytes,uint256,bytes32)",
-  )
-    .withArgs([
-      ethereum.Value.fromAddress(Address.fromString(authority)),
-      ethereum.Value.fromFixedBytes(Bytes.fromHexString(name)),
-    ])
-    .reverts();
 }
 
 function registerEvent(
@@ -164,6 +176,7 @@ function register(
 
 function metaEvent(
   subject: string,
+  metaHex: string,
   blockNumber: i32,
   logIndex: i32,
 ): ethereum.Event {
@@ -171,23 +184,27 @@ function metaEvent(
     Address.fromString(REGISTRY),
     Address.fromString(DELEGATE),
     Bytes.fromHexString(subject),
-    Bytes.fromHexString(META),
+    Bytes.fromHexString(metaHex),
     blockNumber,
     logIndex,
   );
 }
 
-function meta(subject: string, blockNumber: i32, logIndex: i32): void {
+function meta(
+  subject: string,
+  metaHex: string,
+  blockNumber: i32,
+  logIndex: i32,
+): void {
   handleConfigRegistryV4MetaV1_2(
-    changetype<MetaV1_2>(metaEvent(subject, blockNumber, logIndex)),
+    changetype<MetaV1_2>(metaEvent(subject, metaHex, blockNumber, logIndex)),
   );
 }
 
 describe("ConfigRegistryV4 Register", () => {
   afterEach(clearStore);
 
-  test("a first Register binds the value, its type and the type hash getV4 answers", () => {
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
+  test("a first Register binds the value, its type and its type hash", () => {
     register(DELEGATE, US_NAME, "address", VALUE_A, 100, 3);
 
     let id = bindingId(REGISTRY, AUTHORITY, US_NAME);
@@ -230,9 +247,8 @@ describe("ConfigRegistryV4 Register", () => {
     assert.fieldEquals("Contract", REGISTRY, "firstIndexedBlock", "100");
   });
 
-  test("the type hash is the registry's answer, not a hash of the decoded string", () => {
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, TUPLE_HASH);
-    register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
+  test("the type hash is keccak256 of the emitted type", () => {
+    register(AUTHORITY, US_NAME, "(address,uint256)", VALUE_B, 100, 3);
 
     let id = bindingId(REGISTRY, AUTHORITY, US_NAME);
     assert.fieldEquals("ConfigBinding", id, "valueTypeHash", TUPLE_HASH);
@@ -244,22 +260,8 @@ describe("ConfigRegistryV4 Register", () => {
     );
   });
 
-  test("a getV4 that reverts leaves the type hash unknown and still binds", () => {
-    mockGetV4Reverts(AUTHORITY, US_NAME);
-    register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
-
-    let id = bindingId(REGISTRY, AUTHORITY, US_NAME);
-    let binding = ConfigBinding.load(Bytes.fromHexString(id))!;
-    assert.assertTrue(binding.valueTypeHash === null);
-    assert.fieldEquals("ConfigBinding", id, "valueType", "address");
-    let row = ConfigRegister.load(Bytes.fromHexString(mockRowId(3)))!;
-    assert.assertTrue(row.valueTypeHash === null);
-  });
-
   test("a rebind as another type moves the type and keeps each row's own", () => {
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
-    mockGetV4(AUTHORITY, US_NAME, VALUE_B, TUPLE_HASH);
     register(DELEGATE, US_NAME, "(address,uint256)", VALUE_B, 250, 1);
 
     let id = bindingId(REGISTRY, AUTHORITY, US_NAME);
@@ -294,11 +296,8 @@ describe("ConfigRegistryV4 Register", () => {
   });
 
   test("a replayed Register neither counts again nor rolls the type back", () => {
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
-    mockGetV4(AUTHORITY, US_NAME, VALUE_B, TUPLE_HASH);
     register(AUTHORITY, US_NAME, "(address,uint256)", VALUE_B, 250, 1);
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
 
     let id = bindingId(REGISTRY, AUTHORITY, US_NAME);
@@ -322,7 +321,6 @@ describe("ConfigRegistryV4 Register", () => {
         ),
       ),
     );
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
 
     assert.entityCount("ConfigBinding", 2);
@@ -351,10 +349,9 @@ describe("ConfigRegistryV4 Register", () => {
 describe("ConfigRegistryV4 MetaV1_2", () => {
   afterEach(clearStore);
 
-  test("a bind's meta links to its binding and its Register, raw and unverified", () => {
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
+  test("a bind's meta links to its binding and its Register, raw", () => {
     register(DELEGATE, US_NAME, "address", VALUE_A, 100, 3);
-    meta(US_SUBJECT, 100, 4);
+    meta(US_SUBJECT, META, 100, 4);
 
     let row = mockRowId(4);
     assert.entityCount("RegistryMeta", 1);
@@ -390,10 +387,8 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
   });
 
   test("a rebind's meta links to the rebind's Register, not the first", () => {
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
-    meta(US_SUBJECT, 100, 4);
-    mockGetV4(AUTHORITY, US_NAME, VALUE_B, TUPLE_HASH);
+    meta(US_SUBJECT, META, 100, 4);
     handleConfigRegistryV4Register(
       changetype<RegisterV4>(
         inTx(
@@ -411,7 +406,7 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
     );
     handleConfigRegistryV4MetaV1_2(
       changetype<MetaV1_2>(
-        inTx(metaEvent(US_SUBJECT, 250, 2), Bytes.fromHexString(OTHER_TX)),
+        inTx(metaEvent(US_SUBJECT, META, 250, 2), Bytes.fromHexString(OTHER_TX)),
       ),
     );
 
@@ -438,11 +433,10 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
   });
 
   test("a meta outside its binding's latest Register transaction links the binding only", () => {
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
     handleConfigRegistryV4MetaV1_2(
       changetype<MetaV1_2>(
-        inTx(metaEvent(US_SUBJECT, 300, 0), Bytes.fromHexString(OTHER_TX)),
+        inTx(metaEvent(US_SUBJECT, META, 300, 0), Bytes.fromHexString(OTHER_TX)),
       ),
     );
 
@@ -458,7 +452,7 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
   });
 
   test("a meta whose subject no Register has is kept, unlinked", () => {
-    meta(EU_NAME, 100, 4);
+    meta(EU_NAME, META, 100, 4);
 
     let entity = RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!;
     assert.assertTrue(entity.configBinding === null);
@@ -469,12 +463,107 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
   });
 
   test("a replayed meta writes one row", () => {
-    mockGetV4(AUTHORITY, US_NAME, VALUE_A, ADDRESS_HASH);
     register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
-    meta(US_SUBJECT, 100, 4);
-    meta(US_SUBJECT, 100, 4);
+    meta(US_SUBJECT, META, 100, 4);
+    meta(US_SUBJECT, META, 100, 4);
 
     assert.entityCount("RegistryMeta", 1);
+  });
+});
+
+describe("ConfigRegistryV4 MetaV1_2 verification", () => {
+  afterEach(clearStore);
+
+  function verifiedFor(metaHex: string, valueType: string): string {
+    register(AUTHORITY, US_NAME, valueType, VALUE_A, 100, 3);
+    meta(US_SUBJECT, metaHex, 100, 4);
+    let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!;
+    return row.verified ? "true" : "false";
+  }
+
+  test("name and value type preimages that hash to the binding verify", () => {
+    assert.stringEquals(verifiedFor(META_OK, "address"), "true");
+  });
+
+  test("a name preimage that hashes elsewhere does not verify", () => {
+    assert.stringEquals(
+      verifiedFor(P.concat(NAME_EU).concat(TYPE_ADDRESS), "address"),
+      "false",
+    );
+  });
+
+  test("a value type preimage that hashes elsewhere does not verify", () => {
+    assert.stringEquals(
+      verifiedFor(P.concat(NAME_US).concat(TYPE_UINT256), "address"),
+      "false",
+    );
+  });
+
+  test("the value type is checked against this Register's type", () => {
+    assert.stringEquals(verifiedFor(META_OK, "uint256"), "false");
+  });
+
+  test("a missing name or value type item does not verify", () => {
+    assert.stringEquals(verifiedFor(P.concat(NAME_US), "address"), "false");
+    clearStore();
+    assert.stringEquals(
+      verifiedFor(P.concat(TYPE_ADDRESS), "address"),
+      "false",
+    );
+  });
+
+  test("a second name item that hashes elsewhere does not verify", () => {
+    assert.stringEquals(
+      verifiedFor(
+        P.concat(NAME_US).concat(NAME_EU).concat(TYPE_ADDRESS),
+        "address",
+      ),
+      "false",
+    );
+  });
+
+  test("foreign items are skipped and identity encoding is plain", () => {
+    assert.stringEquals(verifiedFor(META_FOREIGN, "address"), "true");
+    clearStore();
+    assert.stringEquals(verifiedFor(META_EXOTIC, "address"), "true");
+  });
+
+  test("a deflated preimage does not verify", () => {
+    assert.stringEquals(verifiedFor(META_DEFLATE, "address"), "false");
+  });
+
+  test("malformed meta does not verify", () => {
+    let cases = [
+      META,
+      META_OK.slice(0, META_OK.length - 2),
+      "0x".concat(META_OK.slice(18)),
+      "0xff0a89c674ee78",
+      "0x",
+      META_RESERVED_INFO,
+      META_TEXT_KEY,
+      META_DUPLICATE_KEY,
+      META_NO_MAGIC,
+      META_NO_PAYLOAD,
+      META_TRAILING_BREAK,
+      META_TOO_DEEP,
+    ];
+    for (let i = 0; i < cases.length; i++) {
+      clearStore();
+      assert.stringEquals(verifiedFor(cases[i], "address"), "false");
+    }
+  });
+
+  test("meta with no Register in its transaction does not verify", () => {
+    register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
+    handleConfigRegistryV4MetaV1_2(
+      changetype<MetaV1_2>(
+        inTx(metaEvent(US_SUBJECT, META_OK, 300, 0), Bytes.fromHexString(OTHER_TX)),
+      ),
+    );
+    assert.fieldEquals("RegistryMeta", rowIdIn(OTHER_TX, 0), "verified", "false");
+    clearStore();
+    meta(EU_NAME, META_OK, 100, 4);
+    assert.fieldEquals("RegistryMeta", mockRowId(4), "verified", "false");
   });
 });
 

@@ -6,7 +6,7 @@ export const CONFIG_REGISTRY_VALUE_TYPE_V1: u64 = 0xffcdb2cc1b1d53be;
 export const MIGRATION_REGISTRY_NAMESPACE_V1: u64 = 0xff82e354bb91c055;
 export const MIGRATION_REGISTRY_MIGRATION_V1: u64 = 0xffae12bf8892cc25;
 
-const MAX_DEPTH: i32 = 32;
+const MAX_DEPTH: i32 = 128;
 const INDEFINITE: u64 = u64.MAX_VALUE;
 
 /** One rain meta item magic and the `bytes32` key its payload must hash to. */
