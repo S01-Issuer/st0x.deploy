@@ -8,7 +8,7 @@ import {LibProdDeployV2BaseOverrides} from "../../../../src/lib/LibProdDeployV2B
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibInvariants} from "../../../../src/lib/LibInvariants.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {

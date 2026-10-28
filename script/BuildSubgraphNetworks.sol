@@ -3,13 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibConfigRegistryDeploy.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistryDeploy.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V4} from "rain-deploy-v4-0.1.26/src/generated/0_1_26/ConfigRegistry.sol";
-import {
-    DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V4
-} from "rain-deploy-v4-0.1.26/src/generated/0_1_26/MigrationRegistry.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V3} from "rain-deploy-0.1.27/src/generated/0_1_25/ConfigRegistry.sol";
+import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V3} from "rain-deploy-0.1.27/src/generated/0_1_25/MigrationRegistry.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V5} from "rain-deploy-0.1.27/src/generated/0_1_27/ConfigRegistry.sol";
+import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V5} from "rain-deploy-0.1.27/src/generated/0_1_27/MigrationRegistry.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.3/src/generated/0_2_1/CloneFactory.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
@@ -32,11 +30,11 @@ contract BuildSubgraphNetworks is Script {
         "CloneFactoryV5",
         "CloneFactoryV6",
         "ConfigRegistry",
-        "ConfigRegistryV4",
+        "ConfigRegistryV5",
         "EuAuthorizer",
         "GovernanceTimelock",
         "MigrationRegistry",
-        "MigrationRegistryV4",
+        "MigrationRegistryV5",
         "OrchestratorBeacon",
         "OrchestratorDeployer",
         "ReceiptVaultDeployer",
@@ -56,12 +54,12 @@ contract BuildSubgraphNetworks is Script {
             LibAuthoriserInvariants.authoriserForChainId(chainId),
             CLONE_FACTORY_V5,
             CLONE_FACTORY_V6,
-            LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS,
-            CONFIG_REGISTRY_V4,
+            CONFIG_REGISTRY_V3,
+            CONFIG_REGISTRY_V5,
             LibAuthoriserInvariants.euAuthoriserForChainId(chainId),
             LibTimelockInvariants.timelockForChainId(chainId),
-            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            MIGRATION_REGISTRY_V4,
+            MIGRATION_REGISTRY_V3,
+            MIGRATION_REGISTRY_V5,
             beacons[3],
             LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30,
             receiptVaultDeployer == address(0)

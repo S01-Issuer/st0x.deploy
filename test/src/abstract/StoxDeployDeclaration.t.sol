@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.25/src/abstract/RainDeployVerifyDeclaration.sol";
-import {ExternalDeployment} from "rain-deploy-0.1.25/src/abstract/RainDeployDeclarationChecks.sol";
-import {RainDeploySuitesBase} from "rain-deploy-0.1.25/src/abstract/RainDeploySuitesBase.sol";
+import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.27/src/abstract/RainDeployVerifyDeclaration.sol";
+import {ExternalDeployment} from "rain-deploy-0.1.27/src/abstract/RainDeployDeclarationChecks.sol";
+import {RainDeploySuitesBase} from "rain-deploy-0.1.27/src/abstract/RainDeploySuitesBase.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH

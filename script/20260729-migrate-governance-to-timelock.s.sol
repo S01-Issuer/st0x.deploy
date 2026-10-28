@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.27/src/interface/IMigrationRegistryV3.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -20,10 +20,10 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.25/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.25/src/lib/LibSafeTxBuilderJson.sol";
-import {LibSafe} from "rain-deploy-0.1.25/src/lib/LibSafe.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.27/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.27/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.27/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.27/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 

@@ -30,7 +30,7 @@ import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorpo
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
