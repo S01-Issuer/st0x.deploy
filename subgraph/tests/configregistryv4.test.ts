@@ -471,44 +471,47 @@ describe("ConfigRegistryV4 MetaV1_2", () => {
   });
 });
 
+const VERIFIED = "true|st0x.rbac.us.v1";
+const UNVERIFIED = "false|null";
 function verifiedFor(metaHex: string, valueType: string): string {
   register(AUTHORITY, US_NAME, valueType, VALUE_A, 100, 3);
   meta(US_SUBJECT, metaHex, 100, 4);
   let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!;
-  return row.verified ? "true" : "false";
+  let name = row.nameString;
+  return (row.verified ? "true|" : "false|").concat(name === null ? "null" : name!);
 }
 
 describe("ConfigRegistryV4 MetaV1_2 verification", () => {
   afterEach(clearStore);
 
   test("name and value type preimages that hash to the binding verify", () => {
-    assert.stringEquals(verifiedFor(META_OK, "address"), "true");
+    assert.stringEquals(verifiedFor(META_OK, "address"), VERIFIED);
   });
 
   test("a name preimage that hashes elsewhere does not verify", () => {
     assert.stringEquals(
       verifiedFor(P.concat(NAME_EU).concat(TYPE_ADDRESS), "address"),
-      "false",
+      UNVERIFIED,
     );
   });
 
   test("a value type preimage that hashes elsewhere does not verify", () => {
     assert.stringEquals(
       verifiedFor(P.concat(NAME_US).concat(TYPE_UINT256), "address"),
-      "false",
+      UNVERIFIED,
     );
   });
 
   test("the value type is checked against this Register's type", () => {
-    assert.stringEquals(verifiedFor(META_OK, "uint256"), "false");
+    assert.stringEquals(verifiedFor(META_OK, "uint256"), UNVERIFIED);
   });
 
   test("a missing name or value type item does not verify", () => {
-    assert.stringEquals(verifiedFor(P.concat(NAME_US), "address"), "false");
+    assert.stringEquals(verifiedFor(P.concat(NAME_US), "address"), UNVERIFIED);
     clearStore();
     assert.stringEquals(
       verifiedFor(P.concat(TYPE_ADDRESS), "address"),
-      "false",
+      UNVERIFIED,
     );
   });
 
@@ -518,18 +521,18 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
         P.concat(NAME_US).concat(NAME_EU).concat(TYPE_ADDRESS),
         "address",
       ),
-      "false",
+      UNVERIFIED,
     );
   });
 
   test("foreign items are skipped and identity encoding is plain", () => {
-    assert.stringEquals(verifiedFor(META_FOREIGN, "address"), "true");
+    assert.stringEquals(verifiedFor(META_FOREIGN, "address"), VERIFIED);
     clearStore();
-    assert.stringEquals(verifiedFor(META_EXOTIC, "address"), "true");
+    assert.stringEquals(verifiedFor(META_EXOTIC, "address"), VERIFIED);
   });
 
   test("a deflated preimage does not verify", () => {
-    assert.stringEquals(verifiedFor(META_DEFLATE, "address"), "false");
+    assert.stringEquals(verifiedFor(META_DEFLATE, "address"), UNVERIFIED);
   });
 
   test("malformed meta does not verify", () => {
@@ -549,7 +552,7 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
     ];
     for (let i = 0; i < cases.length; i++) {
       clearStore();
-      assert.stringEquals(verifiedFor(cases[i], "address"), "false");
+      assert.stringEquals(verifiedFor(cases[i], "address"), UNVERIFIED);
     }
   });
 
@@ -561,9 +564,11 @@ describe("ConfigRegistryV4 MetaV1_2 verification", () => {
       ),
     );
     assert.fieldEquals("RegistryMeta", rowIdIn(OTHER_TX, 0), "verified", "false");
+    assert.assertNull(RegistryMeta.load(Bytes.fromHexString(rowIdIn(OTHER_TX, 0)))!.nameString);
     clearStore();
     meta(EU_NAME, META_OK, 100, 4);
     assert.fieldEquals("RegistryMeta", mockRowId(4), "verified", "false");
+    assert.assertNull(RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!.nameString);
   });
 });
 

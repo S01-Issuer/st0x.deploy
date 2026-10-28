@@ -261,11 +261,18 @@ describe("MigrationRegistryV4 delegates", () => {
   });
 });
 
+const VERIFIED = "true|st0x.deploy|st0x.deploy.v4-registries";
+const UNVERIFIED = "false|null|null";
 function verifiedFor(metaHex: string): string {
   migrate(MIGRATION_NAMED, 100, 2);
   meta(SUBJECT_NAMED, metaHex, 100, 3);
   let row = RegistryMeta.load(Bytes.fromHexString(mockRowId(3)))!;
-  return row.verified ? "true" : "false";
+  let namespace = row.namespaceString;
+  let migration = row.migrationString;
+  return (row.verified ? "true|" : "false|")
+    .concat(namespace === null ? "null" : namespace!)
+    .concat("|")
+    .concat(migration === null ? "null" : migration!);
 }
 
 describe("MigrationRegistryV4 MetaV1_2 verification", () => {
@@ -274,32 +281,32 @@ describe("MigrationRegistryV4 MetaV1_2 verification", () => {
   test("namespace and migration preimages that hash to the record verify", () => {
     assert.stringEquals(
       verifiedFor(P.concat(NAMESPACE_ITEM).concat(MIGRATION_ITEM)),
-      "true",
+      VERIFIED,
     );
   });
 
   test("a migration preimage that hashes elsewhere does not verify", () => {
     assert.stringEquals(
       verifiedFor(P.concat(NAMESPACE_ITEM).concat(OTHER_MIGRATION_ITEM)),
-      "false",
+      UNVERIFIED,
     );
   });
 
   test("a missing namespace or migration item does not verify", () => {
-    assert.stringEquals(verifiedFor(P.concat(MIGRATION_ITEM)), "false");
+    assert.stringEquals(verifiedFor(P.concat(MIGRATION_ITEM)), UNVERIFIED);
     clearStore();
-    assert.stringEquals(verifiedFor(P.concat(NAMESPACE_ITEM)), "false");
+    assert.stringEquals(verifiedFor(P.concat(NAMESPACE_ITEM)), UNVERIFIED);
   });
 
   test("config registry items do not verify a migration", () => {
-    assert.stringEquals(verifiedFor(P.concat(CONFIG_ITEMS)), "false");
+    assert.stringEquals(verifiedFor(P.concat(CONFIG_ITEMS)), UNVERIFIED);
   });
 
   test("malformed meta does not verify", () => {
     let ok = P.concat(NAMESPACE_ITEM).concat(MIGRATION_ITEM);
-    assert.stringEquals(verifiedFor(ok.slice(0, ok.length - 2)), "false");
+    assert.stringEquals(verifiedFor(ok.slice(0, ok.length - 2)), UNVERIFIED);
     clearStore();
-    assert.stringEquals(verifiedFor(META), "false");
+    assert.stringEquals(verifiedFor(META), UNVERIFIED);
   });
 
   test("meta whose subject names no record does not verify", () => {
