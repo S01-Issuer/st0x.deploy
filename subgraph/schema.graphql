@@ -620,6 +620,12 @@ type RegistryMeta @entity(immutable: true) {
   migrationRecord: MigrationRecord
   "True when `meta` carries every key preimage item and each hashes to its key."
   verified: Boolean!
+  "The config name preimage, when `verified` under a `ConfigRegistry`."
+  nameString: String
+  "The migration namespace preimage, when `verified` under a `MigrationRegistry`."
+  namespaceString: String
+  "The migration id preimage, when `verified` under a `MigrationRegistry`."
+  migrationString: String
   "Block the log was emitted in."
   blockNumber: BigInt!
   "Timestamp of that block."

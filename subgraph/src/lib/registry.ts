@@ -164,7 +164,7 @@ export function recordRegistryMeta(
       }
     }
   }
-  row.verified = verifyMeta(row);
+  verifyMeta(row);
   row.blockNumber = event.block.number;
   row.blockTimestamp = event.block.timestamp;
   row.transactionHash = event.transaction.hash;
@@ -200,7 +200,17 @@ function preimageChecks(row: RegistryMeta): PreimageCheck[] | null {
   return null;
 }
 
-function verifyMeta(row: RegistryMeta): boolean {
+function verifyMeta(row: RegistryMeta): void {
   let checks = preimageChecks(row);
-  return checks !== null && verifyPreimages(row.meta, checks);
+  let preimages = checks === null ? null : verifyPreimages(row.meta, checks);
+  row.verified = preimages !== null;
+  if (preimages === null) {
+    return;
+  }
+  if (row.configRegister !== null) {
+    row.nameString = preimages[0].toString();
+  } else {
+    row.namespaceString = preimages[0].toString();
+    row.migrationString = preimages[1].toString();
+  }
 }

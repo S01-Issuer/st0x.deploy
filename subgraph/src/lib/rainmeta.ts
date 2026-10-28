@@ -227,18 +227,22 @@ function documentItems(meta: Bytes): Item[] | null {
 }
 
 /**
- * True when `meta` is a well formed rain meta document holding at least one
- * item of each check's magic, and every such item is unencoded with a payload
- * whose `keccak256` is the check's key.
+ * Each check's preimage, in order, when `meta` is a well formed rain meta
+ * document holding at least one item of each check's magic and every such item
+ * is unencoded with a payload whose `keccak256` is the check's key; else null.
  */
-export function verifyPreimages(meta: Bytes, checks: PreimageCheck[]): boolean {
+export function verifyPreimages(
+  meta: Bytes,
+  checks: PreimageCheck[],
+): Bytes[] | null {
   let items = documentItems(meta);
   if (items === null) {
-    return false;
+    return null;
   }
+  let preimages = new Array<Bytes>();
   for (let c = 0; c < checks.length; c++) {
     let check = checks[c];
-    let found = false;
+    let found: Bytes | null = null;
     for (let i = 0; i < items.length; i++) {
       let item = items[i];
       if (item.magic != check.magic) {
@@ -248,13 +252,14 @@ export function verifyPreimages(meta: Bytes, checks: PreimageCheck[]): boolean {
         !item.plain ||
         !Bytes.fromByteArray(crypto.keccak256(item.payload)).equals(check.key)
       ) {
-        return false;
+        return null;
       }
-      found = true;
+      found = item.payload;
     }
-    if (!found) {
-      return false;
+    if (found === null) {
+      return null;
     }
+    preimages.push(found!);
   }
-  return true;
+  return preimages;
 }
