@@ -16,7 +16,8 @@ import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 
 /// @title BuildPrivilegedAddresses
 /// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, and
-/// per deployment network the Safe, timelock, authoriser, production beacons and receipt vaults. `address(0)` is none.
+/// per deployment network the Safe, timelock, authoriser, EU authoriser, production beacons and receipt vaults.
+/// `address(0)` is none.
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 
@@ -41,6 +42,7 @@ contract BuildPrivilegedAddresses is Script {
         vm.serializeAddress(key, "safe", LibSafeInvariants.safeForChainId(chainId));
         vm.serializeAddress(key, "timelock", LibTimelockInvariants.timelockForChainId(chainId));
         vm.serializeAddress(key, "authoriser", LibAuthoriserInvariants.authoriserForChainId(chainId));
+        vm.serializeAddress(key, "euAuthoriser", LibAuthoriserInvariants.euAuthoriserForChainId(chainId));
         vm.serializeAddress(key, "beaconSetDeployer", LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId));
         vm.serializeString(key, "beacons", beaconsJson(chainId, key));
         return vm.serializeAddress(key, "receiptVaults", LibTokenInvariants.productionReceiptVaultsForChainId(chainId));
@@ -69,6 +71,10 @@ contract BuildPrivilegedAddresses is Script {
     }
 
     function run() external {
-        vm.writeJson(render(), PATH);
+        write(PATH);
+    }
+
+    function write(string memory path) public {
+        vm.writeJson(render(), path);
     }
 }

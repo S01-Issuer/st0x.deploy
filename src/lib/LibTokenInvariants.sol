@@ -59,6 +59,11 @@ error ReceiptVaultAuthoriserMismatch(address vault, address expected, address ac
 /// Safe-side checks. Live vault ownership is watched by the rain-org-health
 /// dashboard; `assertUniformOwnership` is for a script's post-state check of
 /// a bundle it authors.
+///
+/// A token is identified by (chain id, address), never by address alone:
+/// copies are created at the same deployer nonces on every chain, so one
+/// address can be a different token on another chain (for example the
+/// Ethereum tIFX triple is the BSC tASML triple).
 library LibTokenInvariants {
     // =========================================================================
     // Production token instance addresses on Base. Each token set is a
@@ -514,6 +519,30 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x8EA3c97D23872eC4FAe1cA3189039056b77bc703
     address internal constant DIS_WRAPPED_TOKEN_VAULT = address(0x8EA3c97D23872eC4FAe1cA3189039056b77bc703);
 
+    // ---- tIFX / wtIFX — Infineon Technologies AG ST0x ----
+    /// https://basescan.org/address/0x2cE6d030a8D32BCE36B4502870eEf59c7DBf8588
+    address internal constant IFX_RECEIPT = address(0x2cE6d030a8D32BCE36B4502870eEf59c7DBf8588);
+    /// https://basescan.org/address/0x90687ba21Da53189047Cd168A66eCC76282bf800
+    address internal constant IFX_RECEIPT_VAULT = address(0x90687ba21Da53189047Cd168A66eCC76282bf800);
+    /// https://basescan.org/address/0x339ad5e0d1Cc8B014eB6aCacbE8991214C5A9325
+    address internal constant IFX_WRAPPED_TOKEN_VAULT = address(0x339ad5e0d1Cc8B014eB6aCacbE8991214C5A9325);
+
+    // ---- tSOI / wtSOI — Soitec SA ST0x ----
+    /// https://basescan.org/address/0x12e14806559f80D6DEf4040E4D0bda5953f4f6f0
+    address internal constant SOI_RECEIPT = address(0x12e14806559f80D6DEf4040E4D0bda5953f4f6f0);
+    /// https://basescan.org/address/0x6540478507ab063b03a704AC2c8E9118F1760848
+    address internal constant SOI_RECEIPT_VAULT = address(0x6540478507ab063b03a704AC2c8E9118F1760848);
+    /// https://basescan.org/address/0xD50020eCA7CAAC05Ba7E7571C7B498781ca98d47
+    address internal constant SOI_WRAPPED_TOKEN_VAULT = address(0xD50020eCA7CAAC05Ba7E7571C7B498781ca98d47);
+
+    // ---- tTPRO / wtTPRO — Technoprobe S.p.A. ST0x ----
+    /// https://basescan.org/address/0xee91994c5FeDE5bD9A2D6Ed17cDEDa12680B3Ca2
+    address internal constant TPRO_RECEIPT = address(0xee91994c5FeDE5bD9A2D6Ed17cDEDa12680B3Ca2);
+    /// https://basescan.org/address/0x37a2B2D6Fe9cFC474692a3a0016519332BD49509
+    address internal constant TPRO_RECEIPT_VAULT = address(0x37a2B2D6Fe9cFC474692a3a0016519332BD49509);
+    /// https://basescan.org/address/0x5ED9f297f10e2b72950F5abc2c2B770ee831805b
+    address internal constant TPRO_WRAPPED_TOKEN_VAULT = address(0x5ED9f297f10e2b72950F5abc2c2B770ee831805b);
+
     /// @notice Returns the production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
@@ -521,7 +550,7 @@ library LibTokenInvariants {
     /// (cross-chain parity, per-token config checks) iterate this instead.
     /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: MSTR_RECEIPT,
@@ -859,6 +888,24 @@ library LibTokenInvariants {
             receiptVault: DIS_RECEIPT_VAULT,
             wrappedTokenVault: DIS_WRAPPED_TOKEN_VAULT
         });
+        tokens[56] = TokenInstance({
+            underlying: "IFX",
+            receipt: IFX_RECEIPT,
+            receiptVault: IFX_RECEIPT_VAULT,
+            wrappedTokenVault: IFX_WRAPPED_TOKEN_VAULT
+        });
+        tokens[57] = TokenInstance({
+            underlying: "SOI",
+            receipt: SOI_RECEIPT,
+            receiptVault: SOI_RECEIPT_VAULT,
+            wrappedTokenVault: SOI_WRAPPED_TOKEN_VAULT
+        });
+        tokens[58] = TokenInstance({
+            underlying: "TPRO",
+            receipt: TPRO_RECEIPT,
+            receiptVault: TPRO_RECEIPT_VAULT,
+            wrappedTokenVault: TPRO_WRAPPED_TOKEN_VAULT
+        });
     }
 
     /// @notice Returns the production token instance triples on Ethereum
@@ -866,7 +913,7 @@ library LibTokenInvariants {
     /// index as well as by key.
     /// @return tokens The production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -1203,6 +1250,24 @@ library LibTokenInvariants {
             receiptVault: address(0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548),
             wrappedTokenVault: address(0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f)
         });
+        tokens[56] = TokenInstance({
+            underlying: "IFX",
+            receipt: address(0xe509C440B68c4FBf95e24d7476d3e5Bc8b25a8BB),
+            receiptVault: address(0x89857176e95973FDC8f365532CF4c162b3EE11f0),
+            wrappedTokenVault: address(0x88c10BEcFf283c21e9253d688ec06804359cF795)
+        });
+        tokens[57] = TokenInstance({
+            underlying: "SOI",
+            receipt: address(0x7e26dE68d52b54f9CBc8D64833c1fEDA82C36A92),
+            receiptVault: address(0xdab834808F67f8aC69642996A28571D4B2aD484E),
+            wrappedTokenVault: address(0xE828671B6EDd47122e4AcDE7aba6D12c58F244A3)
+        });
+        tokens[58] = TokenInstance({
+            underlying: "TPRO",
+            receipt: address(0xe26C011A6dcFd8286a3Cf47718F14299d33f9478),
+            receiptVault: address(0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536),
+            wrappedTokenVault: address(0x5d6775Cb5b22faF47471986e99265C1a4846d845)
+        });
     }
 
     /// @notice Returns the production token instance triples on HyperEVM,
@@ -1210,7 +1275,7 @@ library LibTokenInvariants {
     /// parity pin asserts the alignment).
     /// @return tokens The production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1546,6 +1611,24 @@ library LibTokenInvariants {
             receipt: address(0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7),
             receiptVault: address(0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548),
             wrappedTokenVault: address(0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f)
+        });
+        tokens[56] = TokenInstance({
+            underlying: "IFX",
+            receipt: address(0xe509C440B68c4FBf95e24d7476d3e5Bc8b25a8BB),
+            receiptVault: address(0x89857176e95973FDC8f365532CF4c162b3EE11f0),
+            wrappedTokenVault: address(0x88c10BEcFf283c21e9253d688ec06804359cF795)
+        });
+        tokens[57] = TokenInstance({
+            underlying: "SOI",
+            receipt: address(0x7e26dE68d52b54f9CBc8D64833c1fEDA82C36A92),
+            receiptVault: address(0xdab834808F67f8aC69642996A28571D4B2aD484E),
+            wrappedTokenVault: address(0xE828671B6EDd47122e4AcDE7aba6D12c58F244A3)
+        });
+        tokens[58] = TokenInstance({
+            underlying: "TPRO",
+            receipt: address(0xe26C011A6dcFd8286a3Cf47718F14299d33f9478),
+            receiptVault: address(0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536),
+            wrappedTokenVault: address(0x5d6775Cb5b22faF47471986e99265C1a4846d845)
         });
     }
 
@@ -1555,7 +1638,7 @@ library LibTokenInvariants {
     /// asserts the alignment).
     /// @return tokens The production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1892,6 +1975,24 @@ library LibTokenInvariants {
             receiptVault: address(0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548),
             wrappedTokenVault: address(0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f)
         });
+        tokens[56] = TokenInstance({
+            underlying: "IFX",
+            receipt: address(0xe509C440B68c4FBf95e24d7476d3e5Bc8b25a8BB),
+            receiptVault: address(0x89857176e95973FDC8f365532CF4c162b3EE11f0),
+            wrappedTokenVault: address(0x88c10BEcFf283c21e9253d688ec06804359cF795)
+        });
+        tokens[57] = TokenInstance({
+            underlying: "SOI",
+            receipt: address(0x7e26dE68d52b54f9CBc8D64833c1fEDA82C36A92),
+            receiptVault: address(0xdab834808F67f8aC69642996A28571D4B2aD484E),
+            wrappedTokenVault: address(0xE828671B6EDd47122e4AcDE7aba6D12c58F244A3)
+        });
+        tokens[58] = TokenInstance({
+            underlying: "TPRO",
+            receipt: address(0xe26C011A6dcFd8286a3Cf47718F14299d33f9478),
+            receiptVault: address(0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536),
+            wrappedTokenVault: address(0x5d6775Cb5b22faF47471986e99265C1a4846d845)
+        });
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
@@ -1900,7 +2001,7 @@ library LibTokenInvariants {
     /// asserts the alignment).
     /// @return tokens The production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](56);
+        tokens = new TokenInstance[](59);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -2236,6 +2337,24 @@ library LibTokenInvariants {
             receipt: address(0x67d8ACfE2DADa892411b4A86CBAC6901383C8F4e),
             receiptVault: address(0xe39a028cdC8a50e655A5b31ba8A48ce36f3A8243),
             wrappedTokenVault: address(0x24eD179E95F643ff9f8235850778160cFA4aeDb7)
+        });
+        tokens[56] = TokenInstance({
+            underlying: "IFX",
+            receipt: address(0x7D20cc31248faFfCDA2FE9570EABA52b33E81661),
+            receiptVault: address(0x2C5374933D1e7208B2184fA1A45119FDCac13123),
+            wrappedTokenVault: address(0xC107f1A341F131bac29123B9c80067C728F51a2f)
+        });
+        tokens[57] = TokenInstance({
+            underlying: "SOI",
+            receipt: address(0xa1A82D3907C3175b62FE3001ADC9d82d753965f8),
+            receiptVault: address(0xc361Da5Ac6523FBc40a1b160Ce98D1e84667325B),
+            wrappedTokenVault: address(0xB29E832De5fA5E84636E97020983Fd16AEB500bB)
+        });
+        tokens[58] = TokenInstance({
+            underlying: "TPRO",
+            receipt: address(0x3e461B61F8807bc1d7a6b64B4caC06670c50eb1D),
+            receiptVault: address(0x21ebe855F15c2e1BAdea603c1cB07B964096A616),
+            wrappedTokenVault: address(0x8626f71cFB43D7e14a26728ba74a5dc5170d7794)
         });
     }
 

@@ -74,6 +74,10 @@ contract BuildPrivilegedAddressesTest is Test {
                 vm.parseJsonAddress(json, string.concat(at, ".authoriser")),
                 LibAuthoriserInvariants.authoriserForChainId(id)
             );
+            assertEq(
+                vm.parseJsonAddress(json, string.concat(at, ".euAuthoriser")),
+                LibAuthoriserInvariants.euAuthoriserForChainId(id)
+            );
         }
     }
 
@@ -141,12 +145,11 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    function testRunWritesTheRender() external {
-        vm.removeFile("privileged-addresses.json");
-        build.run();
-        assertEq(
-            keccak256(vm.parseJson(vm.readFile("privileged-addresses.json"))), keccak256(vm.parseJson(build.render()))
-        );
+    function testWriteWritesTheRender() external {
+        string memory path = string.concat(vm.projectRoot(), "/out/privileged-addresses.test.json");
+        if (vm.exists(path)) vm.removeFile(path);
+        build.write(path);
+        assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
     }
 
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {

@@ -58,7 +58,7 @@ library LibProdTokenConfig {
     /// @notice The production token deploy configs, Base table order.
     /// @return configs The name/symbol table.
     function productionTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        configs = new TokenConfig[](56);
+        configs = new TokenConfig[](59);
         configs[0] = TokenConfig({
             underlying: "MSTR", name: "MicroStrategy Incorporated ST0x", symbol: "tMSTR", region: Region.US
         });
@@ -204,6 +204,11 @@ library LibProdTokenConfig {
         });
         configs[55] =
             TokenConfig({underlying: "DIS", name: "The Walt Disney Company ST0x", symbol: "tDIS", region: Region.US});
+        configs[56] =
+            TokenConfig({underlying: "IFX", name: "Infineon Technologies AG ST0x", symbol: "tIFX", region: Region.EU});
+        configs[57] = TokenConfig({underlying: "SOI", name: "Soitec SA ST0x", symbol: "tSOI", region: Region.EU});
+        configs[58] =
+            TokenConfig({underlying: "TPRO", name: "Technoprobe S.p.A. ST0x", symbol: "tTPRO", region: Region.EU});
     }
 
     function regionOf(string memory underlying) internal pure returns (Region) {
