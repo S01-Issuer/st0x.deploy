@@ -2,35 +2,15 @@ name: Git is clean
 on: [push]
 jobs:
   git-clean:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-        with:
-          persist-credentials: false
-      - uses: rainlanguage/rainix/.github/actions/nix-cachix-setup@main
-        with:
-          checkout: 'false'
-          cachix-auth-token: ${{ secrets.CACHIX_AUTH_TOKEN }}
-          gc-max-store-size-linux: 1G
-      - name: Install soldeer dependencies
-        if: hashFiles('soldeer.lock') != ''
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge soldeer install
-      - name: Regenerate pointer artifacts + deploy libs
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPointers.sol
-      - name: Regenerate privileged-addresses.json
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPrivilegedAddresses.sol
-      - name: Regenerate subgraph/networks.json
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildSubgraphNetworks.sol
-      - name: Regenerate ideal-roles.json
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildIdealRoles.sol
-      - name: Regenerate migrations.json
-        run: nix develop github:rainlanguage/rainix#sol-shell -c bash -c "forge build && forge script ./script/BuildMigrations.sol"
-      - name: Format
-        run: nix develop github:rainlanguage/rainix#sol-shell -c forge fmt
-      - name: Assert committed artifacts match freshly built
-        run: |
-          git add --intent-to-add --all
-          if ! git diff --exit-code; then
-            echo "::error::Committed pointer artifacts are stale. Regenerate and commit."
-            exit 1
-          fi
+    uses: rainlanguage/rainix/.github/workflows/rainix-copy-artifacts.yaml@main
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
+    with:
+      regenerate-command: |
+        set -euo pipefail
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildPrivilegedAddresses.sol
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildSubgraphNetworks.sol
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildIdealRoles.sol
+        nix develop github:rainlanguage/rainix#sol-shell -c forge script ./script/BuildMigrations.sol
+        # https://github.com/rainlanguage/rainix/issues/357
+        git add --intent-to-add --all
