@@ -6,6 +6,7 @@ import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
 import {LibIdealRoles, ContractRoles} from "../src/lib/LibIdealRoles.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
+import {LibRoleNames} from "../src/lib/LibRoleNames.sol";
 import {RoleGrant} from "../src/lib/RoleGrant.sol";
 
 /// @title BuildIdealRoles
@@ -18,6 +19,7 @@ contract BuildIdealRoles is Script {
         for (uint256 i = 0; i < grants.length; i++) {
             string memory row = string.concat(key, ".", vm.toString(i));
             vm.serializeBytes32(row, "role", grants[i].role);
+            vm.serializeString(row, "roleName", LibRoleNames.nameOf(grants[i].role));
             rows[i] = vm.serializeAddress(row, "grantee", grants[i].grantee);
         }
         return rows;
