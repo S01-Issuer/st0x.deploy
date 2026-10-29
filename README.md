@@ -106,43 +106,33 @@ verify.
 
 ### Worked example: the multisig threshold migration
 
-`script/20260619-migrate-multisig-threshold.s.sol` bumps the
-`STOX_TOKEN_OWNER_SAFE` threshold from 1-of-4 to 3-of-4 against the current
-4-owner roster. The script's pre-flight asserts, in one call into
-`LibSafeInvariants.assertAllChecks`, the pinned Safe v1.4.1 proxy codehash,
-singleton + bytecode, version, absence of modules and guard, fallback handler,
-uniform `owner()` across every production receipt vault returned by
-`LibTokenOwnership.productionReceiptVaults()` (13 vaults), the expected owner
-set, and the expected pre-migration threshold (`= 1`). Only after that bundle
-passes does it simulate `changeThreshold(3)` via `vm.prank`, re-run the same
-bundle against the post-state with the new threshold argument, and emit the Tx
-Builder JSON.
+`script/20260619-migrate-multisig-threshold.s.sol` is the first record on the
+migration line. Its pre-flight asserts the chain's token-owner Safe is locked
+down with the pinned owners and that the record is the line's next. Its bundle
+is `changeThreshold(STOX_TOKEN_OWNER_SAFE_THRESHOLD)`, only when the Safe is not
+at the pin yet, then the record. The post-state asserts the record and the full
+token-owner policy.
 
 Dry-run and produce the artifact:
 
 ```shell
-BASE_RPC_URL=https://base-rpc.publicnode.com \
-  forge script script/20260619-migrate-multisig-threshold.s.sol --rpc-url base
+forge script script/20260619-migrate-multisig-threshold.s.sol --rpc-url base
 ```
 
-The artifact is written to `out/safe-threshold-migration.json` and the canonical
-`SafeTxHash` is logged between explicit `==== TX BUILDER JSON BEGIN ====` /
-`==== TX BUILDER JSON END ====` markers so it is greppable from CI logs.
+The artifact is written to
+`out/20260619-migrate-multisig-threshold-<chainid>.json` and the bundle's
+MultiSend `SafeTxHash` is logged after the `==== TX BUILDER JSON END ====`
+marker.
 
 Verify an existing artifact against the live Safe (signers should run this
 before signing):
 
 ```shell
-BASE_RPC_URL=https://base-rpc.publicnode.com \
-  forge script script/20260619-migrate-multisig-threshold.s.sol \
+forge script script/20260619-migrate-multisig-threshold.s.sol \
   --rpc-url base \
   --sig 'verify(string)' \
-  out/safe-threshold-migration.json
+  out/20260619-migrate-multisig-threshold-8453.json
 ```
-
-A successful `verify` exits silently. Any pre-flight or artifact-mismatch
-failure surfaces a typed error (`SafeThresholdMismatch`,
-`ReceiptVaultOwnerMismatch`, `VerifyMismatch`, etc.) that pinpoints the drift.
 
 The `multisig-artifact` GitHub workflow runs the dry-run on `workflow_dispatch`
 (maintainer-triggered, for producing the bundle the signers actually use) and on

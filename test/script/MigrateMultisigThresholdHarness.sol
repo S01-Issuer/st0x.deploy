@@ -4,34 +4,27 @@ pragma solidity =0.8.25;
 
 import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
 
-import {BackfillMigrationRegistryV3} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
+import {MigrateMultisigThreshold} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 
-/// @dev Exposes the script's hooks, with a per-instance artifact path because
-/// tests run in parallel.
-contract BackfillMigrationRegistryV3Harness is BackfillMigrationRegistryV3 {
+contract MigrateMultisigThresholdHarness is MigrateMultisigThreshold {
     string internal sArtifactTag;
 
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
     }
 
-    /// @inheritdoc BackfillMigrationRegistryV3
     function artifactPath() internal view override returns (string memory) {
         return string.concat(
-            "out/20261022-backfill-migration-registry-v3-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
+            "out/20260619-migrate-multisig-threshold-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
         );
-    }
-
-    function callPreflight() external view {
-        preflight();
-    }
-
-    function callAuthorBundle() external view returns (SafeTx[] memory) {
-        return authorBundle();
     }
 
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
+    }
+
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
+        return authorBundle();
     }
 
     function callAssertPostState() external view {

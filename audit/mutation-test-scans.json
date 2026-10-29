@@ -44,5 +44,51 @@
       "survivedAfter": 0,
       "notes": "BEFORE survivors: M01 (instance code check) and M02 (vault-logic lock) in assertInstance, M14 and M15 (retire run() and verify() calling assertInstance), M13 (grant emergency post-state EmergencyNotGranted), M16 and M17 (grant emergency preflight and post-state calling assertInstance). testInstanceWithoutCodeTrips and testVaultLogicUnexpectedTrips kill M01 and M02, and testRunRefusesOrchestratorInstanceOffInvariant and testVerifyRefusesOrchestratorInstanceOffInvariant kill M14 and M15. testPostStateRefusesSafeWithoutEmergency kills M13 without a fork: a local Base with the pinned registry etched, a v1.4.1 Safe built from the canonical runtime code in the token-owner policy, and the orchestrator code etched at the instance and initialised to the Safe, with the bundle executed through the Safe. M01, M02, M14 and M15 were scored AFTER at 2efb6149571e37db973fad86fc813b43987c390e; M13 at 77d8716b78381eb0b6ac35a62af26865f0f2f37c. testPreflightRefusesOrchestratorWithFailingVaultLogicLock and testPostStateRefusesOrchestratorWithFailingVaultLogicLock kill M16 and M17 on the same fork-free setup, extended with the pinned timelock and the 0.1.30 orchestrator beacon set Zoltu-deployed and the beacon owned by the timelock: each expects OrchestratorVaultLogicUnexpected(instance), since an instance without code fails the earlier hasRole read at both call sites. M16 and M17 were scored AFTER at testsAfterCommit. The admin move's three role asserts and the two assertHolds mutants were killed BEFORE by the forked testPreflightRefusesSafeWithoutEmergency and testPostStateRefusesMissingRole, which return early once every chain records the move; both now run on the same local Base with the grant executed and the V3 backfill recorded as the Safe's head, in OrchestratorAdminToTimelockLocalTest, and all five were re-scored KILLED there at testsAfterCommit."
     }
+  },
+  {
+    "timestamp": "2026-10-28T09:03:42Z",
+    "commit": "d70545e4c75c1a70fa31d6367e38b288b91d79fc",
+    "testsAfterCommit": "8a7a5707f8f2ca2732607ef496aeb6827c210654",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 528,
+    "scope": "pr:512 review fixes after merging main: the source behaviours the two CodeRabbit threads test against a live line that may have moved. LibStoxMigrations.assertNext (head check, delegate approval), the threshold script record-only condition, and the admin move bundle (timelock grant and Safe renounce conditions). Suite: forge test over MigrationLineTest, MigrateMultisigThresholdTest and OrchestratorAdminToTimelockTest, forked from public RPCs. BEFORE at commit (merge of main, no new tests), AFTER at testsAfterCommit.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 5,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 21,
+      "testsAfter": 24,
+      "filed": [],
+      "killedBefore": 4,
+      "survivedBefore": 1,
+      "killedAfter": 5,
+      "survivedAfter": 0,
+      "notes": "BEFORE survivor M05: the admin move bundle with the Safe renounce forced in survived because no test drove a Safe that no longer holds admin. testBundleIsTheRecordAloneWhenTheMoveAlreadyHolds kills it: with the timelock already admin and the Safe renounced, the bundle is the record alone. The new moved-line branches (MigrationLine replay from the live head, the threshold recorded branch) are test code, so they are exercised by testLineReplaysFromAMovedHead and testRunRefusesWhereTheThresholdIsRecorded instead of being mutated."
+    }
+  },
+  {
+    "timestamp": "2026-10-28T13:17:29Z",
+    "commit": "8bf793df105deb1210fdd012ed5f81a073be385f",
+    "testsAfterCommit": "bf1c07e8f3db0653c5b9d1a068d5caa8fefa89a3",
+    "publishedTag": "sol-v0.1.30",
+    "commitsAheadOfTag": 536,
+    "scope": "pr:512 second review round, two runs. Run 1 at commit: 10 mutants on the source the live-line fixes test against (LibStoxMigrations.assertNext head check and its reported head, the retire bundle schedule/execute choice, the retire inside-delay refusal, RETIRE_SALT, and LibMigrationLineFork.recordOnto spent guard and predecessor skip), suite forge test over MigrationLineTest, MigrationLineForkTest, GrantEuAuthoriserRolesTest and RetireDirectSignerRolesProdTest (27 tests). Run 2: 11 mutants on script/20260831-retire-direct-signer-roles.s.sol (preflight inside-delay refusal: ready exemption, removal, error; bundle always schedules, always executes; schedule delay; post-state ready and unscheduled refusals; post-state executed check; salt; checked operation id), suite MigrationLineTest, MigrationLineForkTest and RetireDirectSignerRolesProdTest, BEFORE at 3971315cffd6a364f8c643edd812b81624eb3b35 (the retire tests guarded on the batch live timelock stage, 19 tests) and AFTER at testsAfterCommit (testRetireHoldsFromAScheduledBatch added, 20 tests). Forked from public RPCs.",
+    "tool": "adversarial-mutation-test",
+    "skillVersion": "0.35.0",
+    "summary": {
+      "behaviours": 21,
+      "candidates": 0,
+      "confirmed": 0,
+      "testsBefore": 27,
+      "testsAfter": 28,
+      "filed": [],
+      "killedBefore": 21,
+      "survivedBefore": 0,
+      "killedAfter": 21,
+      "survivedAfter": 0,
+      "notes": "Run 1: 10/10 KILLED at commit. Run 2: 11/11 KILLED at 3971315c and again 11/11 at testsAfterCommit, where testRetireHoldsFromAScheduledBatch joins the killers of R01, R02, R03, R04 and R07 by running the rollout, the run artifact and the post-state refusals from a batch the timelock already holds, inside its delay and once ready. Run 1 was not re-probed at testsAfterCommit; its 10 killers are unchanged there apart from the retire tests now taking the live stage, which run 2 re-probed. Every run-2 AFTER kill was read from the suite output: custom-error reverts (RetireInsideDelay, RetireNotScheduled, TimelockUnexpectedOperationState, GS013 from the Safe), expectRevert mismatches, or assertion failures; no RPC error. One AFTER baseline attempt failed on a HyperEVM RPC -32603 invalid block height and was re-run green before any mutant was probed. No survivors, so nothing is added to known-false-positives.md."
+    }
   }
 ]

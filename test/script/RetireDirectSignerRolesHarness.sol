@@ -7,27 +7,44 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {RetireDirectSignerRoles} from "../../script/20260831-retire-direct-signer-roles.s.sol";
 import {SafeTx} from "rain-deploy-0.1.25/src/lib/LibSafeTx.sol";
 
-/// @dev Exposes the script's internals so the guard tests can drive them
-/// directly.
 contract RetireDirectSignerRolesHarness is RetireDirectSignerRoles {
-    /// @notice The script's `assertOrchestratorPathEnabled()`, externally
-    /// callable.
+    string internal sArtifactTag;
+
+    constructor(string memory artifactTag) {
+        sArtifactTag = artifactTag;
+    }
+
+    function artifactPath() internal view override returns (string memory) {
+        return string.concat(
+            "out/20260831-retire-direct-signer-roles-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
+        );
+    }
+
+    function callArtifactPath() external view returns (string memory) {
+        return artifactPath();
+    }
+
     function callAssertOrchestratorPathEnabled(IAccessControl acl, address orchestrator) external view {
         assertOrchestratorPathEnabled(acl, orchestrator);
     }
 
-    /// @notice The script's `authorBundle()`, externally callable.
-    function callAuthorBundle(address authoriser, address safeAddr) external view returns (SafeTx[] memory) {
-        return authorBundle(authoriser, safeAddr);
+    function callOperation(address authoriser, address controller)
+        external
+        view
+        returns (address[] memory, uint256[] memory, bytes[] memory)
+    {
+        return operation(authoriser, controller);
     }
 
-    /// @notice The script's `assertPostRetireState()`, externally callable.
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
+        return authorBundle();
+    }
+
+    function callAssertPostState() external view {
+        assertPostState();
+    }
+
     function callAssertPostRetireState(IAccessControl acl, address orchestrator, address safeAddr) external view {
         assertPostRetireState(acl, orchestrator, safeAddr);
-    }
-
-    /// @notice The script's `artifactPath()`, externally callable.
-    function callArtifactPath() external view returns (string memory) {
-        return artifactPath();
     }
 }

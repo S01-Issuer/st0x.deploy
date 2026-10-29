@@ -20,7 +20,6 @@ import {
     ST0xOrchestratorBeaconSetDeployerLike
 } from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title LocalBaseOrchestratorFixture
@@ -37,9 +36,6 @@ abstract contract LocalBaseOrchestratorFixture is Test {
 
     function buildLocalBase() internal {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
-        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        vm.warp(executedAt + 1 days);
-
         vm.etch(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, MIGRATION_REGISTRY_RUNTIME_CODE);
         vm.etch(LibSafe.SAFE_V1_4_1_L2_SINGLETON, LibSafe.SAFE_V1_4_1_L2_SINGLETON_RUNTIME_CODE);
         vm.etch(

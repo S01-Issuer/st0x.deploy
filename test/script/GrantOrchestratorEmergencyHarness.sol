@@ -8,6 +8,18 @@ import {GrantOrchestratorEmergency} from "../../script/20261006-grant-orchestrat
 
 /// @dev Exposes the script's hooks so the tests can drive them directly.
 contract GrantOrchestratorEmergencyHarness is GrantOrchestratorEmergency {
+    string internal sArtifactTag;
+
+    constructor(string memory artifactTag) {
+        sArtifactTag = artifactTag;
+    }
+
+    function artifactPath() internal view override returns (string memory) {
+        return string.concat(
+            "out/20261006-grant-orchestrator-emergency-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
+        );
+    }
+
     function callPreflight() external view {
         preflight();
     }

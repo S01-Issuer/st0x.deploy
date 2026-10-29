@@ -5,26 +5,24 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
 
-import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
+import {ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
 import {
     DeclarationCountMismatch,
-    DuplicateRecord,
     ForkedLine,
+    HeadCycle,
     IdNotScriptPath,
     LibScriptDeclarations,
-    MigrationWithoutPrerequisite,
     MigrationWithoutRecord,
-    NotOntoOwnLine,
-    OwnLinePrerequisite,
     RecordOnNonMigration,
-    PrerequisiteCycle,
-    UnknownPrerequisite
+    UnknownHead
 } from "../../../src/lib/LibScriptDeclarations.sol";
 import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
 
+/// @title LibScriptDeclarationsTest
+/// @notice The declared migrations form one line from genesis: each id is its
+/// script's path, each head is genesis or another declared migration, no two
+/// share a head, and following heads always reaches genesis.
 contract LibScriptDeclarationsTest is Test {
-    bytes32 internal constant OTHER_NAMESPACE = keccak256("other");
-
     function validate(string[] memory paths, ScriptDeclaration[] memory declarations) external pure {
         LibScriptDeclarations.validate(paths, declarations);
     }
@@ -53,133 +51,26 @@ contract LibScriptDeclarationsTest is Test {
         declarations[1] = db;
     }
 
-    function deployOnto(string memory path, bytes32 head) internal pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(LibStoxMigrations.NAMESPACE, keccak256(bytes(path)), head, false);
-    }
-
-    function testAValidLineOfScriptsPasses() external view {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
-            "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
-            "script/b.s.sol",
-            deployOnto("script/b.s.sol", keccak256("script/a.s.sol"))
-        );
-        this.validate(paths, declarations);
-    }
-
-    function testANonMigrationWithNoRecordPasses() external view {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            one("script/declared.s.sol", LibStoxMigrations.notAMigration());
-        this.validate(paths, declarations);
-    }
-
-    function testAMigrationWithNoIdIsInNoLine() external {
-        ScriptDeclaration memory declared = deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS);
-        declared.id = 0;
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = one("script/a.s.sol", declared);
-        vm.expectRevert(abi.encodeWithSelector(MigrationWithoutRecord.selector, "script/a.s.sol"));
-        this.validate(paths, declarations);
-    }
-
-    function testAMigrationWithNoNamespaceIsInNoLine() external {
-        ScriptDeclaration memory declared = deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS);
-        declared.namespace = 0;
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = one("script/a.s.sol", declared);
-        vm.expectRevert(abi.encodeWithSelector(MigrationWithoutRecord.selector, "script/a.s.sol"));
-        this.validate(paths, declarations);
-    }
-
-    function testAMigrationRecordedAfterNothingIsInNoLine() external {
-        ScriptDeclaration memory declared = deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS);
-        declared.prerequisites = new MigrationPrerequisite[](0);
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = one("script/a.s.sol", declared);
-        vm.expectRevert(abi.encodeWithSelector(MigrationWithoutPrerequisite.selector, "script/a.s.sol"));
-        this.validate(paths, declarations);
-    }
-
-    function testANonMigrationCarriesNoPartOfARecord() external {
-        ScriptDeclaration[4] memory cases;
-        for (uint256 c = 0; c < cases.length; c++) {
-            cases[c] = LibStoxMigrations.notAMigration();
-        }
-        cases[0].namespace = LibStoxMigrations.NAMESPACE;
-        cases[1].id = keccak256("script/r.s.sol");
-        cases[2].prerequisites = deployOnto("script/r.s.sol", MIGRATION_HEAD_GENESIS).prerequisites;
-        cases[3].history = true;
-        for (uint256 c = 0; c < cases.length; c++) {
-            (string[] memory paths, ScriptDeclaration[] memory declarations) = one("script/r.s.sol", cases[c]);
-            vm.expectRevert(abi.encodeWithSelector(RecordOnNonMigration.selector, "script/r.s.sol"));
-            this.validate(paths, declarations);
-        }
-    }
-
-    function testARecordInThisNamespaceIsKeyedByItsScriptPath() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            one("script/a.s.sol", deployOnto("script/other.s.sol", MIGRATION_HEAD_GENESIS));
-        vm.expectRevert(abi.encodeWithSelector(IdNotScriptPath.selector, "script/a.s.sol"));
-        this.validate(paths, declarations);
-    }
-
-    function testARecordInAnotherNamespaceIsKeyedFreely() external view {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = one(
-            "script/a.s.sol",
-            LibStoxMigrations.safeMigrationOnto(OTHER_NAMESPACE, keccak256("x"), MIGRATION_HEAD_GENESIS, false)
-        );
-        this.validate(paths, declarations);
-    }
-
-    function testTwoScriptsCannotDeclareOneRecord() external {
-        ScriptDeclaration memory declared =
-            LibStoxMigrations.safeMigrationOnto(OTHER_NAMESPACE, keccak256("x"), MIGRATION_HEAD_GENESIS, false);
-        (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            two("script/a.s.sol", declared, "script/b.s.sol", declared);
-        vm.expectRevert(abi.encodeWithSelector(DuplicateRecord.selector, "script/b.s.sol", "script/a.s.sol"));
-        this.validate(paths, declarations);
-    }
-
-    function testAPrerequisiteNoScriptDeclaresIsUnknown() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            one("script/b.s.sol", deployOnto("script/b.s.sol", keccak256("script/a.s.sol")));
-        vm.expectRevert(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 0));
-        this.validate(paths, declarations);
-    }
-
     function three(
         string memory a,
-        ScriptDeclaration memory declaredA,
+        ScriptDeclaration memory da,
         string memory b,
-        ScriptDeclaration memory declaredB,
+        ScriptDeclaration memory db,
         string memory c,
-        ScriptDeclaration memory declaredC
+        ScriptDeclaration memory dc
     ) internal pure returns (string[] memory paths, ScriptDeclaration[] memory declarations) {
         paths = new string[](3);
         paths[0] = a;
         paths[1] = b;
         paths[2] = c;
         declarations = new ScriptDeclaration[](3);
-        declarations[0] = declaredA;
-        declarations[1] = declaredB;
-        declarations[2] = declaredC;
+        declarations[0] = da;
+        declarations[1] = db;
+        declarations[2] = dc;
     }
 
-    function otherLine(bytes32 id, bytes32 head) internal pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(OTHER_NAMESPACE, id, head, false);
-    }
-
-    function timelockLine(bytes32 id, bytes32 head) internal pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.migrationOnto(MigrationWriter.Timelock, OTHER_NAMESPACE, id, head, false);
-    }
-
-    function withSecond(ScriptDeclaration memory declared, MigrationPrerequisite memory second)
-        internal
-        pure
-        returns (ScriptDeclaration memory)
-    {
-        MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](2);
-        prerequisites[0] = declared.prerequisites[0];
-        prerequisites[1] = second;
-        declared.prerequisites = prerequisites;
-        return declared;
+    function onto(string memory path, bytes32 head) internal pure returns (ScriptDeclaration memory) {
+        return LibStoxMigrations.migrationOnto(keccak256(bytes(path)), head);
     }
 
     function expectRevertOn(bytes memory reason, string[] memory paths, ScriptDeclaration[] memory declarations)
@@ -189,268 +80,155 @@ contract LibScriptDeclarationsTest is Test {
         this.validate(paths, declarations);
     }
 
-    function testASecondPrerequisiteInAnotherLinePasses() external view {
+    function testALineFromGenesisPasses() external view {
         (string[] memory paths, ScriptDeclaration[] memory declarations) = three(
             "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
-            "script/o.s.sol",
-            otherLine("o", MIGRATION_HEAD_GENESIS),
+            onto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
             "script/b.s.sol",
-            withSecond(
-                deployOnto("script/b.s.sol", keccak256("script/a.s.sol")),
-                MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: OTHER_NAMESPACE, migration: "o"})
-            )
+            onto("script/b.s.sol", keccak256("script/a.s.sol")),
+            "script/c.s.sol",
+            onto("script/c.s.sol", keccak256("script/b.s.sol"))
         );
         this.validate(paths, declarations);
     }
 
-    function testAFirstPrerequisiteUnderAnotherWriterIsNotOntoItsOwnLine() external {
-        ScriptDeclaration memory declared = deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS);
-        declared.prerequisites[0].writer = MigrationWriter.Timelock;
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = one("script/a.s.sol", declared);
-        expectRevertOn(abi.encodeWithSelector(NotOntoOwnLine.selector, "script/a.s.sol"), paths, declarations);
-    }
-
-    function testAFirstPrerequisiteInAnotherNamespaceIsNotOntoItsOwnLine() external {
-        ScriptDeclaration memory declared = deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS);
-        declared.prerequisites[0].namespace = OTHER_NAMESPACE;
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = one("script/a.s.sol", declared);
-        expectRevertOn(abi.encodeWithSelector(NotOntoOwnLine.selector, "script/a.s.sol"), paths, declarations);
-    }
-
-    function testALaterPrerequisiteInItsOwnLineIsRefused() external {
+    /// @notice A head may be declared after the migration onto it.
+    function testALineOutOfPathOrderPasses() external view {
         (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
             "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
+            onto("script/a.s.sol", keccak256("script/b.s.sol")),
             "script/b.s.sol",
-            withSecond(
-                deployOnto("script/b.s.sol", keccak256("script/a.s.sol")),
-                MigrationPrerequisite({
-                    writer: MigrationWriter.Safe,
-                    namespace: LibStoxMigrations.NAMESPACE,
-                    migration: keccak256("script/a.s.sol")
-                })
-            )
+            onto("script/b.s.sol", MIGRATION_HEAD_GENESIS)
         );
-        expectRevertOn(abi.encodeWithSelector(OwnLinePrerequisite.selector, "script/b.s.sol", 1), paths, declarations);
+        this.validate(paths, declarations);
     }
 
-    function testALaterPrerequisiteUnderAnotherWriterIsUnknown() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = three(
-            "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
-            "script/o.s.sol",
-            otherLine("o", MIGRATION_HEAD_GENESIS),
-            "script/b.s.sol",
-            withSecond(
-                deployOnto("script/b.s.sol", keccak256("script/a.s.sol")),
-                MigrationPrerequisite({writer: MigrationWriter.Timelock, namespace: OTHER_NAMESPACE, migration: "o"})
-            )
-        );
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 1), paths, declarations);
-    }
-
-    function testALaterPrerequisiteNamingAnUndeclaredIdIsUnknown() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = three(
-            "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
-            "script/o.s.sol",
-            otherLine("o", MIGRATION_HEAD_GENESIS),
-            "script/b.s.sol",
-            withSecond(
-                deployOnto("script/b.s.sol", keccak256("script/a.s.sol")),
-                MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: OTHER_NAMESPACE, migration: "typo"})
-            )
-        );
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 1), paths, declarations);
-    }
-
-    function testALaterPrerequisiteNamingGenesisIsUnknown() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
-            "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
-            "script/b.s.sol",
-            withSecond(
-                deployOnto("script/b.s.sol", keccak256("script/a.s.sol")),
-                MigrationPrerequisite({
-                    writer: MigrationWriter.Safe, namespace: OTHER_NAMESPACE, migration: MIGRATION_HEAD_GENESIS
-                })
-            )
-        );
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 1), paths, declarations);
-    }
-
-    function testAHeadNamingAnUndeclaredIdBesideARealRecordIsUnknown() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
-            "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
-            "script/b.s.sol",
-            deployOnto("script/b.s.sol", keccak256("script/typo.s.sol"))
-        );
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 0), paths, declarations);
-    }
-
-    function testAHeadOnANonMigrationIsUnknown() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
-            "script/a.s.sol",
-            LibStoxMigrations.notAMigration(),
-            "script/b.s.sol",
-            deployOnto("script/b.s.sol", keccak256("script/a.s.sol"))
-        );
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 0), paths, declarations);
-    }
-
-    function testAMigrationIsNotItsOwnHead() external {
+    function testANonMigrationWithNoRecordPasses() external view {
         (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            one("script/a.s.sol", deployOnto("script/a.s.sol", keccak256("script/a.s.sol")));
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/a.s.sol", 0), paths, declarations);
+            one("script/a.s.sol", LibStoxMigrations.notAMigration());
+        this.validate(paths, declarations);
+    }
+
+    function testNoScriptsPass() external view {
+        this.validate(new string[](0), new ScriptDeclaration[](0));
+    }
+
+    function testAMigrationWithNoIdIsRefused() external {
+        (string[] memory paths, ScriptDeclaration[] memory declarations) =
+            one("script/a.s.sol", LibStoxMigrations.migrationOnto(0, MIGRATION_HEAD_GENESIS));
+        expectRevertOn(abi.encodeWithSelector(MigrationWithoutRecord.selector, "script/a.s.sol"), paths, declarations);
     }
 
     function testTheGenesisIdIsNoRecord() external {
         (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            one("script/a.s.sol", otherLine(MIGRATION_HEAD_GENESIS, MIGRATION_HEAD_GENESIS));
+            one("script/a.s.sol", LibStoxMigrations.migrationOnto(MIGRATION_HEAD_GENESIS, MIGRATION_HEAD_GENESIS));
         expectRevertOn(abi.encodeWithSelector(MigrationWithoutRecord.selector, "script/a.s.sol"), paths, declarations);
     }
 
-    function testOneIdInTwoNamespacesIsTwoRecords() external view {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
-            "script/a.s.sol",
-            otherLine("x", MIGRATION_HEAD_GENESIS),
-            "script/b.s.sol",
-            LibStoxMigrations.safeMigrationOnto(keccak256("third"), "x", MIGRATION_HEAD_GENESIS, false)
-        );
-        this.validate(paths, declarations);
+    function testAnIdThatIsNotTheScriptPathIsRefused() external {
+        (string[] memory paths, ScriptDeclaration[] memory declarations) =
+            one("script/a.s.sol", onto("script/b.s.sol", MIGRATION_HEAD_GENESIS));
+        expectRevertOn(abi.encodeWithSelector(IdNotScriptPath.selector, "script/a.s.sol"), paths, declarations);
     }
 
-    function testTwoMigrationsOntoOneHeadForkTheLine() external {
+    function testANonMigrationWithAnIdIsRefused() external {
+        ScriptDeclaration memory declared = LibStoxMigrations.notAMigration();
+        declared.id = keccak256("script/a.s.sol");
+        (string[] memory paths, ScriptDeclaration[] memory declarations) = one("script/a.s.sol", declared);
+        expectRevertOn(abi.encodeWithSelector(RecordOnNonMigration.selector, "script/a.s.sol"), paths, declarations);
+    }
+
+    function testANonMigrationWithAHeadIsRefused() external {
+        ScriptDeclaration memory declared = LibStoxMigrations.notAMigration();
+        declared.onto = MIGRATION_HEAD_GENESIS;
+        (string[] memory paths, ScriptDeclaration[] memory declarations) = one("script/a.s.sol", declared);
+        expectRevertOn(abi.encodeWithSelector(RecordOnNonMigration.selector, "script/a.s.sol"), paths, declarations);
+    }
+
+    function testAnInvalidNonMigrationFailsBeforeAnyLineRule() external {
+        ScriptDeclaration memory declared = LibStoxMigrations.notAMigration();
+        declared.onto = MIGRATION_HEAD_GENESIS;
+        (string[] memory paths, ScriptDeclaration[] memory declarations) =
+            two("script/a.s.sol", onto("script/a.s.sol", keccak256("missing")), "script/b.s.sol", declared);
+        expectRevertOn(abi.encodeWithSelector(RecordOnNonMigration.selector, "script/b.s.sol"), paths, declarations);
+    }
+
+    function testAHeadNoScriptDeclaresIsUnknown() external {
         (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
             "script/a.s.sol",
-            otherLine("x", MIGRATION_HEAD_GENESIS),
+            onto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
             "script/b.s.sol",
-            otherLine("y", MIGRATION_HEAD_GENESIS)
+            onto("script/b.s.sol", keccak256("script/missing.s.sol"))
+        );
+        expectRevertOn(abi.encodeWithSelector(UnknownHead.selector, "script/b.s.sol"), paths, declarations);
+    }
+
+    /// @notice Zero is no record, and a non-migration's empty id is not a
+    /// head.
+    function testAZeroHeadIsUnknownBesideANonMigration() external {
+        (string[] memory paths, ScriptDeclaration[] memory declarations) =
+            two("script/a.s.sol", LibStoxMigrations.notAMigration(), "script/b.s.sol", onto("script/b.s.sol", 0));
+        expectRevertOn(abi.encodeWithSelector(UnknownHead.selector, "script/b.s.sol"), paths, declarations);
+    }
+
+    function testTwoMigrationsOntoGenesisForkTheLine() external {
+        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
+            "script/a.s.sol",
+            onto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
+            "script/b.s.sol",
+            onto("script/b.s.sol", MIGRATION_HEAD_GENESIS)
         );
         expectRevertOn(
             abi.encodeWithSelector(ForkedLine.selector, "script/b.s.sol", "script/a.s.sol"), paths, declarations
         );
     }
 
-    function testOneHeadInTwoLinesIsNoFork() external view {
+    function testTwoMigrationsOntoOneMigrationForkTheLine() external {
         (string[] memory paths, ScriptDeclaration[] memory declarations) = three(
             "script/a.s.sol",
-            otherLine("x", MIGRATION_HEAD_GENESIS),
+            onto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
             "script/b.s.sol",
-            timelockLine("y", MIGRATION_HEAD_GENESIS),
+            onto("script/b.s.sol", keccak256("script/a.s.sol")),
             "script/c.s.sol",
-            deployOnto("script/c.s.sol", MIGRATION_HEAD_GENESIS)
+            onto("script/c.s.sol", keccak256("script/a.s.sol"))
         );
-        this.validate(paths, declarations);
+        expectRevertOn(
+            abi.encodeWithSelector(ForkedLine.selector, "script/c.s.sol", "script/b.s.sol"), paths, declarations
+        );
+    }
+
+    function testAMigrationIsNotItsOwnHead() external {
+        (string[] memory paths, ScriptDeclaration[] memory declarations) =
+            one("script/a.s.sol", onto("script/a.s.sol", keccak256("script/a.s.sol")));
+        expectRevertOn(abi.encodeWithSelector(HeadCycle.selector, "script/a.s.sol"), paths, declarations);
     }
 
     function testACycleOfHeadsIsRefused() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            two("script/a.s.sol", otherLine("x", "y"), "script/b.s.sol", otherLine("y", "x"));
-        expectRevertOn(abi.encodeWithSelector(PrerequisiteCycle.selector, "script/a.s.sol"), paths, declarations);
-    }
-
-    function testALineThroughAnUnknownHeadIsUnknownWhereItIsNamed() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            two("script/a.s.sol", otherLine("x", "y"), "script/b.s.sol", otherLine("y", "missing"));
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 0), paths, declarations);
-    }
-
-    function testALaterPrerequisiteNamingAnIdFromAnotherNamespaceIsUnknown() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = three(
-            "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
-            "script/o.s.sol",
-            otherLine("o", MIGRATION_HEAD_GENESIS),
-            "script/b.s.sol",
-            withSecond(
-                deployOnto("script/b.s.sol", keccak256("script/a.s.sol")),
-                MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: keccak256("third"), migration: "o"})
-            )
-        );
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 1), paths, declarations);
-    }
-
-    function testALaterPrerequisiteInTheSameNamespaceUnderAnotherWriterPasses() external view {
-        ScriptDeclaration memory timelockSecond = withSecond(
-            timelockLine("t2", "t1"),
-            MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: OTHER_NAMESPACE, migration: "o"})
-        );
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = three(
-            "script/a.s.sol",
-            otherLine("o", MIGRATION_HEAD_GENESIS),
-            "script/b.s.sol",
-            timelockLine("t1", MIGRATION_HEAD_GENESIS),
-            "script/c.s.sol",
-            timelockSecond
-        );
-        this.validate(paths, declarations);
-    }
-
-    function testAnUnknownHeadAmongManyIsUnknownWhereItIsNamed() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = three(
-            "script/a.s.sol",
-            otherLine("x", "y"),
-            "script/b.s.sol",
-            otherLine("y", "missing"),
-            "script/c.s.sol",
-            deployOnto("script/c.s.sol", MIGRATION_HEAD_GENESIS)
-        );
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 0), paths, declarations);
-    }
-
-    function testALaterPrerequisiteWithNoNamespaceIsUnknown() external {
         (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
             "script/a.s.sol",
-            deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
+            onto("script/a.s.sol", keccak256("script/b.s.sol")),
             "script/b.s.sol",
-            withSecond(
-                deployOnto("script/b.s.sol", keccak256("script/a.s.sol")),
-                MigrationPrerequisite({writer: MigrationWriter.Timelock, namespace: 0, migration: "z"})
-            )
+            onto("script/b.s.sol", keccak256("script/a.s.sol"))
         );
-        expectRevertOn(abi.encodeWithSelector(UnknownPrerequisite.selector, "script/b.s.sol", 1), paths, declarations);
+        expectRevertOn(abi.encodeWithSelector(HeadCycle.selector, "script/a.s.sol"), paths, declarations);
     }
 
-    function testAHeadOnALaterMigrationWithNoPrerequisitesFailsOnThatMigration() external {
-        ScriptDeclaration memory noPrerequisites = otherLine("y", MIGRATION_HEAD_GENESIS);
-        noPrerequisites.prerequisites = new MigrationPrerequisite[](0);
-        (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            two("script/a.s.sol", otherLine("x", "y"), "script/b.s.sol", noPrerequisites);
-        expectRevertOn(
-            abi.encodeWithSelector(MigrationWithoutPrerequisite.selector, "script/b.s.sol"), paths, declarations
-        );
-    }
-
-    function testACycleAcrossLinesIsRefused() external {
-        (string[] memory paths, ScriptDeclaration[] memory declarations) = two(
+    /// @notice A cycle beside a line from genesis is still a cycle.
+    function testACycleBesideALineIsRefused() external {
+        (string[] memory paths, ScriptDeclaration[] memory declarations) = three(
             "script/a.s.sol",
-            withSecond(
-                otherLine("x", MIGRATION_HEAD_GENESIS),
-                MigrationPrerequisite({writer: MigrationWriter.Timelock, namespace: OTHER_NAMESPACE, migration: "y"})
-            ),
+            onto("script/a.s.sol", MIGRATION_HEAD_GENESIS),
             "script/b.s.sol",
-            withSecond(
-                timelockLine("y", MIGRATION_HEAD_GENESIS),
-                MigrationPrerequisite({writer: MigrationWriter.Safe, namespace: OTHER_NAMESPACE, migration: "x"})
-            )
+            onto("script/b.s.sol", keccak256("script/c.s.sol")),
+            "script/c.s.sol",
+            onto("script/c.s.sol", keccak256("script/b.s.sol"))
         );
-        expectRevertOn(abi.encodeWithSelector(PrerequisiteCycle.selector, "script/a.s.sol"), paths, declarations);
-    }
-
-    function testAnInvalidNonMigrationFailsBeforeAnyLineRule() external {
-        ScriptDeclaration memory notMigration = otherLine("o", MIGRATION_HEAD_GENESIS);
-        notMigration.migration = false;
-        (string[] memory paths, ScriptDeclaration[] memory declarations) =
-            two("script/a.s.sol", otherLine("x", "o"), "script/b.s.sol", notMigration);
-        expectRevertOn(abi.encodeWithSelector(RecordOnNonMigration.selector, "script/b.s.sol"), paths, declarations);
+        expectRevertOn(abi.encodeWithSelector(HeadCycle.selector, "script/b.s.sol"), paths, declarations);
     }
 
     function testEveryDeclarationHasAPath() external {
         (, ScriptDeclaration[] memory declarations) =
-            one("script/a.s.sol", deployOnto("script/a.s.sol", MIGRATION_HEAD_GENESIS));
+            one("script/a.s.sol", onto("script/a.s.sol", MIGRATION_HEAD_GENESIS));
         vm.expectRevert(abi.encodeWithSelector(DeclarationCountMismatch.selector));
         this.validate(new string[](0), declarations);
     }

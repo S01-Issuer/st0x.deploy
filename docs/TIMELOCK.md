@@ -229,23 +229,36 @@ way to resolve it.
   `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
   exclusive `_ADMIN` holding on the timelock, per chain.
 
+## Migration line
+
+Every migration is recorded in the root authority's line in `rain-deploy`'s
+`MigrationRegistry` (`LibStoxMigrations`), written as the last call of the
+migration's own transaction by a delegate the root authority approves: the
+chain's Safe, or its timelock for a timelock batch. Each script refuses unless
+the line's head is its predecessor and its writer is approved. A migration whose
+effect already holds on a chain still runs there: its bundle carries only what
+is missing, down to the record alone. In order, onto genesis:
+
+1. `20260619-migrate-multisig-threshold` — the Safe at its pinned threshold.
+2. `20260729-migrate-governance-to-timelock` — vaults, beacons and authoriser
+   `_ADMIN` roles on the timelock.
+3. `20261006-grant-eu-authoriser-roles` — the EU authoriser's role map, its
+   `_ADMIN` roles on the timelock and none on the Safe.
+4. `20261006-grant-orchestrator-emergency` — `EMERGENCY_ROLE` on the Safe.
+5. `20261006-orchestrator-admin-to-timelock` — the orchestrator's
+   `DEFAULT_ADMIN_ROLE` moves from the Safe to the timelock. The script refuses
+   a Safe that does not hold `EMERGENCY_ROLE`.
+6. `20260831-retire-direct-signer-roles` — one timelock batch revoking the
+   service signer's direct `DEPOSIT` and `WITHDRAW` that it still holds, then
+   the record, written by the timelock. The Safe schedules it with one run and
+   executes it with a second run once `TIMELOCK_MIN_DELAY` has passed; a run
+   inside the delay refuses. It refuses while the orchestrator path is not fully
+   enabled.
+
 ## Orchestrator roles
 
-The orchestrator instance is governed through two dated scripts, each recorded
-by the Safe in `rain-deploy`'s `MigrationRegistry` (`LibStoxMigrations`), and
-`LibOrchestratorInvariants.assertInstance` asserts exactly the role state the
-records imply:
-
-1. `20261006-grant-orchestrator-emergency` — the Safe takes `EMERGENCY_ROLE`
-   while it still administers the orchestrator directly, and records the
-   governance-timelock migration (as history) and the grant.
-2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
-   the Safe to the timelock, recorded onto the grant, so the registry refuses it
-   on a chain where step 1 has not executed.
-
-Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
-are read from V3, so `20261022-backfill-migration-registry-v3` carries them over
-as history, per chain, before step 2 can run.
+The Safe holds `EMERGENCY_ROLE` on every chain, and
+`LibOrchestratorInvariants.assertInstance` always expects it.
 
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a
@@ -262,10 +275,8 @@ authoriser as well as `MINT` and `BURN` on the orchestrator, and revoking that
 / `BURN` on the orchestrator, and `CERTIFY` on the authoriser when the leaked
 key holds it) at the same time as the Safe expires the certification.
 
-The two steps are separate bundles by choice: the `EMERGENCY` grant is needed
-now and is signed on its own, while the admin move is a separate governance
-decision, signed once the grant has landed. Before signing step 2, on each
-chain, read the rain-org-health dashboard's Role changes tab
+Before signing the admin move, on each chain, read the rain-org-health
+dashboard's Role changes tab
 (<https://rainlanguage.github.io/rain-org-health/deployments.html>; the
 equivalent subgraph queries are in the script's NatSpec):
 
@@ -286,14 +297,15 @@ none of them. Because each `*_ADMIN` administers itself, `DEFAULT_ADMIN_ROLE`
 cannot take one back once granted, so `migrate` must be called with the timelock
 as `admin`.
 
-- **Step 2 must execute on every chain before that upgrade, or any upgrade of
-  the orchestrator, receipt-vault or receipt beacon, is scheduled.** If one
-  lands first, step 2 refuses there (its pre-flight pins the 0.1.30
-  implementation, the vault logic it was built against and the current role
-  admins), the Safe keeps `DEFAULT_ADMIN_ROLE`, and it can call `migrate(safe)`
-  directly, handing itself the self-administered `*_ADMIN` roles.
-- With step 2 executed, the beacon upgrade and `migrate(timelock)` are both
-  timelock operations and go in one `scheduleBatch`. In that implementation
+- **The admin move must execute on every chain before that upgrade, or any
+  upgrade of the orchestrator, receipt-vault or receipt beacon, is scheduled.**
+  If one lands first, the admin move refuses there (its pre-flight pins the
+  0.1.30 implementation, the vault logic it was built against and the current
+  role admins), the Safe keeps `DEFAULT_ADMIN_ROLE`, and it can call
+  `migrate(safe)` directly, handing itself the self-administered `*_ADMIN`
+  roles.
+- With the admin move executed, the beacon upgrade and `migrate(timelock)` are
+  both timelock operations and go in one `scheduleBatch`. In that implementation
   `MINT_ADMIN` also sets the mint caps and the mint weighting, and `mint`
   reverts while either is unset, so the same batch must set them; otherwise
   minting halts until a second timelock operation lands at least 48h later. Each
