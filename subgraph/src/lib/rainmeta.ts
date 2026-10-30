@@ -124,6 +124,10 @@ class CborReader {
         }
         this.pos += 1;
       } else {
+        if (argument > ((this.data.length - this.pos) as u64)) {
+          this.fail();
+          return;
+        }
         for (let i: u64 = 0; i < argument * per && this.ok; i++) {
           this.skip(depth + 1);
         }
