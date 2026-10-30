@@ -132,6 +132,7 @@ class CborReader {
   }
 
   skip(depth: i32): void {
+    let start = this.pos;
     let argument = this.head();
     if (!this.ok) {
       return;
@@ -146,19 +147,8 @@ class CborReader {
         this.fail();
       }
     } else if (major == 2 || major == 3) {
-      if (argument == INDEFINITE) {
-        while (this.ok && !this.isBreak()) {
-          let chunk = this.head();
-          if (this.major != major || chunk == INDEFINITE) {
-            this.fail();
-            return;
-          }
-          this.take(chunk);
-        }
-        this.pos += 1;
-      } else {
-        this.take(argument);
-      }
+      this.pos = start;
+      this.string(depth);
     } else if (major == 4 || major == 5) {
       let per: u64 = major == 4 ? 1 : 2;
       if (argument == INDEFINITE) {
