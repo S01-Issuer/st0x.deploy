@@ -22,7 +22,7 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {retireDirectSignerRolesDeclaration} from "./20260831-retire-direct-signer-roles.s.sol";
 
-/// @notice The timelock operation's salt.
+/// @dev The timelock operation's salt.
 bytes32 constant TIMELOCK_BACKFILL_V5_SALT = keccak256("st0x.backfill-migration-registry-v5-timelock");
 
 /// @notice V5 already holds every timelock record this backfill writes.
@@ -72,6 +72,36 @@ function timelockBackfillV5Moment(address timelock, ScriptDeclaration memory dec
     return IMigrationRegistryV3(REGISTRY_V3).appliedV3(timelock, declared.namespace, declared.id);
 }
 
+/// @notice Writes each timelock V3-held record V5 lacks, as history at its V3
+/// moment, into `targets`/`payloads` from index 0, in line order (a record V3
+/// lacks ends its line).
+/// @param all The timelock's migration lines.
+/// @param safe The chain's Safe.
+/// @param timelock The chain's timelock.
+/// @param targets The batch targets, filled in place.
+/// @param payloads The batch payloads, filled in place.
+/// @return The number of entries written.
+function timelockBackfillV5FillHistory(
+    ScriptDeclaration[][] memory all,
+    address safe,
+    address timelock,
+    address[] memory targets,
+    bytes[] memory payloads
+) view returns (uint256) {
+    uint256 k = 0;
+    for (uint256 i = 0; i < all.length; i++) {
+        for (uint256 j = 0; j < all[i].length; j++) {
+            ScriptDeclaration memory declared = all[i][j];
+            uint256 at = timelockBackfillV5Moment(timelock, declared);
+            if (at == 0) break;
+            if (LibMigrationRegistry.appliedV5(timelock, declared.namespace, declared.id) != 0) continue;
+            (targets[k], payloads[k]) = LibStoxMigrations.historyCall(declared, at, safe, timelock);
+            k++;
+        }
+    }
+    return k;
+}
+
 /// @notice The batch the timelock executes: each timelock V3-held record V5
 /// lacks, as history at its V3 moment, in line order (a record V3 lacks ends
 /// its line), then this backfill's own record if V5 lacks it. Empty when V5
@@ -99,17 +129,7 @@ function timelockBackfillV5Batch(address safe, address timelock)
     if (recordOwn) count++;
     address[] memory targets = new address[](count);
     bytes[] memory payloads = new bytes[](count);
-    uint256 k = 0;
-    for (uint256 i = 0; i < all.length; i++) {
-        for (uint256 j = 0; j < all[i].length; j++) {
-            ScriptDeclaration memory declared = all[i][j];
-            uint256 at = timelockBackfillV5Moment(timelock, declared);
-            if (at == 0) break;
-            if (LibMigrationRegistry.appliedV5(timelock, declared.namespace, declared.id) != 0) continue;
-            (targets[k], payloads[k]) = LibStoxMigrations.historyCall(declared, at, safe, timelock);
-            k++;
-        }
-    }
+    uint256 k = timelockBackfillV5FillHistory(all, safe, timelock, targets, payloads);
     if (recordOwn) (targets[k], payloads[k]) = LibStoxMigrations.recordCall(own, safe, timelock);
     return (targets, payloads);
 }

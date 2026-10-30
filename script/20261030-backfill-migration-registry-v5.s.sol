@@ -101,6 +101,33 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.timelockForChainId(block.chainid), chainSafe);
     }
 
+    /// @notice Writes each V3-held record V5 lacks, as history at its V3
+    /// moment, into `txs` from index 0, in line order (a record V3 lacks ends
+    /// its line).
+    /// @param all The Safe's migration lines.
+    /// @param chainSafe The chain's Safe.
+    /// @param timelock The chain's timelock.
+    /// @param txs The bundle, filled in place.
+    /// @return The number of entries written.
+    function fillHistory(ScriptDeclaration[][] memory all, address chainSafe, address timelock, SafeTx[] memory txs)
+        internal
+        view
+        returns (uint256)
+    {
+        uint256 k = 0;
+        for (uint256 i = 0; i < all.length; i++) {
+            for (uint256 j = 0; j < all[i].length; j++) {
+                ScriptDeclaration memory declared = all[i][j];
+                uint256 at = v3Moment(chainSafe, declared);
+                if (at == 0) break;
+                if (LibMigrationRegistry.appliedV5(chainSafe, declared.namespace, declared.id) != 0) continue;
+                (address to, bytes memory data) = LibStoxMigrations.historyCall(declared, at, chainSafe, timelock);
+                txs[k++] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
+            }
+        }
+        return k;
+    }
+
     /// @inheritdoc SafeBundleScript
     /// @dev Each V3-held record V5 lacks, as history at its V3 moment, then
     /// this script's own record if its predecessor heads V5's deploy line
@@ -125,17 +152,7 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
             deployHead == own.prerequisites[0].migration && LibStoxMigrations.applied(chainSafe, own.id) == 0;
         if (recordOwn) count++;
         SafeTx[] memory txs = new SafeTx[](count);
-        uint256 k = 0;
-        for (uint256 i = 0; i < all.length; i++) {
-            for (uint256 j = 0; j < all[i].length; j++) {
-                ScriptDeclaration memory declared = all[i][j];
-                uint256 at = v3Moment(chainSafe, declared);
-                if (at == 0) break;
-                if (LibMigrationRegistry.appliedV5(chainSafe, declared.namespace, declared.id) != 0) continue;
-                (address to, bytes memory data) = LibStoxMigrations.historyCall(declared, at, chainSafe, timelock);
-                txs[k++] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
-            }
-        }
+        uint256 k = fillHistory(all, chainSafe, timelock, txs);
         if (recordOwn) {
             (address to, bytes memory data) = LibStoxMigrations.recordCall(own, chainSafe, timelock);
             txs[k] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
