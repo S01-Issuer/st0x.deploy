@@ -142,9 +142,9 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Every V3-held record has its V3 moment on V5, each V5 line head
-    /// is at least the V3 head, and this script's record, when written,
-    /// carries this block and heads the deploy line.
+    /// @dev Every V3-held record has its V3 moment on V5, the V5 rbac head
+    /// equals the V3 rbac head, and this script's record, when written, heads
+    /// the deploy line.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         ScriptDeclaration[][] memory all = lines();
@@ -163,12 +163,9 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
             revert UnexpectedRegistryV5Head(LibRbacMigration.STOX_RBAC_NAMESPACE, rbacExpected, rbacHead);
         }
         ScriptDeclaration memory own = backfillMigrationRegistryV5Declaration();
-        uint256 ownAt = LibStoxMigrations.applied(chainSafe, own.id);
-        if (ownAt != 0) {
-            // forge-lint: disable-next-line(block-timestamp)
-            if (ownAt != block.timestamp && LibStoxMigrations.head(chainSafe) != own.id) {
-                revert UnexpectedRegistryV5Head(LibStoxMigrations.NAMESPACE, own.id, LibStoxMigrations.head(chainSafe));
-            }
+        bytes32 deployHead = LibStoxMigrations.head(chainSafe);
+        if (LibStoxMigrations.applied(chainSafe, own.id) != 0 && deployHead != own.id) {
+            revert UnexpectedRegistryV5Head(LibStoxMigrations.NAMESPACE, own.id, deployHead);
         }
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
