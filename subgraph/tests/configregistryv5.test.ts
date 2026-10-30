@@ -2109,4 +2109,23 @@ describe("ConfigRegistryV5 unscoped delegates", () => {
     );
     assert.fieldEquals("RegistryUnscopedDelegateChange", row, "logIndex", "2");
   });
+
+  test("an unscoped approval and revocation record their logs' block timestamps", () => {
+    unscoped(true, 300, 4);
+    unscoped(false, 400, 2);
+
+    let id = REGISTRY.concat(AUTHORITY.slice(2)).concat(DELEGATE.slice(2));
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      id,
+      "approvedAtTimestamp",
+      "3600",
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegate",
+      id,
+      "revokedAtTimestamp",
+      "4800",
+    );
+  });
 });

@@ -217,6 +217,12 @@ describe("MigrationRegistryV5 MetaV1_2", () => {
     assert.fieldEquals("RegistryMeta", mockRowId(3), "meta", META);
   });
 
+  test("a meta seen before any record names its registry a V5 migration registry", () => {
+    meta(SUBJECT_1, META, 100, 3);
+
+    assert.fieldEquals("Contract", REGISTRY, "kind", "MIGRATION_REGISTRY_V5");
+  });
+
   test("a replayed meta writes one row", () => {
     migrate(MIGRATION_1, 100, 2);
     meta(SUBJECT_1, META, 100, 3);
@@ -440,6 +446,20 @@ describe("MigrationRegistryV5 MetaV1_2 verification", () => {
     assert.stringEquals(verifiedFor(P.concat(MIGRATION_ITEM)), UNVERIFIED);
     clearStore();
     assert.stringEquals(verifiedFor(P.concat(NAMESPACE_ITEM)), UNVERIFIED);
+  });
+
+  test("a meta for a record its line has moved past verifies against that record", () => {
+    migrate(MIGRATION_NAMED, 100, 2);
+    migrate(MIGRATION_2, 101, 4);
+    meta(
+      SUBJECT_NAMED,
+      P.concat(NAMESPACE_ITEM).concat(MIGRATION_ITEM),
+      101,
+      5,
+    );
+
+    assert.fieldEquals("MigrationLine", lineId(REGISTRY), "head", MIGRATION_2);
+    assert.fieldEquals("RegistryMeta", mockRowId(5), "verified", "true");
   });
 
   test("config registry items do not verify a migration", () => {
