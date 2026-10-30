@@ -116,6 +116,17 @@ class CborReader {
     return Bytes.fromUint8Array(this.data.subarray(start, this.pos));
   }
 
+  tags(depth: i32): i32 {
+    while (this.ok && !this.done() && this.data[this.pos] >> 5 == 6) {
+      if (depth >= MAX_DEPTH || this.head() == INDEFINITE) {
+        this.fail();
+        return depth;
+      }
+      depth += 1;
+    }
+    return depth;
+  }
+
   isBreak(): boolean {
     return this.ok && !this.done() && this.data[this.pos] == 0xff;
   }
@@ -172,12 +183,17 @@ class CborReader {
         return;
       }
       this.skip(depth + 1);
-    } else if (argument == INDEFINITE) {
+    } else if (
+      argument == INDEFINITE ||
+      this.info < 20 ||
+      this.info == 24
+    ) {
       this.fail();
     }
   }
 
-  string(): Bytes | null {
+  string(depth: i32): Bytes | null {
+    this.tags(depth);
     let length = this.head();
     let major = this.major;
     if (!this.ok || (major != 2 && major != 3)) {
@@ -214,18 +230,20 @@ class CborReader {
     return value;
   }
 
-  payload(): Bytes | null {
+  payload(depth: i32): Bytes | null {
+    depth = this.tags(depth);
     if (!this.ok || this.done()) {
       this.fail();
       return null;
     }
     if (this.data[this.pos] >> 5 != 4) {
-      return this.string();
+      return this.string(depth);
     }
     let length = this.head();
     if (
-      length != INDEFINITE &&
-      length > ((this.data.length - this.pos) as u64)
+      depth >= MAX_DEPTH ||
+      (length != INDEFINITE &&
+        length > ((this.data.length - this.pos) as u64))
     ) {
       this.fail();
       return null;
@@ -242,6 +260,7 @@ class CborReader {
         break;
       }
       read += 1;
+      this.tags(depth + 1);
       let byte = this.head();
       if (!this.ok || this.major != 0 || byte > 255) {
         this.fail();
@@ -255,7 +274,31 @@ class CborReader {
     return bytesOf(parts);
   }
 
-  variant(names: string[]): i32 {
+  variant(names: string[], depth: i32): i32 {
+    if (this.ok && !this.done() && this.data[this.pos] == 0xa1) {
+      if (depth >= MAX_DEPTH) {
+        this.fail();
+        return -1;
+      }
+      this.pos += 1;
+      let index = this.identifier(names, depth + 1);
+      this.tags(depth + 1);
+      this.head();
+      if (
+        !this.ok ||
+        this.major != 7 ||
+        (this.info != 22 && this.info != 23)
+      ) {
+        this.fail();
+        return -1;
+      }
+      return index;
+    }
+    return this.identifier(names, depth);
+  }
+
+  identifier(names: string[], depth: i32): i32 {
+    depth = this.tags(depth);
     if (!this.ok || this.done()) {
       this.fail();
       return -1;
@@ -268,7 +311,7 @@ class CborReader {
       }
       return index as i32;
     }
-    let name = this.string();
+    let name = this.string(depth);
     if (name === null) {
       return -1;
     }
@@ -282,9 +325,10 @@ class CborReader {
   }
 
   /** One rain meta item map: mandatory payload (0) and magic (1), each once. */
-  item(): Item | null {
+  item(depth: i32): Item | null {
+    depth = this.tags(depth);
     let entries = this.head();
-    if (!this.ok || this.major != 5) {
+    if (!this.ok || this.major != 5 || depth >= MAX_DEPTH) {
       this.fail();
       return null;
     }
@@ -304,6 +348,7 @@ class CborReader {
         break;
       }
       read += 1;
+      this.tags(depth + 1);
       let key = this.head();
       if (
         !this.ok ||
@@ -316,26 +361,27 @@ class CborReader {
       }
       seen.push(key);
       if (key == 0) {
-        payload = this.payload();
+        payload = this.payload(depth + 1);
       } else if (key == 1) {
+        this.tags(depth + 1);
         magic = this.head();
         hasMagic = this.major == 0 && magic != INDEFINITE;
         if (!hasMagic) {
           this.fail();
         }
       } else if (key == 2) {
-        this.variant(CONTENT_TYPES);
+        this.variant(CONTENT_TYPES, depth + 1);
       } else if (key == 3) {
-        plain = this.variant(CONTENT_ENCODINGS) < 2;
+        plain = this.variant(CONTENT_ENCODINGS, depth + 1) < 2;
       } else if (key == 4) {
-        this.variant(CONTENT_LANGUAGES);
+        this.variant(CONTENT_LANGUAGES, depth + 1);
       } else if (key == OA_SCHEMA) {
-        let schema = this.string();
+        let schema = this.string(depth + 1);
         if (schema !== null && !utf8(schema)) {
           this.fail();
         }
       } else {
-        this.skip(1);
+        this.skip(depth + 1);
       }
     }
     if (
@@ -418,7 +464,7 @@ function documentItems(meta: Bytes): Item[] | null {
   let reader = new CborReader(Bytes.fromUint8Array(meta.subarray(8)));
   let items = new Array<Item>();
   while (!reader.done()) {
-    let item = reader.item();
+    let item = reader.item(0);
     if (item === null) {
       return null;
     }
