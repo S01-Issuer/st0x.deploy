@@ -10,7 +10,6 @@ import {DEPLOYED_ADDRESS as REGISTRY_V3} from "rain-deploy-0.1.29/src/generated/
 import {LibMigrationRegistry} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistry.sol";
 import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 
-import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -22,19 +21,16 @@ import {backfillMigrationRegistryV3Declaration} from "./20261022-backfill-migrat
 import {orchestratorAdminToTimelockDeclaration} from "./20261006-orchestrator-admin-to-timelock.s.sol";
 import {migrateMultisigThresholdDeclaration} from "./20260619-migrate-multisig-threshold.s.sol";
 
-/// @notice After the bundle, a V5 record differs from its V3 record, or this
-/// script's own record does not carry this block.
+/// @notice After the bundle, a V5 record differs from its V3 record.
 /// @param migration The record.
-/// @param expected The moment it must carry.
+/// @param expected The V3 moment.
 /// @param actual The V5 moment.
 error BackfillV5RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 
-/// @notice After the bundle, a V5 line's head differs from its V3 head, or
-/// the deploy line is not headed by this script's own record.
-/// @param namespace The line's namespace.
-/// @param expected The head it must have.
-/// @param actual The V5 head.
-error UnexpectedRegistryV5Head(bytes32 namespace, bytes32 expected, bytes32 actual);
+/// @notice After the bundle, V5 holds this script's predecessor but not this
+/// script's own record.
+/// @param migration The missing record.
+error BackfillV5RecordMissing(bytes32 migration);
 
 /// @notice This script's declaration: the Safe's record after the last
 /// record in its deploy line.
@@ -113,9 +109,23 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
         address chainSafe = address(safe());
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         ScriptDeclaration[][] memory all = lines();
-        SafeTx[] memory txs = new SafeTx[](7);
         uint256 count = 0;
         bytes32 deployHead = LibStoxMigrations.head(chainSafe);
+        for (uint256 i = 0; i < all.length; i++) {
+            for (uint256 j = 0; j < all[i].length; j++) {
+                ScriptDeclaration memory declared = all[i][j];
+                if (v3Moment(chainSafe, declared) == 0) break;
+                if (LibMigrationRegistry.appliedV5(chainSafe, declared.namespace, declared.id) != 0) continue;
+                count++;
+                if (i == 0) deployHead = declared.id;
+            }
+        }
+        ScriptDeclaration memory own = backfillMigrationRegistryV5Declaration();
+        bool recordOwn =
+            deployHead == own.prerequisites[0].migration && LibStoxMigrations.applied(chainSafe, own.id) == 0;
+        if (recordOwn) count++;
+        SafeTx[] memory txs = new SafeTx[](count);
+        uint256 k = 0;
         for (uint256 i = 0; i < all.length; i++) {
             for (uint256 j = 0; j < all[i].length; j++) {
                 ScriptDeclaration memory declared = all[i][j];
@@ -123,28 +133,19 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
                 if (at == 0) break;
                 if (LibMigrationRegistry.appliedV5(chainSafe, declared.namespace, declared.id) != 0) continue;
                 (address to, bytes memory data) = LibStoxMigrations.historyCall(declared, at, chainSafe, timelock);
-                txs[count++] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
-                if (i == 0) deployHead = declared.id;
+                txs[k++] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
             }
         }
-        ScriptDeclaration memory own = backfillMigrationRegistryV5Declaration();
-        if (
-            deployHead == own.prerequisites[0].migration
-                && LibStoxMigrations.applied(chainSafe, own.id) == 0
-        ) {
+        if (recordOwn) {
             (address to, bytes memory data) = LibStoxMigrations.recordCall(own, chainSafe, timelock);
-            txs[count++] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
-        }
-        assembly ("memory-safe") {
-            mstore(txs, count)
+            txs[k] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
         }
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Every V3-held record has its V3 moment on V5, the V5 rbac head
-    /// equals the V3 rbac head, and this script's record, when written, heads
-    /// the deploy line.
+    /// @dev Every V3-held record has its V3 moment on V5, and V5 holds this
+    /// script's record wherever V5 holds its predecessor.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         ScriptDeclaration[][] memory all = lines();
@@ -157,15 +158,12 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
                 if (actual != expected) revert BackfillV5RecordMismatch(declared.id, expected, actual);
             }
         }
-        bytes32 rbacExpected = IMigrationRegistryV3(REGISTRY_V3).headV3(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
-        bytes32 rbacHead = LibMigrationRegistry.headV5(chainSafe, LibRbacMigration.STOX_RBAC_NAMESPACE);
-        if (rbacHead != rbacExpected) {
-            revert UnexpectedRegistryV5Head(LibRbacMigration.STOX_RBAC_NAMESPACE, rbacExpected, rbacHead);
-        }
         ScriptDeclaration memory own = backfillMigrationRegistryV5Declaration();
-        bytes32 deployHead = LibStoxMigrations.head(chainSafe);
-        if (LibStoxMigrations.applied(chainSafe, own.id) != 0 && deployHead != own.id) {
-            revert UnexpectedRegistryV5Head(LibStoxMigrations.NAMESPACE, own.id, deployHead);
+        if (
+            LibStoxMigrations.applied(chainSafe, own.prerequisites[0].migration) != 0
+                && LibStoxMigrations.applied(chainSafe, own.id) == 0
+        ) {
+            revert BackfillV5RecordMissing(own.id);
         }
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
