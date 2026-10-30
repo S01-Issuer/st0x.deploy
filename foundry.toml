@@ -14,12 +14,15 @@ libs = ['dependencies']
 
 solc = "0.8.25"
 optimizer = true
-# StoxReceiptVault fits EIP-170 at 201 runs or fewer (see CHANGELOG); re-check
-# `forge build --sizes` on vault or dependency changes. via_ir makes the vault larger.
+# Re-check `forge build --sizes` on vault or dependency changes. via_ir makes the vault larger.
 # Changing it moves every Zoltu address: the vault pins the facet and the orchestrator
 # pins vault + receipt, so all three deploy in lockstep. Dependency-pinned bytecode
 # (rain-deploy's TimelockController, 2000 runs) does not reproduce under this profile.
 optimizer_runs = 200
+
+# StoxReceiptVault exceeds EIP-170 at 200 runs under rain-vats 0.2.13.
+additional_compiler_profiles = [{ name = "receipt-vault", optimizer_runs = 100 }]
+compilation_restrictions = [{ paths = "src/concrete/StoxReceiptVault.sol", max_optimizer_runs = 100 }]
 
 evm_version = "cancun"
 
