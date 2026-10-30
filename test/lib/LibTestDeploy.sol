@@ -8,15 +8,18 @@ import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.29/src/generated/0_1_21/ConfigRegistry.sol";
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.4/src/generated/0_2_2/CloneFactory.sol";
-import {ICloneableFactoryV6} from "rain-factory-0.2.7/src/interface/deprecated/ICloneableFactoryV6.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.29/src/interface/deprecated/IConfigRegistryV3.sol";
+} from "rain-factory-deploy-0.2.4/src/generated/0_2_4/CloneFactory.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.7/src/interface/ICloneableFactoryV7.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV5.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.13/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+import {
+    OffchainAssetReceiptVaultRbacV1,
+    OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
+} from "rain-vats-0.2.13/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
     OffchainAssetReceiptVaultConfigV3
@@ -32,7 +35,7 @@ import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.so
 /// @title LibTestDeploy
 /// @notice The production token set on the local EVM: the candidate
 /// implementations at their Zoltu addresses, served by the V1 beacons at their
-/// production addresses, with the pinned V6 clone factory and ConfigRegistry
+/// production addresses, with the pinned V7 clone factory and ConfigRegistry
 /// in place. Tokens are registry beacon proxies, as in production.
 library LibTestDeploy {
     /// Zoltu-deploys the candidate receipt, vault and wrapper implementations,
@@ -83,8 +86,8 @@ library LibTestDeploy {
     }
 
     /// The pinned clone factory.
-    function factory() internal pure returns (ICloneableFactoryV6) {
-        return ICloneableFactoryV6(CLONE_FACTORY_ADDRESS);
+    function factory() internal pure returns (ICloneableFactoryV7) {
+        return ICloneableFactoryV7(CLONE_FACTORY_ADDRESS);
     }
 
     /// A wrapper of `asset`: a registry beacon proxy over the wrapper beacon
@@ -112,12 +115,21 @@ library LibTestDeploy {
     /// Binds the vault, receipt and wrapper beacon names under `authority` to
     /// Base's V1 beacons.
     function bindBeacons(Vm vm, address authority) internal {
-        bind(vm, authority, LibStoxConfig.VAULT_BEACON_NAME, abi.encode(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1));
-        bind(vm, authority, LibStoxConfig.RECEIPT_BEACON_NAME, abi.encode(LibProdDeployV1.STOX_RECEIPT_BEACON_V1));
+        bind(
+            vm,
+            authority,
+            LibStoxConfig.VAULT_BEACON_NAME,
+            "address",
+            abi.encode(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1)
+        );
+        bind(
+            vm, authority, LibStoxConfig.RECEIPT_BEACON_NAME, "address", abi.encode(LibProdDeployV1.STOX_RECEIPT_BEACON_V1)
+        );
         bind(
             vm,
             authority,
             LibStoxConfig.WRAPPER_BEACON_NAME,
+            "address",
             abi.encode(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1)
         );
     }
@@ -126,16 +138,22 @@ library LibTestDeploy {
     /// `owner` and `authorizer`.
     function bindRbac(Vm vm, address authority, bytes32 name, address owner, IAuthorizeV1 authorizer) internal {
         bindBeacons(vm, authority);
-        bind(vm, authority, name, abi.encode(OffchainAssetReceiptVaultRbacV1({owner: owner, authorizer: authorizer})));
+        bind(
+            vm,
+            authority,
+            name,
+            OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE,
+            abi.encode(OffchainAssetReceiptVaultRbacV1({owner: owner, authorizer: authorizer}))
+        );
     }
 
     /// The clock moves a second before each bind, since the registry refuses a
     /// rebind at the moment of the binding it replaces.
 
-    function bind(Vm vm, address authority, bytes32 name, bytes memory value) internal {
+    function bind(Vm vm, address authority, bytes32 name, string memory valueType, bytes memory value) internal {
         vm.warp(block.timestamp + 1);
         vm.prank(authority);
-        IConfigRegistryV3(CONFIG_REGISTRY_ADDRESS).registerV3(authority, name, value);
+        IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS).registerV5(authority, name, valueType, value, "");
     }
 
     /// The init data of a vault named `name`, `symbol`, resolving its RBAC from
