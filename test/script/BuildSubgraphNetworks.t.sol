@@ -3,14 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V3} from "rain-deploy-0.1.27/src/generated/0_1_25/ConfigRegistry.sol";
-import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V3} from "rain-deploy-0.1.27/src/generated/0_1_25/MigrationRegistry.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V5} from "rain-deploy-0.1.27/src/generated/0_1_27/ConfigRegistry.sol";
-import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V5} from "rain-deploy-0.1.27/src/generated/0_1_27/MigrationRegistry.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.3/src/generated/0_2_1/CloneFactory.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
-import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.3/src/lib/LibCloneFactoryDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V3} from "rain-deploy-0.1.29/src/generated/0_1_25/ConfigRegistry.sol";
+import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V3} from "rain-deploy-0.1.29/src/generated/0_1_25/MigrationRegistry.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V5} from "rain-deploy-0.1.29/src/generated/0_1_27/ConfigRegistry.sol";
+import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V5} from "rain-deploy-0.1.29/src/generated/0_1_27/MigrationRegistry.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.4/src/generated/0_2_1/CloneFactory.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.4/src/generated/0_2_2/CloneFactory.sol";
+import {LibCloneFactoryDeploy} from "rain-factory-deploy-0.2.4/src/lib/LibCloneFactoryDeploy.sol";
 import {BuildSubgraphNetworks} from "../../script/BuildSubgraphNetworks.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";

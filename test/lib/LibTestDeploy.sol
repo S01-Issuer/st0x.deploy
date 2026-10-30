@@ -4,23 +4,23 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.27/src/generated/0_1_21/ConfigRegistry.sol";
+} from "rain-deploy-0.1.29/src/generated/0_1_21/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.3/src/generated/0_2_2/CloneFactory.sol";
-import {ICloneableFactoryV6} from "rain-factory-0.2.5/src/interface/ICloneableFactoryV6.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.27/src/interface/IConfigRegistryV3.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.12/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-factory-deploy-0.2.4/src/generated/0_2_2/CloneFactory.sol";
+import {ICloneableFactoryV6} from "rain-factory-0.2.7/src/interface/ICloneableFactoryV6.sol";
+import {IConfigRegistryV3} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV3.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.13/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
     OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.12/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.13/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
