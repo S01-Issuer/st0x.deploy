@@ -69,7 +69,7 @@ contract OrchestratorAdminToTimelockTest is Test {
         }
 
         if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
-            console2.log(string.concat("PENDING [", network, "]: V3 backfill not executed; move refused"));
+            console2.log(string.concat("PENDING [", network, "]: backfills not executed; move refused"));
             vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.head(safe)));
             script.callPreflight();
             // Out of order on chain (the move signed at a lower nonce than
