@@ -7,31 +7,6 @@ export const MIGRATION_REGISTRY_NAMESPACE_V1: u64 = 0xff82e354bb91c055;
 export const MIGRATION_REGISTRY_MIGRATION_V1: u64 = 0xffae12bf8892cc25;
 
 const OA_SCHEMA: u64 = 0xffa8e8a9b9cf4a31;
-const KNOWN_MAGICS: u64[] = [
-  0xffe5282f43e495b4,
-  0xffdac2f2f37be894,
-  0xff1c198cec3b48a7,
-  0xffe5ffb4a3ff2cde,
-  0xffe9e3a02ca8e235,
-  0xff52fe42f1a05093,
-  0xffc21bbf86cc199b,
-  0xffdb988a8cd04d32,
-  0xff13109e41336ff2,
-  0xffb2637608c09e38,
-  0xffa15ef0fc437099,
-  0xffda7b2fb167c286,
-  0xff7a1507ba4419ca,
-  0xff5dcce9b571ba42,
-  OA_SCHEMA,
-  0xff9fae3cc645f463,
-  0xffc47a6299e8a911,
-  0xff8cd2927c8c86cb,
-  0xffbc38eb14ad2209,
-  CONFIG_REGISTRY_NAME_V1,
-  CONFIG_REGISTRY_VALUE_TYPE_V1,
-  MIGRATION_REGISTRY_NAMESPACE_V1,
-  MIGRATION_REGISTRY_MIGRATION_V1,
-];
 const CONTENT_TYPES: string[] = [
   "None",
   "application/json",
@@ -484,11 +459,9 @@ function documentItems(meta: Bytes): Item[] | null {
     if (item === null) {
       return null;
     }
-    if (KNOWN_MAGICS.includes(item.magic)) {
-      items.push(item);
-    }
+    items.push(item);
   }
-  return items.length == 0 ? null : items;
+  return items;
 }
 
 /**
