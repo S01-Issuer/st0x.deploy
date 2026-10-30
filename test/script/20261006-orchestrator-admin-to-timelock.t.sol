@@ -7,7 +7,9 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV3} from "rain-deploy-0.1.29/src/interface/deprecated/IMigrationRegistryV3.sol";
 import {IMigrationRegistryV5} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
+import {DEPLOYED_ADDRESS as REGISTRY_V3} from "rain-deploy-0.1.29/src/generated/0_1_25/MigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
@@ -16,6 +18,7 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJ
 import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
+import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
@@ -26,9 +29,9 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network at head. The bundle
-/// walks the line: before the V3 backfill the
-/// script refuses and the bundle cannot execute; with the backfill executed
-/// (live, or its bundle executed on the fork) `run()` executes the move
+/// walks the line: before the V3 and V5 backfills the
+/// script refuses and the bundle cannot execute; with the backfills executed
+/// (live, or their bundles executed on the fork) `run()` executes the move
 /// through the Safe, proves it and writes the artifact, `verify` accepts
 /// that artifact, and the artifact executed by the owners leaves the state
 /// the invariants demand and makes a re-dispatch refuse; once executed on
@@ -37,9 +40,16 @@ contract OrchestratorAdminToTimelockTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
 
-    function executeV3Backfill(address safe) internal {
-        BackfillMigrationRegistryV3Harness backfill = new BackfillMigrationRegistryV3Harness("admin-move-prerequisite");
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), backfill.callAuthorBundle());
+    /// @dev The V5 backfill replays V3, so the V3 backfill lands first where
+    /// V3 lacks it.
+    function executeBackfills(address safe) internal {
+        bytes32 ownV3 = backfillMigrationRegistryV3Declaration().id;
+        if (IMigrationRegistryV3(REGISTRY_V3).appliedV3(safe, LibStoxMigrations.NAMESPACE, ownV3) == 0) {
+            BackfillMigrationRegistryV3Harness v3 = new BackfillMigrationRegistryV3Harness("admin-move-prerequisite");
+            LibSafeFork.executeBundle(vm, Safe(payable(safe)), v3.callAuthorBundle());
+        }
+        BackfillMigrationRegistryV5Harness v5 = new BackfillMigrationRegistryV5Harness("admin-move-prerequisite");
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), v5.callAuthorBundle());
     }
 
     function assertBundle(string memory network) internal {
@@ -80,7 +90,7 @@ contract OrchestratorAdminToTimelockTest is Test {
                     LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id),
                     ""
                 );
-            executeV3Backfill(safe);
+            executeBackfills(safe);
         }
 
         console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the move"));
@@ -161,7 +171,7 @@ contract OrchestratorAdminToTimelockTest is Test {
             return;
         }
         if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
-            executeV3Backfill(safe);
+            executeBackfills(safe);
         }
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("tamper");
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
