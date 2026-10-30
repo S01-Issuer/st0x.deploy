@@ -123,7 +123,11 @@ library LibTestDeploy {
             abi.encode(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1)
         );
         bind(
-            vm, authority, LibStoxConfig.RECEIPT_BEACON_NAME, "address", abi.encode(LibProdDeployV1.STOX_RECEIPT_BEACON_V1)
+            vm,
+            authority,
+            LibStoxConfig.RECEIPT_BEACON_NAME,
+            "address",
+            abi.encode(LibProdDeployV1.STOX_RECEIPT_BEACON_V1)
         );
         bind(
             vm,

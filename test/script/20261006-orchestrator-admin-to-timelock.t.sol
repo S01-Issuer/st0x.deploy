@@ -77,7 +77,8 @@ contract OrchestratorAdminToTimelockTest is Test {
                     safe,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                    LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id), ""
+                    LibStoxMigrations.onto(safe, backfillMigrationRegistryV3Declaration().id),
+                    ""
                 );
             executeV3Backfill(safe);
         }

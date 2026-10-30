@@ -233,8 +233,7 @@ contract BackfillMigrationRegistryV3 is SafeBundleScript, IStoxScript {
         (address to, bytes memory data) =
             v3HistoryCall(migrateGovernanceToTimelockDeclaration(), timelockAt, chainSafe, timelock);
         txs[0] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
-        (to, data) =
-            v3HistoryCall(grantOrchestratorEmergencyDeclaration(), emergencyAt, chainSafe, timelock);
+        (to, data) = v3HistoryCall(grantOrchestratorEmergencyDeclaration(), emergencyAt, chainSafe, timelock);
         txs[1] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
         (to, data) = v3HistoryCall(grantEuAuthoriserRolesDeclaration(), euAt, chainSafe, timelock);
         txs[2] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});

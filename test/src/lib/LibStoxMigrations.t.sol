@@ -134,7 +134,8 @@ contract LibStoxMigrationsTest is Test {
                     writer,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-                    LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK), ""
+                    LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK),
+                    ""
                 )
             )
         );
@@ -155,7 +156,13 @@ contract LibStoxMigrationsTest is Test {
             data,
             abi.encodeCall(
                 IMigrationRegistryV5.applyMigrationV5,
-                (timelock, LibStoxMigrations.NAMESPACE, "id", LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS), "")
+                (
+                    timelock,
+                    LibStoxMigrations.NAMESPACE,
+                    "id",
+                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS),
+                    ""
+                )
             )
         );
     }
@@ -179,7 +186,8 @@ contract LibStoxMigrationsTest is Test {
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.GOVERNANCE_TIMELOCK,
                     1_791_056_759,
-                    LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS), ""
+                    LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS),
+                    ""
                 )
             )
         );
@@ -205,7 +213,8 @@ contract LibStoxMigrationsTest is Test {
                     LibStoxMigrations.NAMESPACE,
                     "id",
                     7,
-                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS), ""
+                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS),
+                    ""
                 )
             )
         );

@@ -110,10 +110,7 @@ function timelockBackfillV5FillHistory(
 /// @param timelock The chain's timelock.
 /// @return The targets.
 /// @return The payloads.
-function timelockBackfillV5Batch(address safe, address timelock)
-    view
-    returns (address[] memory, bytes[] memory)
-{
+function timelockBackfillV5Batch(address safe, address timelock) view returns (address[] memory, bytes[] memory) {
     ScriptDeclaration[][] memory all = timelockBackfillV5Lines();
     ScriptDeclaration memory own = backfillMigrationRegistryV5TimelockDeclaration();
     uint256 count = 0;
@@ -189,7 +186,14 @@ contract BackfillMigrationRegistryV5TimelockSchedule is Script, IStoxScript {
             value: 0,
             data: abi.encodeCall(
                 TimelockController.scheduleBatch,
-                (targets, values, payloads, bytes32(0), TIMELOCK_BACKFILL_V5_SALT, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
+                (
+                    targets,
+                    values,
+                    payloads,
+                    bytes32(0),
+                    TIMELOCK_BACKFILL_V5_SALT,
+                    LibTimelockInvariants.TIMELOCK_MIN_DELAY
+                )
             ),
             operation: Enum.Operation.Call
         });

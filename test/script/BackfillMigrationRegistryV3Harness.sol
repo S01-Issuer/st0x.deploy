@@ -39,11 +39,12 @@ contract BackfillMigrationRegistryV3Harness is BackfillMigrationRegistryV3 {
         assertPostState();
     }
 
-    function callV3HistoryCall(ScriptDeclaration memory declared, uint256 appliedAt, address chainSafe, address timelock)
-        external
-        pure
-        returns (address, bytes memory)
-    {
+    function callV3HistoryCall(
+        ScriptDeclaration memory declared,
+        uint256 appliedAt,
+        address chainSafe,
+        address timelock
+    ) external pure returns (address, bytes memory) {
         return v3HistoryCall(declared, appliedAt, chainSafe, timelock);
     }
 }
