@@ -61,6 +61,11 @@ library LibStoxMigrations {
     bytes32 internal constant ORCHESTRATOR_ADMIN_TO_TIMELOCK =
         keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol");
 
+    /// @notice `script/20261030-backfill-migration-registry-v5.s.sol`: the
+    /// Safe's V3 `MigrationRegistry` records replayed onto V5.
+    bytes32 internal constant BACKFILL_MIGRATION_REGISTRY_V5 =
+        keccak256("script/20261030-backfill-migration-registry-v5.s.sol");
+
     /// @notice A migration `writer` records in `namespace`, applied onto
     /// `headMigration` in `writer`'s own line of that namespace.
     /// @param writer The account that records it, by role.
