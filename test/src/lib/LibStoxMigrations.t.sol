@@ -17,6 +17,7 @@ import {
 } from "rain-deploy-0.1.29/src/generated/candidate/MigrationRegistry.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
+import {LibRbacMigration} from "../../../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {MigrationWriter, ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
@@ -161,6 +162,34 @@ contract LibStoxMigrationsTest is Test {
                     LibStoxMigrations.NAMESPACE,
                     "id",
                     LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS),
+                    ""
+                )
+            )
+        );
+    }
+
+    /// @notice A declaration in another namespace is recorded in that namespace.
+    function testRecordCallWritesTheDeclaredNamespace() external {
+        etchRegistry();
+        address writer = makeAddr("writer");
+        ScriptDeclaration memory declared = LibStoxMigrations.safeMigrationOnto(
+            LibRbacMigration.STOX_RBAC_NAMESPACE,
+            LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
+            MIGRATION_HEAD_GENESIS,
+            false
+        );
+
+        (, bytes memory data) = LibStoxMigrations.recordCall(declared, writer, makeAddr("timelock"));
+
+        assertEq(
+            data,
+            abi.encodeCall(
+                IMigrationRegistryV5.applyMigrationV5,
+                (
+                    writer,
+                    LibRbacMigration.STOX_RBAC_NAMESPACE,
+                    LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
+                    LibMigrationRegistry.onto(writer, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS),
                     ""
                 )
             )
