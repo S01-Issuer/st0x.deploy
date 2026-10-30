@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.29/src/interface/deprecated/IMigrationRegistryV3.sol";
+import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistry.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 
@@ -145,13 +145,13 @@ contract BuildMigrationsDeclaredTest is Test {
 
     function assertApplied(string memory json, uint256 i, uint256 chainId) internal view {
         address writer = writerOf(json, i, chainId);
-        uint256 applied = LibMigrationRegistry.appliedV3(writer, namespaceOf(json, i), idOf(json, i));
+        uint256 applied = LibMigrationRegistry.appliedV5(writer, namespaceOf(json, i), idOf(json, i));
         if (applied == 0) return;
         string memory at = chain(i, chainId);
         uint256 executedAt = vm.parseJsonUint(json, string.concat(at, ".executedAt"));
         if (executedAt != 0) assertEq(applied, executedAt, at);
         Prerequisite[] memory expected = prerequisitesOf(json, i, chainId);
-        Prerequisite[] memory actual = LibMigrationRegistry.appliedAfterV3(writer, namespaceOf(json, i), idOf(json, i));
+        Prerequisite[] memory actual = LibMigrationRegistry.appliedAfterV5(writer, namespaceOf(json, i), idOf(json, i));
         assertEq(actual.length, expected.length, at);
         for (uint256 j = 0; j < expected.length; j++) {
             assertEq(actual[j].writer, expected[j].writer, at);

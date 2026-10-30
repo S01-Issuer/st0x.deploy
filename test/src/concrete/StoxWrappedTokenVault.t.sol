@@ -401,7 +401,7 @@ contract StoxWrappedTokenVaultTest is Test {
         LibTestDeploy.placeBeacon(
             vm, otherBeacon, LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE, LibProdDeployV1.BEACON_INITIAL_OWNER
         );
-        LibTestDeploy.bind(vm, AUTHORITY, LibStoxConfig.WRAPPER_BEACON_NAME, abi.encode(otherBeacon));
+        LibTestDeploy.bind(vm, AUTHORITY, LibStoxConfig.WRAPPER_BEACON_NAME, "address", abi.encode(otherBeacon));
         address elsewhere = address(LibTestDeploy.newWrapper(AUTHORITY, address(asset)));
         address elsewhereBeacon = address(uint160(uint256(vm.load(elsewhere, ERC1967Utils.BEACON_SLOT))));
 

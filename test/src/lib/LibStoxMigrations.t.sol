@@ -6,11 +6,11 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistry.sol";
 import {
-    IMigrationRegistryV3,
+    IMigrationRegistryV5,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.29/src/interface/deprecated/IMigrationRegistryV3.sol";
-import {IRegistryDelegatesV1} from "rain-deploy-0.1.29/src/interface/deprecated/IRegistryDelegatesV1.sol";
+} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.29/src/interface/IRegistryDelegatesV3.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
@@ -129,12 +129,12 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationV3,
+                IMigrationRegistryV5.applyMigrationV5,
                 (
                     writer,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-                    LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK)
+                    LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK), ""
                 )
             )
         );
@@ -154,8 +154,8 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationV3,
-                (timelock, LibStoxMigrations.NAMESPACE, "id", LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS))
+                IMigrationRegistryV5.applyMigrationV5,
+                (timelock, LibStoxMigrations.NAMESPACE, "id", LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS), "")
             )
         );
     }
@@ -173,13 +173,13 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationHistoryV3,
+                IMigrationRegistryV5.applyMigrationHistoryV5,
                 (
                     writer,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.GOVERNANCE_TIMELOCK,
                     1_791_056_759,
-                    LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS)
+                    LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS), ""
                 )
             )
         );
@@ -199,13 +199,13 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationHistoryV3,
+                IMigrationRegistryV5.applyMigrationHistoryV5,
                 (
                     timelock,
                     LibStoxMigrations.NAMESPACE,
                     "id",
                     7,
-                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS)
+                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS), ""
                 )
             )
         );
@@ -260,7 +260,7 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             reason,
             abi.encodeWithSelector(
-                IRegistryDelegatesV1.NotApproved.selector, writer, LibStoxMigrations.NAMESPACE, other
+                IRegistryDelegatesV3.NotApproved.selector, writer, LibStoxMigrations.NAMESPACE, other
             )
         );
         assertEq(LibStoxMigrations.head(writer), MIGRATION_HEAD_GENESIS);
