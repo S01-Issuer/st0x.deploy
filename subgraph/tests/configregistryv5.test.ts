@@ -37,6 +37,7 @@ import {
 
 const REGISTRY = "0xdc3909127e51dcb3ab7d43eee585dd351f77c285";
 const REGISTRY_V3 = "0x2f1f82c65cce305df3950f8af8fa5ad6d9a815e8";
+const OTHER_REGISTRY = "0x00000000000000000000000000000000000000e5";
 /** st0x `LibStoxMigrations.WRITER`, the root authority. */
 const AUTHORITY = "0x0b300013cd54a8f1ac40981f80faaa18b8cc1e4c";
 const DELEGATE = "0x00000000000000000000000000000000000000d1";
@@ -512,6 +513,79 @@ describe("ConfigRegistryV5 MetaV1_2", () => {
 
     assert.entityCount("RegistryMeta", 1);
   });
+
+  test("a replayed meta keeps the Register it was first linked to", () => {
+    register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
+    meta(US_SUBJECT, META_OK, 100, 4);
+    handleConfigRegistryV5Register(
+      changetype<RegisterV5>(
+        inTx(
+          registerEvent(AUTHORITY, US_NAME, "address", VALUE_B, 250, 1),
+          Bytes.fromHexString(OTHER_TX),
+        ),
+      ),
+    );
+    meta(US_SUBJECT, META_OK, 100, 4);
+
+    assert.fieldEquals(
+      "RegistryMeta",
+      mockRowId(4),
+      "configRegister",
+      mockRowId(3),
+    );
+    assert.fieldEquals("RegistryMeta", mockRowId(4), "verified", "true");
+  });
+
+  test("a replayed Register leaves the subject on the latest Register", () => {
+    register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
+    handleConfigRegistryV5Register(
+      changetype<RegisterV5>(
+        inTx(
+          registerEvent(AUTHORITY, US_NAME, "address", VALUE_B, 250, 1),
+          Bytes.fromHexString(OTHER_TX),
+        ),
+      ),
+    );
+    register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
+    handleConfigRegistryV5MetaV1_2(
+      changetype<MetaV1_2>(
+        inTx(
+          metaEvent(US_SUBJECT, META_OK, 250, 2),
+          Bytes.fromHexString(OTHER_TX),
+        ),
+      ),
+    );
+
+    let row = rowIdIn(OTHER_TX, 2);
+    assert.fieldEquals(
+      "RegistryMeta",
+      row,
+      "configRegister",
+      rowIdIn(OTHER_TX, 1),
+    );
+    assert.fieldEquals("RegistryMeta", row, "verified", "true");
+  });
+
+  test("a meta from another registry with the same subject is not linked", () => {
+    register(AUTHORITY, US_NAME, "address", VALUE_A, 100, 3);
+    handleConfigRegistryV5MetaV1_2(
+      changetype<MetaV1_2>(
+        metaV1_2Log(
+          Address.fromString(OTHER_REGISTRY),
+          Address.fromString(DELEGATE),
+          Bytes.fromHexString(US_SUBJECT),
+          Bytes.fromHexString(META_OK),
+          100,
+          4,
+        ),
+      ),
+    );
+
+    let entity = RegistryMeta.load(Bytes.fromHexString(mockRowId(4)))!;
+    assert.assertTrue(entity.configBinding === null);
+    assert.assertTrue(entity.configRegister === null);
+    assert.fieldEquals("RegistryMeta", mockRowId(4), "verified", "false");
+  });
 });
 
 const VERIFIED = "true|st0x.rbac.us.v1";
@@ -662,6 +736,900 @@ describe("ConfigRegistryV5 MetaV1_2 verification", () => {
   });
 });
 
+/** `P` the document prefix, `NAME`/`TYPE` the items, `RL`/`NM`/`SK` magics, `NP` the name. */
+function corpusToken(word: string): string {
+  if (word == "P") return P.slice(2);
+  if (word == "NAME") return NAME_US;
+  if (word == "TYPE") return TYPE_ADDRESS;
+  if (word == "RL") return "1bff13109e41336ff2";
+  if (word == "NM") return "1bffcdcfae6227d5e9";
+  if (word == "NP") return "737430782e726261632e75732e7631";
+  if (word == "SK") return "1bffa8e8a9b9cf4a31";
+  return word;
+}
+
+/** Space-separated hex words; `w*n` repeats `w` n times. */
+function hexOf(spec: string): string {
+  let words = spec.split(" ");
+  let out = "";
+  for (let i = 0; i < words.length; i++) {
+    let word = words[i];
+    let star = word.indexOf("*");
+    if (star >= 0) {
+      out = out.concat(
+        word.slice(0, star).repeat(I32.parseInt(word.slice(star + 1))),
+      );
+    } else {
+      out = out.concat(corpusToken(word));
+    }
+  }
+  return out;
+}
+
+/** `value`: key 5 of a foreign item; `item`: an item; `name`: the name item; `doc`: the whole meta. */
+function documentOf(group: string, spec: string): string {
+  let body = hexOf(spec);
+  if (group == "value") {
+    return P.concat(FOREIGN_KEY_5)
+      .concat(body)
+      .concat(NAME_US)
+      .concat(TYPE_ADDRESS);
+  }
+  if (group == "item") {
+    return P.concat(body).concat(NAME_US).concat(TYPE_ADDRESS);
+  }
+  if (group == "name") {
+    return P.concat(body).concat(TYPE_ADDRESS);
+  }
+  assert.stringEquals(group, "doc");
+  return "0x".concat(body);
+}
+
+/** Each `[group, spec, expected]` whose verification differs from rain.metadata `cbor_decode`'s. */
+function diverging(cases: string[][]): string {
+  let out = "";
+  for (let i = 0; i < cases.length; i++) {
+    clearStore();
+    let got = verifiedFor(documentOf(cases[i][0], cases[i][1]), "address");
+    if (got != cases[i][2]) {
+      out = out
+        .concat(cases[i][0])
+        .concat(" ")
+        .concat(cases[i][1])
+        .concat(": oracle ")
+        .concat(cases[i][2])
+        .concat(", subgraph ")
+        .concat(got)
+        .concat("\n");
+    }
+  }
+  return out;
+}
+
+describe("ConfigRegistryV5 MetaV1_2 rainmeta corpus", () => {
+  afterEach(clearStore);
+
+  test("a skipped integer or simple value verifies exactly when cbor_decode reads it", () => {
+    assert.stringEquals(
+      diverging([
+        ["value", "00", VERIFIED],
+        ["value", "17", VERIFIED],
+        ["value", "1801", VERIFIED],
+        ["value", "1817", VERIFIED],
+        ["value", "190001", VERIFIED],
+        ["value", "1a00000001", VERIFIED],
+        ["value", "1b0000000000000001", VERIFIED],
+        ["value", "1bffffffffffffffff", VERIFIED],
+        ["value", "1c", UNVERIFIED],
+        ["value", "1d", UNVERIFIED],
+        ["value", "1e", UNVERIFIED],
+        ["value", "1f", UNVERIFIED],
+        ["value", "20", VERIFIED],
+        ["value", "37", VERIFIED],
+        ["value", "3801", VERIFIED],
+        ["value", "39ffff", VERIFIED],
+        ["value", "3affffffff", VERIFIED],
+        ["value", "3b7fffffffffffffff", VERIFIED],
+        ["value", "3b8000000000000000", VERIFIED],
+        ["value", "3bffffffffffffffff", VERIFIED],
+        ["value", "3c", UNVERIFIED],
+        ["value", "3d", UNVERIFIED],
+        ["value", "3e", UNVERIFIED],
+        ["value", "3f", UNVERIFIED],
+        ["value", "e0", UNVERIFIED],
+        ["value", "f3", UNVERIFIED],
+        ["value", "f4", VERIFIED],
+        ["value", "f5", VERIFIED],
+        ["value", "f6", VERIFIED],
+        ["value", "f7", VERIFIED],
+        ["value", "f800", UNVERIFIED],
+        ["value", "f813", UNVERIFIED],
+        ["value", "f818", UNVERIFIED],
+        ["value", "f820", UNVERIFIED],
+        ["value", "f8ff", UNVERIFIED],
+        ["value", "f93c00", VERIFIED],
+        ["value", "f97e00", VERIFIED],
+        ["value", "fa3f800000", VERIFIED],
+        ["value", "fb3ff0000000000000", VERIFIED],
+        ["value", "fc", UNVERIFIED],
+        ["value", "fd", UNVERIFIED],
+        ["value", "fe", UNVERIFIED],
+        ["value", "ff", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("a skipped byte or text string verifies exactly when cbor_decode reads it", () => {
+    assert.stringEquals(
+      diverging([
+        ["value", "40", VERIFIED],
+        ["value", "4161", VERIFIED],
+        ["value", "5801 61", VERIFIED],
+        ["value", "5800", VERIFIED],
+        ["value", "590001 61", VERIFIED],
+        ["value", "5a00000001 61", VERIFIED],
+        ["value", "5b0000000000000001 61", VERIFIED],
+        ["value", "5bffffffffffffffff", UNVERIFIED],
+        ["value", "5c", UNVERIFIED],
+        ["value", "5d", UNVERIFIED],
+        ["value", "5e", UNVERIFIED],
+        ["value", "5fff", VERIFIED],
+        ["value", "5f 4161 ff", VERIFIED],
+        ["value", "5f 40 ff", VERIFIED],
+        ["value", "5f 4161 426263 ff", VERIFIED],
+        ["value", "5f 5800 ff", VERIFIED],
+        ["value", "5f 6161 ff", UNVERIFIED],
+        ["value", "5f 5fff ff", UNVERIFIED],
+        ["value", "5f c24161 ff", UNVERIFIED],
+        ["value", "5f 00 ff", UNVERIFIED],
+        ["value", "5f 5c ff", UNVERIFIED],
+        ["value", "60", VERIFIED],
+        ["value", "6161", VERIFIED],
+        ["value", "61ff", UNVERIFIED],
+        ["value", "61c3", UNVERIFIED],
+        ["value", "6180", UNVERIFIED],
+        ["value", "61fe", UNVERIFIED],
+        ["value", "62c3a9", VERIFIED],
+        ["value", "62c0af", UNVERIFIED],
+        ["value", "62c1bf", UNVERIFIED],
+        ["value", "62e0a0", UNVERIFIED],
+        ["value", "63c3a961", VERIFIED],
+        ["value", "63e08080", UNVERIFIED],
+        ["value", "63e0a080", VERIFIED],
+        ["value", "63eda080", UNVERIFIED],
+        ["value", "63ed9fbf", VERIFIED],
+        ["value", "63efbfbf", VERIFIED],
+        ["value", "64f0808080", UNVERIFIED],
+        ["value", "64f0908080", VERIFIED],
+        ["value", "64f48fbfbf", VERIFIED],
+        ["value", "64f4908080", UNVERIFIED],
+        ["value", "64f5808080", UNVERIFIED],
+        ["value", "7801 61", VERIFIED],
+        ["value", "7b0000000000000001 61", VERIFIED],
+        ["value", "7bffffffffffffffff", UNVERIFIED],
+        ["value", "7c", UNVERIFIED],
+        ["value", "7d", UNVERIFIED],
+        ["value", "7e", UNVERIFIED],
+        ["value", "7fff", VERIFIED],
+        ["value", "7f 6161 6162 ff", VERIFIED],
+        ["value", "7f 61c3 61a9 ff", VERIFIED],
+        ["value", "7f 61c3 ff", UNVERIFIED],
+        ["value", "7f 61ff ff", UNVERIFIED],
+        ["value", "7f 4161 ff", UNVERIFIED],
+        ["value", "7f 7fff ff", UNVERIFIED],
+        ["value", "7f c26161 ff", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("a skipped array or map verifies exactly when cbor_decode reads it", () => {
+    assert.stringEquals(
+      diverging([
+        ["value", "80", VERIFIED],
+        ["value", "8100", VERIFIED],
+        ["value", "820001", VERIFIED],
+        ["value", "9801 00", VERIFIED],
+        ["value", "990001 00", VERIFIED],
+        ["value", "9a00000001 00", VERIFIED],
+        ["value", "9b0000000000000001 00", VERIFIED],
+        ["value", "9c", UNVERIFIED],
+        ["value", "9d", UNVERIFIED],
+        ["value", "9e", UNVERIFIED],
+        ["value", "9fff", VERIFIED],
+        ["value", "9f 00 01 ff", VERIFIED],
+        ["value", "9f 9fff ff", VERIFIED],
+        ["value", "9f 00", UNVERIFIED],
+        ["value", "9f 61ff ff", UNVERIFIED],
+        ["value", "9affffffff", UNVERIFIED],
+        ["value", "9b8000000000000000", UNVERIFIED],
+        ["value", "9bffffffffffffffff", UNVERIFIED],
+        ["value", "a0", VERIFIED],
+        ["value", "a1 00 01", VERIFIED],
+        ["value", "a1 6161 00", VERIFIED],
+        ["value", "a1 61ff 00", UNVERIFIED],
+        ["value", "a1 00 61ff", UNVERIFIED],
+        ["value", "a1 a0 00", VERIFIED],
+        ["value", "a1 80 00", VERIFIED],
+        ["value", "a2 00 01 00 02", VERIFIED],
+        ["value", "b801 00 01", VERIFIED],
+        ["value", "bc", UNVERIFIED],
+        ["value", "bd", UNVERIFIED],
+        ["value", "be", UNVERIFIED],
+        ["value", "bfff", VERIFIED],
+        ["value", "bf 00 01 ff", VERIFIED],
+        ["value", "bf 00 ff", UNVERIFIED],
+        ["value", "bf ff", VERIFIED],
+        ["value", "bf 00 01", UNVERIFIED],
+        ["value", "bf 61ff 00 ff", UNVERIFIED],
+        ["value", "baffffffff", UNVERIFIED],
+        ["value", "bb8000000000000000", UNVERIFIED],
+        ["value", "bbffffffffffffffff", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("a skipped map's text and other non-integer keys verify exactly when cbor_decode reads them", () => {
+    assert.stringEquals(
+      diverging([
+        ["value", "a1 60 00", VERIFIED],
+        ["value", "a1 63616263 00", VERIFIED],
+        ["value", "a1 62c3a9 00", VERIFIED],
+        ["value", "a1 63e282ac 00", VERIFIED],
+        ["value", "a1 64f09f9880 00", VERIFIED],
+        ["value", "a1 6100 00", VERIFIED],
+        ["value", "a1 617f 00", VERIFIED],
+        ["value", "a1 61c3 00", UNVERIFIED],
+        ["value", "a1 6180 00", UNVERIFIED],
+        ["value", "a1 61fe 00", UNVERIFIED],
+        ["value", "a1 62c0af 00", UNVERIFIED],
+        ["value", "a1 62c1bf 00", UNVERIFIED],
+        ["value", "a1 63e08080 00", UNVERIFIED],
+        ["value", "a1 63eda080 00", UNVERIFIED],
+        ["value", "a1 64f4908080 00", UNVERIFIED],
+        ["value", "a1 64f8888080 00", UNVERIFIED],
+        ["value", "a1 7801 61 00", VERIFIED],
+        ["value", "a1 790001 61 00", VERIFIED],
+        ["value", "a1 7a00000001 61 00", VERIFIED],
+        ["value", "a1 7b0000000000000001 61 00", VERIFIED],
+        ["value", "a1 7bffffffffffffffff 00", UNVERIFIED],
+        ["value", "a1 7c 00", UNVERIFIED],
+        ["value", "a1 7d 00", UNVERIFIED],
+        ["value", "a1 7e 00", UNVERIFIED],
+        ["value", "a1 7fff 00", VERIFIED],
+        ["value", "a1 7f 6161 ff 00", VERIFIED],
+        ["value", "a1 7f 6161 6162 ff 00", VERIFIED],
+        ["value", "a1 7f 60 ff 00", VERIFIED],
+        ["value", "a1 7f 61c3 61a9 ff 00", VERIFIED],
+        ["value", "a1 7f 61c3 ff 00", UNVERIFIED],
+        ["value", "a1 7f 61ff ff 00", UNVERIFIED],
+        ["value", "a1 7f 4161 ff 00", UNVERIFIED],
+        ["value", "a1 7f 7fff ff 00", UNVERIFIED],
+        ["value", "a1 7f c26161 ff 00", UNVERIFIED],
+        ["value", "a1 7f 00 ff 00", UNVERIFIED],
+        ["value", "a1 6161 61ff", UNVERIFIED],
+        ["value", "a1 6161 7f 61c3 ff", UNVERIFIED],
+        ["value", "a1 6161 a1 6162 00", VERIFIED],
+        ["value", "a1 6161 a1 6162 a1 6163 00", VERIFIED],
+        ["value", "a1 6161 a1 61ff 00", UNVERIFIED],
+        ["value", "a1 6161 81 6162", VERIFIED],
+        ["value", "a1 6161 c1 6162", VERIFIED],
+        ["value", "a2 6161 00 6162 01", VERIFIED],
+        ["value", "a2 6161 00 6161 01", VERIFIED],
+        ["value", "a2 6161 00 00 01", VERIFIED],
+        ["value", "a2 00 01 6161 00", VERIFIED],
+        ["value", "a2 6161 00 4161 01", VERIFIED],
+        ["value", "a2 6161 00 61ff 01", UNVERIFIED],
+        ["value", "a3 6161 00 4161 01 f6 02", VERIFIED],
+        ["value", "a1 40 00", VERIFIED],
+        ["value", "a1 4161 00", VERIFIED],
+        ["value", "a1 41ff 00", VERIFIED],
+        ["value", "a1 4bffffffffffffffffffffff 00", VERIFIED],
+        ["value", "a1 5801 61 00", VERIFIED],
+        ["value", "a1 5bffffffffffffffff 00", UNVERIFIED],
+        ["value", "a1 5c 00", UNVERIFIED],
+        ["value", "a1 5fff 00", VERIFIED],
+        ["value", "a1 5f 4161 ff 00", VERIFIED],
+        ["value", "a1 5f 4161 4162 ff 00", VERIFIED],
+        ["value", "a1 5f 6161 ff 00", UNVERIFIED],
+        ["value", "a1 5f c24161 ff 00", UNVERIFIED],
+        ["value", "a1 20 00", VERIFIED],
+        ["value", "a1 37 00", VERIFIED],
+        ["value", "a1 38ff 00", VERIFIED],
+        ["value", "a1 3bffffffffffffffff 00", VERIFIED],
+        ["value", "a1 3c 00", UNVERIFIED],
+        ["value", "a1 1bffffffffffffffff 00", VERIFIED],
+        ["value", "a1 1c 00", UNVERIFIED],
+        ["value", "a1 1f 00", UNVERIFIED],
+        ["value", "a1 f4 00", VERIFIED],
+        ["value", "a1 f5 00", VERIFIED],
+        ["value", "a1 f6 00", VERIFIED],
+        ["value", "a1 f7 00", VERIFIED],
+        ["value", "a1 e0 00", UNVERIFIED],
+        ["value", "a1 f3 00", UNVERIFIED],
+        ["value", "a1 f800 00", UNVERIFIED],
+        ["value", "a1 f818 00", UNVERIFIED],
+        ["value", "a1 f820 00", UNVERIFIED],
+        ["value", "a1 f8ff 00", UNVERIFIED],
+        ["value", "a1 f93c00 00", VERIFIED],
+        ["value", "a1 f97e00 00", VERIFIED],
+        ["value", "a1 f97c00 00", VERIFIED],
+        ["value", "a1 fa3f800000 00", VERIFIED],
+        ["value", "a1 fb3ff0000000000000 00", VERIFIED],
+        ["value", "a1 fc 00", UNVERIFIED],
+        ["value", "a1 ff 00", UNVERIFIED],
+        ["value", "a1 c1 00 00", VERIFIED],
+        ["value", "a1 c1 6161 00", VERIFIED],
+        ["value", "a1 c1 61ff 00", UNVERIFIED],
+        ["value", "a1 c2 4161 00", VERIFIED],
+        ["value", "a1 c1 c1 6161 00", VERIFIED],
+        ["value", "a1 d8ff 6161 00", VERIFIED],
+        ["value", "a1 dc 00 00", UNVERIFIED],
+        ["value", "a1 df 00 00", UNVERIFIED],
+        ["value", "a1 8100 00", VERIFIED],
+        ["value", "a1 816161 00", VERIFIED],
+        ["value", "a1 8161ff 00", UNVERIFIED],
+        ["value", "a1 9fff 00", VERIFIED],
+        ["value", "a1 9f 6161 ff 00", VERIFIED],
+        ["value", "a1 a1 6161 00 00", VERIFIED],
+        ["value", "a1 a1 61ff 00 00", UNVERIFIED],
+        ["value", "a1 a1 a1 6161 00 00 00", VERIFIED],
+        ["value", "a1 bfff 00", VERIFIED],
+        ["value", "a1 bf 6161 00 ff 00", VERIFIED],
+        ["value", "a1 6161", UNVERIFIED],
+        ["value", "a2 6161 00 6162", UNVERIFIED],
+        ["value", "bf 6161 00 ff", VERIFIED],
+        ["value", "bf 6161 00 6162 01 ff", VERIFIED],
+        ["value", "bf 6161 00 00 01 ff", VERIFIED],
+        ["value", "bf 60 00 ff", VERIFIED],
+        ["value", "bf 7f 6161 ff 00 ff", VERIFIED],
+        ["value", "bf 7f 61c3 61a9 ff 00 ff", VERIFIED],
+        ["value", "bf 7f 61c3 ff 00 ff", UNVERIFIED],
+        ["value", "bf 4161 00 ff", VERIFIED],
+        ["value", "bf 5f 4161 ff 00 ff", VERIFIED],
+        ["value", "bf 20 00 ff", VERIFIED],
+        ["value", "bf f6 00 ff", VERIFIED],
+        ["value", "bf f93c00 00 ff", VERIFIED],
+        ["value", "bf c1 6161 00 ff", VERIFIED],
+        ["value", "bf 80 00 ff", VERIFIED],
+        ["value", "bf a0 00 ff", VERIFIED],
+        ["value", "bf 61c3 00 ff", UNVERIFIED],
+        ["value", "bf e0 00 ff", UNVERIFIED],
+        ["value", "bf 6161 ff", UNVERIFIED],
+        ["value", "bf 6161 00 6162 ff", UNVERIFIED],
+        ["value", "bf 6161 ff ff", UNVERIFIED],
+        ["value", "b801 6161 00", VERIFIED],
+        ["value", "b90001 6161 00", VERIFIED],
+        ["value", "81 a1 6161 00", VERIFIED],
+        ["value", "82 a1 6161 00 a1 4161 01", VERIFIED],
+        ["value", "9f a1 6161 00 ff", VERIFIED],
+        ["value", "9f bf 6161 00 ff ff", VERIFIED],
+        ["value", "c1 a1 6161 00", VERIFIED],
+        ["value", "c1 bf 6161 00 ff", VERIFIED],
+        ["value", "a1 6161 81*125 00", VERIFIED],
+        ["value", "a1 81*125 00 00", VERIFIED],
+        ["value", "a1 81*126 00 00", UNVERIFIED],
+        ["value", "a1 6161 81*126 00", UNVERIFIED],
+        ["value", "a1 81*125 80 00", UNVERIFIED],
+        ["value", "bf 81*125 00 00 ff", VERIFIED],
+        ["value", "bf 81*126 00 00 ff", UNVERIFIED],
+        ["value", "81*125 a1 6161 00", VERIFIED],
+        ["value", "81*126 a1 6161 00", UNVERIFIED],
+        ["value", "81*125 bf 6161 00 ff", VERIFIED],
+        ["value", "81*126 bf 6161 00 ff", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("a skipped tag verifies exactly when cbor_decode reads its content", () => {
+    assert.stringEquals(
+      diverging([
+        ["value", "c000", VERIFIED],
+        ["value", "c100", VERIFIED],
+        ["value", "d700", VERIFIED],
+        ["value", "d8ff 00", VERIFIED],
+        ["value", "d9ffff 00", VERIFIED],
+        ["value", "daffffffff 00", VERIFIED],
+        ["value", "dbffffffffffffffff 00", VERIFIED],
+        ["value", "dc00", UNVERIFIED],
+        ["value", "dd00", UNVERIFIED],
+        ["value", "de00", UNVERIFIED],
+        ["value", "df00", UNVERIFIED],
+        ["value", "c24161", VERIFIED],
+        ["value", "c34100", VERIFIED],
+        ["value", "c2c200", VERIFIED],
+        ["value", "c1f6", VERIFIED],
+        ["value", "c1ff", UNVERIFIED],
+        ["value", "c19fff", VERIFIED],
+        ["value", "c1a0", VERIFIED],
+        ["value", "d9d9f7 a0", VERIFIED],
+        ["value", "c161ff", UNVERIFIED],
+        ["value", "c1 7f 61c3 ff", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("nesting verifies to 126 containers and tags deep and no deeper", () => {
+    assert.stringEquals(
+      diverging([
+        ["value", "81*125 00", VERIFIED],
+        ["value", "81*126 00", VERIFIED],
+        ["value", "81*127 00", UNVERIFIED],
+        ["value", "81*128 00", UNVERIFIED],
+        ["value", "81*125 80", VERIFIED],
+        ["value", "81*126 80", UNVERIFIED],
+        ["value", "81*125 a0", VERIFIED],
+        ["value", "81*126 a0", UNVERIFIED],
+        ["value", "9f*126 00 ff*126", VERIFIED],
+        ["value", "9f*127 00 ff*127", UNVERIFIED],
+        ["value", "a100*126 00", VERIFIED],
+        ["value", "a100*127 00", UNVERIFIED],
+        ["value", "bf00*126 00 ff*126", VERIFIED],
+        ["value", "bf00*127 00 ff*127", UNVERIFIED],
+        ["value", "c1*126 00", VERIFIED],
+        ["value", "c1*127 00", UNVERIFIED],
+        ["value", "81*63 c1*63 00", VERIFIED],
+        ["value", "81*64 c1*63 00", UNVERIFIED],
+        ["value", "81*125 c100", VERIFIED],
+        ["value", "81*126 c100", UNVERIFIED],
+        ["item", "c1*125 a2 00 4161 01 RL", VERIFIED],
+        ["item", "c1*126 a2 00 4161 01 RL", VERIFIED],
+        ["item", "c1*127 a2 00 4161 01 RL", UNVERIFIED],
+        ["item", "c1*128 a2 00 4161 01 RL", UNVERIFIED],
+        ["item", "c1*63 a3 00 4161 01 RL 05 81*63 00", VERIFIED],
+        ["item", "c1*63 a3 00 4161 01 RL 05 81*64 00", UNVERIFIED],
+        ["item", "a2 c1*126 00 4161 01 RL", VERIFIED],
+        ["item", "a2 c1*127 00 4161 01 RL", UNVERIFIED],
+        ["item", "a2 00 4161 c1*126 01 RL", VERIFIED],
+        ["item", "a2 00 4161 c1*127 01 RL", UNVERIFIED],
+        ["item", "a2 00 4161 01 c1*126 RL", VERIFIED],
+        ["item", "a2 00 4161 01 c1*127 RL", UNVERIFIED],
+        ["item", "a2 00 c1*126 4161 01 RL", VERIFIED],
+        ["item", "a2 00 c1*127 4161 01 RL", UNVERIFIED],
+        ["item", "a2 00 c1*125 8101 01 RL", VERIFIED],
+        ["item", "a2 00 c1*126 8101 01 RL", UNVERIFIED],
+        ["item", "a2 00 81 c1*125 01 01 RL", VERIFIED],
+        ["item", "a2 00 81 c1*126 01 01 RL", UNVERIFIED],
+        ["item", "a2 00 9f c1*125 01 ff 01 RL", VERIFIED],
+        ["item", "a2 00 9f c1*126 01 ff 01 RL", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 c1*126 00", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 c1*127 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a1 c1*125 00 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a1 c1*126 00 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a1 00 c1*125 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a1 00 c1*126 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 82 c1*125 00 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 82 c1*126 00 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 82 00 c1*125 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 82 00 c1*126 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL SK c1*126 6161", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK c1*127 6161", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("item map keys, counts and tags verify exactly when cbor_decode reads them", () => {
+    assert.stringEquals(
+      diverging([
+        ["item", "a2 c100 4161 01 RL", VERIFIED],
+        ["item", "a2 1800 4161 01 RL", VERIFIED],
+        ["item", "a2 190000 4161 01 RL", VERIFIED],
+        ["item", "a2 1b0000000000000000 4161 01 RL", VERIFIED],
+        ["item", "a2 00 4161 1801 RL", VERIFIED],
+        ["item", "a2 20 4161 01 RL", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 20 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 6161 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 4161 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL f6 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL f4 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL f93c00 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 80 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 1f 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 1bffffffffffffffff 00", VERIFIED],
+        ["item", "a3 00 4161 01 RL 3bffffffffffffffff 00", UNVERIFIED],
+        ["item", "a4 00 4161 01 RL 05 00 05 00", UNVERIFIED],
+        ["item", "a4 00 4161 01 RL 05 00 1805 00", UNVERIFIED],
+        ["item", "a4 00 4161 01 RL 05 00 06 00", VERIFIED],
+        ["item", "a3 00 4161 01 RL 00 4162", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 01 RL", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 1800 4162", UNVERIFIED],
+        ["item", "a4 00 4161 01 RL 02 00 02 00", UNVERIFIED],
+        ["item", "a4 00 4161 01 RL 03 00 03 00", UNVERIFIED],
+        ["item", "a4 00 4161 01 RL 04 00 04 00", UNVERIFIED],
+        ["item", "a4 00 4161 01 RL SK 6161 SK 6161", UNVERIFIED],
+        ["item", "a2 01 RL 00 4161", VERIFIED],
+        ["item", "a0", UNVERIFIED],
+        ["item", "a1 00 4161", UNVERIFIED],
+        ["item", "a1 01 RL", UNVERIFIED],
+        ["item", "bf 00 4161 01 RL ff", VERIFIED],
+        ["item", "bf ff", UNVERIFIED],
+        ["item", "bf 00 4161 01 RL 05 00 ff", VERIFIED],
+        ["item", "bf 00 4161 01 RL", UNVERIFIED],
+        ["item", "bf 00 4161 01 RL 05 ff", UNVERIFIED],
+        ["item", "b802 00 4161 01 RL", VERIFIED],
+        ["item", "b90002 00 4161 01 RL", VERIFIED],
+        ["item", "bb0000000000000002 00 4161 01 RL", VERIFIED],
+        ["item", "a3 00 4161 01 RL", UNVERIFIED],
+        ["item", "a1 00 4161 01 RL", UNVERIFIED],
+        ["item", "bb8000000000000000 00 4161 01 RL", UNVERIFIED],
+        ["item", "82004161011bff13109e41336ff2", UNVERIFIED],
+        ["item", "80", UNVERIFIED],
+        ["item", "9f ff", UNVERIFIED],
+        ["item", "f6", UNVERIFIED],
+        ["item", "00", UNVERIFIED],
+        ["item", "4161", UNVERIFIED],
+        ["item", "6161", UNVERIFIED],
+        ["item", "c1 a2 00 4161 01 RL", VERIFIED],
+        ["item", "d8ff a2 00 4161 01 RL", VERIFIED],
+        ["item", "dbffffffffffffffff a2 00 4161 01 RL", VERIFIED],
+        ["item", "c1 c2 a2 00 4161 01 RL", VERIFIED],
+        ["item", "df a2 00 4161 01 RL", UNVERIFIED],
+        ["item", "a2 00 4161 01 1b0000000000000001", VERIFIED],
+        ["item", "a2 00 4161 01 00", VERIFIED],
+        ["item", "a2 00 61ff 01 1b0000000000000001", UNVERIFIED],
+        ["item", "a3 00 4161 01 1b0000000000000001 03 03", UNVERIFIED],
+        ["item", "a3 00 4161 01 1b0000000000000001 05 61ff", UNVERIFIED],
+        ["item", "a3 00 4161 01 1b0000000000000001 05 81*127 00", UNVERIFIED],
+        ["item", "a2 00 4161 01 1bff0a89c674ee7874", UNVERIFIED],
+        ["item", "a2 00 4161 01 c1 1bff0a89c674ee7874", UNVERIFIED],
+        [
+          "item",
+          "a2 00 4161 01 RL a2 00 4161 01 1bff0a89c674ee7874",
+          UNVERIFIED,
+        ],
+      ]),
+      "",
+    );
+  });
+
+  test("item magic forms verify exactly when cbor_decode reads them", () => {
+    assert.stringEquals(
+      diverging([
+        ["item", "a2 00 4161 01 c1 RL", VERIFIED],
+        ["item", "a2 00 4161 01 c1 c1 RL", VERIFIED],
+        ["item", "a2 00 4161 01 20", UNVERIFIED],
+        ["item", "a2 00 4161 01 3bff13109e41336ff2", UNVERIFIED],
+        ["item", "a2 00 4161 01 48ff13109e41336ff2", UNVERIFIED],
+        ["item", "a2 00 4161 01 6161", UNVERIFIED],
+        ["item", "a2 00 4161 01 f6", UNVERIFIED],
+        ["item", "a2 00 4161 01 f93c00", UNVERIFIED],
+        ["item", "a2 00 4161 01 81 RL", UNVERIFIED],
+        ["item", "a2 00 4161 01 1f", UNVERIFIED],
+        ["item", "a2 00 4161 01 1c", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("item payload forms verify exactly when cbor_decode reads them", () => {
+    assert.stringEquals(
+      diverging([
+        ["item", "a2 00 40 01 RL", VERIFIED],
+        ["item", "a2 00 5fff 01 RL", VERIFIED],
+        ["item", "a2 00 5f 4161 ff 01 RL", VERIFIED],
+        ["item", "a2 00 5f 6161 ff 01 RL", UNVERIFIED],
+        ["item", "a2 00 5f c24161 ff 01 RL", UNVERIFIED],
+        ["item", "a2 00 60 01 RL", VERIFIED],
+        ["item", "a2 00 61ff 01 RL", UNVERIFIED],
+        ["item", "a2 00 7fff 01 RL", VERIFIED],
+        ["item", "a2 00 7f 61c3 61a9 ff 01 RL", VERIFIED],
+        ["item", "a2 00 7f 61c3 ff 01 RL", UNVERIFIED],
+        ["item", "a2 00 7f 4161 ff 01 RL", UNVERIFIED],
+        ["item", "a2 00 80 01 RL", VERIFIED],
+        ["item", "a2 00 8100 01 RL", VERIFIED],
+        ["item", "a2 00 8118ff 01 RL", VERIFIED],
+        ["item", "a2 00 811900ff 01 RL", VERIFIED],
+        ["item", "a2 00 81190100 01 RL", UNVERIFIED],
+        ["item", "a2 00 811b00000000000000ff 01 RL", VERIFIED],
+        ["item", "a2 00 8120 01 RL", UNVERIFIED],
+        ["item", "a2 00 81f4 01 RL", UNVERIFIED],
+        ["item", "a2 00 81f6 01 RL", UNVERIFIED],
+        ["item", "a2 00 81c100 01 RL", VERIFIED],
+        ["item", "a2 00 818100 01 RL", UNVERIFIED],
+        ["item", "a2 00 814161 01 RL", UNVERIFIED],
+        ["item", "a2 00 9f0102ff 01 RL", VERIFIED],
+        ["item", "a2 00 9fff 01 RL", VERIFIED],
+        ["item", "a2 00 9f 01 01 RL", UNVERIFIED],
+        ["item", "a2 00 980101 01 RL", VERIFIED],
+        ["item", "a2 00 9b000000000000000101 01 RL", VERIFIED],
+        ["item", "a2 00 9bffffffffffffffff 01 RL", UNVERIFIED],
+        ["item", "a2 00 a0 01 RL", UNVERIFIED],
+        ["item", "a2 00 a10001 01 RL", UNVERIFIED],
+        ["item", "a2 00 f6 01 RL", UNVERIFIED],
+        ["item", "a2 00 00 01 RL", UNVERIFIED],
+        ["item", "a2 00 c14161 01 RL", VERIFIED],
+        ["item", "a2 00 c18101 01 RL", VERIFIED],
+        ["item", "a2 00 5b0000000000000001 61 01 RL", VERIFIED],
+        ["item", "a2 00 5bffffffffffffffff 01 RL", UNVERIFIED],
+        ["item", "a2 00 7b0000000000000001 61 01 RL", VERIFIED],
+        ["item", "a2 00 5820 00*32 01 RL", VERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("item content type forms verify exactly when cbor_decode reads them", () => {
+    assert.stringEquals(
+      diverging([
+        ["item", "a3 00 4161 01 RL 02 00", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 01", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 02", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 03", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 04", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 17", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 1803", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 1b0000000000000003", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 20", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 644e6f6e65", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 646e6f6e65", UNVERIFIED],
+        [
+          "item",
+          "a3 00 4161 01 RL 02 706170706c69636174696f6e2f6a736f6e",
+          VERIFIED,
+        ],
+        [
+          "item",
+          "a3 00 4161 01 RL 02 706170706c69636174696f6e2f63626f72",
+          VERIFIED,
+        ],
+        [
+          "item",
+          "a3 00 4161 01 RL 02 78186170706c69636174696f6e2f6f637465742d73747265616d",
+          VERIFIED,
+        ],
+        ["item", "a3 00 4161 01 RL 02 646a736f6e", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 444e6f6e65", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 7f 624e6f 626e65 ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 c100", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 c1644e6f6e65", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 00 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 03 f7", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 644e6f6e65 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 04 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 00 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 00 f4", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 00 c1f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 c100 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 82 00 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 82 644e6f6e65 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 82 00 f7", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 82 00 c1f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 82 c100 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 82 00 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 81 00", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 80", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 83 00 f6 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 9f 00 f6 ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 9f 00 ff", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 9f 00 f6 f6 ff", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 9802 00 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a2 00 f6 01 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 b801 00 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 bf 00 f6 ff", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a0", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 f4", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 c1 a1 00 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 c1 82 00 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 4161", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 61ff", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("item content encoding forms verify exactly when cbor_decode reads them", () => {
+    assert.stringEquals(
+      diverging([
+        ["item", "a3 00 4161 01 RL 03 00", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 01", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 02", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 03", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 1802", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 1b0000000000000002", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 20", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 646e6f6e65", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 686964656e74697479", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 676465666c617465", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 644e6f6e65", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 674445464c415445", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 446e6f6e65", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 476465666c617465", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 7f 63646566 646c617465 ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 c102", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a1 02 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a1 676465666c617465 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a1 03 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 82 02 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 82 676465666c617465 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 9f 02 f6 ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL 03 81 02", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a0", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("item content language forms verify exactly when cbor_decode reads them", () => {
+    assert.stringEquals(
+      diverging([
+        ["item", "a3 00 4161 01 RL 04 00", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 01", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 02", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 04 646e6f6e65", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 62656e", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 62454e", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 04 42656e", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 7f 6165 616e ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 c101", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 a1 01 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 a1 62656e f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 82 01 f6", VERIFIED],
+        ["item", "a3 00 4161 01 RL 04 20", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 04 f6", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("item schema forms verify exactly when cbor_decode reads them", () => {
+    assert.stringEquals(
+      diverging([
+        ["item", "a3 00 4161 01 RL SK 6161", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK 60", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK 4161", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK 40", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK 41ff", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL SK 61ff", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL SK 7f 6161 ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK 5f 4161 ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK 5f 41c3 41a9 ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK 7f 61c3 61a9 ff", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK c16161", VERIFIED],
+        ["item", "a3 00 4161 01 RL SK 01", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL SK f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL SK 80", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL SK a0", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL SK 816161", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("a name preimage verifies in every payload form cbor_decode reads", () => {
+    assert.stringEquals(
+      diverging([
+        ["name", "a2 00 4f NP 01 NM", VERIFIED],
+        ["name", "a2 00 6f NP 01 NM", VERIFIED],
+        [
+          "name",
+          "a2 00 5f 47737430782e7262 4861632e75732e7631 ff 01 NM",
+          VERIFIED,
+        ],
+        [
+          "name",
+          "a2 00 7f 67737430782e7262 6861632e75732e7631 ff 01 NM",
+          VERIFIED,
+        ],
+        ["name", "a2 00 5f 4f NP 40 ff 01 NM", VERIFIED],
+        [
+          "name",
+          "a2 00 8f 1873 1874 1830 1878 182e 1872 1862 1861 1863 182e 1875 1873 182e 1876 1831 01 NM",
+          VERIFIED,
+        ],
+        [
+          "name",
+          "a2 00 9f 1873 1874 1830 1878 182e 1872 1862 1861 1863 182e 1875 1873 182e 1876 1831 ff 01 NM",
+          VERIFIED,
+        ],
+        [
+          "name",
+          "a2 00 8f 1873 1874 1830 1878 182e 1872 1862 1861 1863 182e 1875 1873 182e 1876 c11831 01 NM",
+          VERIFIED,
+        ],
+        ["name", "a2 00 c1 4f NP 01 NM", VERIFIED],
+        ["name", "c1 a2 00 4f NP 01 NM", VERIFIED],
+        ["name", "a2 01 NM 00 4f NP", VERIFIED],
+        ["name", "bf 00 4f NP 01 NM ff", VERIFIED],
+        ["name", "a2 00 4f NP 01 c1 NM", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 05 00", VERIFIED],
+        ["name", "a6 00 4f NP 01 NM 02 00 03 01 04 01 SK 6161", VERIFIED],
+        ["name", "a2 00 4f NP 01 NM a2 00 6f NP 01 NM", VERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("a name preimage verifies exactly when cbor_decode reads it unencoded", () => {
+    assert.stringEquals(
+      diverging([
+        ["name", "a3 00 4f NP 01 NM 03 00", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 01", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 02", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 03", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 1801", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 1b0000000000000001", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 1b0000000000000002", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 20", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 646e6f6e65", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 686964656e74697479", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 676465666c617465", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 644e6f6e65", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 446e6f6e65", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 486964656e74697479", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 476465666c617465", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 7f 626e6f 626e65 ff", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 5f 426e6f 426e65 ff", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 c100", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 c101", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 c102", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 c1646e6f6e65", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 a1 00 f6", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 a1 01 f7", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 a1 02 f6", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 a1 646e6f6e65 f6", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 a1 686964656e74697479 f6", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 a1 676465666c617465 f6", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 a1 c101 c1f6", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 82 00 f6", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 82 01 f6", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 82 02 f6", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 82 686964656e74697479 f6", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 9f 01 f6 ff", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 9802 01 f6", VERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 81 01", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 f6", UNVERIFIED],
+        ["name", "a3 00 4f NP 01 NM 03 a0", UNVERIFIED],
+        ["name", "a2 00 4f NP 01 NM a3 00 4f NP 01 NM 03 01", VERIFIED],
+        ["name", "a2 00 4f NP 01 NM a3 00 4f NP 01 NM 03 02", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+
+  test("a document verifies only whole, under its own prefix", () => {
+    assert.stringEquals(
+      diverging([
+        ["doc", "P NAME TYPE", VERIFIED],
+        ["doc", "NAME TYPE", UNVERIFIED],
+        ["doc", "ff0a89c674ee7875 NAME TYPE", UNVERIFIED],
+        ["doc", "P P NAME TYPE", UNVERIFIED],
+        ["doc", "P NAME P TYPE", UNVERIFIED],
+        ["doc", "P NAME TYPE ff", UNVERIFIED],
+        ["doc", "P NAME TYPE 00", UNVERIFIED],
+        ["doc", "P NAME TYPE f6", UNVERIFIED],
+        ["doc", "P NAME TYPE a0", UNVERIFIED],
+        ["doc", "P NAME TYPE a20041", UNVERIFIED],
+        ["doc", "P NAME TYPE a2004161", UNVERIFIED],
+        ["doc", "P NAME TYPE a2004161 01", UNVERIFIED],
+        ["doc", "P NAME TYPE c1", UNVERIFIED],
+        ["doc", "P NAME TYPE 5f", UNVERIFIED],
+        ["doc", "P NAME TYPE bf", UNVERIFIED],
+        ["doc", "P NAME TYPE 18", UNVERIFIED],
+        ["doc", "P NAME TYPE 1900", UNVERIFIED],
+        ["doc", "P NAME TYPE 9f", UNVERIFIED],
+        ["doc", "P NAME TYPE a100", UNVERIFIED],
+        ["doc", "P NAME TYPE a3004161 01 RL 05 9f", UNVERIFIED],
+        ["doc", "P NAME TYPE a3004161 01 RL 05 5f4161", UNVERIFIED],
+        ["doc", "P NAME TYPE a3004161 01 RL 05 1900", UNVERIFIED],
+        ["doc", "P NAME TYPE a2004161 01 1b0000000000000001", VERIFIED],
+        ["doc", "P a2004161 01 1b0000000000000001", UNVERIFIED],
+        ["doc", "P NAME a2004161 01 1b0000000000000001 TYPE", VERIFIED],
+        ["doc", "P NAME TYPE NAME", VERIFIED],
+        ["doc", "P NAME TYPE TYPE", VERIFIED],
+        ["doc", "P NAME a2004761646472657373011bffcdb2cc1b1d53", UNVERIFIED],
+      ]),
+      "",
+    );
+  });
+});
+
 describe("ConfigRegistryV5 delegates", () => {
   afterEach(clearStore);
 
@@ -746,5 +1714,36 @@ describe("ConfigRegistryV5 unscoped delegates", () => {
       "true",
     );
     assert.entityCount("RegistryDelegate", 0);
+  });
+
+  test("an unscoped change row records its log's block and transaction", () => {
+    unscoped(false, 400, 2);
+
+    let row = mockRowId(2);
+    assert.fieldEquals(
+      "RegistryUnscopedDelegateChange",
+      row,
+      "blockNumber",
+      "400",
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegateChange",
+      row,
+      "blockTimestamp",
+      "4800",
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegateChange",
+      row,
+      "transactionHash",
+      TX_HASH.toHexString(),
+    );
+    assert.fieldEquals(
+      "RegistryUnscopedDelegateChange",
+      row,
+      "transactionFrom",
+      TX_FROM.toHexString(),
+    );
+    assert.fieldEquals("RegistryUnscopedDelegateChange", row, "logIndex", "2");
   });
 });
