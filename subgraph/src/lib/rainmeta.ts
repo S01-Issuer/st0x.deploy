@@ -341,12 +341,7 @@ class CborReader {
       read += 1;
       this.tags(depth + 1);
       let key = this.head();
-      if (
-        !this.ok ||
-        this.major != 0 ||
-        this.info == 31 ||
-        seen.includes(key)
-      ) {
+      if (!this.ok || this.major != 0 || this.info == 31) {
         this.fail();
         return null;
       }
@@ -377,6 +372,7 @@ class CborReader {
     }
     if (
       !this.ok ||
+      !distinct(seen) ||
       payload === null ||
       !hasMagic ||
       magic == RAIN_META_DOCUMENT_V1
@@ -386,6 +382,40 @@ class CborReader {
     }
     return new Item(magic, payload!, plain);
   }
+}
+
+function distinct(keys: Array<u64>): boolean {
+  let n = keys.length;
+  let from = keys;
+  let to = new Array<u64>(n);
+  let counts = new Int32Array(256);
+  for (let shift: u64 = 0; shift < 64; shift += 8) {
+    counts.fill(0);
+    for (let i = 0; i < n; i++) {
+      counts[((from[i] >> shift) & 0xff) as i32] += 1;
+    }
+    let total = 0;
+    for (let b = 0; b < 256; b++) {
+      let count = counts[b];
+      counts[b] = total;
+      total += count;
+    }
+    for (let i = 0; i < n; i++) {
+      let key = from[i];
+      let b = ((key >> shift) & 0xff) as i32;
+      to[counts[b]] = key;
+      counts[b] += 1;
+    }
+    let swap = from;
+    from = to;
+    to = swap;
+  }
+  for (let i = 1; i < n; i++) {
+    if (from[i] == from[i - 1]) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function bytesOf(parts: Array<u8>): Bytes {
