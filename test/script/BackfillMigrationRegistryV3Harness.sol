@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 
 import {BackfillMigrationRegistryV3} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
+import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 
 /// @dev Exposes the script's hooks, with a per-instance artifact path because
 /// tests run in parallel.
@@ -36,5 +37,13 @@ contract BackfillMigrationRegistryV3Harness is BackfillMigrationRegistryV3 {
 
     function callAssertPostState() external view {
         assertPostState();
+    }
+
+    function callV3HistoryCall(ScriptDeclaration memory declared, uint256 appliedAt, address chainSafe, address timelock)
+        external
+        pure
+        returns (address, bytes memory)
+    {
+        return v3HistoryCall(declared, appliedAt, chainSafe, timelock);
     }
 }
