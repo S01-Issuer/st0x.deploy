@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {IMigrationRegistryV2} from "rain-deploy-0.1.29/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {DEPLOYED_ADDRESS as REGISTRY_V2} from "rain-deploy-0.1.29/src/generated/0_1_18/MigrationRegistry.sol";
 import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
@@ -379,6 +379,21 @@ contract BackfillMigrationRegistryV5Test is Test {
         assertRefusesV2Order(grantEuAuthoriserRolesDeclaration());
     }
 
+    function testRefusesTheFirstRecordOutOfV2OrderInLineOrder() external {
+        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
+        bytes32 other = keccak256("some other migration");
+        ScriptDeclaration[] memory all = v2Records();
+        for (uint256 i = 0; i < all.length; i++) {
+            vm.mockCall(
+                REGISTRY_V2,
+                abi.encodeCall(IMigrationRegistryV2.appliedOnto, (safe, all[i].namespace, all[i].id)),
+                abi.encode(other)
+            );
+        }
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, all[0].id, other));
+        script.callPreflight();
+    }
+
     function testRefusesGovernanceTimelockMomentMismatch() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
         (uint256 pinned,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
@@ -511,5 +526,53 @@ contract BackfillMigrationRegistryV5Test is Test {
             )
         );
         script.callAssertPostState();
+    }
+
+    function testDeclaresTheRecordItsBundleWritesLive() external {
+        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
+        if (spent(safe)) return;
+        ScriptDeclaration memory declared = script.declaration();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        SafeTx[] memory txs = script.callAuthorBundle();
+        assertTrue(declared.migration, "a migration");
+        assertFalse(declared.history, "recorded live, not as history");
+        assertEq(
+            txs[txs.length - 1].data,
+            abi.encodeCall(
+                IMigrationRegistryV5.applyMigrationV5,
+                (
+                    LibStoxMigrations.writerFor(declared.writer, safe, timelock),
+                    declared.namespace,
+                    declared.id,
+                    LibStoxMigrations.prerequisitesFor(declared, safe, timelock),
+                    ""
+                )
+            ),
+            "the bundle's last write is the declared record"
+        );
+    }
+
+    function testArtifactNamesTheBundleForItsSigners() external {
+        vm.createSelectFork(LibRainDeploy.BASE);
+        if (spent(LibSafeInvariants.safeForChainId(block.chainid))) return;
+        BackfillMigrationRegistryV5Harness script = new BackfillMigrationRegistryV5Harness("bundle-name");
+        script.run();
+        assertEq(
+            vm.parseJsonString(vm.readFile(script.callArtifactPath()), ".meta.name"),
+            "ST0x: backfill MigrationRegistry V5 from V2"
+        );
+    }
+
+    function testArtifactIsTheChainsJsonUnderOut() external {
+        BackfillMigrationRegistryV5Harness script = new BackfillMigrationRegistryV5Harness("path");
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            assertEq(
+                script.callScriptArtifactPath(),
+                string.concat("out/20261030-backfill-migration-registry-v5-", vm.toString(networks[i].chainId), ".json")
+            );
+        }
     }
 }

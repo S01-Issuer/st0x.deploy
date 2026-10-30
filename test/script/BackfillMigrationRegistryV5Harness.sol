@@ -34,6 +34,10 @@ contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
         return artifactPath();
     }
 
+    function callScriptArtifactPath() external view returns (string memory) {
+        return super.artifactPath();
+    }
+
     function callAssertPostState() external view {
         assertPostState();
     }
