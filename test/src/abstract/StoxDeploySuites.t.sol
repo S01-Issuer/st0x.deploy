@@ -28,6 +28,17 @@ contract StoxDeploySuitesTest is Test, StoxDeploySuites {
         assertEq(declared.deployNetworks, LibStoxDeployNetworks.deploymentNetworks(), "deploy networks");
     }
 
+    function testEveryCandidateNamesEveryDeploymentNetwork() external view {
+        DeployDeclaration memory declared = declaration();
+        for (uint256 i = 0; i < declared.candidates.length; i++) {
+            assertEq(
+                declared.candidates[i].snapshot.networks,
+                LibStoxDeployNetworks.deploymentNetworks(),
+                declared.candidates[i].snapshot.suite
+            );
+        }
+    }
+
     function testEuAuthoriserCloneDeploysToThePinnedCloneOnEveryNetwork() external view {
         DeployDeclaration memory declared = declaration();
         (DeploySuite memory clone, bool found) = candidateOf(declared, EU_AUTHORISER);
