@@ -19,6 +19,7 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJ
 import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.29/src/lib/LibTimelockController.sol";
 
 import {
+    BackfillV5OrderMismatch,
     BackfillV5RecordMismatch,
     BackfillV5RecordMissing,
     GovernanceTimelockMomentMismatch,
@@ -89,15 +90,12 @@ contract BackfillMigrationRegistryV5Test is Test {
     }
 
     function holdOnV5(address safe, ScriptDeclaration memory declared, uint256 at) internal {
+        holdOnV5Onto(safe, declared.namespace, declared.id, at, declared.prerequisites[0].migration);
+    }
+
+    function holdOnV5Onto(address safe, bytes32 namespace, bytes32 migration, uint256 at, bytes32 onto) internal {
         vm.prank(safe);
-        V5.applyMigrationHistoryV5(
-            safe,
-            declared.namespace,
-            declared.id,
-            at,
-            LibMigrationRegistry.onto(safe, declared.namespace, declared.prerequisites[0].migration),
-            ""
-        );
+        V5.applyMigrationHistoryV5(safe, namespace, migration, at, LibMigrationRegistry.onto(safe, namespace, onto), "");
     }
 
     function assertReplayed(address safe) internal view {
@@ -268,6 +266,54 @@ contract BackfillMigrationRegistryV5Test is Test {
         holdOnV5(safe, gov, v2At - 1);
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
         vm.expectRevert(abi.encodeWithSelector(BackfillV5RecordMismatch.selector, gov.id, v2At, v2At - 1));
+        script.callAssertPostState();
+    }
+
+    /// @dev V5 holds record `index` at its V2 moment, onto another record that
+    /// sits where its V2 predecessor should.
+    function assertSkippedRecordOntoAnotherPredecessorFailsPostState(uint256 index) internal {
+        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
+        if (spent(safe)) return;
+        ScriptDeclaration[] memory all = v2Records();
+        ScriptDeclaration memory declared = all[index];
+        for (uint256 i = 0; i < index; i++) {
+            if (all[i].namespace == declared.namespace) holdOnV5(safe, all[i], v2Moment(safe, all[i]));
+        }
+        bytes32 other = keccak256("some other migration");
+        uint256 v2At = v2Moment(safe, declared);
+        holdOnV5Onto(safe, declared.namespace, other, v2At, declared.prerequisites[0].migration);
+        holdOnV5Onto(safe, declared.namespace, declared.id, v2At, other);
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
+        assertEq(v5Moment(safe, declared), v2At, "V5 moment is the V2 moment");
+        vm.expectRevert(abi.encodeWithSelector(BackfillV5OrderMismatch.selector, declared.id, other));
+        script.callAssertPostState();
+    }
+
+    function testSkippedGovernanceTimelockOntoAnotherPredecessorFailsPostState() external {
+        assertSkippedRecordOntoAnotherPredecessorFailsPostState(0);
+    }
+
+    function testSkippedOrchestratorEmergencyOntoAnotherPredecessorFailsPostState() external {
+        assertSkippedRecordOntoAnotherPredecessorFailsPostState(1);
+    }
+
+    function testSkippedEuAuthoriserGrantOntoAnotherPredecessorFailsPostState() external {
+        assertSkippedRecordOntoAnotherPredecessorFailsPostState(2);
+    }
+
+    function testOwnRecordOntoAnotherRecordFailsPostState() external {
+        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
+        if (spent(safe)) return;
+        ScriptDeclaration[] memory all = v2Records();
+        for (uint256 i = 0; i < all.length; i++) {
+            holdOnV5(safe, all[i], v2Moment(safe, all[i]));
+        }
+        bytes32 own = LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
+        bytes32 other = keccak256("some other migration");
+        holdOnV5Onto(safe, LibStoxMigrations.NAMESPACE, other, block.timestamp, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        holdOnV5Onto(safe, LibStoxMigrations.NAMESPACE, own, block.timestamp, other);
+        assertEq(script.callAuthorBundle().length, 0, "V5 holds every record");
+        vm.expectRevert(abi.encodeWithSelector(BackfillV5OrderMismatch.selector, own, other));
         script.callAssertPostState();
     }
 
