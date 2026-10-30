@@ -6,7 +6,7 @@ export const CONFIG_REGISTRY_VALUE_TYPE_V1: u64 = 0xffcdb2cc1b1d53be;
 export const MIGRATION_REGISTRY_NAMESPACE_V1: u64 = 0xff82e354bb91c055;
 export const MIGRATION_REGISTRY_MIGRATION_V1: u64 = 0xffae12bf8892cc25;
 
-const MAX_DEPTH: i32 = 128;
+const MAX_DEPTH: i32 = 127;
 const INDEFINITE: u64 = u64.MAX_VALUE;
 
 /** One rain meta item magic and the `bytes32` key its payload must hash to. */
@@ -87,15 +87,15 @@ class CborReader {
   }
 
   skip(depth: i32): void {
-    if (depth > MAX_DEPTH) {
-      this.fail();
-      return;
-    }
     let argument = this.head();
     if (!this.ok) {
       return;
     }
     let major = this.major;
+    if (major >= 4 && major <= 6 && depth >= MAX_DEPTH) {
+      this.fail();
+      return;
+    }
     if (major == 0 || major == 1) {
       if (argument == INDEFINITE) {
         this.fail();
@@ -143,15 +143,52 @@ class CborReader {
     }
   }
 
-  /** One definite-length byte or text string of `major`, or null. */
-  definite(major: u8): Bytes | null {
+  /** One definite-length byte string or UTF-8 text string, or null. */
+  definite(): Bytes | null {
     let length = this.head();
-    if (!this.ok || this.major != major || length == INDEFINITE) {
+    if (
+      !this.ok ||
+      (this.major != 2 && this.major != 3) ||
+      length == INDEFINITE
+    ) {
       this.fail();
       return null;
     }
+    let text = this.major == 3;
     let value = this.take(length);
-    return this.ok ? value : null;
+    if (!this.ok || (text && !utf8(value))) {
+      this.fail();
+      return null;
+    }
+    return value;
+  }
+
+  encoding(): boolean {
+    if (!this.ok || this.done()) {
+      this.fail();
+      return false;
+    }
+    if (this.data[this.pos] >> 5 == 0) {
+      let index = this.head();
+      if (!this.ok || index > 2) {
+        this.fail();
+      }
+      return index < 2;
+    }
+    let name = this.definite();
+    if (name === null) {
+      return false;
+    }
+    if (
+      name.equals(Bytes.fromUTF8("none")) ||
+      name.equals(Bytes.fromUTF8("identity"))
+    ) {
+      return true;
+    }
+    if (!name.equals(Bytes.fromUTF8("deflate"))) {
+      this.fail();
+    }
+    return false;
   }
 
   /** One rain meta item map: mandatory payload (0) and magic (1), each once. */
@@ -189,7 +226,7 @@ class CborReader {
       }
       seen.push(key);
       if (key == 0) {
-        payload = this.definite(2);
+        payload = this.definite();
       } else if (key == 1) {
         magic = this.head();
         hasMagic = this.major == 0 && magic != INDEFINITE;
@@ -197,9 +234,7 @@ class CborReader {
           this.fail();
         }
       } else if (key == 3) {
-        let encoding = this.definite(3);
-        plain =
-          encoding !== null && encoding.equals(Bytes.fromUTF8("identity"));
+        plain = this.encoding();
       } else {
         this.skip(1);
       }
@@ -210,6 +245,50 @@ class CborReader {
     }
     return new Item(magic, payload!, plain);
   }
+}
+
+function utf8(bytes: Bytes): boolean {
+  let i = 0;
+  while (i < bytes.length) {
+    let b = bytes[i] as i32;
+    if (b < 0x80) {
+      i += 1;
+      continue;
+    }
+    let n = 0;
+    let lo = 0x80;
+    let hi = 0xbf;
+    if (b >= 0xc2 && b <= 0xdf) {
+      n = 1;
+    } else if (b >= 0xe0 && b <= 0xef) {
+      n = 2;
+      if (b == 0xe0) {
+        lo = 0xa0;
+      } else if (b == 0xed) {
+        hi = 0x9f;
+      }
+    } else if (b >= 0xf0 && b <= 0xf4) {
+      n = 3;
+      if (b == 0xf0) {
+        lo = 0x90;
+      } else if (b == 0xf4) {
+        hi = 0x8f;
+      }
+    } else {
+      return false;
+    }
+    if (i + n >= bytes.length) {
+      return false;
+    }
+    for (let k = 1; k <= n; k++) {
+      let c = bytes[i + k] as i32;
+      if (c < (k == 1 ? lo : 0x80) || c > (k == 1 ? hi : 0xbf)) {
+        return false;
+      }
+    }
+    i += n + 1;
+  }
+  return true;
 }
 
 /** Every item of a rain meta document, or null when it is not one. */
