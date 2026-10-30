@@ -282,7 +282,9 @@ contract BackfillMigrationRegistryV5Test is Test {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
         bytes32 other = keccak256("some other migration");
         vm.mockCall(
-            REGISTRY_V2, abi.encodeCall(IMigrationRegistryV2.head, (safe, LibStoxMigrations.NAMESPACE)), abi.encode(other)
+            REGISTRY_V2,
+            abi.encodeCall(IMigrationRegistryV2.head, (safe, LibStoxMigrations.NAMESPACE)),
+            abi.encode(other)
         );
         vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2Line.selector, LibStoxMigrations.NAMESPACE, other));
         script.callPreflight();
