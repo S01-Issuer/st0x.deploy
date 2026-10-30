@@ -310,7 +310,9 @@ contract BackfillMigrationRegistryV5Test is Test {
         }
         bytes32 own = LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
         bytes32 other = keccak256("some other migration");
-        holdOnV5Onto(safe, LibStoxMigrations.NAMESPACE, other, block.timestamp, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        holdOnV5Onto(
+            safe, LibStoxMigrations.NAMESPACE, other, block.timestamp, LibStoxMigrations.ORCHESTRATOR_EMERGENCY
+        );
         holdOnV5Onto(safe, LibStoxMigrations.NAMESPACE, own, block.timestamp, other);
         assertEq(script.callAuthorBundle().length, 0, "V5 holds every record");
         vm.expectRevert(abi.encodeWithSelector(BackfillV5OrderMismatch.selector, own, other));
