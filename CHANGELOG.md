@@ -160,6 +160,34 @@
 
 ### Deploy scripts
 
+- **The underlying-naming rollout.** `LibUnderlyingNamingRollout` reconstructs
+  two timelock operations per chain:
+  - a beacon batch that upgrades the in-use wrapped-token-vault and
+    receipt-vault beacons and then probes the facet, so it reverts if the facet
+    is missing;
+  - a rename batch of `setUnderlying` on every production vault, with the beacon
+    batch as its predecessor.
+
+  `20261021-schedule-underlying-naming-beacons` and `-rename` author the Safe
+  bundles that schedule them, and `20261021-execute-underlying-naming` executes
+  the next ready one from the CI deploy key.
+  `20261021-deploy-underlying-naming-implementations` and both schedule scripts
+  refuse until the implementations are a frozen, audited release
+  (`LibUnderlyingNamingRollout.RELEASE_FROZEN`). The rename covers a fixed
+  number of leading table rows per chain, so a later token gets its own
+  operation. `TokenConfig` gains `underlyingName`, the issuer's name without the
+  ST0x suffix.
+- **The rename script refuses until downstream is ready.** It requires
+  `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` (false until the
+  services and token lists accept `<TICKER>s`), and every row's ticker and
+  underlying name to be well formed, so a quote or backslash never reaches the
+  receipt's `uri()` JSON and a row cannot carry the ST0x suffix twice.
+- **Orchestrator ordering, corrected.** The orchestrator's vault-logic lock
+  reads the 0.1.30 beacon-set deployer's beacons, not the in-use token beacons,
+  so the rule that the admin move precedes beacon upgrades names that set. A
+  Base fork test mints and burns through the live orchestrator after the in-use
+  beacons move.
+
 - **The per-chain "deploy missing tokens" scripts are merged into one.**
   `20260722-deploy-missing-tokens-ethereum` and `-hyperevm` were byte-identical
   apart from the chain each hardcoded; both are replaced by

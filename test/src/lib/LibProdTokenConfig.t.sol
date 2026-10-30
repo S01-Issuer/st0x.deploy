@@ -117,6 +117,33 @@ contract LibProdTokenConfigTest is Test {
         return LibProdTokenConfig.regionOf(underlying);
     }
 
+    function externalConfigOf(string memory underlying) external pure returns (TokenConfig memory) {
+        return LibProdTokenConfig.configOf(underlying);
+    }
+
+    /// `configOf` refuses a key with no row, including near misses.
+    function testConfigOfUnknownUnderlyingReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.PA"));
+        this.externalConfigOf("MC.PA");
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, ""));
+        this.externalConfigOf("");
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "nvda"));
+        this.externalConfigOf("nvda");
+    }
+
+    /// `configOf` returns every row by its own key.
+    function testConfigOfReturnsEveryRowByItsKey() external pure {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 rowIndex = 0; rowIndex < configs.length; rowIndex++) {
+            TokenConfig memory found = LibProdTokenConfig.configOf(configs[rowIndex].underlying);
+            assertEq(found.underlying, configs[rowIndex].underlying);
+            assertEq(found.name, configs[rowIndex].name);
+            assertEq(found.symbol, configs[rowIndex].symbol);
+            assertEq(found.underlyingName, configs[rowIndex].underlyingName);
+            assertEq(uint8(found.region), uint8(configs[rowIndex].region));
+        }
+    }
+
     function testRegionOfUnknownUnderlyingReverts() external {
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.PA"));
         this.externalRegionOf("MC.PA");
