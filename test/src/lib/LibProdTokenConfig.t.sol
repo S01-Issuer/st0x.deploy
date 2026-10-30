@@ -71,10 +71,10 @@ contract LibProdTokenConfigTest is Test {
     }
 
     /// The wrapped vault's derived name/symbol on Base are exactly
-    /// `"Wrapped " + name` / `"w" + symbol` — pinning the derivation the
-    /// deploy relies on (the wrapped leg takes no name/symbol input, so if
-    /// this derivation ever changed the config table would be insufficient
-    /// to reproduce Base's wrapped tokens).
+    /// `"Wrapped " + name` / `"w" + symbol` — the derivation that applies
+    /// while the receipt vault's underlying ticker and name are unset. The
+    /// wrapped leg takes no name/symbol input, so this pins that the config
+    /// table alone reproduces Base's wrapped tokens in that state.
     function testWrappedDerivationHoldsOnBase() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
@@ -90,6 +90,20 @@ contract LibProdTokenConfigTest is Test {
                 wrapped.symbol(),
                 string.concat("w", configs[i].symbol),
                 string.concat(configs[i].underlying, ": wrapped symbol derivation drift")
+            );
+        }
+    }
+
+    /// Every row's symbol is "t" + its underlying key, so a `setUnderlying`
+    /// batch that takes the ticker from `underlying` leaves each receipt
+    /// vault's `symbol()` unchanged.
+    function testSymbolIsTPlusUnderlying() external pure {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        assertGt(configs.length, 0);
+        for (uint256 rowIndex = 0; rowIndex < configs.length; rowIndex++) {
+            assertGt(bytes(configs[rowIndex].underlying).length, 0, "empty underlying");
+            assertEq(
+                configs[rowIndex].symbol, string.concat("t", configs[rowIndex].underlying), configs[rowIndex].underlying
             );
         }
     }

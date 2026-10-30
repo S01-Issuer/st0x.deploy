@@ -19,6 +19,13 @@ import {LibStockSplit} from "../lib/LibStockSplit.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.12/src/abstract/OffchainAssetReceiptVault.sol";
+import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
+import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
+import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
+import {IOwnable} from "../interface/IOwnable.sol";
+import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
+import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
+import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
@@ -32,10 +39,13 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.2.12/src/abstract/OffchainA
 /// to resolve on a standalone deployment — the guard fires even for pure
 /// view getters that would not otherwise reach the authorizer lookup.
 ///
-/// Storage lives at the ERC-7201 namespace `rain.storage.corporate-action.1`
-/// (see `LibCorporateAction`). Any future external entry points added here
-/// (e.g. list traversal) must also carry `onlyDelegatecalled`.
-contract StoxCorporateActionsFacet is ICorporateActionsV1 {
+/// Corporate-action storage lives at the ERC-7201 namespace
+/// `rain.storage.corporate-action.1` (see `LibCorporateAction`). The facet
+/// also implements `IStoxUnderlyingV1`, whose ticker and name live at
+/// `rain.storage.underlying.1` (see `LibUnderlying`). Any future external
+/// entry points added here (e.g. list traversal) must also carry
+/// `onlyDelegatecalled`.
+contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -197,6 +207,44 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1 {
                 LibCorporateActionNode.nextOfType(nodeIndex, BALANCE_MIGRATION_TYPES_MASK, CompletionFilter.COMPLETED);
         }
         return cumulative;
+    }
+
+    /// @inheritdoc IStoxUnderlyingV1
+    function underlyingSymbol() external view override onlyDelegatecalled returns (string memory) {
+        return LibUnderlying.getStorage().symbol;
+    }
+
+    /// @inheritdoc IStoxUnderlyingV1
+    function underlyingName() external view override onlyDelegatecalled returns (string memory) {
+        return LibUnderlying.getStorage().name;
+    }
+
+    /// @inheritdoc IStoxUnderlyingV1
+    /// @dev Gated on the vault's `owner()` rather than the authorizer: the
+    /// values set the vault's ERC-20 metadata, which is an owner surface
+    /// like `setAuthorizer`. `owner()` is a call back into the vault, which
+    /// resolves it from its own selector table without reaching this facet.
+    ///
+    /// Also writes the vault's ERC-20 `symbol()` / `name()` into OZ's own
+    /// `ERC20Storage`: "t" + ticker and name + `ST0X_NAME_SUFFIX`. The vault
+    /// keeps OZ's plain storage-reading getters, so the metadata costs the
+    /// vault no bytecode. The initialized name and symbol are overwritten;
+    /// they stay on record in the vault's initialization event.
+    function setUnderlying(string calldata newSymbol, string calldata newName) external override onlyDelegatecalled {
+        if (msg.sender != IOwnable(address(this)).owner()) {
+            revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
+        }
+        if (bytes(newSymbol).length == 0) revert EmptyUnderlyingSymbol();
+        if (bytes(newName).length == 0) revert EmptyUnderlyingName();
+
+        LibUnderlying.UnderlyingStorage storage underlyingStorage = LibUnderlying.getStorage();
+        emit UnderlyingSet(msg.sender, underlyingStorage.symbol, underlyingStorage.name, newSymbol, newName);
+        underlyingStorage.symbol = newSymbol;
+        underlyingStorage.name = newName;
+
+        ERC20Upgradeable.ERC20Storage storage erc20Storage = LibERC20Storage.getStorage();
+        erc20Storage._symbol = string.concat("t", newSymbol);
+        erc20Storage._name = string.concat(newName, ST0X_NAME_SUFFIX);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
