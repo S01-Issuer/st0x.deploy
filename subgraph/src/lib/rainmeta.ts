@@ -274,27 +274,49 @@ class CborReader {
     return bytesOf(parts);
   }
 
+  unit(depth: i32): void {
+    this.tags(depth);
+    this.head();
+    if (!this.ok || this.major != 7 || (this.info != 22 && this.info != 23)) {
+      this.fail();
+    }
+  }
+
   variant(names: string[], depth: i32): i32 {
-    if (this.ok && !this.done() && this.data[this.pos] == 0xa1) {
-      if (depth >= MAX_DEPTH) {
+    if (!this.ok || this.done()) {
+      this.fail();
+      return -1;
+    }
+    let initial = this.data[this.pos];
+    if (initial != 0xa1 && initial >> 5 != 4) {
+      return this.identifier(names, depth);
+    }
+    if (depth >= MAX_DEPTH) {
+      this.fail();
+      return -1;
+    }
+    let length = this.head();
+    let array = initial != 0xa1;
+    if (!this.ok || (array && length == 0)) {
+      this.fail();
+      return -1;
+    }
+    let index = this.identifier(names, depth + 1);
+    if (array && (length == 1 || this.isBreak())) {
+      this.fail();
+      return -1;
+    }
+    this.unit(depth + 1);
+    if (array && length == INDEFINITE) {
+      if (!this.isBreak()) {
         this.fail();
         return -1;
       }
       this.pos += 1;
-      let index = this.identifier(names, depth + 1);
-      this.tags(depth + 1);
-      this.head();
-      if (
-        !this.ok ||
-        this.major != 7 ||
-        (this.info != 22 && this.info != 23)
-      ) {
-        this.fail();
-        return -1;
-      }
-      return index;
+    } else if (array && length != 2) {
+      this.fail();
     }
-    return this.identifier(names, depth);
+    return this.ok ? index : -1;
   }
 
   identifier(names: string[], depth: i32): i32 {
