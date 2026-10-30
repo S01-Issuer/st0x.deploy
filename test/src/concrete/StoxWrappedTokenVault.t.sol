@@ -14,6 +14,12 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
+import {MockUnderlyingERC20} from "../../concrete/MockUnderlyingERC20.sol";
+import {RevertingUnderlyingERC20} from "../../concrete/RevertingUnderlyingERC20.sol";
+import {RawReturnERC20} from "../../concrete/RawReturnERC20.sol";
+
+/// @dev "NVDA" left-aligned in a word, as ABI-encoded string data.
+bytes32 constant NVDA_WORD = 0x4e56444100000000000000000000000000000000000000000000000000000000;
 
 contract StoxWrappedTokenVaultTest is Test {
     address internal constant AUTHORITY = address(uint160(uint256(keccak256("st0x.test.authority"))));
@@ -96,7 +102,149 @@ contract StoxWrappedTokenVaultTest is Test {
         vault.initialize(abi.encode(address(asset)));
     }
 
-    /// name() prepends "Wrapped " to the underlying asset name.
+    function newWrapper(address asset) internal returns (StoxWrappedTokenVault) {
+        LibTestDeploy.deployAll(vm);
+        LibTestDeploy.bindBeacons(vm, AUTHORITY);
+        return LibTestDeploy.newWrapper(AUTHORITY, asset);
+    }
+
+    /// With the underlying set on the asset, symbol() is ticker + "s" and
+    /// name() is the asset's own name, unprefixed.
+    function testNameAndSymbolFromUnderlying() external {
+        MockUnderlyingERC20 asset = new MockUnderlyingERC20();
+        asset.setUnderlyingValues("NVDA", "NVIDIA Corporation");
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "NVDAs");
+        assertEq(vault.name(), "Test Token");
+    }
+
+    /// The derivation holds for any non-empty values and tracks changes on
+    /// the asset without any action on the wrapper.
+    function testNameAndSymbolFromUnderlyingFuzz(string memory newSymbol, string memory newName) external {
+        vm.assume(bytes(newSymbol).length > 0 && bytes(newName).length > 0);
+        MockUnderlyingERC20 asset = new MockUnderlyingERC20();
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        asset.setUnderlyingValues(newSymbol, newName);
+        assertEq(vault.symbol(), string.concat(newSymbol, "s"));
+        assertEq(vault.name(), "Test Token");
+    }
+
+    /// Empty underlying values fall back to the asset's ERC-20 metadata,
+    /// each independently of the other.
+    function testEmptyUnderlyingFallsBack() external {
+        MockUnderlyingERC20 asset = new MockUnderlyingERC20();
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Wrapped Test Token");
+
+        asset.setUnderlyingValues("NVDA", "");
+        assertEq(vault.symbol(), "NVDAs");
+        assertEq(vault.name(), "Wrapped Test Token");
+
+        asset.setUnderlyingValues("", "NVIDIA Corporation");
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Test Token");
+    }
+
+    /// Reverting underlying getters fall back rather than reverting.
+    function testRevertingUnderlyingFallsBack() external {
+        StoxWrappedTokenVault vault = newWrapper(address(new RevertingUnderlyingERC20()));
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Wrapped Test Token");
+    }
+
+    /// A reverting call falls back even when its revert data is a
+    /// well-formed ABI string.
+    function testRevertWithStringDataFallsBack() external {
+        RawReturnERC20 asset = new RawReturnERC20();
+        asset.setRaw(abi.encode("NVDA"));
+        asset.setRevert(true);
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Wrapped Test Token");
+    }
+
+    /// A successful call returning no data falls back.
+    function testEmptyReturnDataFallsBack() external {
+        RawReturnERC20 asset = new RawReturnERC20();
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Wrapped Test Token");
+    }
+
+    /// Return data too short to hold an ABI string falls back.
+    function testShortReturnDataFallsBack() external {
+        RawReturnERC20 asset = new RawReturnERC20();
+        asset.setRaw(abi.encode(uint256(0x20)));
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+    }
+
+    /// Return data of 33-63 bytes holding a valid offset is a partial string
+    /// head and falls back rather than reverting.
+    function testPartialStringHeadFallsBack(uint8 rawLength) external {
+        bytes memory raw = new bytes(bound(rawLength, 33, 63));
+        assembly ("memory-safe") {
+            mstore(add(raw, 0x20), 0x20)
+        }
+        RawReturnERC20 asset = new RawReturnERC20();
+        asset.setRaw(raw);
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Wrapped Test Token");
+    }
+
+    /// A string offset other than 0x20 falls back.
+    function testBadOffsetFallsBack() external {
+        RawReturnERC20 asset = new RawReturnERC20();
+        asset.setRaw(abi.encode(uint256(0x40), uint256(4), NVDA_WORD));
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+    }
+
+    /// A string offset below 0x20 overlaps the head itself and falls back
+    /// rather than reverting in the decoder.
+    function testOffsetInsideHeadFallsBack(uint256 offset) external {
+        offset = bound(offset, 1, 0x1f);
+        RawReturnERC20 asset = new RawReturnERC20();
+        asset.setRaw(abi.encode(offset, uint256(4), NVDA_WORD));
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Wrapped Test Token");
+    }
+
+    /// A string length running past the return data falls back.
+    function testOverlongLengthFallsBack(uint256 length) external {
+        length = bound(length, 33, type(uint256).max);
+        RawReturnERC20 asset = new RawReturnERC20();
+        asset.setRaw(abi.encode(uint256(0x20), length, NVDA_WORD));
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "wTT");
+        assertEq(vault.name(), "Wrapped Test Token");
+    }
+
+    /// A string exactly filling the return data after its head is accepted.
+    function testStringFillingReturnDataDecodes() external {
+        string memory full = "ABCDEFGHIJKLMNOPQRSTUVWXYZ012345";
+        RawReturnERC20 asset = new RawReturnERC20();
+        bytes memory raw = abi.encode(full);
+        assertEq(raw.length, 0x60);
+        asset.setRaw(raw);
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), string.concat(full, "s"));
+    }
+
+    /// Well-formed raw return data from an arbitrary contract is decoded.
+    function testWellFormedRawReturnDataDecodes() external {
+        RawReturnERC20 asset = new RawReturnERC20();
+        asset.setRaw(abi.encode("NVDA"));
+        StoxWrappedTokenVault vault = newWrapper(address(asset));
+        assertEq(vault.symbol(), "NVDAs");
+        assertEq(vault.name(), "Test Token");
+    }
+
+    /// Over a plain ERC-20 with no underlying getters, name() falls back to
+    /// "Wrapped " + the asset name.
     function testNameDelegation() external {
         LibTestDeploy.deployAll(vm);
         LibTestDeploy.bindBeacons(vm, AUTHORITY);
@@ -105,7 +253,8 @@ contract StoxWrappedTokenVaultTest is Test {
         assertEq(vault.name(), "Wrapped Test Token");
     }
 
-    /// symbol() prepends "w" to the underlying asset symbol.
+    /// Over a plain ERC-20 with no underlying getters, symbol() falls back to
+    /// "w" + the asset symbol.
     function testSymbolDelegation() external {
         LibTestDeploy.deployAll(vm);
         LibTestDeploy.bindBeacons(vm, AUTHORITY);

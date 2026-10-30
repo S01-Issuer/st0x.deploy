@@ -130,13 +130,14 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// `{ roleHolders(where: {role_: {contract: "<orchestrator>", role: "0x0000000000000000000000000000000000000000000000000000000000000000"}, held: true}) { account } }`.
 /// A third holder would keep immediate admin power after this move.
 ///
-/// **Execute on every chain before any upgrade of the orchestrator, receipt
-/// vault or receipt beacon is scheduled.** The pre-flight pins the 0.1.30
-/// orchestrator implementation and the vault logic it was built against
-/// (`vaultLogicIsExpected`), so after any such upgrade this script refuses
-/// there; for the per-role-admin orchestrator upgrade the Safe, still
-/// `DEFAULT_ADMIN_ROLE`, can then call `migrate(safe)` directly (see
-/// `docs/TIMELOCK.md`).
+/// **Execute on every chain before any upgrade of the orchestrator beacon, or
+/// of the receipt-vault or receipt beacon of the 0.1.30 beacon-set deployer, is
+/// scheduled.** The pre-flight pins the 0.1.30 orchestrator implementation and
+/// the vault logic it was built against (`vaultLogicIsExpected`, which reads
+/// that beacon set, not the in-use token beacons), so after any such upgrade
+/// this script refuses there; for the per-role-admin orchestrator upgrade the
+/// Safe, still `DEFAULT_ADMIN_ROLE`, can then call `migrate(safe)` directly
+/// (see `docs/TIMELOCK.md`).
 ///
 /// `run()` and `verify()` are `SafeBundleScript`'s: `run()` executes the
 /// bundle through the Safe on the fork, requires the post-state, proves the

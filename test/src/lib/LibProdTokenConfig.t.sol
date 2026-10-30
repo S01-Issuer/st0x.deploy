@@ -71,10 +71,10 @@ contract LibProdTokenConfigTest is Test {
     }
 
     /// The wrapped vault's derived name/symbol on Base are exactly
-    /// `"Wrapped " + name` / `"w" + symbol` — pinning the derivation the
-    /// deploy relies on (the wrapped leg takes no name/symbol input, so if
-    /// this derivation ever changed the config table would be insufficient
-    /// to reproduce Base's wrapped tokens).
+    /// `"Wrapped " + name` / `"w" + symbol` — the derivation that applies
+    /// while the receipt vault's underlying ticker and name are unset. The
+    /// wrapped leg takes no name/symbol input, so this pins that the config
+    /// table alone reproduces Base's wrapped tokens in that state.
     function testWrappedDerivationHoldsOnBase() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
@@ -94,6 +94,20 @@ contract LibProdTokenConfigTest is Test {
         }
     }
 
+    /// Every row's symbol is "t" + its underlying key, so a `setUnderlying`
+    /// batch that takes the ticker from `underlying` leaves each receipt
+    /// vault's `symbol()` unchanged.
+    function testSymbolIsTPlusUnderlying() external pure {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        assertGt(configs.length, 0);
+        for (uint256 rowIndex = 0; rowIndex < configs.length; rowIndex++) {
+            assertGt(bytes(configs[rowIndex].underlying).length, 0, "empty underlying");
+            assertEq(
+                configs[rowIndex].symbol, string.concat("t", configs[rowIndex].underlying), configs[rowIndex].underlying
+            );
+        }
+    }
+
     function testRegionOf() external pure {
         assertEq(uint8(LibProdTokenConfig.regionOf("MC")), uint8(Region.EU));
         assertEq(uint8(LibProdTokenConfig.regionOf("SNES")), uint8(Region.US));
@@ -101,6 +115,33 @@ contract LibProdTokenConfigTest is Test {
 
     function externalRegionOf(string memory underlying) external pure returns (Region) {
         return LibProdTokenConfig.regionOf(underlying);
+    }
+
+    function externalConfigOf(string memory underlying) external pure returns (TokenConfig memory) {
+        return LibProdTokenConfig.configOf(underlying);
+    }
+
+    /// `configOf` refuses a key with no row, including near misses.
+    function testConfigOfUnknownUnderlyingReverts() external {
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.PA"));
+        this.externalConfigOf("MC.PA");
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, ""));
+        this.externalConfigOf("");
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "nvda"));
+        this.externalConfigOf("nvda");
+    }
+
+    /// `configOf` returns every row by its own key.
+    function testConfigOfReturnsEveryRowByItsKey() external pure {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 rowIndex = 0; rowIndex < configs.length; rowIndex++) {
+            TokenConfig memory found = LibProdTokenConfig.configOf(configs[rowIndex].underlying);
+            assertEq(found.underlying, configs[rowIndex].underlying);
+            assertEq(found.name, configs[rowIndex].name);
+            assertEq(found.symbol, configs[rowIndex].symbol);
+            assertEq(found.underlyingName, configs[rowIndex].underlyingName);
+            assertEq(uint8(found.region), uint8(configs[rowIndex].region));
+        }
     }
 
     function testRegionOfUnknownUnderlyingReverts() external {
