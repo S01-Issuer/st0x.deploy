@@ -51,6 +51,12 @@ error GovernanceTimelockMomentMismatch(uint256 pinned, uint256 recorded);
 /// @param actual The V5 moment.
 error BackfillV5RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 
+/// @notice After the bundle, a V5 record is applied onto a different record
+/// than this backfill replays it onto.
+/// @param migration The record.
+/// @param onto What V5 says it was applied onto.
+error BackfillV5OrderMismatch(bytes32 migration, bytes32 onto);
+
 /// @notice After the bundle, V5 does not hold this script's own record.
 /// @param migration The missing record.
 error BackfillV5RecordMissing(bytes32 migration);
@@ -176,8 +182,9 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Every V2 record has its V2 moment on V5, V5 holds this script's
-    /// record, and the Safe policy holds.
+    /// @dev Every V2 record has its V2 moment and predecessor on V5, V5 holds
+    /// this script's record onto `ORCHESTRATOR_EMERGENCY`, and the Safe policy
+    /// holds.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         ScriptDeclaration[] memory all = records();
@@ -185,9 +192,15 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
             uint256 expected = IMigrationRegistryV2(REGISTRY_V2).applied(chainSafe, all[i].namespace, all[i].id);
             uint256 actual = LibMigrationRegistry.appliedV5(chainSafe, all[i].namespace, all[i].id);
             if (actual != expected) revert BackfillV5RecordMismatch(all[i].id, expected, actual);
+            bytes32 actualOnto = LibMigrationRegistry.appliedOntoV5(chainSafe, all[i].namespace, all[i].id);
+            if (actualOnto != IMigrationRegistryV2(REGISTRY_V2).appliedOnto(chainSafe, all[i].namespace, all[i].id)) {
+                revert BackfillV5OrderMismatch(all[i].id, actualOnto);
+            }
         }
         bytes32 own = backfillMigrationRegistryV5Declaration().id;
         if (LibStoxMigrations.applied(chainSafe, own) == 0) revert BackfillV5RecordMissing(own);
+        bytes32 ownOnto = LibMigrationRegistry.appliedOntoV5(chainSafe, LibStoxMigrations.NAMESPACE, own);
+        if (ownOnto != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) revert BackfillV5OrderMismatch(own, ownOnto);
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 }
