@@ -9,8 +9,8 @@ import {
     IMigrationRegistryV3,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV3.sol";
-import {IRegistryDelegatesV1} from "rain-deploy-0.1.29/src/interface/IRegistryDelegatesV1.sol";
+} from "rain-deploy-0.1.29/src/interface/deprecated/IMigrationRegistryV3.sol";
+import {IRegistryDelegatesV1} from "rain-deploy-0.1.29/src/interface/deprecated/IRegistryDelegatesV1.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE

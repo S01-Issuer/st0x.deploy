@@ -13,8 +13,8 @@ import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
 } from "rain-factory-deploy-0.2.4/src/generated/0_2_2/CloneFactory.sol";
-import {ICloneableFactoryV6} from "rain-factory-0.2.7/src/interface/ICloneableFactoryV6.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV3.sol";
+import {ICloneableFactoryV6} from "rain-factory-0.2.7/src/interface/deprecated/ICloneableFactoryV6.sol";
+import {IConfigRegistryV3} from "rain-deploy-0.1.29/src/interface/deprecated/IConfigRegistryV3.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.13/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {

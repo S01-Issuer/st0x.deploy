@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.29/src/abstract/SafeBundleScript.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV3.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/deprecated/IMigrationRegistryV3.sol";
 import {IMigrationRegistryV2} from "rain-deploy-0.1.29/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {
     DEPLOYED_ADDRESS as REGISTRY_V2,

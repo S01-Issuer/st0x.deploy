@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {LibMigrationRegistry} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV3.sol";
+import {Prerequisite} from "rain-deploy-0.1.29/src/interface/deprecated/IMigrationRegistryV3.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 
 import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration} from "../interface/IStoxScript.sol";
