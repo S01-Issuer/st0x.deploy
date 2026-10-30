@@ -134,6 +134,11 @@ const META_NEGATIVE_MAGIC = P.concat("a20041610120")
   .concat(NAME_US)
   .concat(TYPE_ADDRESS);
 const META_TRUNCATED_ITEM = META_OK.concat("a2004161");
+/** 2^63 map entries are 2^64 items, zero in u64. */
+const META_MAP_COUNT_2_POW_63 = P.concat(FOREIGN_KEY_5)
+  .concat("bb8000000000000000")
+  .concat(NAME_US)
+  .concat(TYPE_ADDRESS);
 /** Accepted by `cbor_decode`: a foreign item holding a definite map. */
 const META_NESTED_MAP = P.concat(FOREIGN_KEY_5)
   .concat("a10102")
@@ -620,6 +625,13 @@ describe("ConfigRegistryV5 MetaV1_2 verification", () => {
       clearStore();
       assert.stringEquals(verifiedFor(cases[i], "address"), UNVERIFIED);
     }
+  });
+
+  test("a nested map counting 2^63 entries does not verify", () => {
+    assert.stringEquals(
+      verifiedFor(META_MAP_COUNT_2_POW_63, "address"),
+      UNVERIFIED,
+    );
   });
 
   test("meta with no Register in its transaction does not verify", () => {
