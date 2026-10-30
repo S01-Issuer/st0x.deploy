@@ -1323,6 +1323,10 @@ describe("ConfigRegistryV5 MetaV1_2 rainmeta corpus", () => {
           "a5 1b0100000000000000 00 190100 00 1880 00 00 4161 01 RL",
           VERIFIED,
         ],
+        ["item", "a2 1f 4161 01 RL", UNVERIFIED],
+        ["item", "a2 01 RL 1f 4161", UNVERIFIED],
+        ["item", "bf 1f 4161 01 RL ff", UNVERIFIED],
+        ["item", "a2 c1 1f 4161 01 RL", UNVERIFIED],
       ]),
       "",
     );
@@ -1466,6 +1470,9 @@ describe("ConfigRegistryV5 MetaV1_2 rainmeta corpus", () => {
         ["item", "a3 00 4161 01 RL 02 a1 00 17", UNVERIFIED],
         ["item", "a3 00 4161 01 RL 02 82 00 17", UNVERIFIED],
         ["item", "a3 00 4161 01 RL 02 1f", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 a1 00 f5", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 82 00 f5", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 02 9f 00 f5 ff", UNVERIFIED],
       ]),
       "",
     );
@@ -1502,6 +1509,7 @@ describe("ConfigRegistryV5 MetaV1_2 rainmeta corpus", () => {
         ["item", "bf 00 4161 01 RL 03 9f 00 f6 f6 ff", UNVERIFIED],
         ["item", "a4 00 4161 01 RL 03 83 00 f6 05 00", UNVERIFIED],
         ["item", "a3 00 4161 01 RL 03 1f", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 03 a1 01 f5", UNVERIFIED],
       ]),
       "",
     );
@@ -1524,6 +1532,7 @@ describe("ConfigRegistryV5 MetaV1_2 rainmeta corpus", () => {
         ["item", "a3 00 4161 01 RL 04 82 01 f6", VERIFIED],
         ["item", "a3 00 4161 01 RL 04 20", UNVERIFIED],
         ["item", "a3 00 4161 01 RL 04 f6", UNVERIFIED],
+        ["item", "a3 00 4161 01 RL 04 a1 01 f5", UNVERIFIED],
       ]),
       "",
     );
