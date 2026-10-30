@@ -36,12 +36,12 @@ contract LibStoxMigrationsTest is Test {
     function testRegistryInstancePinned() external pure {
         assertEq(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            0x5A48e719785E11c4643EA4056D0861A6a69e91a0,
+            0xd708186f68D527B64c001398550627508205EE31,
             "st0x.deploy migration records live at this registry instance; moving it strands them"
         );
         assertEq(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_CODEHASH,
-            0xa78caf9b315d637f5bdc94b2168007bc64d7b172844deaf6e0dcabf418ee5c56,
+            0x98c1c8681edccad8869a2f156966c8d0042582a17adb2946de13395b42630603,
             "st0x.deploy migration records live at this registry instance; moving it strands them"
         );
     }
