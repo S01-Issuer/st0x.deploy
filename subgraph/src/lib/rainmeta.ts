@@ -41,7 +41,6 @@ const CONTENT_TYPES: string[] = [
 const CONTENT_ENCODINGS: string[] = ["none", "identity", "deflate"];
 const CONTENT_LANGUAGES: string[] = ["none", "en"];
 const MAX_DEPTH: i32 = 127;
-const INDEFINITE: u64 = u64.MAX_VALUE;
 
 /** One rain meta item magic and the `bytes32` key its payload must hash to. */
 export class PreimageCheck {
@@ -76,7 +75,7 @@ class CborReader {
     return 0;
   }
 
-  /** The head's argument; `INDEFINITE` for additional info 31. */
+  /** The head's argument; 0 for additional info 31. */
   head(): u64 {
     if (!this.ok || this.done()) {
       return this.fail();
@@ -89,7 +88,7 @@ class CborReader {
       return this.info as u64;
     }
     if (this.info == 31) {
-      return INDEFINITE;
+      return 0;
     }
     if (this.info > 27) {
       return this.fail();
@@ -118,7 +117,12 @@ class CborReader {
 
   tags(depth: i32): i32 {
     while (this.ok && !this.done() && this.data[this.pos] >> 5 == 6) {
-      if (depth >= MAX_DEPTH || this.head() == INDEFINITE) {
+      if (depth >= MAX_DEPTH) {
+        this.fail();
+        return depth;
+      }
+      this.head();
+      if (this.info == 31) {
         this.fail();
         return depth;
       }
@@ -138,12 +142,13 @@ class CborReader {
       return;
     }
     let major = this.major;
+    let indefinite = this.info == 31;
     if (major >= 4 && major <= 6 && depth >= MAX_DEPTH) {
       this.fail();
       return;
     }
     if (major == 0 || major == 1) {
-      if (argument == INDEFINITE) {
+      if (indefinite) {
         this.fail();
       }
     } else if (major == 2 || major == 3) {
@@ -151,7 +156,7 @@ class CborReader {
       this.string(depth);
     } else if (major == 4 || major == 5) {
       let per: u64 = major == 4 ? 1 : 2;
-      if (argument == INDEFINITE) {
+      if (indefinite) {
         while (this.ok && !this.isBreak()) {
           for (let i: u64 = 0; i < per; i++) {
             this.skip(depth + 1);
@@ -168,16 +173,12 @@ class CborReader {
         }
       }
     } else if (major == 6) {
-      if (argument == INDEFINITE) {
+      if (indefinite) {
         this.fail();
         return;
       }
       this.skip(depth + 1);
-    } else if (
-      argument == INDEFINITE ||
-      this.info < 20 ||
-      this.info == 24
-    ) {
+    } else if (indefinite || this.info < 20 || this.info == 24) {
       this.fail();
     }
   }
@@ -186,16 +187,17 @@ class CborReader {
     this.tags(depth);
     let length = this.head();
     let major = this.major;
+    let indefinite = this.info == 31;
     if (!this.ok || (major != 2 && major != 3)) {
       this.fail();
       return null;
     }
     let value = Bytes.empty();
-    if (length == INDEFINITE) {
+    if (indefinite) {
       let parts = new Array<u8>();
       while (this.ok && !this.isBreak()) {
         let chunk = this.head();
-        if (!this.ok || this.major != major || chunk == INDEFINITE) {
+        if (!this.ok || this.major != major || this.info == 31) {
           this.fail();
           return null;
         }
@@ -230,10 +232,10 @@ class CborReader {
       return this.string(depth);
     }
     let length = this.head();
+    let indefinite = this.info == 31;
     if (
       depth >= MAX_DEPTH ||
-      (length != INDEFINITE &&
-        length > ((this.data.length - this.pos) as u64))
+      (!indefinite && length > ((this.data.length - this.pos) as u64))
     ) {
       this.fail();
       return null;
@@ -241,7 +243,7 @@ class CborReader {
     let parts = new Array<u8>();
     let read: u64 = 0;
     while (this.ok) {
-      if (length == INDEFINITE) {
+      if (indefinite) {
         if (this.isBreak()) {
           this.pos += 1;
           break;
@@ -252,7 +254,7 @@ class CborReader {
       read += 1;
       this.tags(depth + 1);
       let byte = this.head();
-      if (!this.ok || this.major != 0 || byte > 255) {
+      if (!this.ok || this.major != 0 || this.info == 31 || byte > 255) {
         this.fail();
         return null;
       }
@@ -287,7 +289,8 @@ class CborReader {
     }
     let length = this.head();
     let array = initial != 0xa1;
-    if (!this.ok || (array && length == 0)) {
+    let indefinite = this.info == 31;
+    if (!this.ok || (array && !indefinite && length == 0)) {
       this.fail();
       return -1;
     }
@@ -297,7 +300,7 @@ class CborReader {
       return -1;
     }
     this.unit(depth + 1);
-    if (array && length == INDEFINITE) {
+    if (array && indefinite) {
       if (!this.isBreak()) {
         this.fail();
         return -1;
@@ -317,7 +320,7 @@ class CborReader {
     }
     if (this.data[this.pos] >> 5 == 0) {
       let index = this.head();
-      if (!this.ok || index >= (names.length as u64)) {
+      if (!this.ok || this.info == 31 || index >= (names.length as u64)) {
         this.fail();
         return -1;
       }
@@ -340,6 +343,7 @@ class CborReader {
   item(depth: i32): Item | null {
     depth = this.tags(depth);
     let entries = this.head();
+    let indefinite = this.info == 31;
     if (!this.ok || this.major != 5 || depth >= MAX_DEPTH) {
       this.fail();
       return null;
@@ -351,7 +355,7 @@ class CborReader {
     let seen = new Array<u64>();
     let read: u64 = 0;
     while (this.ok) {
-      if (entries == INDEFINITE) {
+      if (indefinite) {
         if (this.isBreak()) {
           this.pos += 1;
           break;
@@ -365,7 +369,7 @@ class CborReader {
       if (
         !this.ok ||
         this.major != 0 ||
-        key == INDEFINITE ||
+        this.info == 31 ||
         seen.includes(key)
       ) {
         this.fail();
@@ -377,7 +381,7 @@ class CborReader {
       } else if (key == 1) {
         this.tags(depth + 1);
         magic = this.head();
-        hasMagic = this.major == 0 && magic != INDEFINITE;
+        hasMagic = this.major == 0 && this.info != 31;
         if (!hasMagic) {
           this.fail();
         }
