@@ -468,9 +468,8 @@ contract UnderlyingNamingRolloutTest is Test {
         bytes32 digest = Digest.unwrap(orchestrator.mintAuthDigest(token, operator, amount, nonce));
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest);
         vm.prank(operator);
-        IST0xOrchestratorV1(address(orchestrator)).mint(
-            token, operator, amount, MintAuthV1({nonce: nonce, signature: abi.encodePacked(r, s, v)}), ""
-        );
+        IST0xOrchestratorV1(address(orchestrator))
+            .mint(token, operator, amount, MintAuthV1({nonce: nonce, signature: abi.encodePacked(r, s, v)}), "");
     }
 
     /// @notice Whether the beacon batch is already registered on the forked
