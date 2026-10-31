@@ -85,6 +85,13 @@ library LibTestDeploy {
         vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
     }
 
+    /// The pinned ConfigRegistry, with the root authority binding the
+    /// governance timelock to `timelock`.
+    function bindGovernanceTimelock(Vm vm, address timelock) internal {
+        etchConfigRegistry(vm);
+        bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(timelock));
+    }
+
     /// The pinned clone factory.
     function factory() internal pure returns (ICloneableFactoryV7) {
         return ICloneableFactoryV7(CLONE_FACTORY_ADDRESS);

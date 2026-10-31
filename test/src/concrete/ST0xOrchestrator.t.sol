@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
-import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../../../src/lib/LibTimelockInvariants.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {St0xAttestSubParserTest} from "./St0xAttestSubParserTest.sol";
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -77,8 +77,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     address internal constant MINTER_A = address(0x111A);
     address internal constant MINTER_B = address(0x222B);
 
-    /// The admin `initialize` seats: the Base governance timelock, since
-    /// `setUp` runs on Base's chain id.
+    /// The admin `initialize` seats: the governance timelock `setUp` binds.
     address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
     /// Each token's and each receipt's own beacon, which the vault-logic guard
@@ -116,9 +115,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     MockMintRecipient internal capRecipient2;
 
     function setUp() public {
-        // `initialize` seats the chain's timelock; the default test chain id
-        // has none.
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibTestDeploy.bindGovernanceTimelock(vm, OWNER);
         capRecipient = new MockMintRecipient(true);
         capRecipient2 = new MockMintRecipient(true);
         impl = new ST0xOrchestrator();
@@ -175,8 +172,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                            Test helpers                            //
     // ------------------------------------------------------------------ //
 
-    /// Deploy a fresh beacon + proxy pair pointing at `impl`, initialised on
-    /// the current chain id, so its admin is that chain's timelock.
+    /// Deploy a fresh beacon + proxy pair pointing at `impl`, so its admin is
+    /// the bound governance timelock.
     function _deployProxy() internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
         bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
@@ -375,16 +372,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(orchestrator.hasRole(orchestrator.DEFAULT_ADMIN_ROLE(), OWNER), "owner missing admin role");
     }
 
-    /// A chain with no pinned timelock has no owner to seat, so the proxy
-    /// cannot be built there at all.
-    function testInitializeOnAChainWithNoTimelockReverts() external {
-        vm.chainId(1337);
-        UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForGovernanceTimelock.selector, uint256(1337)));
-        new BeaconProxy(address(beacon), initData);
-    }
-
     /// `initialize` has no token, so it does not read vault logic.
     function testInitializeIgnoresVaultLogic() external {
         _makeGuardFailVault();
@@ -396,35 +383,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     function testDoubleInitializeReverts() external {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
         orchestrator.initialize();
-    }
-
-    /// On every chain with a pinned timelock, `initialize` seats that chain's
-    /// timelock as `DEFAULT_ADMIN_ROLE` and all three admin roles, and the
-    /// deploying account holds nothing.
-    function testFuzzInitializeSeatsTheChainTimelock(uint256 chainIndex) external {
-        uint256[5] memory chainIds = [
-            LibSafeInvariants.BASE_CHAIN_ID,
-            LibSafeInvariants.ETHEREUM_CHAIN_ID,
-            LibSafeInvariants.HYPEREVM_CHAIN_ID,
-            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
-        ];
-        uint256 chainId = chainIds[chainIndex % chainIds.length];
-        vm.chainId(chainId);
-        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
-        ST0xOrchestrator o = _deployProxy();
-
-        bytes32[4] memory adminRoles =
-            [o.DEFAULT_ADMIN_ROLE(), o.MINT_ADMIN_ROLE(), o.BURN_ADMIN_ROLE(), o.EMERGENCY_ADMIN_ROLE()];
-        for (uint256 i = 0; i < adminRoles.length; i++) {
-            assertTrue(o.hasRole(adminRoles[i], timelock), "timelock missing an admin role");
-            assertFalse(o.hasRole(adminRoles[i], address(this)), "deployer holds an admin role");
-        }
-        bytes32[3] memory operatingRoles = [o.MINT_ROLE(), o.BURN_ROLE(), o.EMERGENCY_ROLE()];
-        for (uint256 i = 0; i < operatingRoles.length; i++) {
-            assertFalse(o.hasRole(operatingRoles[i], timelock), "timelock holds an operating role");
-            assertFalse(o.hasRole(operatingRoles[i], address(this)), "deployer holds an operating role");
-        }
     }
 
     // ------------------------------------------------------------------ //
