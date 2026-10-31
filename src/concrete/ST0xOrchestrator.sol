@@ -38,7 +38,7 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
-import {LibTimelockInvariants} from "../lib/LibTimelockInvariants.sol";
+import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 
 /// @dev The orchestrator's role ids at file level, so a library can name them:
 /// a contract's `public constant` is not reachable as `ST0xOrchestrator.X`.
@@ -80,8 +80,8 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// the admin roles.
 ///
 /// **Custody.** `initialize` seats `DEFAULT_ADMIN_ROLE` and the three admin
-/// roles on the chain's governance timelock
-/// (`LibTimelockInvariants.timelockForChainId`), so every grant, cap and
+/// roles on the governance timelock bound in the `ConfigRegistry`
+/// (`LibStoxConfig.governanceTimelock`), so every grant, cap and
 /// weighting change is scheduled and waits out the timelock delay. No
 /// operating role is held until the timelock grants it.
 ///
@@ -225,20 +225,18 @@ contract ST0xOrchestrator is
         _disableInitializers();
     }
 
-    /// @notice Initialise the singleton. Grants the chain's governance
-    /// timelock `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and
+    /// @notice Initialise the singleton. Grants the governance timelock
+    /// `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and
     /// `EMERGENCY_ADMIN_ROLE`, then delegates each operating role to its own
     /// admin. `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are granted
-    /// separately. Reverts `UnsupportedChainForGovernanceTimelock` on a chain
-    /// with no pinned timelock.
+    /// separately. Reverts when the root authority has not bound
+    /// `LibStoxConfig.GOVERNANCE_TIMELOCK_NAME` as an `address`.
     ///
-    /// @dev The timelock is looked up rather than taken as an argument, so a
-    /// caller of the permissionless beacon-set deployer cannot seat an admin
-    /// of its own. The lookup keys a table compiled into the code by
-    /// `block.chainid`, so the implementation's runtime code is the same on
-    /// every chain.
+    /// @dev The timelock is resolved from the `ConfigRegistry` rather than
+    /// taken as an argument, so a caller of the permissionless beacon-set
+    /// deployer cannot seat an admin of its own.
     function initialize() external initializer {
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address timelock = LibStoxConfig.governanceTimelock();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, timelock);
