@@ -13,7 +13,7 @@ import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpre
 import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
-import {LibSafeInvariants} from "src/lib/LibSafeInvariants.sol";
+import {LibTestDeploy} from "test/lib/LibTestDeploy.sol";
 import {LibTimelockInvariants} from "src/lib/LibTimelockInvariants.sol";
 import {MintAuthV1} from "src/interface/IST0xOrchestratorV2.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
@@ -37,8 +37,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
 
     /// The one `MINT_ROLE` holder.
     address internal constant MINTER = address(0x111A);
-    /// The admin `initialize` seats: the Base governance timelock, since
-    /// `setUp` runs on Base's chain id.
+    /// The admin `initialize` seats: the governance timelock `setUp` binds.
     address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
     /// The beacons the token and its receipt are registry beacon proxies over.
@@ -72,7 +71,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     function tokenSymbol() internal pure virtual returns (string memory);
 
     function setUp() public virtual {
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibTestDeploy.bindGovernanceTimelock(vm, OWNER);
         recipient = new MockMintRecipient(true);
         _makeGuardPass();
         ST0xOrchestrator impl = new ST0xOrchestrator();

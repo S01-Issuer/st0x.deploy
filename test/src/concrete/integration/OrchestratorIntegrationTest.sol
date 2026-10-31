@@ -22,7 +22,6 @@ import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
 import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
-import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
@@ -59,8 +58,8 @@ import {St0xAttestSubParserTest} from "../St0xAttestSubParserTest.sol";
 /// charged the amount in whole tokens; the weighting workflows set their own.
 abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
     address internal constant ADMIN = address(uint160(uint256(keccak256("ADMIN"))));
-    /// The orchestrator admin `initialize` seats: the Base governance
-    /// timelock, since `setUp` runs on Base's chain id.
+    /// The orchestrator admin `initialize` seats: the governance timelock
+    /// `setUp` binds.
     address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
     address internal constant MM = address(uint160(uint256(keccak256("MM"))));
     bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
@@ -86,9 +85,6 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
 
     function setUp() public {
         vm.warp(1000);
-        // `initialize` seats the chain's timelock; the default test chain id
-        // has none.
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
 
         // TOFU singleton first — stock-split multiplier validation reads the
         // vault's decimals through it at schedule time.
@@ -97,6 +93,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         // Real receipt + vault implementations behind the V1 beacons, with the
         // clone factory and ConfigRegistry.
         LibTestDeploy.deployAll(vm);
+        LibTestDeploy.bindGovernanceTimelock(vm, OWNER);
 
         // Real corporate-actions facet at the deterministic address the
         // vault's fallback delegatecalls into.
@@ -116,8 +113,8 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         );
         receipt = IERC1155(address(vault.receipt()));
 
-        // Orchestrator impl behind a real UpgradeableBeacon + BeaconProxy,
-        // initialised on Base, so OWNER (the Base timelock) is its admin.
+        // Orchestrator impl behind a real UpgradeableBeacon + BeaconProxy, so
+        // OWNER, the bound governance timelock, is its admin.
         impl = new ST0xOrchestrator();
         orchestrator = _deployOrchestrator();
 

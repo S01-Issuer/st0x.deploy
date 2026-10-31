@@ -4,13 +4,13 @@ pragma solidity =0.8.25;
 
 import {RainDeployVerifySnapshot} from "rain-deploy-0.1.29/src/abstract/RainDeployVerifySnapshot.sol";
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
-import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {
-    /// The orchestrator beacon-set deployer's constructor seats the active
-    /// chain's timelock and reverts on a chain without one; its bytecode is
-    /// chain-invariant, as in `script/BuildPointers.sol`.
+    /// The orchestrator beacon-set deployer's constructor resolves the
+    /// governance timelock; its bytecode does not depend on the bound value,
+    /// as in `script/BuildPointers.sol`.
     function setUp() external {
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
     }
 }

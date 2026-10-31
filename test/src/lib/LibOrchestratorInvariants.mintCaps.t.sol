@@ -30,6 +30,7 @@ import {
     OrchestratorRoleAdminUnexpected
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// @title LibOrchestratorInvariantsTest
 /// @notice The mint-caps orchestrator invariants against a local deploy that
@@ -54,6 +55,7 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         harness = new LibOrchestratorInvariantsHarness();
         timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        LibTestDeploy.bindGovernanceTimelock(vm, timelock);
         deployKey = LibProdDeployCurrent.BEACON_INITIAL_OWNER;
 
         LibRainDeploy.etchZoltuFactory(vm);
