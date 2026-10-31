@@ -6,7 +6,7 @@ import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 import {AcceptingMintRecipient} from "./AcceptingMintRecipient.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 /// @title MintWithCallbackRecipientTest
 /// @notice Workflow: a contract recipient with no key authorises via the
@@ -25,7 +25,7 @@ contract MintWithCallbackRecipientTest is OrchestratorIntegrationTest {
 
         vm.prank(MM);
         orchestrator.mint(
-            address(vault), address(recipient), amount, _callbackMintAuth(nonce), "", new SignedContextV1[](0)
+            address(vault), address(recipient), amount, _callbackMintAuth(nonce), "", new SignedContextV2[](0)
         );
 
         assertEq(vault.balanceOf(address(recipient)), amount, "callback recipient received the shares");
