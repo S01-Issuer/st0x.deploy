@@ -11,17 +11,17 @@ interface IST0xOrchestratorBeaconSetDeployerV2 {
     /// Emitted when an `ST0xOrchestrator` singleton is deployed.
     /// @dev `deploy` is permissionless, so anyone can emit this event, but
     /// never with an owner of their choosing: every instance is initialised
-    /// with the governance timelock of the chain it is deployed on
-    /// (`LibTimelockInvariants.timelockForChainId`), so instances from this
-    /// deployer differ only in address and state.
+    /// with the governance timelock bound in the `ConfigRegistry`
+    /// (`LibStoxConfig.governanceTimelock`), so instances from this deployer
+    /// differ only in address and state.
     /// @param sender The address that called `deploy`.
     /// @param orchestrator Address of the newly deployed orchestrator proxy.
-    /// @param owner The address granted `DEFAULT_ADMIN_ROLE`: the chain's
-    /// governance timelock.
+    /// @param owner The address granted `DEFAULT_ADMIN_ROLE`: the governance
+    /// timelock.
     event Deployment(address indexed sender, address indexed orchestrator, address owner);
 
     /// @notice Deploy an `ST0xOrchestrator` singleton. The owner is the
-    /// chain's governance timelock, seated by `initialize`, not supplied by
+    /// governance timelock, seated by `initialize`, not supplied by
     /// the caller. The owner appears on `Deployment`.
     /// @return The address of the deployed orchestrator `BeaconProxy`.
     function deploy() external returns (address);
