@@ -11,6 +11,7 @@ import {
     CONTEXT_ATTESTATION_ROW_SYMBOL,
     CONTEXT_ATTESTATION_ROW_TIME,
     CONTEXT_ATTESTOR_0_COLUMN,
+    CONTEXT_DOMAIN_SEPARATORS_COLUMN,
     CONTEXT_LEAD_COLUMN,
     CONTEXT_MINT_COLUMN,
     CONTEXT_MINT_ROW_AMOUNT,
@@ -21,7 +22,7 @@ import {
 } from "./LibSt0xAttestContext.sol";
 
 /// @dev The build depth of the parse meta. One layer of bloom filter is
-/// enough for ten words; the build reverts if it is not.
+/// enough for twelve words; the build reverts if it is not.
 uint8 constant PARSE_META_BUILD_DEPTH = 1;
 
 /// @dev Index of `lead` in the word list.
@@ -44,11 +45,15 @@ uint256 constant SUB_PARSER_WORD_ATTESTED_TIME = 7;
 uint256 constant SUB_PARSER_WORD_MINT_SYMBOL = 8;
 /// @dev Index of `mint-amount` in the word list.
 uint256 constant SUB_PARSER_WORD_MINT_AMOUNT = 9;
+/// @dev Index of `lead-domain` in the word list.
+uint256 constant SUB_PARSER_WORD_LEAD_DOMAIN = 10;
+/// @dev Index of `attestor-domain` in the word list.
+uint256 constant SUB_PARSER_WORD_ATTESTOR_DOMAIN = 11;
 
 /// @dev The number of words. The parse meta, the word parsers and the operand
 /// handlers are all indexed by the constants above, so all three are this
 /// long.
-uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 10;
+uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 12;
 
 /// @title LibSt0xAttestSubParser
 /// @notice The words of `St0xAttestSubParser`. Each one names a cell of the
@@ -56,7 +61,8 @@ uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 10;
 ///
 /// `lead` and `attestor<N>` read the signers column: the account whose
 /// signature `LibContext.buildV2` verified for each attestation. `lead` is its
-/// own word; the pool indexes from zero separately from it.
+/// own word; the pool indexes from zero separately from it. `lead-domain` and
+/// `attestor-domain<N>` read the domain separators column, in the same rows.
 ///
 /// A word whose cell is not in the grid at eval, such as `attestor<3>` when
 /// two pool attestations were provided, reverts there: the `context` opcode
@@ -211,6 +217,40 @@ library LibSt0xAttestSubParser {
         return LibSubParse.subParserContext(CONTEXT_MINT_COLUMN, CONTEXT_MINT_ROW_AMOUNT);
     }
 
+    /// @notice `lead-domain`: the EIP-712 domain separator the lead's signature
+    /// verified under.
+    /// @return Whether the sub parse succeeded.
+    /// @return The bytecode for the context opcode.
+    /// @return The constants for the context opcode, always empty.
+    //slither-disable-next-line dead-code
+    function subParserLeadDomain(uint256, uint256, OperandV2)
+        internal
+        pure
+        returns (bool, bytes memory, bytes32[] memory)
+    {
+        //slither-disable-next-line unused-return
+        return LibSubParse.subParserContext(CONTEXT_DOMAIN_SEPARATORS_COLUMN, CONTEXT_SIGNERS_ROW_LEAD);
+    }
+
+    /// @notice `attestor-domain<N>`: the EIP-712 domain separator pool attestor
+    /// `N`'s signature verified under.
+    /// @param operand `N`, a uint16 from the operand handler. `subParserContext`
+    /// reverts `ContextGridOverflow` when the row exceeds a byte.
+    /// @return Whether the sub parse succeeded.
+    /// @return The bytecode for the context opcode.
+    /// @return The constants for the context opcode, always empty.
+    //slither-disable-next-line dead-code
+    function subParserAttestorDomain(uint256, uint256, OperandV2 operand)
+        internal
+        pure
+        returns (bool, bytes memory, bytes32[] memory)
+    {
+        //slither-disable-next-line unused-return
+        return LibSubParse.subParserContext(
+            CONTEXT_DOMAIN_SEPARATORS_COLUMN, CONTEXT_SIGNERS_ROW_ATTESTOR_0 + uint256(OperandV2.unwrap(operand))
+        );
+    }
+
     /// @notice The authoring meta for every word, in word index order.
     /// `script/BuildAuthoringMeta.sol` writes it to `meta/` and
     /// `script/BuildPointers.sol` builds the parse meta from it.
@@ -253,6 +293,14 @@ library LibSt0xAttestSubParser {
         );
         meta[SUB_PARSER_WORD_MINT_AMOUNT] = AuthoringMetaV2(
             "mint-amount", "The amount of the token being requested for the mint, as a Rain Float. No operand."
+        );
+        meta[SUB_PARSER_WORD_LEAD_DOMAIN] = AuthoringMetaV2(
+            "lead-domain",
+            "The EIP-712 domain separator the lead's signature verified under. No operand. Compare it with binary-equal-to, never numerically."
+        );
+        meta[SUB_PARSER_WORD_ATTESTOR_DOMAIN] = AuthoringMetaV2(
+            "attestor-domain",
+            "The EIP-712 domain separator pool attestor N's signature verified under, where N is the operand and is required. Compare it with binary-equal-to, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
         );
         return abi.encode(meta);
     }
