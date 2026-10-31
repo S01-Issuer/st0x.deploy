@@ -9,8 +9,7 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {ReceiptVault} from "rain-vats-0.2.13/src/abstract/ReceiptVault.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {EvaluableV4, SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {LibTestDeploy} from "test/lib/LibTestDeploy.sol";
@@ -165,9 +164,10 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         vm.stopPrank();
     }
 
-    /// One attestation, the lead's, of `[attestedSymbol, price, now]`.
-    function _lead(string memory attestedSymbol, int256 price) internal view returns (SignedContextV1[] memory) {
-        SignedContextV1[] memory attestations = new SignedContextV1[](1);
+    /// One attestation, the lead's, of `[attestedSymbol, price, now]` under
+    /// `LEAD_DOMAIN`.
+    function _lead(string memory attestedSymbol, int256 price) internal view returns (SignedContextV2[] memory) {
+        SignedContextV2[] memory attestations = new SignedContextV2[](1);
         attestations[0] = attest(LEAD_KEY, symbol(attestedSymbol), float(price), float(int256(block.timestamp)));
         return attestations;
     }
@@ -188,7 +188,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
 
     /// Mint `amount` of `token` to `recipient` from `MINTER`, with
     /// `attestations`. The recipient authorises by callback.
-    function _mint(address token, uint256 amount, bytes32 nonce, SignedContextV1[] memory attestations) internal {
+    function _mint(address token, uint256 amount, bytes32 nonce, SignedContextV2[] memory attestations) internal {
         _mockVaultMint(token, amount);
         vm.prank(MINTER);
         orchestrator.mint(
@@ -198,13 +198,13 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
 
     /// Mint `amount` of `TOKEN` to `recipient` from `MINTER`, with
     /// `attestations`. The recipient authorises by callback.
-    function _mint(uint256 amount, bytes32 nonce, SignedContextV1[] memory attestations) internal {
+    function _mint(uint256 amount, bytes32 nonce, SignedContextV2[] memory attestations) internal {
         _mint(TOKEN, amount, nonce, attestations);
     }
 
     /// As `_mint`, expecting a revert, whose data is returned for the tests
     /// that compare a carried `Float` as a number.
-    function _mintReverts(address token, uint256 amount, bytes32 nonce, SignedContextV1[] memory attestations)
+    function _mintReverts(address token, uint256 amount, bytes32 nonce, SignedContextV2[] memory attestations)
         internal
         returns (bytes memory)
     {
@@ -220,7 +220,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     }
 
     /// As `_mintReverts`, of `TOKEN`.
-    function _mintReverts(uint256 amount, bytes32 nonce, SignedContextV1[] memory attestations)
+    function _mintReverts(uint256 amount, bytes32 nonce, SignedContextV2[] memory attestations)
         internal
         returns (bytes memory)
     {
