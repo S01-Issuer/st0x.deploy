@@ -4,10 +4,8 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
-import {MessageHashUtils} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MessageHashUtils.sol";
-import {LibHashNoAlloc} from "rain-lib-hash-0.1.27/src/lib/LibHashNoAlloc.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV2, SIGNED_CONTEXT_V2_TYPEHASH} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 import {
     EvalV4,
     SourceIndexV2,
@@ -50,6 +48,11 @@ abstract contract St0xAttestSubParserTest is Test {
     uint256 internal constant LEAD_KEY = 0x1EAD;
     /// @dev Private key of pool operator `i` is `OPERATOR_KEY_0 + i`.
     uint256 internal constant OPERATOR_KEY_0 = 0x0A00;
+
+    /// @dev EIP-712 domain separator the lead signs under.
+    bytes32 internal constant LEAD_DOMAIN = keccak256("st0x.test.lead-domain");
+    /// @dev EIP-712 domain separator every pool operator signs under.
+    bytes32 internal constant POOL_DOMAIN = keccak256("st0x.test.pool-domain");
 
     //solhint-disable-next-line private-vars-leading-underscore
     BaseRainlangCompiler internal immutable I_COMPILER;
@@ -124,26 +127,78 @@ abstract contract St0xAttestSubParserTest is Test {
         return bytes32(uint256(uint160(account)));
     }
 
-    /// An attestation of `[symbol, price, time]` signed by `key`, as
-    /// `LibContext.build` verifies it.
-    function attest(uint256 key, bytes32 attestedSymbol, bytes32 price, bytes32 time)
+    /// The domain `key` signs under: `LEAD_DOMAIN` for `LEAD_KEY`,
+    /// `POOL_DOMAIN` for every other key.
+    function domainOf(uint256 key) internal pure returns (bytes32) {
+        return key == LEAD_KEY ? LEAD_DOMAIN : POOL_DOMAIN;
+    }
+
+    /// The EIP-712 digest of a `SignedContextV2` by `account` over `context`
+    /// under `domain`, from the typed-data encoding rather than `LibContext`.
+    function digest(bytes32 domain, address account, bytes32[] memory context) internal pure returns (bytes32) {
+        bytes32 structHash = keccak256(abi.encode(SIGNED_CONTEXT_V2_TYPEHASH, account, keccak256(abi.encodePacked(context))));
+        return keccak256(abi.encodePacked(hex"1901", domain, structHash));
+    }
+
+    /// An attestation column `[symbol, price, time]`.
+    function attestation(bytes32 attestedSymbol, bytes32 price, bytes32 time)
         internal
         pure
-        returns (SignedContextV1 memory)
+        returns (bytes32[] memory)
     {
         bytes32[] memory context = new bytes32[](CONTEXT_ATTESTATION_ROWS);
         context[0] = attestedSymbol;
         context[1] = price;
         context[2] = time;
-        return sign(key, context);
+        return context;
     }
 
-    /// Signs an arbitrary column as an attestation, for the tests that need a
-    /// malformed one.
-    function sign(uint256 key, bytes32[] memory context) internal pure returns (SignedContextV1 memory) {
-        (uint8 v, bytes32 r, bytes32 s) =
-            vm.sign(key, MessageHashUtils.toEthSignedMessageHash(LibHashNoAlloc.hashWords(context)));
-        return SignedContextV1({signer: vm.addr(key), context: context, signature: abi.encodePacked(r, s, v)});
+    /// An attestation of `[symbol, price, time]` signed by `key` under
+    /// `domainOf(key)`.
+    function attest(uint256 key, bytes32 attestedSymbol, bytes32 price, bytes32 time)
+        internal
+        pure
+        returns (SignedContextV2 memory)
+    {
+        return attestUnder(key, domainOf(key), attestedSymbol, price, time);
+    }
+
+    /// An attestation of `[symbol, price, time]` signed by `key` under
+    /// `domain`.
+    function attestUnder(uint256 key, bytes32 domain, bytes32 attestedSymbol, bytes32 price, bytes32 time)
+        internal
+        pure
+        returns (SignedContextV2 memory)
+    {
+        return signUnder(key, domain, attestation(attestedSymbol, price, time));
+    }
+
+    /// Signs an arbitrary column as an attestation under `domainOf(key)`, for
+    /// the tests that need a malformed one.
+    function sign(uint256 key, bytes32[] memory context) internal pure returns (SignedContextV2 memory) {
+        return signUnder(key, domainOf(key), context);
+    }
+
+    /// Signs `context` by `key`'s own account under `domain`.
+    function signUnder(uint256 key, bytes32 domain, bytes32[] memory context)
+        internal
+        pure
+        returns (SignedContextV2 memory)
+    {
+        return signFor(vm.addr(key), key, domain, context);
+    }
+
+    /// A `SignedContextV2` naming `account` as its signer, with `key`'s ECDSA
+    /// signature over the digest for `account`.
+    function signFor(address account, uint256 key, bytes32 domain, bytes32[] memory context)
+        internal
+        pure
+        returns (SignedContextV2 memory)
+    {
+        (uint8 v, bytes32 r, bytes32 s) = vm.sign(key, digest(domain, account, context));
+        return SignedContextV2({
+            signer: account, domainSeparator: domain, context: context, signature: abi.encodePacked(r, s, v)
+        });
     }
 
     /// Evals `word` as the only stack item against `context`.
@@ -191,7 +246,7 @@ abstract contract St0xAttestSubParserTest is Test {
         bytes32 time,
         uint256 poolSize
     ) internal view returns (bytes32[][] memory) {
-        SignedContextV1[] memory attestations = new SignedContextV1[](poolSize + 1);
+        SignedContextV2[] memory attestations = new SignedContextV2[](poolSize + 1);
         attestations[0] = attest(LEAD_KEY, attestedSymbol, price, time);
         for (uint256 i = 0; i < poolSize; i++) {
             attestations[i + 1] = attest(OPERATOR_KEY_0 + i, attestedSymbol, price, time);

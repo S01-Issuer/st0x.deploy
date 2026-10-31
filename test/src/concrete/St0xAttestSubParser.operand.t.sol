@@ -15,6 +15,7 @@ import {ContextGridOverflow} from "rainlang-0.2.30/src/error/ErrSubParse.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 import {
     CONTEXT_SIGNERS_COLUMN,
+    CONTEXT_DOMAIN_SEPARATORS_COLUMN,
     CONTEXT_SIGNERS_ROW_ATTESTOR_0,
     CONTEXT_ATTESTOR_0_COLUMN,
     CONTEXT_ATTESTATION_ROW_SYMBOL,
@@ -39,6 +40,7 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
     /// The words without an `N` reject one.
     function testOperandDisallowed() external {
         checkParseReverts("lead<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
+        checkParseReverts("lead-domain<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("lead-symbol<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("lead-price<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("lead-time<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
@@ -49,6 +51,7 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
     /// The words with an `N` require it: there is no default pool attestor.
     function testOperandRequired() external {
         checkParseReverts("attestor()", abi.encodeWithSelector(ExpectedOperand.selector));
+        checkParseReverts("attestor-domain()", abi.encodeWithSelector(ExpectedOperand.selector));
         checkParseReverts("attested-symbol()", abi.encodeWithSelector(ExpectedOperand.selector));
         checkParseReverts("attested-price()", abi.encodeWithSelector(ExpectedOperand.selector));
         checkParseReverts("attested-time()", abi.encodeWithSelector(ExpectedOperand.selector));
@@ -57,6 +60,7 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
     /// Exactly one `N`.
     function testOperandSingle() external {
         checkParseReverts("attestor<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
+        checkParseReverts("attestor-domain<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
         checkParseReverts("attested-symbol<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
         checkParseReverts("attested-price<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
         checkParseReverts("attested-time<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
@@ -65,6 +69,7 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
     /// `N` past the operand's own width.
     function testOperandOverflow() external {
         checkParseReverts("attestor<65536>()", abi.encodeWithSelector(OperandOverflow.selector));
+        checkParseReverts("attestor-domain<65536>()", abi.encodeWithSelector(OperandOverflow.selector));
         checkParseReverts("attested-price<65536>()", abi.encodeWithSelector(OperandOverflow.selector));
     }
 
@@ -75,6 +80,12 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
         checkParseReverts(
             string.concat("attestor<", (lastSignerN + 1).toString(), ">()"),
             abi.encodeWithSelector(ContextGridOverflow.selector, CONTEXT_SIGNERS_COLUMN, uint256(type(uint8).max) + 1)
+        );
+        checkParseReverts(
+            string.concat("attestor-domain<", (lastSignerN + 1).toString(), ">()"),
+            abi.encodeWithSelector(
+                ContextGridOverflow.selector, CONTEXT_DOMAIN_SEPARATORS_COLUMN, uint256(type(uint8).max) + 1
+            )
         );
 
         uint256 lastColumnN = type(uint8).max - CONTEXT_ATTESTOR_0_COLUMN;
@@ -103,6 +114,7 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
     function testOperandAtGridEdge() external view {
         uint256 lastSignerN = type(uint8).max - CONTEXT_SIGNERS_ROW_ATTESTOR_0;
         I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: attestor<", lastSignerN.toString(), ">();")));
+        I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: attestor-domain<", lastSignerN.toString(), ">();")));
 
         uint256 lastColumnN = type(uint8).max - CONTEXT_ATTESTOR_0_COLUMN;
         I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: attested-price<", lastColumnN.toString(), ">();")));

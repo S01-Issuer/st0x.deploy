@@ -30,8 +30,7 @@ import {ReentrantMintRecipient} from "./ReentrantMintRecipient.sol";
 import {ReentrantBurnVault} from "./ReentrantBurnVault.sol";
 import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
-import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {EvaluableV4, SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.13/src/abstract/OffchainAssetReceiptVault.sol";
 import {ReceiptVault} from "rain-vats-0.2.13/src/abstract/ReceiptVault.sol";
@@ -529,7 +528,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             )
         );
         vm.prank(caller);
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
     function testFuzzBurnUnauthorized(address caller) external {
@@ -605,7 +604,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             )
         );
         vm.prank(BOB);
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
 
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -662,7 +661,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV2.Minted(address(this), TOKEN, eoa, amount, nonce);
-        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info, new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info, new SignedContextV2[](0));
     }
 
     /// (b) EIP-1271: `to` is a contract returning the 1271 magic value.
@@ -680,7 +679,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV2.Minted(address(this), TOKEN, address(recipient), amount, nonce);
-        orchestrator.mint(TOKEN, address(recipient), amount, _auth(sig, nonce), info, new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, address(recipient), amount, _auth(sig, nonce), info, new SignedContextV2[](0));
     }
 
     function testMint1271RejectReverts() external {
@@ -690,7 +689,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _prepMint(TOKEN, "");
         vm.expectRevert(IST0xOrchestratorV2.BadRecipientSignature.selector);
         orchestrator.mint(
-            TOKEN, address(recipient), 100, _auth(hex"deadbeef", keccak256("x")), "", new SignedContextV1[](0)
+            TOKEN, address(recipient), 100, _auth(hex"deadbeef", keccak256("x")), "", new SignedContextV2[](0)
         );
     }
 
@@ -710,7 +709,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV2.Minted(address(this), TOKEN, address(recipient), amount, nonce);
-        orchestrator.mint(TOKEN, address(recipient), amount, _auth("", nonce), info, new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, address(recipient), amount, _auth("", nonce), info, new SignedContextV2[](0));
     }
 
     function testMintCallbackWrongValueReverts() external {
@@ -721,7 +720,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.expectRevert(
             abi.encodeWithSelector(IST0xOrchestratorV2.RecipientCallbackRejected.selector, address(recipient))
         );
-        orchestrator.mint(TOKEN, address(recipient), 100, _auth("", keccak256("x")), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, address(recipient), 100, _auth("", keccak256("x")), "", new SignedContextV2[](0));
     }
 
     /// Signature present but recovers to a different address → BadRecipientSignature.
@@ -737,13 +736,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes memory sig = _sign(wrongPk, TOKEN, eoa, amount, nonce);
 
         vm.expectRevert(IST0xOrchestratorV2.BadRecipientSignature.selector);
-        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV2[](0));
     }
 
     function testMintZeroAmountReverts() external {
         _grant(orchestrator.MINT_ROLE(), address(this));
         vm.expectRevert(IST0xOrchestratorV2.ZeroAmount.selector);
-        orchestrator.mint(TOKEN, BOB, 0, _auth("", bytes32(0)), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, BOB, 0, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
     /// The sender and the recipient can never be the same. The minter here is
@@ -766,7 +765,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         vm.prank(minter);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.SenderIsRecipient.selector, minter));
-        orchestrator.mint(TOKEN, minter, amount, _auth("", keccak256("self")), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, minter, amount, _auth("", keccak256("self")), "", new SignedContextV2[](0));
         assertFalse(orchestrator.nonceUsed(minter, keccak256("self")), "self-mint must not consume the nonce");
 
         // Control: the same minter, caps and mocks, to someone else, succeeds.
@@ -776,7 +775,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.prank(minter);
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV2.Minted(minter, TOKEN, address(other), amount, keccak256("other"));
-        orchestrator.mint(TOKEN, address(other), amount, _auth("", keccak256("other")), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, address(other), amount, _auth("", keccak256("other")), "", new SignedContextV2[](0));
     }
 
     /// Nonce replay: identical (token,to,amount,nonce) twice reverts.
@@ -790,11 +789,11 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         bytes memory sig = _sign(pk, TOKEN, eoa, amount, nonce);
 
-        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV2[](0));
         assertTrue(orchestrator.nonceUsed(eoa, nonce));
 
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
-        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), "", new SignedContextV2[](0));
     }
 
     /// Replay is namespaced by (to, nonce), not by digest: the same nonce
@@ -809,13 +808,13 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         // Mint amount 500 consumes (eoa, nonce).
         orchestrator.mint(
-            TOKEN, eoa, 500, _auth(_sign(pk, TOKEN, eoa, 500, nonce), nonce), "", new SignedContextV1[](0)
+            TOKEN, eoa, 500, _auth(_sign(pk, TOKEN, eoa, 500, nonce), nonce), "", new SignedContextV2[](0)
         );
 
         // Same nonce, amount 600, correctly signed → still NonceReplayed.
         bytes memory sig = _sign(pk, TOKEN, eoa, 600, nonce);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
-        orchestrator.mint(TOKEN, eoa, 600, _auth(sig, nonce), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, eoa, 600, _auth(sig, nonce), "", new SignedContextV2[](0));
     }
 
     /// Same for a different token: the nonce is single-use for the recipient
@@ -829,12 +828,12 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.mockCall(TOKEN, abi.encodeWithSelector(ReceiptVault.mint.selector), abi.encode(uint256(500)));
 
         orchestrator.mint(
-            TOKEN, eoa, 500, _auth(_sign(pk, TOKEN, eoa, 500, nonce), nonce), "", new SignedContextV1[](0)
+            TOKEN, eoa, 500, _auth(_sign(pk, TOKEN, eoa, 500, nonce), nonce), "", new SignedContextV2[](0)
         );
 
         bytes memory sig = _sign(pk, TOKEN2, eoa, 500, nonce);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
-        orchestrator.mint(TOKEN2, eoa, 500, _auth(sig, nonce), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN2, eoa, 500, _auth(sig, nonce), "", new SignedContextV2[](0));
     }
 
     /// The same nonce for a different recipient is fine — no third party can
@@ -856,7 +855,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             amount,
             _auth(_sign(alicePk, TOKEN, alice, amount, nonce), nonce),
             "",
-            new SignedContextV1[](0)
+            new SignedContextV2[](0)
         );
         assertTrue(orchestrator.nonceUsed(alice, nonce));
         assertFalse(orchestrator.nonceUsed(carol, nonce), "alice's mint must not consume carol's nonce");
@@ -867,7 +866,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             amount,
             _auth(_sign(carolPk, TOKEN, carol, amount, nonce), nonce),
             "",
-            new SignedContextV1[](0)
+            new SignedContextV2[](0)
         );
         assertTrue(orchestrator.nonceUsed(carol, nonce));
     }
@@ -880,7 +879,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
                 IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
     function testMintReceiptGuardFailReverts() external {
@@ -891,14 +890,14 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
                 IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
             )
         );
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
     function testMintNonProxyTokenReverts() external {
         _grant(orchestrator.MINT_ROLE(), address(this));
         address token = address(0x70CE4);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, token));
-        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
     /// A token whose code differs from a registry beacon proxy in one byte
@@ -909,7 +908,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         code[0] = 0x00;
         vm.etch(TOKEN, code);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, TOKEN));
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
     function testMintNonProxyReceiptReverts() external {
@@ -917,7 +916,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         address receipt_ = address(0x4EC1E7);
         _mockVaultTopology(TOKEN, receipt_, "tAA17");
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, receipt_));
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
     /// Mint never touches the burn pointer — no seeding, no walk.
@@ -930,7 +929,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _prepMintExact(TOKEN, amount, "");
 
         orchestrator.mint(
-            TOKEN, eoa, amount, _auth(_sign(pk, TOKEN, eoa, amount, nonce), nonce), "", new SignedContextV1[](0)
+            TOKEN, eoa, amount, _auth(_sign(pk, TOKEN, eoa, amount, nonce), nonce), "", new SignedContextV2[](0)
         );
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), 0, "mint must not move the pointer");
     }
@@ -967,7 +966,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             abi.encode(amount - 1)
         );
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.VaultAmountMismatch.selector, amount, amount - 1));
-        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, keccak256("vam-mint")), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, keccak256("vam-mint")), "", new SignedContextV2[](0));
     }
 
     // ------------------------------------------------------------------ //
@@ -1055,7 +1054,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
         vm.expectEmit(true, true, true, true, address(orchestrator));
         emit IST0xOrchestratorV2.Minted(address(this), TOKEN, eoa, amount, nonce);
-        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info, new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, eoa, amount, _auth(sig, nonce), info, new SignedContextV2[](0));
     }
 
     // ------------------------------------------------------------------ //
@@ -1088,7 +1087,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _prepMintExact(TOKEN, innerAmount, "");
 
         vm.expectRevert(ReentrancyGuardTransient.ReentrancyGuardReentrantCall.selector);
-        orchestrator.mint(TOKEN, address(recipient), outerAmount, _auth("", outerNonce), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, address(recipient), outerAmount, _auth("", outerNonce), "", new SignedContextV2[](0));
 
         assertFalse(orchestrator.nonceUsed(address(recipient), outerNonce), "outer nonce must not persist");
         assertFalse(orchestrator.nonceUsed(address(recipient), innerNonce), "inner nonce must not persist");
@@ -1776,7 +1775,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     {
         _mockCapMint(o, token, amount);
         vm.prank(minter);
-        o.mint(token, to, amount, _auth("", nonce), "", new SignedContextV1[](0));
+        o.mint(token, to, amount, _auth("", nonce), "", new SignedContextV2[](0));
     }
 
     /// Mint `amount` of `token` from `minter` through `o` to `capRecipient`.
@@ -1813,7 +1812,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.MinterMintLimitUnset.selector, MINTER_A));
         vm.prank(MINTER_A);
         fresh.mint(
-            TOKEN, address(capRecipient), 1e18, _auth("", keccak256("minter-unset")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1e18, _auth("", keccak256("minter-unset")), "", new SignedContextV2[](0)
         );
     }
 
@@ -1839,7 +1838,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         fresh.mint(
-            TOKEN, address(capRecipient), 1e18, _auth("", keccak256("recipient-unset")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1e18, _auth("", keccak256("recipient-unset")), "", new SignedContextV2[](0)
         );
     }
 
@@ -1868,7 +1867,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), 1e18, _auth("", keccak256("pinned-a")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1e18, _auth("", keccak256("pinned-a")), "", new SignedContextV2[](0)
         );
 
         _mockCapMint(orchestrator, TOKEN2, 1e18);
@@ -1879,7 +1878,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_B);
         orchestrator.mint(
-            TOKEN2, address(capRecipient), 1e18, _auth("", keccak256("pinned-b")), "", new SignedContextV1[](0)
+            TOKEN2, address(capRecipient), 1e18, _auth("", keccak256("pinned-b")), "", new SignedContextV2[](0)
         );
 
         // Both minters still mint to any other recipient.
@@ -1911,7 +1910,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), capacity + 1, _auth("", keccak256("over")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), capacity + 1, _auth("", keccak256("over")), "", new SignedContextV2[](0)
         );
 
         // Exactly the headroom fits.
@@ -1932,7 +1931,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             )
         );
         vm.prank(MINTER_A);
-        orchestrator.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("spent")), "", new SignedContextV1[](0));
+        orchestrator.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("spent")), "", new SignedContextV2[](0));
     }
 
     /// Per-minter isolation: one minter exhausting its minter bucket leaves
@@ -2050,7 +2049,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("recipient-full-token")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1, _auth("", keccak256("recipient-full-token")), "", new SignedContextV2[](0)
         );
 
         _mockCapMint(orchestrator, TOKEN2, 1);
@@ -2066,7 +2065,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             1,
             _auth("", keccak256("recipient-full-token2")),
             "",
-            new SignedContextV1[](0)
+            new SignedContextV2[](0)
         );
     }
 
@@ -2099,7 +2098,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("recipient-full-a")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1, _auth("", keccak256("recipient-full-a")), "", new SignedContextV2[](0)
         );
 
         _mockCapMint(orchestrator, TOKEN, 1);
@@ -2114,7 +2113,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_B);
         orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("recipient-full-b")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1, _auth("", keccak256("recipient-full-b")), "", new SignedContextV2[](0)
         );
     }
 
@@ -2161,7 +2160,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("minter-bound")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1, _auth("", keccak256("minter-bound")), "", new SignedContextV2[](0)
         );
     }
 
@@ -2195,7 +2194,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), leaked + 1, _auth("", keccak256("too-soon")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), leaked + 1, _auth("", keccak256("too-soon")), "", new SignedContextV2[](0)
         );
 
         _capMint(orchestrator, MINTER_A, TOKEN, leaked, keccak256("after-leak"));
@@ -2239,7 +2238,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             leaked + 1,
             _auth("", keccak256("minter-too-soon")),
             "",
-            new SignedContextV1[](0)
+            new SignedContextV2[](0)
         );
 
         _capMint(orchestrator, MINTER_A, TOKEN, leaked, keccak256("minter-after-leak"));
@@ -2296,7 +2295,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), capacity + 1, _auth("", keccak256("idle")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), capacity + 1, _auth("", keccak256("idle")), "", new SignedContextV2[](0)
         );
     }
 
@@ -2344,7 +2343,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("after-lowering")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1, _auth("", keccak256("after-lowering")), "", new SignedContextV2[](0)
         );
     }
 
@@ -2368,7 +2367,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("after-lowering")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1, _auth("", keccak256("after-lowering")), "", new SignedContextV2[](0)
         );
     }
 
@@ -2482,7 +2481,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("one-over")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1, _auth("", keccak256("one-over")), "", new SignedContextV2[](0)
         );
     }
 
@@ -2729,7 +2728,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         orchestrator.mint(
-            TOKEN2, address(capRecipient), 1, _auth("", keccak256("minter-full")), "", new SignedContextV1[](0)
+            TOKEN2, address(capRecipient), 1, _auth("", keccak256("minter-full")), "", new SignedContextV2[](0)
         );
     }
 
@@ -2754,7 +2753,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
             abi.encodeWithSelector(IST0xOrchestratorV2.MinterMintCapExceeded.selector, MINTER_A, ZERO, headroom, _f(1))
         );
         vm.prank(MINTER_A);
-        fresh.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("zero-minter")), "", new SignedContextV1[](0));
+        fresh.mint(TOKEN, address(capRecipient), 1, _auth("", keccak256("zero-minter")), "", new SignedContextV2[](0));
     }
 
     /// And the same on the recipient side: a recipient limit written as zero
@@ -2781,7 +2780,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         );
         vm.prank(MINTER_A);
         fresh.mint(
-            TOKEN, address(capRecipient), 1, _auth("", keccak256("zero-recipient")), "", new SignedContextV1[](0)
+            TOKEN, address(capRecipient), 1, _auth("", keccak256("zero-recipient")), "", new SignedContextV2[](0)
         );
     }
 }

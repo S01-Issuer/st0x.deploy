@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 
 import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 /// @title BurnHappyPathTest
 /// @notice Workflow: MM mints to an EOA, the EOA hands the shares back to
@@ -24,7 +24,7 @@ contract BurnHappyPathTest is OrchestratorIntegrationTest {
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, amount, auth, "", new SignedContextV1[](0));
+        orchestrator.mint(address(vault), eoa, amount, auth, "", new SignedContextV2[](0));
         uint256 mintedId = vault.highwaterId();
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), 0, "fresh token's pointer starts at 0");
 

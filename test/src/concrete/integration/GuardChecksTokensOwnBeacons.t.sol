@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
@@ -66,7 +66,7 @@ contract GuardChecksTokensOwnBeaconsTest is OrchestratorIntegrationTest {
             vm.expectRevert(err);
         }
         vm.prank(MM);
-        orchestrator.mint(token, eoa, 1e18, auth, "", new SignedContextV1[](0));
+        orchestrator.mint(token, eoa, 1e18, auth, "", new SignedContextV2[](0));
     }
 
     /// Upgrading the other token's vault beacon halts only the other token.

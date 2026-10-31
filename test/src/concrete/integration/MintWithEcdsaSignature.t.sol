@@ -8,7 +8,7 @@ import {Unauthorized} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV2, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 /// @title MintWithEcdsaSignatureTest
 /// @notice Workflow: an EOA recipient authorises a mint with an ECDSA
@@ -31,7 +31,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, amount, auth, "", new SignedContextV1[](0));
+        orchestrator.mint(address(vault), eoa, amount, auth, "", new SignedContextV2[](0));
 
         uint256 mintedId = vault.highwaterId();
         assertEq(mintedId, 1, "first mint lands at id 1");
@@ -53,7 +53,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, 10e18, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, 10e18, auth, "", new SignedContextV1[](0));
+        orchestrator.mint(address(vault), eoa, 10e18, auth, "", new SignedContextV2[](0));
         assertTrue(orchestrator.nonceUsed(eoa, nonce), "nonce consumed");
 
         // A fresh, valid signature over a different amount cannot resurrect
@@ -61,7 +61,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         MintAuthV1 memory replayAuth = _signedMintAuth(address(vault), eoa, 5e18, nonce, pk);
         vm.prank(MM);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NonceReplayed.selector, eoa, nonce));
-        orchestrator.mint(address(vault), eoa, 5e18, replayAuth, "", new SignedContextV1[](0));
+        orchestrator.mint(address(vault), eoa, 5e18, replayAuth, "", new SignedContextV2[](0));
 
         // The SAME nonce is still free for a different recipient.
         (address other, uint256 otherPk) = makeAddrAndKey("other-recipient");
@@ -69,7 +69,7 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         assertFalse(orchestrator.nonceUsed(other, nonce), "nonce namespaced per recipient");
         MintAuthV1 memory otherAuth = _signedMintAuth(address(vault), other, 3e18, nonce, otherPk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), other, 3e18, otherAuth, "", new SignedContextV1[](0));
+        orchestrator.mint(address(vault), other, 3e18, otherAuth, "", new SignedContextV2[](0));
         assertEq(vault.balanceOf(other), 3e18, "other recipient minted with the same nonce");
     }
 
@@ -101,6 +101,6 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
 
         vm.prank(MM);
         vm.expectPartialRevert(Unauthorized.selector);
-        fresh.mint(address(vault), eoa, amount, auth, "", new SignedContextV1[](0));
+        fresh.mint(address(vault), eoa, amount, auth, "", new SignedContextV2[](0));
     }
 }
