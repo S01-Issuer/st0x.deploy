@@ -10,6 +10,7 @@ import {ECDSA} from "@openzeppelin-contracts-5.7.0/utils/cryptography/ECDSA.sol"
 contract EcdsaOwnerErc1271Account is IERC1271 {
     address internal immutable I_OWNER;
 
+    // forge-lint: disable-next-line(missing-zero-check)
     constructor(address owner) {
         I_OWNER = owner;
     }

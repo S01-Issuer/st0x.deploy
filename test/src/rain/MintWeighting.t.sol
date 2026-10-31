@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
 import {IST0xOrchestratorV2} from "src/interface/IST0xOrchestratorV2.sol";
@@ -24,7 +24,8 @@ import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrches
 /// `tAAPL` with `AAPL` attestations alongside `tMSTR` with `MSTR`. The pool
 /// is six operators and the mint collects two, as the expression is written;
 /// the lead is `LEAD_KEY` and operator `i` of the pool is `OPERATOR_KEY_0 +
-/// i`.
+/// i`. The lead signs under `LEAD_DOMAIN` and every pool seat under
+/// `POOL_DOMAIN`, the domains bound to the file.
 contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     using Strings for address;
     using LibDecimalFloat for Float;
@@ -32,6 +33,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     /// One attestation before it is signed.
     struct Attestation {
         uint256 key;
+        bytes32 domain;
         string ticker;
         Float price;
         Float time;
@@ -97,7 +99,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
 
     /// Every elided binding in the file, bound to this test's values.
     function _bindings() internal view returns (DotrainBinding[] memory bindings) {
-        bindings = new DotrainBinding[](6 + POOL_SIZE);
+        bindings = new DotrainBinding[](8 + POOL_SIZE);
         bindings[0] = DotrainBinding("st0x-attest-subparser", address(I_SUB_PARSER).toHexString());
         bindings[1] = DotrainBinding("lead-signer", vm.addr(LEAD_KEY).toHexString());
         for (uint256 i = 0; i < POOL_SIZE; i++) {
@@ -107,6 +109,8 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         bindings[3 + POOL_SIZE] = DotrainBinding("max-time-spread", vm.toString(MAX_TIME_SPREAD));
         bindings[4 + POOL_SIZE] = DotrainBinding("min-price", vm.toString(MIN_PRICE));
         bindings[5 + POOL_SIZE] = DotrainBinding("max-price", vm.toString(MAX_PRICE));
+        bindings[6 + POOL_SIZE] = DotrainBinding("lead-domain-separator", vm.toString(LEAD_DOMAIN));
+        bindings[7 + POOL_SIZE] = DotrainBinding("pool-domain-separator", vm.toString(POOL_DOMAIN));
     }
 
     /// Pool operator `i`'s address.
@@ -118,9 +122,10 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         return _f(int256(block.timestamp), 0);
     }
 
-    /// An attestation of `[TICKER, price, now]` by `key`.
+    /// An attestation of `[TICKER, price, now]` by `key` under
+    /// `domainOf(key)`.
     function _attestation(uint256 key, Float price) internal view returns (Attestation memory) {
-        return Attestation({key: key, ticker: TICKER, price: price, time: _now()});
+        return Attestation({key: key, domain: domainOf(key), ticker: TICKER, price: price, time: _now()});
     }
 
     /// The lead and pool operators 0 and 1, all attesting `[TICKER, PRICE,
@@ -149,11 +154,12 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     /// Sign `attestations` in order.
-    function _sign(Attestation[] memory attestations) internal pure returns (SignedContextV1[] memory signed) {
-        signed = new SignedContextV1[](attestations.length);
+    function _sign(Attestation[] memory attestations) internal pure returns (SignedContextV2[] memory signed) {
+        signed = new SignedContextV2[](attestations.length);
         for (uint256 i = 0; i < attestations.length; i++) {
-            signed[i] = attest(
+            signed[i] = attestUnder(
                 attestations[i].key,
+                attestations[i].domain,
                 symbol(attestations[i].ticker),
                 Float.unwrap(attestations[i].price),
                 Float.unwrap(attestations[i].time)
@@ -171,7 +177,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         _refused(token, _sign(attestations), err);
     }
 
-    function _refused(address token, SignedContextV1[] memory signed, bytes memory err) internal {
+    function _refused(address token, SignedContextV2[] memory signed, bytes memory err) internal {
         Float before = _headroom();
         bytes memory reason = _mintReverts(token, AMOUNT, keccak256(abi.encode(err, signed)), signed);
         assertEq(reason, err, "reason");
@@ -279,7 +285,7 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     /// No attestations at all: there is no lead to read, and the expression
     /// reverts reading past the grid before its first check.
     function testNoAttestationsIsRefused() external {
-        _refused(TOKEN, new SignedContextV1[](0), stdError.indexOOBError);
+        _refused(TOKEN, new SignedContextV2[](0), stdError.indexOOBError);
     }
 
     // ------------------------------------------------------------------ //
@@ -323,6 +329,36 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         Attestation[] memory attestations = _quorum();
         attestations[2].key = OPERATOR_KEY_0;
         _refused(attestations, _ensure("Same operator twice"));
+    }
+
+    // ------------------------------------------------------------------ //
+    //                             the domains                            //
+    // ------------------------------------------------------------------ //
+
+    /// The lead signed under any domain but `lead-domain-separator`, the
+    /// pool's included.
+    function testLeadUnderAnotherDomainIsRefused(bytes32 other) external {
+        vm.assume(other != LEAD_DOMAIN);
+        bytes32[2] memory domains = [POOL_DOMAIN, other];
+        for (uint256 i = 0; i < domains.length; i++) {
+            Attestation[] memory attestations = _quorum();
+            attestations[0].domain = domains[i];
+            _refused(attestations, _ensure("Lead domain mismatch"));
+        }
+    }
+
+    /// A pool seat signed under any domain but `pool-domain-separator`, the
+    /// lead's included, in either seat.
+    function testAttestorUnderAnotherDomainIsRefused(bytes32 other) external {
+        vm.assume(other != POOL_DOMAIN);
+        bytes32[2] memory domains = [LEAD_DOMAIN, other];
+        for (uint256 seat = 1; seat < 3; seat++) {
+            for (uint256 i = 0; i < domains.length; i++) {
+                Attestation[] memory attestations = _quorum();
+                attestations[seat].domain = domains[i];
+                _refused(attestations, _ensure("Attestor domain mismatch"));
+            }
+        }
     }
 
     // ------------------------------------------------------------------ //

@@ -3,17 +3,17 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
-import {IInterpreterCallerV4, EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {IInterpreterCallerV5, EvaluableV4, SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 import {StateNamespace} from "rainlang-0.2.30/src/interface/IInterpreterStoreV3.sol";
 import {LibNamespace} from "rainlang-0.2.30/src/lib/ns/LibNamespace.sol";
-import {InvalidSignature} from "rainlang-interface-0.2.13/src/lib/caller/LibContext.sol";
+import {InvalidSignature} from "rainlang-0.2.30/src/lib/caller/LibContext.sol";
 
 import {IST0xOrchestratorV2, MintAuthV1, Digest} from "src/interface/IST0xOrchestratorV2.sol";
-import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
+import {EcdsaOwnerErc1271Account} from "test/src/concrete/EcdsaOwnerErc1271Account.sol";
 
 /// @title ST0xOrchestratorMintWeightingTest
 /// @notice The value the Rainlang weighting produces is what fills the
@@ -23,6 +23,7 @@ import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrches
 /// `ST0xOrchestratorMintWeightingFixture` mocks as `tAAPL`.
 contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     using LibDecimalFloat for Float;
+    using Strings for address;
 
     /// What the token answers `symbol()` with.
     string internal constant TOKEN_SYMBOL = "tAAPL";
@@ -86,7 +87,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     /// buckets with and the mint is refused by name.
     function testMintWeightingUnsetReverts() external {
         _setLimits(CAPACITY, CAPACITY);
-        SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
+        SignedContextV2[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
         vm.expectRevert(IST0xOrchestratorV2.MintWeightingUnset.selector);
         vm.prank(MINTER);
@@ -98,7 +99,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     /// An unset limit is refused before the weighting is consulted: with no
     /// weighting either, the error still names the limit.
     function testUnsetLimitIsRefusedBeforeTheWeighting() external {
-        SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
+        SignedContextV2[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.MinterMintLimitUnset.selector, MINTER));
         vm.prank(MINTER);
@@ -121,7 +122,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testMintWeightingNoOutputsReverts() external {
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting(":ensure(1 \"x\");");
-        SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
+        SignedContextV2[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
         vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.UnsupportedMintWeightingOutputs.selector, 0));
         vm.prank(MINTER);
@@ -134,7 +135,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testMintWeightingZeroIsRefusedByTheBucket() external {
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting("_: 0;");
-        SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
+        SignedContextV2[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
         vm.expectRevert(LeakyBucketZeroAmount.selector);
         vm.prank(MINTER);
@@ -168,7 +169,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
                 ":ensure(binary-equal-to(lead-symbol() mint-symbol()) \"attested another symbol\"),\n", PRICED
             )
         );
-        SignedContextV1[] memory otherSymbol = _lead("tMSFT", PRICE);
+        SignedContextV2[] memory otherSymbol = _lead("tMSFT", PRICE);
         _mockVaultMint(AMOUNT);
         vm.expectRevert("attested another symbol");
         vm.prank(MINTER);
@@ -190,7 +191,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting(PRICED);
 
-        SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
+        SignedContextV2[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         attestations[0].context[1] = float(PRICE + 1);
         _mockVaultMint(AMOUNT);
         vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector, 0));
@@ -204,8 +205,23 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
             attestations
         );
 
+        // The domain is signed over: an attestation relabelled with another
+        // domain than it was signed under does not verify.
+        attestations = _lead(TOKEN_SYMBOL, PRICE);
+        attestations[0].domainSeparator = POOL_DOMAIN;
+        vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector, 0));
+        vm.prank(MINTER);
+        orchestrator.mint(
+            TOKEN,
+            address(recipient),
+            AMOUNT,
+            MintAuthV1({nonce: keccak256("relabelled"), signature: ""}),
+            "",
+            attestations
+        );
+
         // A second attestation, tampered with, is named by its index.
-        SignedContextV1[] memory two = new SignedContextV1[](2);
+        SignedContextV2[] memory two = new SignedContextV2[](2);
         two[0] = _lead(TOKEN_SYMBOL, PRICE)[0];
         two[1] = attest(OPERATOR_KEY_0, symbol(TOKEN_SYMBOL), float(PRICE), float(int256(block.timestamp)));
         two[1].signature[0] = two[1].signature[0] ^ bytes1(0xff);
@@ -215,6 +231,41 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
             TOKEN, address(recipient), AMOUNT, MintAuthV1({nonce: keccak256("tampered-1"), signature: ""}), "", two
         );
         _assertFloatEq(_headroom(), CAPACITY, "nothing was charged");
+    }
+
+    /// A lead that is an ERC-1271 account is verified onchain: the account
+    /// is the signer the expression reads, its owner key's signature over the
+    /// digest for the account mints, and any other key's is refused naming
+    /// the lead.
+    function testErc1271LeadIsVerifiedOnchain() external {
+        EcdsaOwnerErc1271Account account = new EcdsaOwnerErc1271Account(vm.addr(LEAD_KEY));
+        _setLimits(CAPACITY, CAPACITY);
+        _setWeighting(
+            string.concat(
+                ":ensure(binary-equal-to(lead() ", address(account).toHexString(), ") \"lead is not the account\"),\n",
+                PRICED
+            )
+        );
+        bytes32[] memory context = attestation(symbol(TOKEN_SYMBOL), float(PRICE), float(int256(block.timestamp)));
+        SignedContextV2[] memory attestations = new SignedContextV2[](1);
+
+        attestations[0] = signFor(address(account), OPERATOR_KEY_0, LEAD_DOMAIN, context);
+        _mockVaultMint(AMOUNT);
+        vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector, 0));
+        vm.prank(MINTER);
+        orchestrator.mint(
+            TOKEN,
+            address(recipient),
+            AMOUNT,
+            MintAuthV1({nonce: keccak256("erc1271-wrong-key"), signature: ""}),
+            "",
+            attestations
+        );
+        _assertFloatEq(_headroom(), CAPACITY, "nothing was charged");
+
+        attestations[0] = signFor(address(account), LEAD_KEY, LEAD_DOMAIN, context);
+        _mint(AMOUNT, keccak256("erc1271"), attestations);
+        _assertFloatEq(_headroom(), CAPACITY.sub(_f(VALUE, 0)), "charged the value");
     }
 
     // ------------------------------------------------------------------ //
@@ -279,7 +330,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testMintAmountIsInWholeTokens() external {
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting("_: mint-amount();");
-        _mint(2.5e18, keccak256("whole"), new SignedContextV1[](0));
+        _mint(2.5e18, keccak256("whole"), new SignedContextV2[](0));
         _assertFloatEq(_headroom(), _f(9975, -1), "charged 2.5");
     }
 
@@ -287,30 +338,34 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testMintWeightingLastOutputIsTheCharge() external {
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting("_ _: mint-amount() 7;");
-        _mint(AMOUNT, keccak256("last"), new SignedContextV1[](0));
+        _mint(AMOUNT, keccak256("last"), new SignedContextV2[](0));
         _assertFloatEq(_headroom(), _f(1000 - 7, 0), "charged the last output");
     }
 
-    /// The expression sees the grid `LibSt0xAttestContext` builds for this
-    /// mint — the token's symbol, the amount in whole tokens, then the
+    /// The expression sees the grid `LibContext.buildV2` lays out for this
+    /// mint — the orchestrator's view of the call, the token's symbol and the
+    /// amount in whole tokens, the signers, their domain separators, then the
     /// attestations — and the orchestrator emits it as `ContextV2`.
     function testMintEmitsTheContextTheWeightingSees() external {
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting(PRICED);
-        SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
-        bytes32[][] memory grid = LibSt0xAttestContext.build(
-            symbol(TOKEN_SYMBOL),
-            Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(AMOUNT, TOKEN_DECIMALS)),
-            attestations
-        );
-        // The base column is the orchestrator's view of the call, not this
-        // test's.
+        SignedContextV2[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
+        bytes32[][] memory grid = new bytes32[][](5);
+        grid[0] = new bytes32[](2);
         grid[0][0] = bytes32(uint256(uint160(MINTER)));
         grid[0][1] = bytes32(uint256(uint160(address(orchestrator))));
+        grid[1] = new bytes32[](2);
+        grid[1][0] = symbol(TOKEN_SYMBOL);
+        grid[1][1] = Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(AMOUNT, TOKEN_DECIMALS));
+        grid[2] = new bytes32[](1);
+        grid[2][0] = signer(vm.addr(LEAD_KEY));
+        grid[3] = new bytes32[](1);
+        grid[3][0] = LEAD_DOMAIN;
+        grid[4] = attestation(symbol(TOKEN_SYMBOL), float(PRICE), float(int256(block.timestamp)));
 
         _mockVaultMint(AMOUNT);
         vm.expectEmit(false, false, false, true, address(orchestrator));
-        emit IInterpreterCallerV4.ContextV2(MINTER, grid);
+        emit IInterpreterCallerV5.ContextV2(MINTER, grid);
         vm.prank(MINTER);
         orchestrator.mint(
             TOKEN, address(recipient), AMOUNT, MintAuthV1({nonce: keccak256("grid"), signature: ""}), "", attestations
@@ -333,7 +388,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         (uint8 v, bytes32 r, bytes32 s) =
             vm.sign(pk, Digest.unwrap(orchestrator.mintAuthDigest(TOKEN, eoa, AMOUNT, nonce)));
         MintAuthV1 memory auth = MintAuthV1({nonce: nonce, signature: abi.encodePacked(r, s, v)});
-        SignedContextV1[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
+        SignedContextV2[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
 
         _mockVaultMint(AMOUNT);
         vm.prank(MINTER);
@@ -354,10 +409,10 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _setWeighting("count: add(get(1) 1), :set(1 count);");
         bytes32 key = Float.unwrap(_f(1, 0));
 
-        _mint(AMOUNT, keccak256("one"), new SignedContextV1[](0));
+        _mint(AMOUNT, keccak256("one"), new SignedContextV2[](0));
         _assertFloatEq(_headroom(), _f(999, 0), "the first mint is charged 1");
 
-        _mint(AMOUNT, keccak256("two"), new SignedContextV1[](0));
+        _mint(AMOUNT, keccak256("two"), new SignedContextV2[](0));
         _assertFloatEq(_headroom(), _f(997, 0), "the second mint is charged 2");
 
         _assertFloatEq(

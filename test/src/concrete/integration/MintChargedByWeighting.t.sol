@@ -3,8 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {EvaluableV4, SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
@@ -30,8 +29,8 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
     }
 
     /// The lead's attestation of `[attestedSymbol, price, now]`.
-    function _lead(string memory attestedSymbol, int256 price) internal view returns (SignedContextV1[] memory) {
-        SignedContextV1[] memory attestations = new SignedContextV1[](1);
+    function _lead(string memory attestedSymbol, int256 price) internal view returns (SignedContextV2[] memory) {
+        SignedContextV2[] memory attestations = new SignedContextV2[](1);
         attestations[0] = attest(LEAD_KEY, symbol(attestedSymbol), float(price), float(int256(block.timestamp)));
         return attestations;
     }
@@ -55,7 +54,7 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
 
         bytes32 nonce = keccak256("weighted");
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
-        SignedContextV1[] memory attestations = _lead("tTEST", 150);
+        SignedContextV2[] memory attestations = _lead("tTEST", 150);
         vm.prank(MM);
         orchestrator.mint(address(vault), eoa, amount, auth, "", attestations);
 
@@ -78,7 +77,7 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
         uint256 amount = 2e18;
         bytes32 nonce = keccak256("refused");
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
-        SignedContextV1[] memory otherSymbol = _lead("tOTHER", 150);
+        SignedContextV2[] memory otherSymbol = _lead("tOTHER", 150);
         vm.expectRevert("attested another symbol");
         vm.prank(MM);
         orchestrator.mint(address(vault), eoa, amount, auth, "", otherSymbol);
@@ -87,7 +86,7 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
 
         // The same authorisation with an attestation for the vault's own
         // symbol goes through.
-        SignedContextV1[] memory ownSymbol = _lead("tTEST", 150);
+        SignedContextV2[] memory ownSymbol = _lead("tTEST", 150);
         vm.prank(MM);
         orchestrator.mint(address(vault), eoa, amount, auth, "", ownSymbol);
         assertEq(vault.balanceOf(eoa), amount, "the vault delivered the amount");
