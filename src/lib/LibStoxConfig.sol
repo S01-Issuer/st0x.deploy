@@ -30,6 +30,7 @@ library LibStoxConfig {
     /// Reverts when the registry is absent or the binding is unset, not an
     /// `address`, or zero.
     function governanceTimelock() internal view returns (address) {
+        // slither-disable-next-line unused-return
         (bytes memory value,) =
             LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_TIMELOCK_NAME, keccak256("address"));
         address timelock = abi.decode(value, (address));
