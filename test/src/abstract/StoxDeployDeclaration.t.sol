@@ -13,6 +13,10 @@ import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
 } from "rain-tofu-erc20-decimals-deploy-0.1.4/src/generated/0_1_0/TOFUTokenDecimals.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
@@ -65,9 +69,11 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
     }
 
     function externalDeployments() internal pure returns (ExternalDeployment[] memory) {
-        ExternalDeployment[] memory externals = new ExternalDeployment[](2);
+        ExternalDeployment[] memory externals = new ExternalDeployment[](3);
         externals[0] = ExternalDeployment({deployedAddress: CLONE_FACTORY_ADDRESS, codeHash: CLONE_FACTORY_CODEHASH});
         externals[1] = ExternalDeployment({deployedAddress: TOFU_DECIMALS_ADDRESS, codeHash: TOFU_DECIMALS_CODEHASH});
+        externals[2] =
+            ExternalDeployment({deployedAddress: CONFIG_REGISTRY_ADDRESS, codeHash: CONFIG_REGISTRY_CODEHASH});
         return externals;
     }
 }

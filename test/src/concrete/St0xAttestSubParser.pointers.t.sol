@@ -60,7 +60,7 @@ contract St0xAttestSubParserPointersTest is Test {
     function testWordList() external pure {
         AuthoringMetaV2[] memory authoringMeta =
             abi.decode(LibSt0xAttestSubParser.authoringMetaV2(), (AuthoringMetaV2[]));
-        string[10] memory expected = [
+        string[12] memory expected = [
             "lead",
             "attestor",
             "lead-symbol",
@@ -70,7 +70,9 @@ contract St0xAttestSubParserPointersTest is Test {
             "attested-price",
             "attested-time",
             "mint-symbol",
-            "mint-amount"
+            "mint-amount",
+            "lead-domain",
+            "attestor-domain"
         ];
         assertEq(authoringMeta.length, expected.length);
         for (uint256 i = 0; i < expected.length; i++) {
