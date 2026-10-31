@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.25/src/abstract/RainDeployVerifyDeclaration.sol";
-import {ExternalDeployment} from "rain-deploy-0.1.25/src/abstract/RainDeployDeclarationChecks.sol";
-import {RainDeploySuitesBase} from "rain-deploy-0.1.25/src/abstract/RainDeploySuitesBase.sol";
+import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.29/src/abstract/RainDeployVerifyDeclaration.sol";
+import {ExternalDeployment} from "rain-deploy-0.1.29/src/abstract/RainDeployDeclarationChecks.sol";
+import {DeployDeclaration, RainDeploySuitesBase} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
-} from "rain-factory-deploy-0.2.3/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.4/src/generated/0_1_15/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
@@ -31,16 +31,19 @@ import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 /// @title StoxDeployDeclarationTest
 /// @notice The suite fields only a dispatch, a verifier or a broadcast reads.
 contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclaration {
-    function supportedNetworks()
+    function declaration()
         internal
         view
         override(StoxDeploySuites, RainDeploySuitesBase)
-        returns (string[] memory)
+        returns (DeployDeclaration memory)
     {
-        return StoxDeploySuites.supportedNetworks();
+        DeployDeclaration memory declared = super.declaration();
+        declared.sourceCreationCode = sourceCreationCode;
+        declared.externalDeployments = externalDeployments();
+        return declared;
     }
 
-    function sourceCreationCode(string memory suite) internal pure override returns (bytes memory) {
+    function sourceCreationCode(string memory suite) internal pure returns (bytes memory) {
         bytes32 key = keccak256(bytes(suite));
         if (key == keccak256(bytes(FACET))) return type(StoxCorporateActionsFacet).creationCode;
         if (key == keccak256(bytes(RECEIPT))) return type(StoxReceipt).creationCode;
@@ -55,7 +58,7 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
         revert(string.concat("no source for suite: ", suite));
     }
 
-    function externalDeployments() internal pure override returns (ExternalDeployment[] memory) {
+    function externalDeployments() internal pure returns (ExternalDeployment[] memory) {
         ExternalDeployment[] memory externals = new ExternalDeployment[](2);
         externals[0] = ExternalDeployment({deployedAddress: CLONE_FACTORY_ADDRESS, codeHash: CLONE_FACTORY_CODEHASH});
         externals[1] = ExternalDeployment({deployedAddress: TOFU_DECIMALS_ADDRESS, codeHash: TOFU_DECIMALS_CODEHASH});

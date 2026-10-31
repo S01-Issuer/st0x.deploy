@@ -3,7 +3,7 @@
 import {
   Address,
   DataSourceTemplate,
-  DataSourceContext
+  DataSourceContext,
 } from "@graphprotocol/graph-ts";
 
 export class ReceiptVault extends DataSourceTemplate {
@@ -15,7 +15,7 @@ export class ReceiptVault extends DataSourceTemplate {
     DataSourceTemplate.createWithContext(
       "ReceiptVault",
       [address.toHex()],
-      context
+      context,
     );
   }
 }
@@ -29,7 +29,7 @@ export class Orchestrator extends DataSourceTemplate {
     DataSourceTemplate.createWithContext(
       "Orchestrator",
       [address.toHex()],
-      context
+      context,
     );
   }
 }
@@ -43,7 +43,7 @@ export class VaultBeacon extends DataSourceTemplate {
     DataSourceTemplate.createWithContext(
       "VaultBeacon",
       [address.toHex()],
-      context
+      context,
     );
   }
 }

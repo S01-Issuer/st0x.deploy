@@ -21,6 +21,8 @@ export namespace ContractKind {
   export const TOKEN_OWNER_SAFE = "TOKEN_OWNER_SAFE";
   export const CONFIG_REGISTRY = "CONFIG_REGISTRY";
   export const MIGRATION_REGISTRY = "MIGRATION_REGISTRY";
+  export const CONFIG_REGISTRY_V5 = "CONFIG_REGISTRY_V5";
+  export const MIGRATION_REGISTRY_V5 = "MIGRATION_REGISTRY_V5";
 }
 
 /**

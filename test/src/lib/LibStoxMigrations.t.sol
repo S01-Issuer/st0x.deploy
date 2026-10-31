@@ -4,19 +4,20 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistry.sol";
 import {
-    IMigrationRegistryV3,
+    IMigrationRegistryV5,
     MIGRATION_HEAD_GENESIS,
     Prerequisite
-} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
-import {IRegistryDelegatesV1} from "rain-deploy-0.1.25/src/interface/IRegistryDelegatesV1.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistryDeploy.sol";
+} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.29/src/interface/IRegistryDelegatesV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.25/src/generated/candidate/MigrationRegistry.sol";
+} from "rain-deploy-0.1.29/src/generated/candidate/MigrationRegistry.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
+import {LibRbacMigration} from "../../../src/lib/LibRbacMigration.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {MigrationWriter, ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
@@ -36,12 +37,12 @@ contract LibStoxMigrationsTest is Test {
     function testRegistryInstancePinned() external pure {
         assertEq(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            0x5A48e719785E11c4643EA4056D0861A6a69e91a0,
+            0xd708186f68D527B64c001398550627508205EE31,
             "st0x.deploy migration records live at this registry instance; moving it strands them"
         );
         assertEq(
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_CODEHASH,
-            0xa78caf9b315d637f5bdc94b2168007bc64d7b172844deaf6e0dcabf418ee5c56,
+            0x98c1c8681edccad8869a2f156966c8d0042582a17adb2946de13395b42630603,
             "st0x.deploy migration records live at this registry instance; moving it strands them"
         );
     }
@@ -129,12 +130,13 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationV3,
+                IMigrationRegistryV5.applyMigrationV5,
                 (
                     writer,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-                    LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK)
+                    LibStoxMigrations.onto(writer, LibStoxMigrations.GOVERNANCE_TIMELOCK),
+                    ""
                 )
             )
         );
@@ -154,8 +156,42 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationV3,
-                (timelock, LibStoxMigrations.NAMESPACE, "id", LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS))
+                IMigrationRegistryV5.applyMigrationV5,
+                (
+                    timelock,
+                    LibStoxMigrations.NAMESPACE,
+                    "id",
+                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS),
+                    ""
+                )
+            )
+        );
+    }
+
+    /// @notice A declaration in another namespace is recorded in that namespace.
+    function testRecordCallWritesTheDeclaredNamespace() external {
+        etchRegistry();
+        address writer = makeAddr("writer");
+        ScriptDeclaration memory declared = LibStoxMigrations.safeMigrationOnto(
+            LibRbacMigration.STOX_RBAC_NAMESPACE,
+            LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
+            MIGRATION_HEAD_GENESIS,
+            false
+        );
+
+        (, bytes memory data) = LibStoxMigrations.recordCall(declared, writer, makeAddr("timelock"));
+
+        assertEq(
+            data,
+            abi.encodeCall(
+                IMigrationRegistryV5.applyMigrationV5,
+                (
+                    writer,
+                    LibRbacMigration.STOX_RBAC_NAMESPACE,
+                    LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
+                    LibMigrationRegistry.onto(writer, LibRbacMigration.STOX_RBAC_NAMESPACE, MIGRATION_HEAD_GENESIS),
+                    ""
+                )
             )
         );
     }
@@ -173,13 +209,14 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationHistoryV3,
+                IMigrationRegistryV5.applyMigrationHistoryV5,
                 (
                     writer,
                     LibStoxMigrations.NAMESPACE,
                     LibStoxMigrations.GOVERNANCE_TIMELOCK,
                     1_791_056_759,
-                    LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS)
+                    LibStoxMigrations.onto(writer, MIGRATION_HEAD_GENESIS),
+                    ""
                 )
             )
         );
@@ -199,13 +236,14 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             data,
             abi.encodeCall(
-                IMigrationRegistryV3.applyMigrationHistoryV3,
+                IMigrationRegistryV5.applyMigrationHistoryV5,
                 (
                     timelock,
                     LibStoxMigrations.NAMESPACE,
                     "id",
                     7,
-                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS)
+                    LibStoxMigrations.onto(timelock, MIGRATION_HEAD_GENESIS),
+                    ""
                 )
             )
         );
@@ -260,7 +298,7 @@ contract LibStoxMigrationsTest is Test {
         assertEq(
             reason,
             abi.encodeWithSelector(
-                IRegistryDelegatesV1.NotApproved.selector, writer, LibStoxMigrations.NAMESPACE, other
+                IRegistryDelegatesV3.NotApproved.selector, writer, LibStoxMigrations.NAMESPACE, other
             )
         );
         assertEq(LibStoxMigrations.head(writer), MIGRATION_HEAD_GENESIS);
