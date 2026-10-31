@@ -17,6 +17,8 @@ on:
           - stox-offchain-asset-receipt-vault-authorizer
           - stox-offchain-asset-receipt-vault-payment-mint-authorizer
           - stox-orchestrator
+          - stox-orchestrator-beacon-set-deployer
+          - stox-attest-sub-parser
           - stox-eu-assets-authoriser
           - stox-corporate-actions-facet@0_1_1
           - stox-receipt@0_1_1

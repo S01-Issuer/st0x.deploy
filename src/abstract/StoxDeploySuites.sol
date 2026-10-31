@@ -18,6 +18,10 @@ import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
 } from "rain-factory-deploy-0.2.4/src/generated/0_1_15/CloneFactory.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
@@ -49,6 +53,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = "stox-wrapped-token-vault-beacon-set-deployer";
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
+    string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
     string constant RECEIPT_PATH = "src/concrete/StoxReceipt.sol:StoxReceipt";
@@ -68,6 +73,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH =
         "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer";
+    string constant ATTEST_SUB_PARSER_PATH = "src/concrete/St0xAttestSubParser.sol:St0xAttestSubParser";
 
     /// @inheritdoc RainDeploySuitesBase
     function declaration() internal view virtual override returns (DeployDeclaration memory) {
@@ -83,7 +89,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     }
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
-        DeployCandidate[] memory candidates = new DeployCandidate[](8);
+        DeployCandidate[] memory candidates = new DeployCandidate[](10);
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -114,7 +120,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE,
                 V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
                 RECEIPT_VAULT_PATH,
-                one(V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE)
+                two(
+                    V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE,
+                    V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE
+                )
             )
         );
         candidates[3] = anchored(
@@ -169,12 +180,41 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE,
                 V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
                 ORCHESTRATOR_PATH,
-                two(
+                three(
                     V4.STOX_RECEIPT_CANDIDATE,
                     V4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE,
                     V4.STOX_RECEIPT_VAULT_CANDIDATE,
-                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
+                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE
                 )
+            )
+        );
+        candidates[8] = anchored(
+            zoltu(
+                ORCHESTRATOR_BEACON_SET_DEPLOYER,
+                V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE,
+                ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH,
+                two(
+                    V4.ST0X_ORCHESTRATOR_CANDIDATE,
+                    V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE
+                )
+            )
+        );
+        candidates[9] = anchored(
+            zoltu(
+                ATTEST_SUB_PARSER,
+                V4.ST0X_ATTEST_SUB_PARSER_CREATION_CODE_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_CODEHASH_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_RUNTIME_CODE_CANDIDATE,
+                ATTEST_SUB_PARSER_PATH,
+                new DeployDependency[](0)
             )
         );
         return candidates;
@@ -243,6 +283,21 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         DeployDependency[] memory deps = new DeployDependency[](2);
         deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
         deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        return deps;
+    }
+
+    function three(
+        address a,
+        bytes memory aRuntimeCode,
+        address b,
+        bytes memory bRuntimeCode,
+        address c,
+        bytes memory cRuntimeCode
+    ) internal pure returns (DeployDependency[] memory) {
+        DeployDependency[] memory deps = new DeployDependency[](3);
+        deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
+        deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
         return deps;
     }
 }

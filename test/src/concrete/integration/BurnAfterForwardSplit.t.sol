@@ -7,6 +7,7 @@ import {LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.so
 
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 /// @title BurnAfterForwardSplitTest
 /// @notice Workflow: a 3:1 forward split rebases the recipient's shares and
@@ -15,12 +16,13 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract BurnAfterForwardSplitTest is OrchestratorIntegrationTest {
     function testBurnAfterForwardSplitConsumesRebasedReceiptExactly() external {
         (address eoa, uint256 pk) = makeAddrAndKey("split-recipient");
+        _allowRecipient(eoa);
         uint256 minted = 90e18;
         bytes32 nonce = keccak256("fwd-split");
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, minted, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, minted, auth, "");
+        orchestrator.mint(address(vault), eoa, minted, auth, "", new SignedContextV2[](0));
         uint256 mintedId = vault.highwaterId();
         assertEq(mintedId, 1, "first mint on a fresh vault lands at id 1");
 

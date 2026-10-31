@@ -38,6 +38,38 @@ No deployed ST0x contract changes for any of this — the timelock is purely a
 deployment-config choice (the owner/admin principal moves from the Safe to the
 timelock). That keeps the audited contract set untouched.
 
+## The mint-caps orchestrator
+
+The mint-caps `ST0xOrchestrator` is a fresh deployment that runs next to the
+live orchestrator (`0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2`); minters move
+over once it is ready. The live orchestrator and its beacon are not upgraded in
+place. The new one has its own beacon, because different code needs a different
+beacon.
+
+The timelock holds its admin power from the start, so no migration bundle moves
+it:
+
+- **Beacon.** `ST0xOrchestratorBeaconSetDeployer`'s constructor creates the
+  beacon with `timelockForChainId(block.chainid)` as owner, so there is no
+  window in which the deploy key owns it. `upgradeTo` is delay-gated.
+- **Instance.** `initialize` grants the timelock `DEFAULT_ADMIN_ROLE`,
+  `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, and nothing
+  else. It takes no owner argument, and `deploy()` takes none either, so a
+  caller of the permissionless deployer cannot seat an admin of its own. Both
+  revert on a chain with no pinned timelock.
+- **Operating roles** (`MINT_ROLE`, `BURN_ROLE`, `EMERGENCY_ROLE`) are granted
+  by their admin role, so each grant is a scheduled timelock operation. The Safe
+  may hold `EMERGENCY_ROLE`; it holds no admin role and neither `MINT_ROLE` nor
+  `BURN_ROLE`. The deploy key holds nothing.
+- **Configuration.** The mint weighting and the per-minter and per-recipient
+  mint limits are `MINT_ADMIN_ROLE` surfaces, so setting or changing them waits
+  out the delay too.
+
+Each admin role administers its operating role and itself, so
+`DEFAULT_ADMIN_ROLE` cannot grant an admin role: the grants in `initialize` are
+the only way a first holder is seated, and losing every holder of one takes a
+beacon upgrade to recover.
+
 ## Role model
 
 | Role on the timelock | Holder                                                 | Meaning                                                         |
@@ -307,6 +339,13 @@ gas than a small block holds, so enable big blocks for the deploy key
   `LibBeaconInvariants.assertProdBeaconsOwnedBy` /
   `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
   exclusive `_ADMIN` holding on the timelock, per chain.
+- `LibOrchestratorInvariants.assertMintCapsBeaconSet()` /
+  `assertMintCapsInstance(safe)` — the mint-caps orchestrator: the beacon is
+  owned by the timelock and points at the current implementation; the timelock
+  holds the four admin roles and no operating role; the Safe holds no admin
+  role, `MINT_ROLE` or `BURN_ROLE`; the deploy key holds nothing; and every
+  `getRoleAdmin` wiring is as `initialize` sets it. The live orchestrator keeps
+  `assertBeaconSet` / `assertInstance` while both run.
 
 ## Orchestrator roles
 

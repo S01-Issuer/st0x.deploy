@@ -6,6 +6,7 @@ import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
 import {Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 import {AcceptingMintRecipient} from "./AcceptingMintRecipient.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 /// @title MintWithCallbackRecipientTest
 /// @notice Workflow: a contract recipient with no key authorises via the
@@ -14,6 +15,7 @@ import {AcceptingMintRecipient} from "./AcceptingMintRecipient.sol";
 contract MintWithCallbackRecipientTest is OrchestratorIntegrationTest {
     function testMintWithCallbackRecipient() external {
         AcceptingMintRecipient recipient = new AcceptingMintRecipient();
+        _allowRecipient(address(recipient));
         uint256 amount = 42e18;
         bytes32 nonce = keccak256("callback");
 
@@ -22,7 +24,9 @@ contract MintWithCallbackRecipientTest is OrchestratorIntegrationTest {
         vm.expectCall(address(recipient), abi.encodeWithSelector(IMintRecipient.authorizeMint.selector, digest));
 
         vm.prank(MM);
-        orchestrator.mint(address(vault), address(recipient), amount, _callbackMintAuth(nonce), "");
+        orchestrator.mint(
+            address(vault), address(recipient), amount, _callbackMintAuth(nonce), "", new SignedContextV2[](0)
+        );
 
         assertEq(vault.balanceOf(address(recipient)), amount, "callback recipient received the shares");
         assertEq(receipt.balanceOf(address(orchestrator), vault.highwaterId()), amount, "orchestrator holds receipt");

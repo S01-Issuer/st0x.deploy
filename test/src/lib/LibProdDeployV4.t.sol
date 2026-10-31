@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1167Proxy.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
@@ -19,6 +20,8 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
 
 /// @title LibProdDeployV4Test
 /// @notice Pins every constant in `LibProdDeployV4` so a wrong address or
@@ -162,6 +165,24 @@ contract LibProdDeployV4Test is Test {
     // Needs the candidate orchestrator impl deployed first so the beacon's
     // impl-has-code check passes). ---
 
+    function testDeployAddressST0xOrchestratorBeaconSetDeployer() external {
+        LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
+        address deployed = deployZoltuWithinEip170(type(ST0xOrchestratorBeaconSetDeployer).creationCode);
+        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE);
+    }
+
+    function testDeployAddressSt0xAttestSubParser() external {
+        LibRainDeploy.etchZoltuFactory(vm);
+        address deployed = LibRainDeploy.deployZoltu(type(St0xAttestSubParser).creationCode);
+        assertEq(deployed, LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE);
+        assertTrue(deployed.code.length > 0);
+        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CODEHASH_CANDIDATE);
+    }
+
     // --- Non-deployed-contract constants ---
 
     /// The beacon initial owner is rainlang.eth and unchanged across versions.
@@ -196,6 +217,11 @@ contract LibProdDeployV4Test is Test {
             type(StoxCorporateActionsFacet).creationCode
         );
         assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE, type(ST0xOrchestrator).creationCode);
+        assertEq(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+            type(ST0xOrchestratorBeaconSetDeployer).creationCode
+        );
+        assertEq(LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CREATION_CODE_CANDIDATE, type(St0xAttestSubParser).creationCode);
     }
 
     /// The V4 authoriser clone pin. The address was hydrated from the
@@ -604,6 +630,20 @@ contract LibProdDeployV4Test is Test {
             LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE,
             LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
             LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE
+        );
+    }
+
+    /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
+    /// so the impl is deployed (frozen, at its candidate address) first.
+    function testFrozenRedeployST0xOrchestratorBeaconSetDeployer_CANDIDATE() external {
+        LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
+        _assertFrozenRedeploy(
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
         );
     }
 }

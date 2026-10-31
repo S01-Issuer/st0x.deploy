@@ -7,6 +7,7 @@ import {CertificationExpired} from "rain-vats-0.2.13/src/concrete/authorize/Offc
 
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 /// @title CertificationLapseTest
 /// @notice Workflow: once certification lapses, the orchestrator halts
@@ -17,12 +18,13 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract CertificationLapseTest is OrchestratorIntegrationTest {
     function testCertificationLapseHaltsMintAndBurn() external {
         (address eoa, uint256 pk) = makeAddrAndKey("cert-recipient");
+        _allowRecipient(eoa);
 
         // Pre-lapse external mint to an EOA succeeds.
         uint256 minted = 10e18;
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, minted, keccak256("c0"), pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, minted, auth, "");
+        orchestrator.mint(address(vault), eoa, minted, auth, "", new SignedContextV2[](0));
 
         // Hand the shares to the burner and approve pre-lapse, so the only
         // thing standing between MM and a burn is the certification.
@@ -40,7 +42,7 @@ contract CertificationLapseTest is OrchestratorIntegrationTest {
         MintAuthV1 memory extAuth = _signedMintAuth(address(vault), eoa, 1e18, keccak256("c1"), pk);
         vm.prank(MM);
         vm.expectRevert(abi.encodeWithSelector(CertificationExpired.selector, address(orchestrator), eoa));
-        orchestrator.mint(address(vault), eoa, 1e18, extAuth, "");
+        orchestrator.mint(address(vault), eoa, 1e18, extAuth, "", new SignedContextV2[](0));
 
         // Burn reverts on the pull leg (caller -> orchestrator).
         vm.prank(MM);

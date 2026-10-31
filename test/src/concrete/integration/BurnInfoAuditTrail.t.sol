@@ -8,6 +8,7 @@ import {IReceiptV3} from "rain-vats-0.2.13/src/interface/IReceiptV3.sol";
 
 import {IST0xOrchestratorV2, MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 /// @title BurnInfoAuditTrailTest
 /// @notice Workflow: mint, hand the shares back, then burn with a NON-EMPTY
@@ -18,13 +19,14 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 contract BurnInfoAuditTrailTest is OrchestratorIntegrationTest {
     function testBurnInfoForwardedToVaultRedeem() external {
         (address eoa, uint256 pk) = makeAddrAndKey("audit-recipient");
+        _allowRecipient(eoa);
         uint256 amount = 7e18;
         bytes32 nonce = keccak256("audit-burn");
         bytes memory burnInfo = bytes("st0x:debt-repay-burn:42");
 
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
         vm.prank(MM);
-        orchestrator.mint(address(vault), eoa, amount, auth, "");
+        orchestrator.mint(address(vault), eoa, amount, auth, "", new SignedContextV2[](0));
         uint256 mintedId = vault.highwaterId();
 
         vm.prank(eoa);
