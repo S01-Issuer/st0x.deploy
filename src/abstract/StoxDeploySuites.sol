@@ -18,6 +18,10 @@ import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
 } from "rain-factory-deploy-0.2.4/src/generated/0_1_15/CloneFactory.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
@@ -187,7 +191,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE,
                 V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE,
                 ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH,
-                one(V4.ST0X_ORCHESTRATOR_CANDIDATE, V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE)
+                two(
+                    V4.ST0X_ORCHESTRATOR_CANDIDATE,
+                    V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE
+                )
             )
         );
         candidates[9] = anchored(
