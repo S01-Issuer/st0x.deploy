@@ -31,7 +31,6 @@ import {
 
 const REGISTRY = "0x1a4b89828eb2dd5f3a353bd98472512f371ce408";
 const REGISTRY_V3 = "0x5a48e719785e11c4643ea4056d0861a6a69e91a0";
-/** st0x `LibStoxMigrations.WRITER`. */
 const WRITER = "0x0b300013cd54a8f1ac40981f80faaa18b8cc1e4c";
 const SAFE = "0x00000000000000000000000000000000000000d1";
 /** `keccak256("st0x.deploy")`, from `cast keccak`: `LibStoxMigrations.NAMESPACE`. */

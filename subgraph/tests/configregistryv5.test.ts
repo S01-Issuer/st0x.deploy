@@ -38,7 +38,7 @@ import {
 const REGISTRY = "0xdc3909127e51dcb3ab7d43eee585dd351f77c285";
 const REGISTRY_V3 = "0x2f1f82c65cce305df3950f8af8fa5ad6d9a815e8";
 const OTHER_REGISTRY = "0x00000000000000000000000000000000000000e5";
-/** st0x `LibStoxMigrations.WRITER`, the root authority. */
+/** st0x `LibStoxConfig.ROOT_AUTHORITY`. */
 const AUTHORITY = "0x0b300013cd54a8f1ac40981f80faaa18b8cc1e4c";
 const DELEGATE = "0x00000000000000000000000000000000000000d1";
 /** `keccak256("st0x.rbac.us.v1")`, from `cast keccak`. */
