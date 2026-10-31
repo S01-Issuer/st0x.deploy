@@ -2,26 +2,29 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
+import {Vm} from "forge-std-1.17.0/src/Test.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.29/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibConfigRegistryDeploy.sol";
 
 import {ST0xOrchestratorBeaconSetDeployer} from "../../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {UpgradedImpl} from "./UpgradedImpl.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
-import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
-import {
-    LibTimelockInvariants,
-    UnsupportedChainForGovernanceTimelock
-} from "../../../../src/lib/LibTimelockInvariants.sol";
+import {LibStoxConfig, ZeroGovernanceTimelock} from "../../../../src/lib/LibStoxConfig.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {IST0xOrchestratorBeaconSetDeployerV2} from "../../../../src/interface/IST0xOrchestratorBeaconSetDeployerV2.sol";
+import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
+import {GovernanceTimelockSeatTest} from "../../lib/GovernanceTimelockSeatTest.sol";
 
-contract ST0xOrchestratorBeaconSetDeployerTest is Test {
+contract ST0xOrchestratorBeaconSetDeployerTest is GovernanceTimelockSeatTest {
     // ERC-1967 beacon slot.
     bytes32 internal constant BEACON_SLOT = 0xa3f0ad74e5423aebfd80d3ef4346578335a9a72aeaee59ff6cb3582b35133d50;
+
+    /// The governance timelock the tests not about resolving it bind.
+    address internal constant TIMELOCK = address(uint160(uint256(keccak256("TIMELOCK"))));
 
     ST0xOrchestrator internal impl;
 
@@ -32,66 +35,49 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         // the freshly-built orchestrator runtime there — the beacon requires
         // code at that address, and `deploy` delegatecalls it via the proxy.
         vm.etch(LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, address(impl).code);
-        // `initialize` seats the chain's timelock, so the default test chain
-        // id (which has none) would revert every deploy.
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
+    function seat() internal override returns (address) {
+        return address(new ST0xOrchestratorBeaconSetDeployer());
+    }
+
+    /// The beacon serves the candidate orchestrator and is owned by
+    /// `timelock`.
+    function assertSeated(address seated, address timelock) internal view override {
+        IBeacon beacon = ST0xOrchestratorBeaconSetDeployer(seated).iOrchestratorBeacon();
+        assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, "beacon impl");
+        assertEq(Ownable(address(beacon)).owner(), timelock, "beacon owner");
     }
 
     function _deployer() internal returns (ST0xOrchestratorBeaconSetDeployer) {
+        LibTestDeploy.bindGovernanceTimelock(vm, TIMELOCK);
         return new ST0xOrchestratorBeaconSetDeployer();
     }
 
-    /// The no-arg constructor bakes the beacon implementation from
-    /// `LibProdDeployV4` and hands the beacon to the chain's timelock: the
-    /// deploy key never owns it.
-    function testFuzzConstructorSuccess(uint256 chainIndex) external {
-        (uint256 chainId, address timelock) = _chain(chainIndex);
-        vm.chainId(chainId);
-        ST0xOrchestratorBeaconSetDeployer d = _deployer();
-        IBeacon beacon = d.iOrchestratorBeacon();
-        assertEq(beacon.implementation(), LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, "beacon impl");
-        assertEq(Ownable(address(beacon)).owner(), timelock, "beacon owner");
-        assertTrue(timelock != LibProdDeployV4.BEACON_INITIAL_OWNER, "not the deploy key");
+    /// The account constructing the deployer never owns the beacon: the
+    /// bound timelock does.
+    function testFuzzConstructorHandsTheBeaconToTheBoundTimelockNotTheSender(address sender, address timelock)
+        external
+    {
+        vm.assume(timelock != address(0) && sender != timelock);
+        LibTestDeploy.bindGovernanceTimelock(vm, timelock);
+        vm.prank(sender);
+        ST0xOrchestratorBeaconSetDeployer d = new ST0xOrchestratorBeaconSetDeployer();
+        assertSeated(address(d), timelock);
     }
 
-    /// A chain with no pinned timelock has no beacon owner, so the deployer
-    /// cannot be constructed there.
-    function testConstructorRevertsOnAChainWithNoTimelock() external {
-        vm.chainId(1337);
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForGovernanceTimelock.selector, uint256(1337)));
-        new ST0xOrchestratorBeaconSetDeployer();
-    }
-
-    /// The chains with a pinned governance timelock, each paired with it.
-    function _chain(uint256 index) internal pure returns (uint256 chainId, address timelock) {
-        uint256[5] memory chainIds = [
-            LibSafeInvariants.BASE_CHAIN_ID,
-            LibSafeInvariants.ETHEREUM_CHAIN_ID,
-            LibSafeInvariants.HYPEREVM_CHAIN_ID,
-            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
-        ];
-        chainId = chainIds[index % chainIds.length];
-        timelock = LibTimelockInvariants.timelockForChainId(chainId);
-    }
-
-    /// A chain with no pinned timelock has no owner to seat, so `deploy`
-    /// reverts rather than deploying an instance nobody governs.
-    function testDeployRevertsOnAChainWithNoTimelock() external {
-        ST0xOrchestratorBeaconSetDeployer d = _deployer();
-        vm.chainId(1337);
-        vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForGovernanceTimelock.selector, uint256(1337)));
-        d.deploy();
-    }
-
-    /// The caller does not choose the owner: on every chain the deployed
-    /// instance's admin is that chain's timelock, whoever calls.
-    function testFuzzDeploySuccess(uint256 chainIndex, address caller) external {
-        (uint256 chainId, address timelock) = _chain(chainIndex);
+    /// The caller does not choose the owner: on any chain the deployed
+    /// instance's admin is the bound timelock, whoever calls.
+    function testFuzzDeploySeatsTheBoundTimelockOnAnyChain(uint256 chainId, address timelock, address caller)
+        external
+    {
+        chainId = bound(chainId, 1, type(uint64).max - 1);
+        vm.assume(timelock != address(0));
         vm.assume(caller != address(0));
         vm.assume(caller != timelock);
         vm.chainId(chainId);
-        ST0xOrchestratorBeaconSetDeployer d = _deployer();
+        LibTestDeploy.bindGovernanceTimelock(vm, timelock);
+        ST0xOrchestratorBeaconSetDeployer d = new ST0xOrchestratorBeaconSetDeployer();
         IBeacon beacon = d.iOrchestratorBeacon();
 
         vm.recordLogs();
@@ -122,17 +108,56 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         assertTrue(found, "Deployment emitted");
     }
 
+    /// `deploy` resolves the timelock again, so a root rebind to zero after
+    /// construction leaves nothing to seat.
+    function testDeployRefusesARebindToAZeroTimelock() external {
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
+        LibTestDeploy.bindGovernanceTimelock(vm, address(0));
+        vm.expectRevert(abi.encodeWithSelector(ZeroGovernanceTimelock.selector));
+        d.deploy();
+    }
+
+    function testFuzzDeployRefusesARebindToAValueTypeOtherThanAddress(string memory valueType) external {
+        vm.assume(bytes(valueType).length > 0 && keccak256(bytes(valueType)) != keccak256("address"));
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, valueType, abi.encode(TIMELOCK)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibConfigRegistry.ValueTypeMismatch.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                keccak256("address"),
+                keccak256(bytes(valueType))
+            )
+        );
+        d.deploy();
+    }
+
+    function testFuzzDeployRefusesOtherCodeAtTheRegistry(bytes memory code) external {
+        vm.assume(code.length > 0 && keccak256(code) != LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_CODEHASH);
+        ST0xOrchestratorBeaconSetDeployer d = _deployer();
+        vm.etch(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, code);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibConfigRegistry.UnexpectedConfigRegistryCodeHash.selector,
+                LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_CODEHASH,
+                keccak256(code)
+            )
+        );
+        d.deploy();
+    }
+
     /// Two deploys give two proxies under the same owner: the owner is not
     /// what distinguishes them.
     function testDeployMultipleDistinct() external {
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         address a = d.deploy();
         address b = d.deploy();
         assertTrue(a != b, "distinct proxies");
-        address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
-        assertTrue(ST0xOrchestrator(payable(a)).hasRole(0x00, timelock), "first seats the timelock");
-        assertTrue(ST0xOrchestrator(payable(b)).hasRole(0x00, timelock), "second seats the timelock");
+        assertTrue(ST0xOrchestrator(payable(a)).hasRole(0x00, TIMELOCK), "first seats the timelock");
+        assertTrue(ST0xOrchestrator(payable(b)).hasRole(0x00, TIMELOCK), "second seats the timelock");
     }
 
     function testBeaconUpgradeRedirectsSingleton() external {
@@ -141,8 +166,8 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
         address orchestrator = d.deploy();
 
         UpgradedImpl newImpl = new UpgradedImpl();
-        // The beacon owner is the chain's timelock, not a deploy param.
-        vm.prank(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
+        // The beacon owner is the bound timelock, not a deploy param.
+        vm.prank(TIMELOCK);
         UpgradeableBeacon(address(beacon)).upgradeTo(address(newImpl));
 
         // Call through the proxy proves live delegation to the new impl.
@@ -150,7 +175,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is Test {
     }
 
     function testFuzzBeaconUpgradeUnauthorised(address notOwner) external {
-        vm.assume(notOwner != LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK && notOwner != address(0));
+        vm.assume(notOwner != TIMELOCK && notOwner != address(0));
         ST0xOrchestratorBeaconSetDeployer d = _deployer();
         IBeacon beacon = d.iOrchestratorBeacon();
         UpgradedImpl newImpl = new UpgradedImpl();
