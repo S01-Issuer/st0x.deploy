@@ -6,7 +6,11 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
-import {IInterpreterCallerV5, EvaluableV4, SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
+import {
+    IInterpreterCallerV5,
+    EvaluableV4,
+    SignedContextV2
+} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 import {StateNamespace} from "rainlang-0.2.30/src/interface/IInterpreterStoreV3.sol";
 import {LibNamespace} from "rainlang-0.2.30/src/lib/ns/LibNamespace.sol";
 import {InvalidSignature} from "rainlang-0.2.30/src/lib/caller/LibContext.sol";
@@ -242,7 +246,9 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting(
             string.concat(
-                ":ensure(binary-equal-to(lead() ", address(account).toHexString(), ") \"lead is not the account\"),\n",
+                ":ensure(binary-equal-to(lead() ",
+                address(account).toHexString(),
+                ") \"lead is not the account\"),\n",
                 PRICED
             )
         );

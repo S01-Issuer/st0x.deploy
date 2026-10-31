@@ -136,16 +136,13 @@ abstract contract St0xAttestSubParserTest is Test {
     /// The EIP-712 digest of a `SignedContextV2` by `account` over `context`
     /// under `domain`, from the typed-data encoding rather than `LibContext`.
     function digest(bytes32 domain, address account, bytes32[] memory context) internal pure returns (bytes32) {
-        bytes32 structHash = keccak256(abi.encode(SIGNED_CONTEXT_V2_TYPEHASH, account, keccak256(abi.encodePacked(context))));
+        bytes32 structHash =
+            keccak256(abi.encode(SIGNED_CONTEXT_V2_TYPEHASH, account, keccak256(abi.encodePacked(context))));
         return keccak256(abi.encodePacked(hex"1901", domain, structHash));
     }
 
     /// An attestation column `[symbol, price, time]`.
-    function attestation(bytes32 attestedSymbol, bytes32 price, bytes32 time)
-        internal
-        pure
-        returns (bytes32[] memory)
-    {
+    function attestation(bytes32 attestedSymbol, bytes32 price, bytes32 time) internal pure returns (bytes32[] memory) {
         bytes32[] memory context = new bytes32[](CONTEXT_ATTESTATION_ROWS);
         context[0] = attestedSymbol;
         context[1] = price;
