@@ -28,8 +28,8 @@
 #operator-5 !An allowlisted pool operator.
 #operator-6 !An allowlisted pool operator.
 
-#lead-domain !The EIP-712 domain separator the lead signs under.
-#pool-domain !The EIP-712 domain separator every pool operator signs under.
+#lead-domain-separator !The EIP-712 domain separator the lead signs under.
+#pool-domain-separator !The EIP-712 domain separator every pool operator signs under.
 
 #max-deviation !Proportional limit on how far apart the attested prices may be. 0.01 is 1%.
 #max-time-spread !How far apart the attested times and the chain clock may be, in seconds.
@@ -54,13 +54,13 @@ using-words-from st0x-attest-subparser
   "Attestor not allowlisted"
 ),
 
-/* Signers choose their domain; context column 3 holds each signer's, in signer order. */
+/* Signers choose their domain, so each is pinned. */
 :ensure(
-  binary-equal-to(context<3 0>() lead-domain)
+  binary-equal-to(lead-domain() lead-domain-separator)
   "Lead domain mismatch"
 ),
 :ensure(
-  binary-equal-to(context<3 1>() context<3 2>() pool-domain)
+  binary-equal-to(attestor-domain<0>() attestor-domain<1>() pool-domain-separator)
   "Attestor domain mismatch"
 ),
 
