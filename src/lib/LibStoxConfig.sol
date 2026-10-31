@@ -4,6 +4,8 @@ pragma solidity ^0.8.25;
 
 import {LibConfigRegistry} from "rain-deploy-0.1.29/src/lib/LibConfigRegistry.sol";
 
+error ZeroGovernanceTimelock();
+
 /// @title LibStoxConfig
 /// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V5, all under the
 /// root authority: the same account on every chain, so a consumer's creation
@@ -25,11 +27,13 @@ library LibStoxConfig {
     bytes32 internal constant GOVERNANCE_TIMELOCK_NAME = keccak256("st0x.governance-timelock.v1");
 
     /// @notice The governance timelock bound under `GOVERNANCE_TIMELOCK_NAME`.
-    /// Reverts when the registry is absent or the binding is unset or not an
-    /// `address`.
+    /// Reverts when the registry is absent or the binding is unset, not an
+    /// `address`, or zero.
     function governanceTimelock() internal view returns (address) {
         (bytes memory value,) =
             LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_TIMELOCK_NAME, keccak256("address"));
-        return abi.decode(value, (address));
+        address timelock = abi.decode(value, (address));
+        if (timelock == address(0)) revert ZeroGovernanceTimelock();
+        return timelock;
     }
 }
