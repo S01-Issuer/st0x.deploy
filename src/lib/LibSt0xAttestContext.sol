@@ -2,19 +2,20 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibContext} from "rainlang-interface-0.2.13/src/lib/caller/LibContext.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {LibContext} from "rainlang-0.2.30/src/lib/caller/LibContext.sol";
+import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
-// The context grid the subparser's words name. It is what `LibContext.build`
+// The context grid the subparser's words name. It is what `LibContext.buildV2`
 // produces for a caller that passes one column of its own, the mint, followed
 // by the attestations as signed contexts with the lead first:
 //
-//   column 0  base          [sender, calling contract]
-//   column 1  mint          [symbol, amount]
-//   column 2  signers       [lead, attestor 0, attestor 1, ...]
-//   column 3  lead          [symbol, price, time]
-//   column 4  attestor 0    [symbol, price, time]
-//   column 5  attestor 1    [symbol, price, time]
+//   column 0  base               [sender, calling contract]
+//   column 1  mint               [symbol, amount]
+//   column 2  signers            [lead, attestor 0, attestor 1, ...]
+//   column 3  domain separators  [lead, attestor 0, attestor 1, ...]
+//   column 4  lead               [symbol, price, time]
+//   column 5  attestor 0         [symbol, price, time]
+//   column 6  attestor 1         [symbol, price, time]
 //   ...
 //
 // A caller that wants the words to mean what they say builds its context with
@@ -34,9 +35,9 @@ uint256 constant CONTEXT_MINT_ROW_AMOUNT = 1;
 /// @dev Rows in the mint column.
 uint256 constant CONTEXT_MINT_ROWS = 2;
 
-/// @dev The recovered signer of each attestation, one row per attestation in
-/// the order of the attestation columns. The signer is never one of the
-/// attested values, it is recovered from the signature.
+/// @dev The signer of each attestation, one row per attestation in the order
+/// of the attestation columns. The signer is never one of the attested values;
+/// `LibContext.buildV2` verifies the signature for it.
 uint256 constant CONTEXT_SIGNERS_COLUMN = 2;
 
 /// @dev The lead's attestation is mandatory and signs first.
@@ -46,12 +47,17 @@ uint256 constant CONTEXT_SIGNERS_ROW_LEAD = 0;
 /// pool indexes from zero separately from the lead.
 uint256 constant CONTEXT_SIGNERS_ROW_ATTESTOR_0 = 1;
 
+/// @dev The EIP-712 domain separator of each attestation, rows aligned with
+/// `CONTEXT_SIGNERS_COLUMN`. The signer chooses it, so the expression pins each
+/// signer's domain from this column.
+uint256 constant CONTEXT_DOMAIN_SEPARATORS_COLUMN = 3;
+
 /// @dev The lead's attestation is the first signed context column.
-uint256 constant CONTEXT_LEAD_COLUMN = 3;
+uint256 constant CONTEXT_LEAD_COLUMN = 4;
 
 /// @dev Pool attestor `N`'s attestation is column
 /// `CONTEXT_ATTESTOR_0_COLUMN + N`.
-uint256 constant CONTEXT_ATTESTOR_0_COLUMN = 4;
+uint256 constant CONTEXT_ATTESTOR_0_COLUMN = 5;
 
 /// @dev Every attestation carries three values in this order: the symbol, the
 /// price, the time. The rows are the same for the lead's column and every pool
@@ -72,15 +78,15 @@ uint256 constant CONTEXT_ATTESTATION_ROWS = 3;
 /// name.
 library LibSt0xAttestContext {
     /// @notice Builds the grid for one mint request and its attestations.
-    /// `LibContext.build` reverts on any invalid signature, so every signer in
-    /// the grid signed the column beside it.
+    /// `LibContext.buildV2` reverts on any invalid signature, so every signer
+    /// in the grid signed its attestation column under its domain separator.
     /// @param mintSymbol The symbol of the token being minted, IntOrAString.
     /// @param mintAmount The amount being requested, a Rain Float.
     /// @param attestations The signed attestations, the lead's first. Each
     /// context is `[symbol, price, time]`. The layout is not checked here; a
     /// short column reverts at eval when a word reads past it.
     /// @return The context grid.
-    function build(bytes32 mintSymbol, bytes32 mintAmount, SignedContextV1[] memory attestations)
+    function build(bytes32 mintSymbol, bytes32 mintAmount, SignedContextV2[] memory attestations)
         internal
         view
         returns (bytes32[][] memory)
@@ -90,6 +96,6 @@ library LibSt0xAttestContext {
         mint[CONTEXT_MINT_ROW_AMOUNT] = mintAmount;
         bytes32[][] memory callerContext = new bytes32[][](1);
         callerContext[0] = mint;
-        return LibContext.build(callerContext, attestations);
+        return LibContext.buildV2(callerContext, attestations);
     }
 }

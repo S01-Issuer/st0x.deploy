@@ -54,15 +54,15 @@ uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 10;
 /// @notice The words of `St0xAttestSubParser`. Each one names a cell of the
 /// grid in `LibSt0xAttestContext` and subparses to a `context` opcode.
 ///
-/// `lead` and `attestor<N>` read the signers column: the address recovered
-/// from each attestation's signature. `lead` is its own word; the pool
-/// indexes from zero separately from it.
+/// `lead` and `attestor<N>` read the signers column: the account whose
+/// signature `LibContext.buildV2` verified for each attestation. `lead` is its
+/// own word; the pool indexes from zero separately from it.
 ///
 /// A word whose cell is not in the grid at eval, such as `attestor<3>` when
 /// two pool attestations were provided, reverts there: the `context` opcode
 /// bounds-checks its read.
 library LibSt0xAttestSubParser {
-    /// @notice `lead`: the address recovered from the lead's signature.
+    /// @notice `lead`: the verified signer of the lead attestation.
     /// @return Whether the sub parse succeeded.
     /// @return The bytecode for the context opcode.
     /// @return The constants for the context opcode, always empty.
@@ -72,8 +72,7 @@ library LibSt0xAttestSubParser {
         return LibSubParse.subParserContext(CONTEXT_SIGNERS_COLUMN, CONTEXT_SIGNERS_ROW_LEAD);
     }
 
-    /// @notice `attestor<N>`: the address recovered from pool attestation
-    /// `N`'s signature.
+    /// @notice `attestor<N>`: the verified signer of pool attestation `N`.
     /// @param operand `N`, a uint16 from the operand handler. `subParserContext`
     /// reverts `ContextGridOverflow` when the row exceeds a byte.
     /// @return Whether the sub parse succeeded.
@@ -221,11 +220,11 @@ library LibSt0xAttestSubParser {
         AuthoringMetaV2[] memory meta = new AuthoringMetaV2[](SUB_PARSER_WORD_PARSERS_LENGTH);
         meta[SUB_PARSER_WORD_LEAD] = AuthoringMetaV2(
             "lead",
-            "The address recovered from the lead attestation's signature. The lead's attestation is mandatory, so it is its own word and never attestor<0>. No operand. An identity: compare it with binary-equal-to, binary-in or binary-unique, never numerically."
+            "The verified signer of the lead attestation. The lead's attestation is mandatory, so it is its own word and never attestor<0>. No operand. An identity: compare it with binary-equal-to, binary-in or binary-unique, never numerically."
         );
         meta[SUB_PARSER_WORD_ATTESTOR] = AuthoringMetaV2(
             "attestor",
-            "The address recovered from pool attestation N's signature, where N is the operand and is required. The pool indexes from zero separately from the lead, so attestor<0> is the first pool attestor. An identity: compare it with binary-equal-to, binary-in or binary-unique, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
+            "The verified signer of pool attestation N, where N is the operand and is required. The pool indexes from zero separately from the lead, so attestor<0> is the first pool attestor. An identity: compare it with binary-equal-to, binary-in or binary-unique, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
         );
         meta[SUB_PARSER_WORD_LEAD_SYMBOL] = AuthoringMetaV2(
             "lead-symbol",
