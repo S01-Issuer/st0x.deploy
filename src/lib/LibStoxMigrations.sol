@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibMigrationRegistry} from "rain-deploy-0.1.25/src/lib/LibMigrationRegistry.sol";
-import {Prerequisite} from "rain-deploy-0.1.25/src/interface/IMigrationRegistryV3.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistry.sol";
+import {Prerequisite} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 
 import {MigrationPrerequisite, MigrationWriter, ScriptDeclaration} from "../interface/IStoxScript.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -60,6 +60,11 @@ library LibStoxMigrations {
     /// governance timelock.
     bytes32 internal constant ORCHESTRATOR_ADMIN_TO_TIMELOCK =
         keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol");
+
+    /// @notice `script/20261030-backfill-migration-registry-v5.s.sol`: the
+    /// Safe's V2 `MigrationRegistry` records replayed onto V5.
+    bytes32 internal constant BACKFILL_MIGRATION_REGISTRY_V5 =
+        keccak256("script/20261030-backfill-migration-registry-v5.s.sol");
 
     /// @notice A migration `writer` records in `namespace`, applied onto
     /// `headMigration` in `writer`'s own line of that namespace.
@@ -178,11 +183,12 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationV3Call(
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationV4Call(
             writerFor(declared.writer, safe, timelock),
             declared.namespace,
             declared.id,
-            prerequisitesFor(declared, safe, timelock)
+            prerequisitesFor(declared, safe, timelock),
+            ""
         );
         return (registry, data);
     }
@@ -200,12 +206,13 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryV3Call(
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryV4Call(
             writerFor(declared.writer, safe, timelock),
             declared.namespace,
             declared.id,
             appliedAt,
-            prerequisitesFor(declared, safe, timelock)
+            prerequisitesFor(declared, safe, timelock),
+            ""
         );
         return (registry, data);
     }
@@ -246,7 +253,7 @@ library LibStoxMigrations {
     /// @param migration The migration id.
     /// @return The recorded moment, or zero.
     function applied(address writer, bytes32 migration) internal view returns (uint256) {
-        return LibMigrationRegistry.appliedV3(writer, NAMESPACE, migration);
+        return LibMigrationRegistry.appliedV5(writer, NAMESPACE, migration);
     }
 
     /// @notice The migration `writer`'s line in this repo's namespace was last
@@ -254,7 +261,7 @@ library LibStoxMigrations {
     /// @param writer The account whose line to read.
     /// @return The head.
     function head(address writer) internal view returns (bytes32) {
-        return LibMigrationRegistry.headV3(writer, NAMESPACE);
+        return LibMigrationRegistry.headV5(writer, NAMESPACE);
     }
 
     /// @notice The prerequisite list for a migration applied onto

@@ -4,8 +4,12 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploySnapshot} from "rain-deploy-0.1.25/src/lib/LibRainDeploySnapshot.sol";
-import {DeployCandidate, DeploySuite} from "rain-deploy-0.1.25/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploySnapshot} from "rain-deploy-0.1.29/src/lib/LibRainDeploySnapshot.sol";
+import {
+    DeployCandidate,
+    DeployDeclaration,
+    DeploySuite
+} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
@@ -148,8 +152,9 @@ contract BuildPointers is Script, StoxDeploySuites {
         string[13] memory names = contractNames();
         DeploySuite[13] memory templates = releasedTemplates(candidates);
         string[] memory released = new string[](names.length);
+        DeployDeclaration memory d = declaration();
         for (uint256 i = 0; i < names.length; i++) {
-            LibRainDeploySnapshot.writeReleasedSuitesLib(vm, LIB_DIR, RECORD_ROOT, names[i], templates[i]);
+            LibRainDeploySnapshot.writeReleasedSuitesLib(vm, LIB_DIR, RECORD_ROOT, names[i], templates[i], d);
             released[i] = names[i];
         }
         LibRainDeploySnapshot.writeReleasedSuitesAggregate(vm, LIB_DIR, released);

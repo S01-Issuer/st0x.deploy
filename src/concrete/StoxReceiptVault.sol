@@ -2,15 +2,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.12/src/abstract/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.12/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.13/src/abstract/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
 import {LibRebase} from "../lib/LibRebase.sol";
 import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
-import {AuthorizerMissingCorporateActionAdmin} from "../error/ErrCorporateAction.sol";
+import {AuthorizerMissingCorporateActionAdmin, CorporateActionsFacetNotDeployed} from "../error/ErrCorporateAction.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -185,8 +185,14 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// Plain ETH transfers with empty calldata hit `receive()`, not this
     /// function, so refunds continue to work without going through delegatecall.
     ///
+    /// Reverts with `CorporateActionsFacetNotDeployed` when the pinned facet
+    /// address has no code, so a facet call made before the facet is deployed
+    /// fails instead of succeeding as a no-op.
+    ///
     /// **Trust model.** The corporate-actions facet calls the vault's
-    /// `authorizer()` for any state-mutating entry point (schedule, cancel).
+    /// `authorizer()` from `scheduleCorporateAction` and
+    /// `cancelCorporateAction`. `setUnderlying` is gated by the vault owner
+    /// instead, through a static `owner()` lookup that cannot re-enter.
     /// The authorizer is the canonical permission boundary — set by the
     /// vault owner during initialization. A compromised authorizer can
     /// already grant or deny any permission, so re-entrancy through the
@@ -197,7 +203,13 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
         address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        bytes4 notDeployed = CorporateActionsFacetNotDeployed.selector;
         assembly ("memory-safe") {
+            if iszero(extcodesize(facet)) {
+                mstore(0, notDeployed)
+                mstore(4, facet)
+                revert(0, 0x24)
+            }
             calldatacopy(0, 0, calldatasize())
             let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
             returndatacopy(0, 0, returndatasize())

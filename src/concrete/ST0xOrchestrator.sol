@@ -14,9 +14,9 @@ import {IERC1155Receiver} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 import {SignatureChecker} from "@openzeppelin-contracts-5.7.0/utils/cryptography/SignatureChecker.sol";
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.12/src/abstract/OffchainAssetReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.12/src/interface/IReceiptV3.sol";
-import {ReceiptVault} from "rain-vats-0.2.12/src/abstract/ReceiptVault.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.13/src/abstract/OffchainAssetReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.13/src/interface/IReceiptV3.sol";
+import {ReceiptVault} from "rain-vats-0.2.13/src/abstract/ReceiptVault.sol";
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
