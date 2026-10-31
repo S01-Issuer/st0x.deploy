@@ -25,7 +25,8 @@ import {
 /// @notice Registered in an expression with `using-words-from`, provides
 /// `lead`, `attestor<N>`, `lead-symbol`, `lead-price`, `lead-time`,
 /// `attested-symbol<N>`, `attested-price<N>`, `attested-time<N>`,
-/// `mint-symbol` and `mint-amount`, each of which compiles to a `context`
+/// `mint-symbol`, `mint-amount`, `lead-domain` and `attestor-domain<N>`, each
+/// of which compiles to a `context`
 /// read of the grid in `LibSt0xAttestContext`.
 ///
 /// Every table the base contract dispatches on is a constant from
@@ -91,7 +92,11 @@ contract St0xAttestSubParser is BaseRainlangSubParser {
                     // mint-symbol
                     LibParseOperand.handleOperandDisallowed,
                     // mint-amount
-                    LibParseOperand.handleOperandDisallowed
+                    LibParseOperand.handleOperandDisallowed,
+                    // lead-domain
+                    LibParseOperand.handleOperandDisallowed,
+                    // attestor-domain<N>
+                    LibParseOperand.handleOperandSingleFullNoDefault
                 ];
             uint256[] memory handlersDynamic;
             assembly ("memory-safe") {
@@ -128,7 +133,9 @@ contract St0xAttestSubParser is BaseRainlangSubParser {
                     LibSt0xAttestSubParser.subParserAttestedPrice,
                     LibSt0xAttestSubParser.subParserAttestedTime,
                     LibSt0xAttestSubParser.subParserMintSymbol,
-                    LibSt0xAttestSubParser.subParserMintAmount
+                    LibSt0xAttestSubParser.subParserMintAmount,
+                    LibSt0xAttestSubParser.subParserLeadDomain,
+                    LibSt0xAttestSubParser.subParserAttestorDomain
                 ];
             uint256[] memory parsersDynamic;
             assembly ("memory-safe") {
