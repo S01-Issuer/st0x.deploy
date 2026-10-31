@@ -3,8 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {EvaluableV4, SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 
 import {Digest, MintAuthV1} from "./deprecated/IST0xOrchestratorV1.sol";
 
@@ -181,16 +180,17 @@ interface IST0xOrchestratorV2 {
     /// verbatim to `vault.mint` — not part of the recipient's authorisation.
     /// @param attestations The signed attestations the weighting reads, the
     /// lead's first, each `[symbol, price, time]` (see
-    /// `LibSt0xAttestContext`). Every signature is verified before the
-    /// expression runs; what the signed values must be is the expression's
-    /// decision. Not part of the recipient's authorisation.
+    /// `LibSt0xAttestContext`). Every signature is verified under its own
+    /// domain separator before the expression runs; what the signed values
+    /// and domains must be is the expression's decision. Not part of the
+    /// recipient's authorisation.
     function mint(
         address token,
         address to,
         uint256 amount,
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation,
-        SignedContextV1[] calldata attestations
+        SignedContextV2[] calldata attestations
     ) external;
 
     /// @notice Burn `amount` rebased tStocks of `token`, pulled from the

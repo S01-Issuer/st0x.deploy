@@ -21,8 +21,11 @@ import {ReceiptVault} from "rain-vats-0.2.13/src/abstract/ReceiptVault.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
 import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
-import {IInterpreterCallerV4, EvaluableV4} from "rainlang-0.2.30/src/interface/deprecated/v3/IInterpreterCallerV4.sol";
-import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
+import {
+    IInterpreterCallerV5,
+    EvaluableV4,
+    SignedContextV2
+} from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
 import {
     EvalV4,
     SourceIndexV2,
@@ -130,15 +133,17 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// attestations the minter passed, every signature verified) and evaluates
 /// the expression over it. The last output is the charge on both buckets.
 /// What the attestations must say is the expression's to check and revert
-/// on; the orchestrator verifies only that each attestation was signed by the
-/// signer it names. State the expression writes is persisted to its store
-/// under the orchestrator's namespace.
+/// on, including pinning each signer's domain from the domain separators
+/// column; the orchestrator verifies only that each attestation was signed by
+/// the signer it names under the domain separator it names. State the
+/// expression writes is persisted to its store under the orchestrator's
+/// namespace.
 ///
 /// The bucket library refuses a zero charge and a negative charge at every
 /// fill. A weighting that evaluates to zero or below is a refused mint.
 contract ST0xOrchestrator is
     IST0xOrchestratorV2,
-    IInterpreterCallerV4,
+    IInterpreterCallerV5,
     Initializable,
     AccessControlUpgradeable,
     EIP712Upgradeable,
@@ -319,7 +324,7 @@ contract ST0xOrchestrator is
         uint256 amount,
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation,
-        SignedContextV1[] calldata attestations
+        SignedContextV2[] calldata attestations
     ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic(token) nonReentrant {
         if (amount == 0) revert ZeroAmount();
         // The sender and the recipient can never be the same.
@@ -347,7 +352,7 @@ contract ST0xOrchestrator is
     /// recipient rejection reverts the whole call.
     ///
     /// `headroomAt` is read to name which cap bound.
-    function _consumeMintCaps(address token, address to, uint256 amount, SignedContextV1[] calldata attestations)
+    function _consumeMintCaps(address token, address to, uint256 amount, SignedContextV2[] calldata attestations)
         internal
     {
         MainStorage storage $ = _main();
@@ -382,7 +387,7 @@ contract ST0xOrchestrator is
     /// The evaluation is a static call; the writes it returns are then
     /// applied to the expression's store under the orchestrator's namespace.
     /// Split out of `_consumeMintCaps` to keep that frame within stack limits.
-    function _weighMint(MainStorage storage $, address token, uint256 amount, SignedContextV1[] calldata attestations)
+    function _weighMint(MainStorage storage $, address token, uint256 amount, SignedContextV2[] calldata attestations)
         internal
         returns (Float)
     {
