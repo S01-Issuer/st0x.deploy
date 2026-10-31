@@ -68,9 +68,7 @@ contract ST0xOrchestratorBeaconSetDeployerTest is GovernanceTimelockSeatTest {
 
     /// The caller does not choose the owner: on any chain the deployed
     /// instance's admin is the bound timelock, whoever calls.
-    function testFuzzDeploySeatsTheBoundTimelockOnAnyChain(uint256 chainId, address timelock, address caller)
-        external
-    {
+    function testFuzzDeploySeatsTheBoundTimelockOnAnyChain(uint256 chainId, address timelock, address caller) external {
         chainId = bound(chainId, 1, type(uint64).max - 1);
         vm.assume(timelock != address(0));
         vm.assume(caller != address(0));
