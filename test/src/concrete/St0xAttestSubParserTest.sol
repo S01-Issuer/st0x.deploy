@@ -2,10 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OpTest} from "rainlang-0.2.30/test/abstract/OpTest.sol";
+import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {MessageHashUtils} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MessageHashUtils.sol";
 import {LibHashNoAlloc} from "rain-lib-hash-0.1.27/src/lib/LibHashNoAlloc.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {SignedContextV1} from "rainlang-interface-0.2.13/src/interface/IInterpreterCallerV4.sol";
 import {
     EvalV4,
@@ -13,17 +14,36 @@ import {
     StackItem,
     FullyQualifiedNamespace
 } from "rainlang-0.2.30/src/interface/IInterpreterV4.sol";
+import {StateNamespace} from "rainlang-0.2.30/src/interface/IInterpreterStoreV3.sol";
+import {LibNamespace} from "rainlang-0.2.30/src/lib/ns/LibNamespace.sol";
+import {BaseRainlangStore} from "rainlang-0.2.30/src/abstract/BaseRainlangStore.sol";
+import {BaseRainlangParser} from "rainlang-0.2.30/src/abstract/BaseRainlangParser.sol";
+import {BaseRainlangInterpreter} from "rainlang-0.2.30/src/abstract/BaseRainlangInterpreter.sol";
+import {BaseRainlangCompiler} from "rainlang-0.2.30/src/abstract/BaseRainlangCompiler.sol";
+import {
+    LibTestInterpreterDeploy,
+    TEST_PARSER_ADDRESS,
+    TEST_STORE_ADDRESS,
+    TEST_INTERPRETER_ADDRESS,
+    TEST_COMPILER_ADDRESS
+} from "rainlang-0.2.30/test/lib/deploy/LibTestInterpreterDeploy.sol";
+import {
+    CREATION_CODE as DECIMAL_FLOAT_CREATION_CODE,
+    DEPLOYED_ADDRESS as DECIMAL_FLOAT_ADDRESS,
+    BYTECODE_HASH as DECIMAL_FLOAT_BYTECODE_HASH
+} from "rain-math-float-deploy-0.1.9/src/generated/0_1_6/DecimalFloat.sol";
 import {LibDecimalFloat, Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
 
 import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestContext, CONTEXT_ATTESTATION_ROWS} from "src/lib/LibSt0xAttestContext.sol";
+import {LibTestTofu} from "test/lib/LibTestTofu.sol";
 
 /// @title St0xAttestSubParserTest
-/// @notice Binds a `St0xAttestSubParser` beside the Rainlang that `OpTest`
-/// deploys, and signs attestations the way a caller would, so the tests parse
-/// and eval real expressions over a real grid.
-abstract contract St0xAttestSubParserTest is OpTest {
+/// @notice Binds a `St0xAttestSubParser` beside the test Rainlang etched at
+/// its fixed addresses, and signs attestations the way a caller would, so the
+/// tests parse and eval real expressions over a real grid.
+abstract contract St0xAttestSubParserTest is Test {
     using Strings for address;
 
     /// @dev Private key of the lead signer.
@@ -32,10 +52,56 @@ abstract contract St0xAttestSubParserTest is OpTest {
     uint256 internal constant OPERATOR_KEY_0 = 0x0A00;
 
     //solhint-disable-next-line private-vars-leading-underscore
+    BaseRainlangCompiler internal immutable I_COMPILER;
+    //solhint-disable-next-line private-vars-leading-underscore
+    BaseRainlangInterpreter internal immutable I_INTERPRETER;
+    //solhint-disable-next-line private-vars-leading-underscore
+    BaseRainlangStore internal immutable I_STORE;
+    //solhint-disable-next-line private-vars-leading-underscore
+    BaseRainlangParser internal immutable I_PARSER;
+    //solhint-disable-next-line private-vars-leading-underscore
     St0xAttestSubParser internal immutable I_SUB_PARSER;
 
     constructor() {
+        LibTestInterpreterDeploy.etchTestRainlang(vm);
+        I_PARSER = BaseRainlangParser(TEST_PARSER_ADDRESS);
+        I_STORE = BaseRainlangStore(TEST_STORE_ADDRESS);
+        I_INTERPRETER = BaseRainlangInterpreter(TEST_INTERPRETER_ADDRESS);
+        I_COMPILER = BaseRainlangCompiler(TEST_COMPILER_ADDRESS);
+
+        LibTestTofu.deployTofu(vm);
+        if (DECIMAL_FLOAT_ADDRESS.codehash != DECIMAL_FLOAT_BYTECODE_HASH) {
+            LibRainDeploy.etchZoltuFactory(vm);
+            LibRainDeploy.deployZoltu(DECIMAL_FLOAT_CREATION_CODE);
+        }
+
         I_SUB_PARSER = new St0xAttestSubParser();
+    }
+
+    /// Parses `rainString` and evals its first source against `context` in
+    /// this contract's namespace.
+    function parseAndEval(bytes memory rainString, bytes32[][] memory context)
+        internal
+        view
+        returns (StackItem[] memory, bytes32[] memory)
+    {
+        return I_INTERPRETER.eval4(
+            EvalV4({
+                store: I_STORE,
+                namespace: LibNamespace.qualifyNamespace(StateNamespace.wrap(0), address(this)),
+                bytecode: I_COMPILER.parse2(rainString),
+                sourceIndex: SourceIndexV2.wrap(0),
+                context: context,
+                inputs: new StackItem[](0),
+                stateOverlay: new bytes32[](0)
+            })
+        );
+    }
+
+    /// Asserts that parsing `rainString` reverts with `err`.
+    function checkUnhappyParse2(bytes memory rainString, bytes memory err) internal {
+        vm.expectRevert(err);
+        I_COMPILER.parse2(rainString);
     }
 
     /// The `using-words-from` pragma for the subparser under test.
