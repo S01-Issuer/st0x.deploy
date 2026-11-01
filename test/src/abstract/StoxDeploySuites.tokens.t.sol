@@ -4,7 +4,11 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {DeployCandidate, DeployDeclaration, DeploySuite} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
+import {
+    DeployCandidate,
+    DeployDeclaration,
+    DeploySuite
+} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeploy, DeployDependency, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
@@ -57,7 +61,8 @@ contract StoxDeployTokenSuitesTest is Test, StoxDeploySuites {
         pure
         returns (DeploySuite memory, RegistryBeaconProxyTarget memory)
     {
-        (DeploySuite memory suite, bool found) = candidateOf(declared, string.concat("stox-token-", vm.toLowercase(config.underlying)));
+        (DeploySuite memory suite, bool found) =
+            candidateOf(declared, string.concat("stox-token-", vm.toLowercase(config.underlying)));
         assertTrue(found, config.underlying);
         (bytes32 mechanism, bytes memory targetData) = abi.decode(suite.mechanismData, (bytes32, bytes));
         assertEq(mechanism, REGISTRY_BEACON_PROXY_MECHANISM, config.underlying);
