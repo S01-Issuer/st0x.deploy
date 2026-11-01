@@ -30,6 +30,12 @@ bytes32 constant YAHOO_SOURCE = 0x0000000000000000000000000000000000000000000000
 bytes32 constant OBSERVATION_CURRENCY = 0x00000000000000000000000000000000000000000000000000000000555344e3;
 /// @dev Rows in an observation's context.
 uint256 constant OBSERVATION_ROWS = 5;
+/// @dev The alpaca observation's signature.
+bytes constant ALPACA_SIGNATURE =
+    hex"58352b32393cd5a39ff2b610552cd268e09be9699afa27ee9b5ae452335f7b2765b280e463bedad681f90af1b73e9f3a1edbcd3c5558743a23f214cad28442a31c";
+/// @dev The yahoo observation's signature.
+bytes constant YAHOO_SIGNATURE =
+    hex"6373f5109611983aa5ebaa3893020214e3abd67baeb27d0ed0c563e1352004631b3e190a622a87104fdecafbcb27fd7e72a04e0114bf0b5a1e701f37459bc5141c";
 
 /// @title St0xAttestSubParserSignedPriceObservationTest
 /// @notice The two signed AAPL observations `GET
@@ -37,11 +43,6 @@ uint256 constant OBSERVATION_ROWS = 5;
 /// for byte, with alpaca as the lead and yahoo as attestor 0.
 contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTest {
     using Strings for address;
-
-    bytes internal constant ALPACA_SIGNATURE =
-        hex"58352b32393cd5a39ff2b610552cd268e09be9699afa27ee9b5ae452335f7b2765b280e463bedad681f90af1b73e9f3a1edbcd3c5558743a23f214cad28442a31c";
-    bytes internal constant YAHOO_SIGNATURE =
-        hex"6373f5109611983aa5ebaa3893020214e3abd67baeb27d0ed0c563e1352004631b3e190a622a87104fdecafbcb27fd7e72a04e0114bf0b5a1e701f37459bc5141c";
 
     function observationContext(bytes32 source) internal pure returns (bytes32[] memory) {
         bytes32[] memory context = new bytes32[](OBSERVATION_ROWS);

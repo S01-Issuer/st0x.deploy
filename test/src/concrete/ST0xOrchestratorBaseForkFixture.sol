@@ -28,7 +28,9 @@ import {
     ALPACA_SOURCE,
     YAHOO_SOURCE,
     OBSERVATION_CURRENCY,
-    OBSERVATION_ROWS
+    OBSERVATION_ROWS,
+    ALPACA_SIGNATURE,
+    YAHOO_SIGNATURE
 } from "test/src/concrete/St0xAttestSubParser.signedPriceObservation.t.sol";
 
 /// @dev Base block 2 s before the price API read the observations
@@ -63,11 +65,6 @@ bytes32 constant BASE_RAINLANG_PARSER_CODEHASH = 0x39cc19032ab38a041625493a3e718
 /// byte, from `St0xAttestSubParser.signedPriceObservation.t.sol`.
 abstract contract ST0xOrchestratorBaseForkFixture is ST0xOrchestratorMintWeightingFixture {
     using Strings for address;
-
-    bytes internal constant ALPACA_SIGNATURE =
-        hex"58352b32393cd5a39ff2b610552cd268e09be9699afa27ee9b5ae452335f7b2765b280e463bedad681f90af1b73e9f3a1edbcd3c5558743a23f214cad28442a31c";
-    bytes internal constant YAHOO_SIGNATURE =
-        hex"6373f5109611983aa5ebaa3893020214e3abd67baeb27d0ed0c563e1352004631b3e190a622a87104fdecafbcb27fd7e72a04e0114bf0b5a1e701f37459bc5141c";
 
     /// @inheritdoc ST0xOrchestratorMintWeightingFixture
     function tokenSymbol() internal pure override returns (string memory) {
