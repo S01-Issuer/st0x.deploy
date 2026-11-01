@@ -26,4 +26,8 @@ library LibStoxConfig {
     /// @notice `abi.encode(OffchainAssetReceiptVaultRbacV1)`: the RBAC EU
     /// production tokens initialize with.
     bytes32 internal constant RBAC_EU_NAME = keccak256("st0x.rbac.eu.v1");
+
+    /// @notice `abi.encode(address)`: the governance timelock that owns
+    /// production tokens.
+    bytes32 internal constant GOVERNANCE_TIMELOCK_NAME = keccak256("st0x.governance-timelock.v1");
 }
