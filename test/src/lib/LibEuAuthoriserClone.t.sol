@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibICloneableFactoryV5} from "rain-factory-0.2.7/src/lib/LibICloneableFactoryV5.sol";
+import {LibICloneableFactoryV5} from "rain-factory-0.2.9/src/lib/LibICloneableFactoryV5.sol";
 
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../../../src/lib/LibEuAuthoriserClone.sol";
 import {

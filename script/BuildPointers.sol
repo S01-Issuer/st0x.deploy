@@ -11,7 +11,7 @@ import {
     DeployDeclaration,
     DeploySuite
 } from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.7/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../src/interface/IST0xVaultBeaconSet.sol";

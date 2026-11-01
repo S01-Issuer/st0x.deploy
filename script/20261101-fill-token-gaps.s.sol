@@ -19,7 +19,7 @@ import {
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyTarget
-} from "rain-factory-0.2.7/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibStoxTokenProxy} from "../src/generated/LibStoxTokenProxy.sol";
 import {LibStoxVaultBeacon} from "../src/generated/LibStoxVaultBeacon.sol";

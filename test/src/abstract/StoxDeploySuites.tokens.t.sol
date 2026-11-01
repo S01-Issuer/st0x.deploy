@@ -19,9 +19,9 @@ import {
     CREATION_CODE as CLONE_FACTORY_V7_CREATION_CODE
 } from "rain-factory-deploy-0.2.4/src/generated/0_2_4/CloneFactory.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.4/src/concrete/CloneFactory.sol";
-import {ICloneableFactoryV7} from "rain-factory-0.2.7/src/interface/ICloneableFactoryV7.sol";
-import {RegistryBeaconProxyTarget} from "rain-factory-0.2.7/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {REGISTRY_BEACON_PROXY_MECHANISM} from "rain-factory-0.2.7/src/lib/LibRainDeployCloneMechanism.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.9/src/interface/ICloneableFactoryV7.sol";
+import {RegistryBeaconProxyTarget} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {REGISTRY_BEACON_PROXY_MECHANISM} from "rain-factory-0.2.9/src/lib/LibRainDeployCloneMechanism.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
