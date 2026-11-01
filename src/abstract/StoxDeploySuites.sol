@@ -132,7 +132,14 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE,
                 V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
                 RECEIPT_VAULT_PATH,
-                one(V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE)
+                three(
+                    V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE,
+                    V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    CLONE_FACTORY_V7_ADDRESS,
+                    CLONE_FACTORY_V7_RUNTIME_CODE
+                )
             )
         );
         candidates[3] = anchored(
@@ -187,11 +194,15 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE,
                 V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
                 ORCHESTRATOR_PATH,
-                two(
+                four(
                     V4.STOX_RECEIPT_CANDIDATE,
                     V4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE,
                     V4.STOX_RECEIPT_VAULT_CANDIDATE,
-                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
+                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    CLONE_FACTORY_V7_ADDRESS,
+                    CLONE_FACTORY_V7_RUNTIME_CODE
                 )
             )
         );
@@ -332,6 +343,39 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         DeployDependency[] memory deps = new DeployDependency[](2);
         deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
         deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        return deps;
+    }
+
+    function three(
+        address a,
+        bytes memory aRuntimeCode,
+        address b,
+        bytes memory bRuntimeCode,
+        address c,
+        bytes memory cRuntimeCode
+    ) internal pure returns (DeployDependency[] memory) {
+        DeployDependency[] memory deps = new DeployDependency[](3);
+        deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
+        deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
+        return deps;
+    }
+
+    function four(
+        address a,
+        bytes memory aRuntimeCode,
+        address b,
+        bytes memory bRuntimeCode,
+        address c,
+        bytes memory cRuntimeCode,
+        address d,
+        bytes memory dRuntimeCode
+    ) internal pure returns (DeployDependency[] memory) {
+        DeployDependency[] memory deps = new DeployDependency[](4);
+        deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
+        deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
+        deps[3] = DeployDependency({deployedAddress: d, runtimeCode: dRuntimeCode});
         return deps;
     }
 }
