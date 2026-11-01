@@ -318,9 +318,8 @@ contract LeadOnlyMintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     // ------------------------------------------------------------------ //
 
     function testANonUsdCurrencyIsRefused() external {
-        bytes32[7] memory currencies = [
-            symbol("EUR"), symbol("usd"), symbol("USDT"), symbol("US"), symbol("USD "), symbol(""), bytes32(0)
-        ];
+        bytes32[7] memory currencies =
+            [symbol("EUR"), symbol("usd"), symbol("USDT"), symbol("US"), symbol("USD "), symbol(""), bytes32(0)];
         for (uint256 i = 0; i < currencies.length; i++) {
             Attestation[] memory attestations = _lead();
             attestations[0].currency = currencies[i];
