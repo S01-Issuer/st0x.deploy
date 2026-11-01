@@ -24,7 +24,7 @@ import {
 } from "./LibSt0xAttestContext.sol";
 
 /// @dev The build depth of the parse meta. One layer of bloom filter is
-/// enough for sixteen words; the build reverts if it is not.
+/// enough for these words; the build reverts if it is not.
 uint8 constant PARSE_META_BUILD_DEPTH = 1;
 
 /// @dev Index of `lead` in the word list.
@@ -59,11 +59,13 @@ uint256 constant SUB_PARSER_WORD_LEAD_CURRENCY = 13;
 uint256 constant SUB_PARSER_WORD_ATTESTED_SOURCE = 14;
 /// @dev Index of `attested-currency` in the word list.
 uint256 constant SUB_PARSER_WORD_ATTESTED_CURRENCY = 15;
+/// @dev Index of `utf8-hash` in the word list.
+uint256 constant SUB_PARSER_WORD_UTF8_HASH = 16;
 
 /// @dev The number of words. The parse meta, the word parsers and the operand
 /// handlers are all indexed by the constants above, so all three are this
 /// long.
-uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 16;
+uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 17;
 
 /// @title LibSt0xAttestSubParser
 /// @notice The words of `St0xAttestSubParser`. Each one names a cell of the
@@ -389,6 +391,10 @@ library LibSt0xAttestSubParser {
         meta[SUB_PARSER_WORD_ATTESTED_CURRENCY] = AuthoringMetaV2(
             "attested-currency",
             "The currency pool attestor N attested its price in, as an IntOrAString bytes32, so a Rainlang string literal compares equal to it. N is the operand and is required. A string: compare it with binary-equal-to, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
+        );
+        meta[SUB_PARSER_WORD_UTF8_HASH] = AuthoringMetaV2(
+            "utf8-hash",
+            "keccak256 of the UTF-8 bytes of its inputs concatenated in order. Each input is an IntOrAString string: a Rainlang string literal or a string word such as lead-source. One or more inputs, no operand. Reverts at eval if an input is not a string."
         );
         return abi.encode(meta);
     }

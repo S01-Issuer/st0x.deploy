@@ -131,7 +131,9 @@ contract BuildPointers is Script, StoxDeploySuites {
                 ),
                 LibCodeGen.subParserWordParsersConstantString(vm, St0xAttestSubParser(subParser)),
                 LibCodeGen.operandHandlerFunctionPointersConstantString(vm, St0xAttestSubParser(subParser)),
-                LibCodeGen.literalParserFunctionPointersConstantString(vm, St0xAttestSubParser(subParser))
+                LibCodeGen.literalParserFunctionPointersConstantString(vm, St0xAttestSubParser(subParser)),
+                LibCodeGen.opcodeFunctionPointersConstantString(vm, St0xAttestSubParser(subParser)),
+                LibCodeGen.integrityFunctionPointersConstantString(vm, St0xAttestSubParser(subParser))
             )
         );
     }
