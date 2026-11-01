@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
+import {DeployCandidate, DeployDeclaration, DeploySuite} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeploy, DeployDependency, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
@@ -57,7 +57,7 @@ contract StoxDeployTokenSuitesTest is Test, StoxDeploySuites {
         pure
         returns (DeploySuite memory, RegistryBeaconProxyTarget memory)
     {
-        (DeploySuite memory suite, bool found) = candidateOf(declared, string.concat("stox-token-", config.underlying));
+        (DeploySuite memory suite, bool found) = candidateOf(declared, string.concat("stox-token-", vm.toLowercase(config.underlying)));
         assertTrue(found, config.underlying);
         (bytes32 mechanism, bytes memory targetData) = abi.decode(suite.mechanismData, (bytes32, bytes));
         assertEq(mechanism, REGISTRY_BEACON_PROXY_MECHANISM, config.underlying);
@@ -128,6 +128,26 @@ contract StoxDeployTokenSuitesTest is Test, StoxDeploySuites {
         assertEq(registryBeaconProxies, configs.length, "registry beacon proxy suites");
         for (uint256 i = 0; i < configs.length; i++) {
             tokenSuite(declared, configs[i]);
+        }
+    }
+
+    function testTokenSuiteKeysPassTheKeyCheckAndAreUnique() external view {
+        DeployDeclaration memory declared = declaration();
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        DeploySuite[] memory released = declared.released;
+        DeployCandidate[] memory candidates = declared.candidates;
+        for (uint256 i = 0; i < configs.length; i++) {
+            (DeploySuite memory suite,) = tokenSuite(declared, configs[i]);
+            checkSuiteKey(i, suite.suite);
+            bytes32 key = keccak256(bytes(suite.suite));
+            uint256 matches = 0;
+            for (uint256 j = 0; j < released.length; j++) {
+                if (keccak256(bytes(released[j].suite)) == key) matches++;
+            }
+            for (uint256 j = 0; j < candidates.length; j++) {
+                if (keccak256(bytes(candidates[j].snapshot.suite)) == key) matches++;
+            }
+            assertEq(matches, 1, suite.suite);
         }
     }
 
