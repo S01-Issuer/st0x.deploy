@@ -13,7 +13,7 @@ import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest
 import {LibSt0xAttestContext, CONTEXT_LEAD_COLUMN, CONTEXT_ATTESTOR_0_COLUMN} from "src/lib/LibSt0xAttestContext.sol";
 
 /// @dev Signer of both observations.
-address constant OBSERVATION_SIGNER = address(bytes20(hex"c2163a2289a988ae9df2ead74f69a10941aa4f2b"));
+address constant OBSERVATION_SIGNER = 0xC2163A2289a988ae9dF2eAd74F69a10941AA4f2b;
 /// @dev Domain separator both observations are signed under.
 bytes32 constant OBSERVATION_DOMAIN = 0x7fcea108f1d99ecebbc296ddbd0cb92b55c1f11c5124d455748e1d8a4345a5b3;
 /// @dev Row 0, the symbol "AAPL" as an IntOrAString.
