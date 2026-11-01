@@ -13,9 +13,9 @@ import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV
 //   column 1  mint               [symbol, amount]
 //   column 2  signers            [lead, attestor 0, attestor 1, ...]
 //   column 3  domain separators  [lead, attestor 0, attestor 1, ...]
-//   column 4  lead               [symbol, price, time, ...]
-//   column 5  attestor 0         [symbol, price, time, ...]
-//   column 6  attestor 1         [symbol, price, time, ...]
+//   column 4  lead               [symbol, price, time, source, currency, ...]
+//   column 5  attestor 0         [symbol, price, time, source, currency, ...]
+//   column 6  attestor 1         [symbol, price, time, source, currency, ...]
 //   ...
 //
 // A caller that wants the words to mean what they say builds its context with
@@ -59,9 +59,9 @@ uint256 constant CONTEXT_LEAD_COLUMN = 4;
 /// `CONTEXT_ATTESTOR_0_COLUMN + N`.
 uint256 constant CONTEXT_ATTESTOR_0_COLUMN = 5;
 
-/// @dev Every attestation carries three values in this order: the symbol, the
-/// price, the time. The rows are the same for the lead's column and every pool
-/// attestor's column.
+/// @dev Every attestation begins with five values in this order: the symbol,
+/// the price, the time, the source, the currency. The rows are the same for
+/// the lead's column and every pool attestor's column.
 uint256 constant CONTEXT_ATTESTATION_ROW_SYMBOL = 0;
 
 /// @dev The attested price, as a Rain Float.
@@ -70,8 +70,14 @@ uint256 constant CONTEXT_ATTESTATION_ROW_PRICE = 1;
 /// @dev The attested time, as a Rain Float comparable against `now()`.
 uint256 constant CONTEXT_ATTESTATION_ROW_TIME = 2;
 
+/// @dev The source the price was attested from, as an IntOrAString bytes32.
+uint256 constant CONTEXT_ATTESTATION_ROW_SOURCE = 3;
+
+/// @dev The currency the price was attested in, as an IntOrAString bytes32.
+uint256 constant CONTEXT_ATTESTATION_ROW_CURRENCY = 4;
+
 /// @dev Rows in an attestation column.
-uint256 constant CONTEXT_ATTESTATION_ROWS = 3;
+uint256 constant CONTEXT_ATTESTATION_ROWS = 5;
 
 /// @title LibSt0xAttestContext
 /// @notice Builds the context grid that the words in `LibSt0xAttestSubParser`
@@ -83,9 +89,9 @@ library LibSt0xAttestContext {
     /// @param mintSymbol The symbol of the token being minted, IntOrAString.
     /// @param mintAmount The amount being requested, a Rain Float.
     /// @param attestations The signed attestations, the lead's first. Each
-    /// context begins `[symbol, price, time]`; later rows are carried but not
-    /// read. The layout is not checked here; a short column reverts at eval
-    /// when a word reads past it.
+    /// context begins `[symbol, price, time, source, currency]`; later rows are
+    /// carried but not read. The layout is not checked here; a short column
+    /// reverts at eval when a word reads past it.
     /// @return The context grid.
     function build(bytes32 mintSymbol, bytes32 mintAmount, SignedContextV2[] memory attestations)
         internal

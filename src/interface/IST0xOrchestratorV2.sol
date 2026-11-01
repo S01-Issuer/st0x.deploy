@@ -179,11 +179,11 @@ interface IST0xOrchestratorV2 {
     /// @param receiptInformation The MINTER's audit-trail payload, forwarded
     /// verbatim to `vault.mint` — not part of the recipient's authorisation.
     /// @param attestations The signed attestations the weighting reads, the
-    /// lead's first, each beginning `[symbol, price, time]` with later rows
-    /// carried but not read (see `LibSt0xAttestContext`). Every signature is verified under its own
-    /// domain separator before the expression runs; what the signed values
-    /// and domains must be is the expression's decision. Not part of the
-    /// recipient's authorisation.
+    /// lead's first, each beginning `[symbol, price, time, source, currency]`
+    /// with later rows carried but not read (see `LibSt0xAttestContext`).
+    /// Every signature is verified under its own domain separator before the
+    /// expression runs; what the signed values and domains must be is the
+    /// expression's decision. Not part of the recipient's authorisation.
     function mint(
         address token,
         address to,

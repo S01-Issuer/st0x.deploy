@@ -7,7 +7,9 @@ import {OperandV2} from "rainlang-0.2.30/src/interface/IInterpreterV4.sol";
 import {LibSubParse} from "rainlang-0.2.30/src/lib/parse/LibSubParse.sol";
 
 import {
+    CONTEXT_ATTESTATION_ROW_CURRENCY,
     CONTEXT_ATTESTATION_ROW_PRICE,
+    CONTEXT_ATTESTATION_ROW_SOURCE,
     CONTEXT_ATTESTATION_ROW_SYMBOL,
     CONTEXT_ATTESTATION_ROW_TIME,
     CONTEXT_ATTESTOR_0_COLUMN,
@@ -22,7 +24,7 @@ import {
 } from "./LibSt0xAttestContext.sol";
 
 /// @dev The build depth of the parse meta. One layer of bloom filter is
-/// enough for twelve words; the build reverts if it is not.
+/// enough for sixteen words; the build reverts if it is not.
 uint8 constant PARSE_META_BUILD_DEPTH = 1;
 
 /// @dev Index of `lead` in the word list.
@@ -49,11 +51,19 @@ uint256 constant SUB_PARSER_WORD_MINT_AMOUNT = 9;
 uint256 constant SUB_PARSER_WORD_LEAD_DOMAIN = 10;
 /// @dev Index of `attestor-domain` in the word list.
 uint256 constant SUB_PARSER_WORD_ATTESTOR_DOMAIN = 11;
+/// @dev Index of `lead-source` in the word list.
+uint256 constant SUB_PARSER_WORD_LEAD_SOURCE = 12;
+/// @dev Index of `lead-currency` in the word list.
+uint256 constant SUB_PARSER_WORD_LEAD_CURRENCY = 13;
+/// @dev Index of `attested-source` in the word list.
+uint256 constant SUB_PARSER_WORD_ATTESTED_SOURCE = 14;
+/// @dev Index of `attested-currency` in the word list.
+uint256 constant SUB_PARSER_WORD_ATTESTED_CURRENCY = 15;
 
 /// @dev The number of words. The parse meta, the word parsers and the operand
 /// handlers are all indexed by the constants above, so all three are this
 /// long.
-uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 12;
+uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 16;
 
 /// @title LibSt0xAttestSubParser
 /// @notice The words of `St0xAttestSubParser`. Each one names a cell of the
@@ -251,6 +261,68 @@ library LibSt0xAttestSubParser {
         );
     }
 
+    /// @notice `lead-source`: the source the lead attested.
+    /// @return Whether the sub parse succeeded.
+    /// @return The bytecode for the context opcode.
+    /// @return The constants for the context opcode, always empty.
+    //slither-disable-next-line dead-code
+    function subParserLeadSource(uint256, uint256, OperandV2)
+        internal
+        pure
+        returns (bool, bytes memory, bytes32[] memory)
+    {
+        //slither-disable-next-line unused-return
+        return LibSubParse.subParserContext(CONTEXT_LEAD_COLUMN, CONTEXT_ATTESTATION_ROW_SOURCE);
+    }
+
+    /// @notice `lead-currency`: the currency the lead attested.
+    /// @return Whether the sub parse succeeded.
+    /// @return The bytecode for the context opcode.
+    /// @return The constants for the context opcode, always empty.
+    //slither-disable-next-line dead-code
+    function subParserLeadCurrency(uint256, uint256, OperandV2)
+        internal
+        pure
+        returns (bool, bytes memory, bytes32[] memory)
+    {
+        //slither-disable-next-line unused-return
+        return LibSubParse.subParserContext(CONTEXT_LEAD_COLUMN, CONTEXT_ATTESTATION_ROW_CURRENCY);
+    }
+
+    /// @notice `attested-source<N>`: the source pool attestor `N` attested.
+    /// @param operand `N`.
+    /// @return Whether the sub parse succeeded.
+    /// @return The bytecode for the context opcode.
+    /// @return The constants for the context opcode, always empty.
+    //slither-disable-next-line dead-code
+    function subParserAttestedSource(uint256, uint256, OperandV2 operand)
+        internal
+        pure
+        returns (bool, bytes memory, bytes32[] memory)
+    {
+        //slither-disable-next-line unused-return
+        return LibSubParse.subParserContext(
+            CONTEXT_ATTESTOR_0_COLUMN + uint256(OperandV2.unwrap(operand)), CONTEXT_ATTESTATION_ROW_SOURCE
+        );
+    }
+
+    /// @notice `attested-currency<N>`: the currency pool attestor `N` attested.
+    /// @param operand `N`.
+    /// @return Whether the sub parse succeeded.
+    /// @return The bytecode for the context opcode.
+    /// @return The constants for the context opcode, always empty.
+    //slither-disable-next-line dead-code
+    function subParserAttestedCurrency(uint256, uint256, OperandV2 operand)
+        internal
+        pure
+        returns (bool, bytes memory, bytes32[] memory)
+    {
+        //slither-disable-next-line unused-return
+        return LibSubParse.subParserContext(
+            CONTEXT_ATTESTOR_0_COLUMN + uint256(OperandV2.unwrap(operand)), CONTEXT_ATTESTATION_ROW_CURRENCY
+        );
+    }
+
     /// @notice The authoring meta for every word, in word index order.
     /// `script/BuildAuthoringMeta.sol` writes it to `meta/` and
     /// `script/BuildPointers.sol` builds the parse meta from it.
@@ -301,6 +373,22 @@ library LibSt0xAttestSubParser {
         meta[SUB_PARSER_WORD_ATTESTOR_DOMAIN] = AuthoringMetaV2(
             "attestor-domain",
             "The EIP-712 domain separator pool attestor N's signature verified under, where N is the operand and is required. Compare it with binary-equal-to, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
+        );
+        meta[SUB_PARSER_WORD_LEAD_SOURCE] = AuthoringMetaV2(
+            "lead-source",
+            "The source the lead attested its price from, as an IntOrAString bytes32, so a Rainlang string literal compares equal to it. No operand. A string: compare it with binary-equal-to, never numerically."
+        );
+        meta[SUB_PARSER_WORD_LEAD_CURRENCY] = AuthoringMetaV2(
+            "lead-currency",
+            "The currency the lead attested its price in, as an IntOrAString bytes32, so a Rainlang string literal compares equal to it. No operand. A string: compare it with binary-equal-to, never numerically."
+        );
+        meta[SUB_PARSER_WORD_ATTESTED_SOURCE] = AuthoringMetaV2(
+            "attested-source",
+            "The source pool attestor N attested its price from, as an IntOrAString bytes32, so a Rainlang string literal compares equal to it. N is the operand and is required. A string: compare it with binary-equal-to, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
+        );
+        meta[SUB_PARSER_WORD_ATTESTED_CURRENCY] = AuthoringMetaV2(
+            "attested-currency",
+            "The currency pool attestor N attested its price in, as an IntOrAString bytes32, so a Rainlang string literal compares equal to it. N is the operand and is required. A string: compare it with binary-equal-to, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
         );
         return abi.encode(meta);
     }

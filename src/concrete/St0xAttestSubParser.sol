@@ -25,9 +25,10 @@ import {
 /// @notice Registered in an expression with `using-words-from`, provides
 /// `lead`, `attestor<N>`, `lead-symbol`, `lead-price`, `lead-time`,
 /// `attested-symbol<N>`, `attested-price<N>`, `attested-time<N>`,
-/// `mint-symbol`, `mint-amount`, `lead-domain` and `attestor-domain<N>`, each
-/// of which compiles to a `context`
-/// read of the grid in `LibSt0xAttestContext`.
+/// `mint-symbol`, `mint-amount`, `lead-domain`, `attestor-domain<N>`,
+/// `lead-source`, `lead-currency`, `attested-source<N>` and
+/// `attested-currency<N>`, each of which compiles to a `context` read of the
+/// grid in `LibSt0xAttestContext`.
 ///
 /// Every table the base contract dispatches on is a constant from
 /// `src/generated/St0xAttestSubParserPointers.sol`, which
@@ -96,6 +97,14 @@ contract St0xAttestSubParser is BaseRainlangSubParser {
                     // lead-domain
                     LibParseOperand.handleOperandDisallowed,
                     // attestor-domain<N>
+                    LibParseOperand.handleOperandSingleFullNoDefault,
+                    // lead-source
+                    LibParseOperand.handleOperandDisallowed,
+                    // lead-currency
+                    LibParseOperand.handleOperandDisallowed,
+                    // attested-source<N>
+                    LibParseOperand.handleOperandSingleFullNoDefault,
+                    // attested-currency<N>
                     LibParseOperand.handleOperandSingleFullNoDefault
                 ];
             uint256[] memory handlersDynamic;
@@ -135,7 +144,11 @@ contract St0xAttestSubParser is BaseRainlangSubParser {
                     LibSt0xAttestSubParser.subParserMintSymbol,
                     LibSt0xAttestSubParser.subParserMintAmount,
                     LibSt0xAttestSubParser.subParserLeadDomain,
-                    LibSt0xAttestSubParser.subParserAttestorDomain
+                    LibSt0xAttestSubParser.subParserAttestorDomain,
+                    LibSt0xAttestSubParser.subParserLeadSource,
+                    LibSt0xAttestSubParser.subParserLeadCurrency,
+                    LibSt0xAttestSubParser.subParserAttestedSource,
+                    LibSt0xAttestSubParser.subParserAttestedCurrency
                 ];
             uint256[] memory parsersDynamic;
             assembly ("memory-safe") {
