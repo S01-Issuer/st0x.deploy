@@ -227,8 +227,9 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
             DeployDependency[] memory deps = new DeployDependency[](3);
-            deps[0] =
-                DeployDependency({deployedAddress: CLONE_FACTORY_V7_ADDRESS, runtimeCode: CLONE_FACTORY_V7_RUNTIME_CODE});
+            deps[0] = DeployDependency({
+                deployedAddress: CLONE_FACTORY_V7_ADDRESS, runtimeCode: CLONE_FACTORY_V7_RUNTIME_CODE
+            });
             deps[1] =
                 DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
             deps[2] = DeployDependency({deployedAddress: beacon, runtimeCode: type(UpgradeableBeacon).runtimeCode});
