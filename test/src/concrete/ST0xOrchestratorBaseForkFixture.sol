@@ -12,6 +12,26 @@ import {
     IInterpreterV4,
     IInterpreterStoreV3
 } from "rainlang-0.2.30/src/interface/IInterpreterCallerV5.sol";
+import {
+    DEPLOYED_ADDRESS as RAINLANG_0_1_11,
+    BYTECODE_HASH as RAINLANG_0_1_11_CODEHASH
+} from "rainlang-deploy-0.1.11/src/generated/0_1_11/Rainlang.sol";
+import {
+    DEPLOYED_ADDRESS as RAINLANG_COMPILER_0_1_11,
+    BYTECODE_HASH as RAINLANG_COMPILER_0_1_11_CODEHASH
+} from "rainlang-deploy-0.1.11/src/generated/0_1_11/RainlangCompiler.sol";
+import {
+    DEPLOYED_ADDRESS as RAINLANG_INTERPRETER_0_1_11,
+    BYTECODE_HASH as RAINLANG_INTERPRETER_0_1_11_CODEHASH
+} from "rainlang-deploy-0.1.11/src/generated/0_1_11/RainlangInterpreter.sol";
+import {
+    DEPLOYED_ADDRESS as RAINLANG_STORE_0_1_11,
+    BYTECODE_HASH as RAINLANG_STORE_0_1_11_CODEHASH
+} from "rainlang-deploy-0.1.11/src/generated/0_1_11/RainlangStore.sol";
+import {
+    DEPLOYED_ADDRESS as RAINLANG_PARSER_0_1_11,
+    BYTECODE_HASH as RAINLANG_PARSER_0_1_11_CODEHASH
+} from "rainlang-deploy-0.1.11/src/generated/0_1_11/RainlangParser.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeaconSetDeployer} from "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
@@ -38,22 +58,6 @@ import {
 uint256 constant BASE_FORK_BLOCK = 53377187;
 /// @dev `BASE_FORK_BLOCK`'s timestamp.
 uint256 constant BASE_FORK_TIMESTAMP = 1793543721;
-
-/// @dev The Rainlang on base: rainlanguage/rainlang.deploy 0.1.11
-/// `src/generated/0_1_11/`, built against `rainlang` 0.2.30, the version this
-/// repo builds against. That package is not a dependency here, so its
-/// addresses and code hashes are declared.
-address constant BASE_RAINLANG = 0xdE1c4555B6c5f45ABA9887A55dFD52480Ba1c9a0;
-bytes32 constant BASE_RAINLANG_CODEHASH = 0x89d9c960625e4287928038ced3509a74982966f2736c5bc3feedd5c6cdf1aaf2;
-address constant BASE_RAINLANG_COMPILER = 0xFb7615D8508Ec129d67Ebd4117cD15E673Ae070B;
-bytes32 constant BASE_RAINLANG_COMPILER_CODEHASH = 0xd9b2728380c23a2b5e071c9b798dc23a85589798176982b0629710decbfb8a4a;
-address constant BASE_RAINLANG_INTERPRETER = 0x780ca179B190c5E57FD7Ac308a7D966da4Cee428;
-bytes32 constant BASE_RAINLANG_INTERPRETER_CODEHASH =
-    0x3841eedb46dc2a7554ac802514cd2ac7c5df3653123cd9d132690986bb097d30;
-address constant BASE_RAINLANG_STORE = 0x1Aa775533E28B1D843e1A589034984E3a62005DC;
-bytes32 constant BASE_RAINLANG_STORE_CODEHASH = 0xdaa0024dc105c6a9ea0838604bad0a5e662743eca97789c2cecfdf8667d0bf9b;
-address constant BASE_RAINLANG_PARSER = 0xa972E9bc2A60eac31a1eea6335470e98A88ec84C;
-bytes32 constant BASE_RAINLANG_PARSER_CODEHASH = 0x39cc19032ab38a041625493a3e718839a5d2658ed07b518bfff0e04d38e5e797;
 
 /// @title ST0xOrchestratorBaseForkFixture
 /// @notice Base forked at `BASE_FORK_BLOCK`, minting through the candidate
@@ -104,25 +108,25 @@ abstract contract ST0xOrchestratorBaseForkFixture is ST0xOrchestratorMintWeighti
     }
 
     function _assertBaseRainlang() internal view {
-        assertEq(BASE_RAINLANG.codehash, BASE_RAINLANG_CODEHASH, "rainlang codehash");
-        assertEq(BASE_RAINLANG_COMPILER.codehash, BASE_RAINLANG_COMPILER_CODEHASH, "compiler codehash");
-        assertEq(BASE_RAINLANG_INTERPRETER.codehash, BASE_RAINLANG_INTERPRETER_CODEHASH, "interpreter codehash");
-        assertEq(BASE_RAINLANG_STORE.codehash, BASE_RAINLANG_STORE_CODEHASH, "store codehash");
-        assertEq(BASE_RAINLANG_PARSER.codehash, BASE_RAINLANG_PARSER_CODEHASH, "parser codehash");
-        IRainlangV2 rainlang = IRainlangV2(BASE_RAINLANG);
-        assertEq(rainlang.compiler(), BASE_RAINLANG_COMPILER, "compiler");
-        assertEq(rainlang.interpreter(), BASE_RAINLANG_INTERPRETER, "interpreter");
-        assertEq(rainlang.store(), BASE_RAINLANG_STORE, "store");
-        assertEq(rainlang.parser(), BASE_RAINLANG_PARSER, "parser");
+        assertEq(RAINLANG_0_1_11.codehash, RAINLANG_0_1_11_CODEHASH, "rainlang codehash");
+        assertEq(RAINLANG_COMPILER_0_1_11.codehash, RAINLANG_COMPILER_0_1_11_CODEHASH, "compiler codehash");
+        assertEq(RAINLANG_INTERPRETER_0_1_11.codehash, RAINLANG_INTERPRETER_0_1_11_CODEHASH, "interpreter codehash");
+        assertEq(RAINLANG_STORE_0_1_11.codehash, RAINLANG_STORE_0_1_11_CODEHASH, "store codehash");
+        assertEq(RAINLANG_PARSER_0_1_11.codehash, RAINLANG_PARSER_0_1_11_CODEHASH, "parser codehash");
+        IRainlangV2 rainlang = IRainlangV2(RAINLANG_0_1_11);
+        assertEq(rainlang.compiler(), RAINLANG_COMPILER_0_1_11, "compiler");
+        assertEq(rainlang.interpreter(), RAINLANG_INTERPRETER_0_1_11, "interpreter");
+        assertEq(rainlang.store(), RAINLANG_STORE_0_1_11, "store");
+        assertEq(rainlang.parser(), RAINLANG_PARSER_0_1_11, "parser");
     }
 
     /// `rainlang`, complete with its own pragma, parsed by the compiler on
     /// base and bound to the interpreter and store on base.
     function _baseEvaluable(string memory rainlang) internal view returns (EvaluableV4 memory) {
         return EvaluableV4({
-            interpreter: IInterpreterV4(BASE_RAINLANG_INTERPRETER),
-            store: IInterpreterStoreV3(BASE_RAINLANG_STORE),
-            bytecode: IParserV2(BASE_RAINLANG_COMPILER).parse2(bytes(rainlang))
+            interpreter: IInterpreterV4(RAINLANG_INTERPRETER_0_1_11),
+            store: IInterpreterStoreV3(RAINLANG_STORE_0_1_11),
+            bytecode: IParserV2(RAINLANG_COMPILER_0_1_11).parse2(bytes(rainlang))
         });
     }
 

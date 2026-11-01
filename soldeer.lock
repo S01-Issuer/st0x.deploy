@@ -181,6 +181,13 @@ checksum = "859e9c2122e95f78c4eecaf6c47e8a07f63a4353680056cd4d47a69986a3e3ec"
 integrity = "453dc13a29feec6fe94b6da6e69b7129ac1258db55e2096125dbf12761441caa"
 
 [[dependencies]]
+name = "rainlang-deploy"
+version = "0.1.11"
+url = "https://soldeer-revisions.s3.amazonaws.com/rainlang-deploy/0_1_11_27-10-2026_17:25:32_rainlang.zip"
+checksum = "0e01a4230041b5d30f20719109df168e552adfdb039003c137881153b5d20f12"
+integrity = "ecafa20fc9c875dde3449171520cceae1838b7056bfc601c2cb009419e200812"
+
+[[dependencies]]
 name = "safe-global-safe-smart-account"
 version = "1.4.1-3"
 url = "https://soldeer-revisions.s3.amazonaws.com/safe-global-safe-smart-account/1_4_1-3_04-10-2024_19:23:24_safe-global-safe-smart-account-1.4.zip"
