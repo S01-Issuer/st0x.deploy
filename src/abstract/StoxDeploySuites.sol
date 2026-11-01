@@ -15,7 +15,6 @@ import {CloneDeploy} from "rain-factory-0.2.7/src/lib/LibRainDeployClone.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.7/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.7/src/lib/LibRainDeployCloneMechanism.sol";
 import {RegistryBeaconProxyDeploy} from "rain-factory-0.2.7/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V7_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V7_RUNTIME_CODE
@@ -45,6 +44,7 @@ import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../lib/LibProdTokenConfig.sol";
 import {LibStoxTokenProxies} from "../generated/LibStoxTokenProxies.sol";
+import {LibStoxVaultBeacon} from "../generated/LibStoxVaultBeacon.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -232,7 +232,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             });
             deps[1] =
                 DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
-            deps[2] = DeployDependency({deployedAddress: beacon, runtimeCode: type(UpgradeableBeacon).runtimeCode});
+            deps[2] = DeployDependency({deployedAddress: beacon, runtimeCode: LibStoxVaultBeacon.RUNTIME_CODE});
             proxies[i] = RegistryBeaconProxyDeploy({
                 suite: string.concat("stox-token-", configs[i].underlying),
                 factory: CLONE_FACTORY_V7_ADDRESS,

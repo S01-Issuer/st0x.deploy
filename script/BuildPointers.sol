@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm, VmSafe} from "forge-std-1.17.0/src/Vm.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {LibRainDeploySnapshot} from "rain-deploy-0.1.29/src/lib/LibRainDeploySnapshot.sol";
 import {
     DeployCandidate,
@@ -17,6 +18,7 @@ import {
 } from "rain-factory-0.2.7/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
+import {IST0xVaultBeaconSet} from "../src/interface/IST0xVaultBeaconSet.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -90,7 +92,29 @@ contract BuildPointers is Script, StoxDeploySuites {
 
         genProdLibs();
         genReleasedLibs(candidates);
+        genVaultBeacon();
         genTokenProxies();
+    }
+
+    function genVaultBeacon() internal {
+        LibRainDeploy.etchZoltuFactory(Vm(address(vm)));
+        LibRainDeploy.deployZoltu(V4.STOX_RECEIPT_CREATION_CODE_0_1_1);
+        LibRainDeploy.deployZoltu(V4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_1);
+        address deployer =
+            LibRainDeploy.deployZoltu(V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_1);
+        require(
+            deployer == V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1,
+            "BuildPointers: beacon set deployer address"
+        );
+        bytes memory code = address(IST0xVaultBeaconSet(deployer).iOffchainAssetReceiptVaultBeacon()).code;
+        writeGeneratedHeader(GEN_VAULT_BEACON_PATH);
+        vm.writeLine(GEN_VAULT_BEACON_PATH, "");
+        vm.writeLine(GEN_VAULT_BEACON_PATH, "library LibStoxVaultBeacon {");
+        vm.writeLine(
+            GEN_VAULT_BEACON_PATH,
+            string.concat('    bytes constant RUNTIME_CODE = hex"', vm.replace(vm.toString(code), "0x", ""), '";')
+        );
+        vm.writeLine(GEN_VAULT_BEACON_PATH, "}");
     }
 
     function genTokenProxies() internal {
@@ -182,6 +206,7 @@ contract BuildPointers is Script, StoxDeploySuites {
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
     string constant GEN_TOKEN_PROXIES_PATH = "src/generated/LibStoxTokenProxies.sol";
+    string constant GEN_VAULT_BEACON_PATH = "src/generated/LibStoxVaultBeacon.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
