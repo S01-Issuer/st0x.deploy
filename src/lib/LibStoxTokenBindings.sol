@@ -48,6 +48,7 @@ library LibStoxTokenBindings {
     }
 
     function checkRbac(string memory network, bytes32 name, address owner, address authorizer) internal view {
+        // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(
             LibStoxConfig.ROOT_AUTHORITY, name, OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
         );
@@ -58,6 +59,7 @@ library LibStoxTokenBindings {
     }
 
     function resolveAddress(bytes32 name) internal view returns (address) {
+        // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(LibStoxConfig.ROOT_AUTHORITY, name, ADDRESS_VALUE_TYPE_HASH);
         return abi.decode(value, (address));
     }
