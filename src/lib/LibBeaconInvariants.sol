@@ -139,7 +139,7 @@ library LibBeaconInvariants {
     /// @notice Runtime codehash of the OZ `UpgradeableBeacon` the candidate
     /// `ST0xOrchestratorBeaconSetDeployer` constructor builds.
     bytes32 internal constant UPGRADEABLE_BEACON_CODEHASH_CANDIDATE =
-        0x0000000000000000000000000000000000000000000000000000000000000000;
+        0x1281c405d5d658e44d2e7d02ec1f2fbbddff2317d9008b27ac251181dac4cfde;
 
     /// @notice Assert the invariants of an OpenZeppelin `UpgradeableBeacon`
     /// at `beacon`: it is a deployed contract, its runtime codehash matches
