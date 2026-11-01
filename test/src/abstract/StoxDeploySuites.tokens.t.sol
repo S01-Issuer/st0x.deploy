@@ -120,7 +120,7 @@ contract StoxDeployTokenSuitesTest is Test, StoxDeploySuites {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         uint256 registryBeaconProxies = 0;
         for (uint256 i = 0; i < declared.candidates.length; i++) {
-            (bytes32 mechanism,) = abi.decode(declared.candidates[i].snapshot.mechanismData, (bytes32, bytes));
+            bytes32 mechanism = mechanismIdOf(declared.candidates[i].snapshot);
             if (mechanism == REGISTRY_BEACON_PROXY_MECHANISM) {
                 registryBeaconProxies++;
             }
