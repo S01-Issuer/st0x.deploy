@@ -4,7 +4,6 @@ pragma solidity ^0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
@@ -181,8 +180,8 @@ library LibOrchestratorInvariants {
 
     /// @notice Assert the mint-caps orchestrator's beacon set on the active
     /// chain: the current-release beacon-set deployer is live and reports
-    /// `mintCapsBeacon()`, and that beacon is this build's
-    /// `UpgradeableBeacon`, points at the current-release orchestrator
+    /// `mintCapsBeacon()`, and that beacon has the codehash
+    /// `UPGRADEABLE_BEACON_CODEHASH_CANDIDATE`, points at the current-release orchestrator
     /// implementation and is owned by the chain's governance timelock.
     function assertMintCapsBeaconSet() internal view {
         address setDeployer = LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER;
@@ -197,7 +196,7 @@ library LibOrchestratorInvariants {
             beacon,
             LibTimelockInvariants.timelockForChainId(block.chainid),
             LibProdDeployCurrent.ST0X_ORCHESTRATOR,
-            keccak256(type(UpgradeableBeacon).runtimeCode)
+            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_CANDIDATE
         );
     }
 
