@@ -13,15 +13,37 @@ import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     using Strings for uint256;
 
+    /// An attestation of `[symbol, price, time, source, currency]` signed by
+    /// `key` under `domain`.
+    function attestRows(uint256 key, bytes32 domain, bytes32[5] memory rows)
+        internal
+        pure
+        returns (SignedContextV2 memory)
+    {
+        bytes32[] memory context = new bytes32[](rows.length);
+        for (uint256 i = 0; i < rows.length; i++) {
+            context[i] = rows[i];
+        }
+        return signUnder(key, domain, context);
+    }
+
     /// The lead and two distinct pool attestors, each attesting different
     /// values under a different domain, so a word reading the wrong column or
     /// row is caught.
     function testWordsReadTheirCell() external view {
         bytes32 otherPoolDomain = keccak256("st0x.test.other-pool-domain");
         SignedContextV2[] memory attestations = new SignedContextV2[](3);
-        attestations[0] = attestUnder(LEAD_KEY, LEAD_DOMAIN, symbol("AAPL"), float(150), float(1000));
-        attestations[1] = attestUnder(OPERATOR_KEY_0, POOL_DOMAIN, symbol("AAPL-0"), float(151), float(1001));
-        attestations[2] = attestUnder(OPERATOR_KEY_0 + 1, otherPoolDomain, symbol("AAPL-1"), float(152), float(1002));
+        attestations[0] = attestRows(
+            LEAD_KEY, LEAD_DOMAIN, [symbol("AAPL"), float(150), float(1000), symbol("alpaca"), symbol("USD")]
+        );
+        attestations[1] = attestRows(
+            OPERATOR_KEY_0, POOL_DOMAIN, [symbol("AAPL-0"), float(151), float(1001), symbol("yahoo"), symbol("EUR")]
+        );
+        attestations[2] = attestRows(
+            OPERATOR_KEY_0 + 1,
+            otherPoolDomain,
+            [symbol("AAPL-1"), float(152), float(1002), symbol("euronext"), symbol("GBP")]
+        );
         bytes32[][] memory context = LibSt0xAttestContext.build(symbol("MINT"), float(10), attestations);
 
         checkWord("lead()", context, signer(vm.addr(LEAD_KEY)));
@@ -35,14 +57,20 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord("lead-symbol()", context, symbol("AAPL"));
         checkWord("lead-price()", context, float(150));
         checkWord("lead-time()", context, float(1000));
+        checkWord("lead-source()", context, symbol("alpaca"));
+        checkWord("lead-currency()", context, symbol("USD"));
 
         checkWord("attested-symbol<0>()", context, symbol("AAPL-0"));
         checkWord("attested-price<0>()", context, float(151));
         checkWord("attested-time<0>()", context, float(1001));
+        checkWord("attested-source<0>()", context, symbol("yahoo"));
+        checkWord("attested-currency<0>()", context, symbol("EUR"));
 
         checkWord("attested-symbol<1>()", context, symbol("AAPL-1"));
         checkWord("attested-price<1>()", context, float(152));
         checkWord("attested-time<1>()", context, float(1002));
+        checkWord("attested-source<1>()", context, symbol("euronext"));
+        checkWord("attested-currency<1>()", context, symbol("GBP"));
 
         checkWord("mint-symbol()", context, symbol("MINT"));
         checkWord("mint-amount()", context, float(10));
@@ -56,8 +84,8 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         bytes32 mintAmount,
         bytes32 leadDomain,
         bytes32 poolDomain,
-        bytes32[3] memory leadValues,
-        bytes32[3] memory poolValues,
+        bytes32[5] memory leadValues,
+        bytes32[5] memory poolValues,
         uint8 poolSize,
         uint8 n
     ) external view {
@@ -65,18 +93,16 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         n = uint8(bound(n, 0, poolSize - 1));
 
         SignedContextV2[] memory attestations = new SignedContextV2[](poolSize + 1);
-        attestations[0] = attestUnder(LEAD_KEY, leadDomain, leadValues[0], leadValues[1], leadValues[2]);
+        attestations[0] = attestRows(LEAD_KEY, leadDomain, leadValues);
         for (uint256 i = 0; i < poolSize; i++) {
             // Each pool attestor signs its own index into the values and its
             // domain so the column and row read are distinguishable from
             // their neighbours.
-            attestations[i + 1] = attestUnder(
-                OPERATOR_KEY_0 + i,
-                poolDomain ^ bytes32(i),
-                poolValues[0] ^ bytes32(i),
-                poolValues[1] ^ bytes32(i),
-                poolValues[2] ^ bytes32(i)
-            );
+            bytes32[5] memory values;
+            for (uint256 row = 0; row < values.length; row++) {
+                values[row] = poolValues[row] ^ bytes32(i);
+            }
+            attestations[i + 1] = attestRows(OPERATOR_KEY_0 + i, poolDomain ^ bytes32(i), values);
         }
         bytes32[][] memory context = LibSt0xAttestContext.build(mintSymbol, mintAmount, attestations);
 
@@ -85,6 +111,8 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord("lead-symbol()", context, leadValues[0]);
         checkWord("lead-price()", context, leadValues[1]);
         checkWord("lead-time()", context, leadValues[2]);
+        checkWord("lead-source()", context, leadValues[3]);
+        checkWord("lead-currency()", context, leadValues[4]);
         checkWord("mint-symbol()", context, mintSymbol);
         checkWord("mint-amount()", context, mintAmount);
 
@@ -94,6 +122,8 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord(string.concat("attested-symbol", operand), context, poolValues[0] ^ bytes32(uint256(n)));
         checkWord(string.concat("attested-price", operand), context, poolValues[1] ^ bytes32(uint256(n)));
         checkWord(string.concat("attested-time", operand), context, poolValues[2] ^ bytes32(uint256(n)));
+        checkWord(string.concat("attested-source", operand), context, poolValues[3] ^ bytes32(uint256(n)));
+        checkWord(string.concat("attested-currency", operand), context, poolValues[4] ^ bytes32(uint256(n)));
     }
 
     /// A pool attestor that was not provided is an out of bounds context
@@ -109,6 +139,8 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWordReverts(string.concat("attested-symbol", operand), context, stdError.indexOOBError);
         checkWordReverts(string.concat("attested-price", operand), context, stdError.indexOOBError);
         checkWordReverts(string.concat("attested-time", operand), context, stdError.indexOOBError);
+        checkWordReverts(string.concat("attested-source", operand), context, stdError.indexOOBError);
+        checkWordReverts(string.concat("attested-currency", operand), context, stdError.indexOOBError);
     }
 
     /// With no attestations at all there is no signers column, no domain
@@ -125,11 +157,15 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWordReverts("lead-symbol()", context, stdError.indexOOBError);
         checkWordReverts("lead-price()", context, stdError.indexOOBError);
         checkWordReverts("lead-time()", context, stdError.indexOOBError);
+        checkWordReverts("lead-source()", context, stdError.indexOOBError);
+        checkWordReverts("lead-currency()", context, stdError.indexOOBError);
         checkWordReverts("attestor<0>()", context, stdError.indexOOBError);
         checkWordReverts("attestor-domain<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-symbol<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-price<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-time<0>()", context, stdError.indexOOBError);
+        checkWordReverts("attested-source<0>()", context, stdError.indexOOBError);
+        checkWordReverts("attested-currency<0>()", context, stdError.indexOOBError);
     }
 
     /// An attestation with fewer than three values is short at the rows the
@@ -149,11 +185,43 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord("lead-symbol()", context, symbol("AAPL"));
         checkWord("lead-price()", context, float(150));
         checkWordReverts("lead-time()", context, stdError.indexOOBError);
+        checkWordReverts("lead-source()", context, stdError.indexOOBError);
+        checkWordReverts("lead-currency()", context, stdError.indexOOBError);
 
         checkWord("attestor<0>()", context, signer(vm.addr(OPERATOR_KEY_0)));
         checkWord("attestor-domain<0>()", context, POOL_DOMAIN);
         checkWordReverts("attested-symbol<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-price<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-time<0>()", context, stdError.indexOOBError);
+        checkWordReverts("attested-source<0>()", context, stdError.indexOOBError);
+        checkWordReverts("attested-currency<0>()", context, stdError.indexOOBError);
+    }
+
+    /// An attestation of only `[symbol, price, time]` has no source and no
+    /// currency, and one of four values has a source but no currency: each
+    /// word past the end reverts rather than reading a zero, and the rows
+    /// before it still read.
+    function testAttestationWithoutSourceOrCurrencyReverts() external {
+        bytes32[] memory threeValues = new bytes32[](3);
+        threeValues[0] = symbol("AAPL");
+        threeValues[1] = float(150);
+        threeValues[2] = float(1000);
+        bytes32[] memory fourValues = new bytes32[](4);
+        fourValues[0] = symbol("AAPL");
+        fourValues[1] = float(151);
+        fourValues[2] = float(1001);
+        fourValues[3] = symbol("yahoo");
+        SignedContextV2[] memory attestations = new SignedContextV2[](2);
+        attestations[0] = sign(LEAD_KEY, threeValues);
+        attestations[1] = sign(OPERATOR_KEY_0, fourValues);
+        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("AAPL"), float(1), attestations);
+
+        checkWord("lead-time()", context, float(1000));
+        checkWordReverts("lead-source()", context, stdError.indexOOBError);
+        checkWordReverts("lead-currency()", context, stdError.indexOOBError);
+
+        checkWord("attested-time<0>()", context, float(1001));
+        checkWord("attested-source<0>()", context, symbol("yahoo"));
+        checkWordReverts("attested-currency<0>()", context, stdError.indexOOBError);
     }
 }

@@ -20,7 +20,9 @@ import {
     CONTEXT_ATTESTOR_0_COLUMN,
     CONTEXT_ATTESTATION_ROW_SYMBOL,
     CONTEXT_ATTESTATION_ROW_PRICE,
-    CONTEXT_ATTESTATION_ROW_TIME
+    CONTEXT_ATTESTATION_ROW_TIME,
+    CONTEXT_ATTESTATION_ROW_SOURCE,
+    CONTEXT_ATTESTATION_ROW_CURRENCY
 } from "src/lib/LibSt0xAttestContext.sol";
 
 /// The operand rules: `<N>` words take exactly one `N`, the others take none,
@@ -44,6 +46,8 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
         checkParseReverts("lead-symbol<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("lead-price<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("lead-time<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
+        checkParseReverts("lead-source<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
+        checkParseReverts("lead-currency<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("mint-symbol<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("mint-amount<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
     }
@@ -55,6 +59,8 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
         checkParseReverts("attested-symbol()", abi.encodeWithSelector(ExpectedOperand.selector));
         checkParseReverts("attested-price()", abi.encodeWithSelector(ExpectedOperand.selector));
         checkParseReverts("attested-time()", abi.encodeWithSelector(ExpectedOperand.selector));
+        checkParseReverts("attested-source()", abi.encodeWithSelector(ExpectedOperand.selector));
+        checkParseReverts("attested-currency()", abi.encodeWithSelector(ExpectedOperand.selector));
     }
 
     /// Exactly one `N`.
@@ -64,6 +70,8 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
         checkParseReverts("attested-symbol<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
         checkParseReverts("attested-price<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
         checkParseReverts("attested-time<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
+        checkParseReverts("attested-source<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
+        checkParseReverts("attested-currency<0 1>()", abi.encodeWithSelector(UnexpectedOperandValue.selector));
     }
 
     /// `N` past the operand's own width.
@@ -71,6 +79,8 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
         checkParseReverts("attestor<65536>()", abi.encodeWithSelector(OperandOverflow.selector));
         checkParseReverts("attestor-domain<65536>()", abi.encodeWithSelector(OperandOverflow.selector));
         checkParseReverts("attested-price<65536>()", abi.encodeWithSelector(OperandOverflow.selector));
+        checkParseReverts("attested-source<65536>()", abi.encodeWithSelector(OperandOverflow.selector));
+        checkParseReverts("attested-currency<65536>()", abi.encodeWithSelector(OperandOverflow.selector));
     }
 
     /// `N` that fits the operand but not the context grid is caught at parse
@@ -108,6 +118,18 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
                 ContextGridOverflow.selector, uint256(type(uint8).max) + 1, CONTEXT_ATTESTATION_ROW_TIME
             )
         );
+        checkParseReverts(
+            string.concat("attested-source", operand),
+            abi.encodeWithSelector(
+                ContextGridOverflow.selector, uint256(type(uint8).max) + 1, CONTEXT_ATTESTATION_ROW_SOURCE
+            )
+        );
+        checkParseReverts(
+            string.concat("attested-currency", operand),
+            abi.encodeWithSelector(
+                ContextGridOverflow.selector, uint256(type(uint8).max) + 1, CONTEXT_ATTESTATION_ROW_CURRENCY
+            )
+        );
     }
 
     /// The largest `N` the grid can address parses.
@@ -118,5 +140,7 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
 
         uint256 lastColumnN = type(uint8).max - CONTEXT_ATTESTOR_0_COLUMN;
         I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: attested-price<", lastColumnN.toString(), ">();")));
+        I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: attested-source<", lastColumnN.toString(), ">();")));
+        I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: attested-currency<", lastColumnN.toString(), ">();")));
     }
 }

@@ -93,8 +93,9 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
     }
 
     /// The observations verify in `LibContext.buildV2`, and every word reads
-    /// the signed value back: the signer, the domain, "AAPL", 344.63 and
-    /// 1793318400.
+    /// the signed value back: the signer, the domain, "AAPL", 344.63,
+    /// 1793318400, "alpaca" for the lead and "yahoo" for attestor 0, and
+    /// "USD".
     function testObservationsVerifyAndReadThroughTheWords() external view {
         bytes32[][] memory context = LibSt0xAttestContext.build(symbol("tAAPL"), float(1), observations());
 
@@ -102,6 +103,24 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
         checkWord("attestor<0>()", context, signer(OBSERVATION_SIGNER));
         checkWord("lead-domain()", context, OBSERVATION_DOMAIN);
         checkWord("attestor-domain<0>()", context, OBSERVATION_DOMAIN);
+
+        bytes32 leadSource = evalWord("lead-source()", context);
+        assertEq(leadSource, ALPACA_SOURCE, "lead-source");
+        assertEq(leadSource, symbol("alpaca"), "lead-source");
+        assertEq(toString(leadSource), "alpaca", "lead-source");
+
+        bytes32 attestedSource = evalWord("attested-source<0>()", context);
+        assertEq(attestedSource, YAHOO_SOURCE, "attested-source");
+        assertEq(attestedSource, symbol("yahoo"), "attested-source");
+        assertEq(toString(attestedSource), "yahoo", "attested-source");
+
+        string[2] memory currencyWords = [string("lead-currency()"), "attested-currency<0>()"];
+        for (uint256 i = 0; i < 2; i++) {
+            bytes32 currency = evalWord(currencyWords[i], context);
+            assertEq(currency, OBSERVATION_CURRENCY, currencyWords[i]);
+            assertEq(currency, symbol("USD"), currencyWords[i]);
+            assertEq(toString(currency), "USD", currencyWords[i]);
+        }
 
         string[2] memory symbolWords = [string("lead-symbol()"), "attested-symbol<0>()"];
         string[2] memory priceWords = [string("lead-price()"), "attested-price<0>()"];
@@ -137,34 +156,37 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
                     ":ensure(equal-to(lead-price() 344.63) \"lead-price\"),\n",
                     ":ensure(equal-to(attested-price<0>() 344.63) \"attested-price\"),\n",
                     ":ensure(equal-to(lead-time() 1793318400) \"lead-time\"),\n",
-                    ":ensure(equal-to(attested-time<0>() 1793318400) \"attested-time\");"
+                    ":ensure(equal-to(attested-time<0>() 1793318400) \"attested-time\"),\n",
+                    ":ensure(binary-equal-to(lead-source() \"alpaca\") \"lead-source\"),\n",
+                    ":ensure(binary-equal-to(attested-source<0>() \"yahoo\") \"attested-source\"),\n",
+                    ":ensure(binary-equal-to(lead-currency() \"USD\") \"lead-currency\"),\n",
+                    ":ensure(binary-equal-to(attested-currency<0>() \"USD\") \"attested-currency\");"
                 )
             ),
             context
         );
     }
 
-    /// Rows 3 and 4, the source and the currency, are carried in the grid
-    /// whole but no word reads them: the two observations differ at row 3 and
-    /// read the same symbol, price and time.
-    function testObservationRowsThreeAndFourAreCarriedButNotRead() external view {
+    /// The grid carries each observation whole, and the two observations,
+    /// which differ only at the source, are told apart by the source words
+    /// alone.
+    function testObservationsDifferOnlyAtTheSource() external view {
         bytes32[][] memory context = LibSt0xAttestContext.build(symbol("tAAPL"), float(1), observations());
 
         assertEq(context[CONTEXT_LEAD_COLUMN], observationContext(ALPACA_SOURCE));
         assertEq(context[CONTEXT_ATTESTOR_0_COLUMN], observationContext(YAHOO_SOURCE));
-        assertEq(toString(context[CONTEXT_LEAD_COLUMN][3]), "alpaca");
-        assertEq(toString(context[CONTEXT_ATTESTOR_0_COLUMN][3]), "yahoo");
-        assertEq(toString(context[CONTEXT_LEAD_COLUMN][4]), "USD");
-        assertEq(toString(context[CONTEXT_ATTESTOR_0_COLUMN][4]), "USD");
 
+        assertTrue(evalWord("lead-source()", context) != evalWord("attested-source<0>()", context));
         assertEq(evalWord("lead-symbol()", context), evalWord("attested-symbol<0>()", context));
         assertEq(evalWord("lead-price()", context), evalWord("attested-price<0>()", context));
         assertEq(evalWord("lead-time()", context), evalWord("attested-time<0>()", context));
+        assertEq(evalWord("lead-currency()", context), evalWord("attested-currency<0>()", context));
     }
 
-    /// Whatever rows 3 and 4 hold, the words read the observation's symbol,
-    /// price and time.
-    function testObservationRowsThreeAndFourDoNotDisturbTheReads(bytes32 source, bytes32 currency) external view {
+    /// An observation of AAPL at 344.63 that names another source and
+    /// currency reads them back, and the symbol, price and time beside them
+    /// are undisturbed.
+    function testObservationSourceAndCurrencyReadBack(bytes32 source, bytes32 currency) external view {
         bytes32[] memory values = observationContext(source);
         values[4] = currency;
         SignedContextV2[] memory attestations = new SignedContextV2[](2);
@@ -175,9 +197,13 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
         checkWord("lead-symbol()", context, OBSERVATION_SYMBOL);
         checkWord("lead-price()", context, OBSERVATION_PRICE);
         checkWord("lead-time()", context, OBSERVATION_TIME);
+        checkWord("lead-source()", context, source);
+        checkWord("lead-currency()", context, currency);
         checkWord("attested-symbol<0>()", context, OBSERVATION_SYMBOL);
         checkWord("attested-price<0>()", context, OBSERVATION_PRICE);
         checkWord("attested-time<0>()", context, OBSERVATION_TIME);
+        checkWord("attested-source<0>()", context, source);
+        checkWord("attested-currency<0>()", context, currency);
     }
 
     function tamperContext(uint256 index, uint256 row, uint256 byteIndex, uint8 mask)
