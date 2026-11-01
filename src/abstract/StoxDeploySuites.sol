@@ -234,7 +234,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
             deps[2] = DeployDependency({deployedAddress: beacon, runtimeCode: LibStoxVaultBeacon.RUNTIME_CODE});
             proxies[i] = RegistryBeaconProxyDeploy({
-                suite: string.concat("stox-token-", configs[i].underlying),
+                suite: string.concat("stox-token-", lowercase(configs[i].underlying)),
                 factory: CLONE_FACTORY_V7_ADDRESS,
                 registry: CONFIG_REGISTRY_ADDRESS,
                 authority: LibStoxConfig.ROOT_AUTHORITY,
@@ -247,6 +247,16 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             });
         }
         return proxies;
+    }
+
+    function lowercase(string memory s) internal pure returns (string memory) {
+        bytes memory b = bytes(s);
+        bytes memory lower = new bytes(b.length);
+        for (uint256 i = 0; i < b.length; i++) {
+            bytes1 c = b[i];
+            lower[i] = c >= "A" && c <= "Z" ? bytes1(uint8(c) + 32) : c;
+        }
+        return string(lower);
     }
 
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {
