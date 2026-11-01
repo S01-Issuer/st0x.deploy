@@ -38,6 +38,7 @@ on:
           - 20260729-deploy-governance-timelock
           - 20260813-execute-timelock-operations
           - 20261021-execute-underlying-naming
+          - 20261101-fill-token-gaps
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
