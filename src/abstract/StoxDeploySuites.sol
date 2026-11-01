@@ -14,7 +14,7 @@ import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.29/src/lib/LibRainDep
 import {CloneDeploy} from "rain-factory-0.2.7/src/lib/LibRainDeployClone.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.7/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.7/src/lib/LibRainDeployCloneMechanism.sol";
-import {RegistryBeaconProxyDeploy} from "rain-factory-0.2.7/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {RegistryBeaconProxyTarget} from "rain-factory-0.2.7/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V7_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V7_RUNTIME_CODE
@@ -43,8 +43,6 @@ import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../lib/LibProdTokenConfig.sol";
-import {LibStoxTokenProxies} from "../generated/LibStoxTokenProxies.sol";
-import {LibStoxVaultBeacon} from "../generated/LibStoxVaultBeacon.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -96,7 +94,6 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites());
         return declared;
     }
 
@@ -228,42 +225,22 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return clones;
     }
 
-    function tokenSuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
+    function tokenTargets() internal pure returns (RegistryBeaconProxyTarget[] memory) {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyDeploy[] memory proxies = new RegistryBeaconProxyDeploy[](configs.length);
+        RegistryBeaconProxyTarget[] memory targets = new RegistryBeaconProxyTarget[](configs.length);
         address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
-            DeployDependency[] memory deps = new DeployDependency[](3);
-            deps[0] = DeployDependency({
-                deployedAddress: CLONE_FACTORY_V7_ADDRESS, runtimeCode: CLONE_FACTORY_V7_RUNTIME_CODE
-            });
-            deps[1] =
-                DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
-            deps[2] = DeployDependency({deployedAddress: beacon, runtimeCode: LibStoxVaultBeacon.RUNTIME_CODE});
-            proxies[i] = RegistryBeaconProxyDeploy({
-                suite: string.concat("stox-token-", lowercase(configs[i].underlying)),
+            targets[i] = RegistryBeaconProxyTarget({
                 factory: CLONE_FACTORY_V7_ADDRESS,
                 registry: CONFIG_REGISTRY_ADDRESS,
                 authority: LibStoxConfig.ROOT_AUTHORITY,
                 beaconName: LibStoxConfig.VAULT_BEACON_NAME,
                 beacon: beacon,
                 data: tokenData(configs[i]),
-                salt: keccak256(bytes(configs[i].underlying)),
-                dependencies: deps,
-                runtimeCode: LibStoxTokenProxies.runtimeCode(i)
+                salt: keccak256(bytes(configs[i].underlying))
             });
         }
-        return proxies;
-    }
-
-    function lowercase(string memory s) internal pure returns (string memory) {
-        bytes memory b = bytes(s);
-        bytes memory lower = new bytes(b.length);
-        for (uint256 i = 0; i < b.length; i++) {
-            bytes1 c = b[i];
-            lower[i] = c >= "A" && c <= "Z" ? bytes1(uint8(c) + 32) : c;
-        }
-        return string(lower);
+        return targets;
     }
 
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {
