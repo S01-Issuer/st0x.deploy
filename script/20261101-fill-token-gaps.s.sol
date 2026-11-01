@@ -3,11 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {
-    DeployDependency,
-    LibRainDeploy,
-    SupportedNetwork
-} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {DeployDependency, LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V7_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V7_RUNTIME_CODE
@@ -78,7 +74,8 @@ contract FillTokenGaps is StoxDeploySuites, Script {
             DeployDependency({deployedAddress: CLONE_FACTORY_V7_ADDRESS, runtimeCode: CLONE_FACTORY_V7_RUNTIME_CODE});
         dependencies[1] =
             DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
-        dependencies[2] = DeployDependency({deployedAddress: vaultBeacon(), runtimeCode: LibStoxVaultBeacon.RUNTIME_CODE});
+        dependencies[2] =
+            DeployDependency({deployedAddress: vaultBeacon(), runtimeCode: LibStoxVaultBeacon.RUNTIME_CODE});
         return dependencies;
     }
 }
