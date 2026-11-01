@@ -13,9 +13,9 @@ import {SignedContextV2} from "rainlang-0.2.30/src/interface/IInterpreterCallerV
 //   column 1  mint               [symbol, amount]
 //   column 2  signers            [lead, attestor 0, attestor 1, ...]
 //   column 3  domain separators  [lead, attestor 0, attestor 1, ...]
-//   column 4  lead               [symbol, price, time]
-//   column 5  attestor 0         [symbol, price, time]
-//   column 6  attestor 1         [symbol, price, time]
+//   column 4  lead               [symbol, price, time, ...]
+//   column 5  attestor 0         [symbol, price, time, ...]
+//   column 6  attestor 1         [symbol, price, time, ...]
 //   ...
 //
 // A caller that wants the words to mean what they say builds its context with
@@ -83,8 +83,9 @@ library LibSt0xAttestContext {
     /// @param mintSymbol The symbol of the token being minted, IntOrAString.
     /// @param mintAmount The amount being requested, a Rain Float.
     /// @param attestations The signed attestations, the lead's first. Each
-    /// context is `[symbol, price, time]`. The layout is not checked here; a
-    /// short column reverts at eval when a word reads past it.
+    /// context begins `[symbol, price, time]`; later rows are carried but not
+    /// read. The layout is not checked here; a short column reverts at eval
+    /// when a word reads past it.
     /// @return The context grid.
     function build(bytes32 mintSymbol, bytes32 mintAmount, SignedContextV2[] memory attestations)
         internal
