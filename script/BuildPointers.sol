@@ -3,14 +3,20 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
+import {Vm, VmSafe} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploySnapshot} from "rain-deploy-0.1.29/src/lib/LibRainDeploySnapshot.sol";
 import {
     DeployCandidate,
     DeployDeclaration,
     DeploySuite
 } from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
+import {
+    LibRainDeployRegistryBeaconProxy,
+    RegistryBeaconProxyDeploy,
+    RegistryBeaconProxyTarget
+} from "rain-factory-0.2.7/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
+import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -84,6 +90,46 @@ contract BuildPointers is Script, StoxDeploySuites {
 
         genProdLibs();
         genReleasedLibs(candidates);
+        genTokenProxies();
+    }
+
+    function genTokenProxies() internal {
+        RegistryBeaconProxyDeploy[] memory proxies = tokenSuites();
+        writeGeneratedHeader(GEN_TOKEN_PROXIES_PATH);
+        vm.writeLine(GEN_TOKEN_PROXIES_PATH, "");
+        vm.writeLine(GEN_TOKEN_PROXIES_PATH, "library LibStoxTokenProxies {");
+        vm.writeLine(
+            GEN_TOKEN_PROXIES_PATH, "    function runtimeCode(uint256 i) internal pure returns (bytes memory) {"
+        );
+        for (uint256 i = 0; i < proxies.length; i++) {
+            RegistryBeaconProxyDeploy memory proxy = proxies[i];
+            bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
+                Vm(address(vm)),
+                RegistryBeaconProxyTarget({
+                    factory: proxy.factory,
+                    registry: proxy.registry,
+                    authority: proxy.authority,
+                    beaconName: proxy.beaconName,
+                    beacon: proxy.beacon,
+                    data: proxy.data,
+                    salt: proxy.salt
+                }),
+                V4.STOX_RECEIPT_VAULT_0_1_1,
+                V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
+            );
+            string memory literal = string.concat('hex"', vm.replace(vm.toString(code), "0x", ""), '"');
+            vm.writeLine(
+                GEN_TOKEN_PROXIES_PATH,
+                i + 1 == proxies.length
+                    ? string.concat("        return ", literal, ";")
+                    : string.concat("        if (i == ", vm.toString(i), ") return ", literal, ";")
+            );
+        }
+        if (proxies.length == 0) {
+            vm.writeLine(GEN_TOKEN_PROXIES_PATH, '        return "";');
+        }
+        vm.writeLine(GEN_TOKEN_PROXIES_PATH, "    }");
+        vm.writeLine(GEN_TOKEN_PROXIES_PATH, "}");
     }
 
     /// @notice The key and artifact path each released lib is emitted with,
@@ -135,6 +181,7 @@ contract BuildPointers is Script, StoxDeploySuites {
 
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
+    string constant GEN_TOKEN_PROXIES_PATH = "src/generated/LibStoxTokenProxies.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
