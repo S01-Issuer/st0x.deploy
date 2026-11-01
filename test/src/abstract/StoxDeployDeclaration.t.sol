@@ -36,6 +36,7 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {LibBeaconInvariants} from "../../../src/lib/LibBeaconInvariants.sol";
+import {LibProdTokenTargets} from "../../../src/lib/LibProdTokenTargets.sol";
 
 /// @title StoxDeployDeclarationTest
 /// @notice The suite fields only a dispatch, a verifier or a broadcast reads.
@@ -76,7 +77,8 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
         externals[3] =
             ExternalDeployment({deployedAddress: CONFIG_REGISTRY_ADDRESS, codeHash: CONFIG_REGISTRY_CODEHASH});
         externals[4] = ExternalDeployment({
-            deployedAddress: vaultBeacon(), codeHash: LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH
+            deployedAddress: LibProdTokenTargets.vaultBeacon(),
+            codeHash: LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH
         });
         return externals;
     }

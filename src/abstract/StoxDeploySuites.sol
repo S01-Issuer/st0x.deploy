@@ -14,7 +14,6 @@ import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.29/src/lib/LibRainDep
 import {CloneDeploy} from "rain-factory-0.2.9/src/lib/LibRainDeployClone.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.9/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.9/src/lib/LibRainDeployCloneMechanism.sol";
-import {RegistryBeaconProxyTarget} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V7_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V7_RUNTIME_CODE
@@ -23,10 +22,6 @@ import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
 } from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
-import {
-    OffchainAssetReceiptVaultConfigV3,
-    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.13/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
@@ -41,8 +36,6 @@ import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
 import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
-import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
-import {LibProdTokenConfig, Region, TokenConfig} from "../lib/LibProdTokenConfig.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -223,57 +216,6 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             )
         });
         return clones;
-    }
-
-    function tokenTargets() internal pure returns (RegistryBeaconProxyTarget[] memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = new RegistryBeaconProxyTarget[](configs.length);
-        address beacon = vaultBeacon();
-        for (uint256 i = 0; i < configs.length; i++) {
-            targets[i] = RegistryBeaconProxyTarget({
-                factory: CLONE_FACTORY_V7_ADDRESS,
-                registry: CONFIG_REGISTRY_ADDRESS,
-                authority: LibStoxConfig.ROOT_AUTHORITY,
-                beaconName: LibStoxConfig.VAULT_BEACON_NAME,
-                beacon: beacon,
-                data: tokenData(configs[i]),
-                salt: keccak256(bytes(configs[i].underlying))
-            });
-        }
-        return targets;
-    }
-
-    function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {
-        return abi.encode(
-            OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-            OffchainAssetReceiptVaultConfigV3({
-                name: config.name,
-                symbol: config.symbol,
-                authority: LibStoxConfig.ROOT_AUTHORITY,
-                rbacName: config.region == Region.US ? LibStoxConfig.RBAC_US_NAME : LibStoxConfig.RBAC_EU_NAME,
-                receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,
-                metadata: ""
-            })
-        );
-    }
-
-    /// The beacon-set deployer creates the receipt beacon then the vault
-    /// beacon in its constructor, so the vault beacon is its nonce-2 CREATE.
-    function vaultBeacon() internal pure returns (address) {
-        return address(
-            uint160(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            bytes1(0xd6),
-                            bytes1(0x94),
-                            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1,
-                            bytes1(0x02)
-                        )
-                    )
-                )
-            )
-        );
     }
 
     function zoltu(

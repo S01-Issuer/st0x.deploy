@@ -13,6 +13,7 @@ import {
 } from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
+import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
 import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../src/interface/IST0xVaultBeaconSet.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
@@ -115,7 +116,10 @@ contract BuildPointers is Script, StoxDeploySuites {
 
     function genTokenProxy() internal {
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
-            Vm(address(vm)), tokenTargets()[0], V4.STOX_RECEIPT_VAULT_0_1_1, V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
+            Vm(address(vm)),
+            LibProdTokenTargets.tokenTargets()[0],
+            V4.STOX_RECEIPT_VAULT_0_1_1,
+            V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
         );
         writeGeneratedHeader(GEN_TOKEN_PROXY_PATH);
         vm.writeLine(GEN_TOKEN_PROXY_PATH, "");

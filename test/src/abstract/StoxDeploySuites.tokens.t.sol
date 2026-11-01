@@ -44,6 +44,7 @@ import {
 import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenTargets} from "../../../src/lib/LibProdTokenTargets.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
@@ -117,7 +118,7 @@ contract StoxDeployTokenSuitesTest is Test, StoxDeploySuites {
 
     function testVaultBeaconIsTheBeaconSetDeployersVaultBeacon() external {
         IST0xVaultBeaconSet set = deployVaultBeaconSet();
-        assertEq(address(set.iOffchainAssetReceiptVaultBeacon()), vaultBeacon());
+        assertEq(address(set.iOffchainAssetReceiptVaultBeacon()), LibProdTokenTargets.vaultBeacon());
     }
 
     function testEveryProductionTokenIsOneRegistryBeaconProxySuite() external view {
