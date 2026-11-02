@@ -36,10 +36,7 @@ contract StoxGovernanceTimelockTest is Test {
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         bytes32[4] memory roles = [
-            timelock.DEFAULT_ADMIN_ROLE(),
-            timelock.PROPOSER_ROLE(),
-            timelock.CANCELLER_ROLE(),
-            timelock.EXECUTOR_ROLE()
+            timelock.DEFAULT_ADMIN_ROLE(), timelock.PROPOSER_ROLE(), timelock.CANCELLER_ROLE(), timelock.EXECUTOR_ROLE()
         ];
         address[4] memory accounts = [address(timelock), safe, safe, address(0)];
         uint256 granted = 0;
