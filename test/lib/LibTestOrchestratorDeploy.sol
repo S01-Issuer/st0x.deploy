@@ -8,7 +8,9 @@ import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyTarget
 } from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
+import {
+    RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
 
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibProdOrchestratorTarget} from "../../src/lib/LibProdOrchestratorTarget.sol";
@@ -30,7 +32,9 @@ library LibTestOrchestratorDeploy {
         address implementation = LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
         require(implementation == LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, "ST0xOrchestrator address mismatch");
         address beacon = LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CREATION_CODE_CANDIDATE);
-        require(beacon == LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE, "ST0xOrchestratorBeacon address mismatch");
+        require(
+            beacon == LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE, "ST0xOrchestratorBeacon address mismatch"
+        );
         return beacon;
     }
 
@@ -40,7 +44,11 @@ library LibTestOrchestratorDeploy {
         RegistryBeaconProxyTarget memory target = LibProdOrchestratorTarget.orchestratorTarget();
         vm.etch(target.factory, CLONE_FACTORY_RUNTIME_CODE);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.ORCHESTRATOR_BEACON_NAME, "address", abi.encode(target.beacon)
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.ORCHESTRATOR_BEACON_NAME,
+            "address",
+            abi.encode(target.beacon)
         );
         return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(vm, "base", deployer, abi.encode(target));
     }
