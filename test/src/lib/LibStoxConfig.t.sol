@@ -7,7 +7,7 @@ import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistr
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibConfigRegistryDeploy.sol";
 
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {LibStoxConfigFork} from "../../../src/lib/LibStoxConfigFork.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibStoxConfigHarness} from "./LibStoxConfigHarness.sol";
 
 contract LibStoxConfigTest is Test {
@@ -15,17 +15,17 @@ contract LibStoxConfigTest is Test {
 
     function setUp() external {
         harness = new LibStoxConfigHarness();
-        LibStoxConfigFork.etchConfigRegistry(vm);
+        LibTestDeploy.etchConfigRegistry(vm);
     }
 
-    function testFuzzBeaconOwnerFollowsBinding(address first, address second) external {
-        LibStoxConfigFork.bindBeaconOwner(vm, first);
-        assertEq(harness.beaconOwner(), first);
-        LibStoxConfigFork.bindBeaconOwner(vm, second);
-        assertEq(harness.beaconOwner(), second);
+    function testFuzzGovernanceTimelockFollowsBinding(address first, address second) external {
+        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(first));
+        assertEq(harness.governanceTimelock(), first);
+        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(second));
+        assertEq(harness.governanceTimelock(), second);
     }
 
-    function testBeaconOwnerUnboundReverts() external {
+    function testGovernanceTimelockUnboundReverts() external {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
@@ -33,10 +33,10 @@ contract LibStoxConfigTest is Test {
                 LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
             )
         );
-        harness.beaconOwner();
+        harness.governanceTimelock();
     }
 
-    function testFuzzBeaconOwnerIgnoresOtherAuthority(address authority, address owner) external {
+    function testFuzzGovernanceTimelockIgnoresOtherAuthority(address authority, address owner) external {
         vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY);
         vm.prank(authority);
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
@@ -48,10 +48,10 @@ contract LibStoxConfigTest is Test {
                 LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
             )
         );
-        harness.beaconOwner();
+        harness.governanceTimelock();
     }
 
-    function testFuzzBeaconOwnerIgnoresOtherName(bytes32 name, address owner) external {
+    function testFuzzGovernanceTimelockIgnoresOtherName(bytes32 name, address owner) external {
         vm.assume(name != LibStoxConfig.GOVERNANCE_TIMELOCK_NAME);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
@@ -63,6 +63,6 @@ contract LibStoxConfigTest is Test {
                 LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
             )
         );
-        harness.beaconOwner();
+        harness.governanceTimelock();
     }
 }

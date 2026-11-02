@@ -18,14 +18,14 @@ import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
-    BeaconOwnerBindingMismatch,
-    BindBeaconOwnerRecordMismatch,
-    BindBeaconOwnerUnexpectedLine,
-    SafeNotBeaconOwnerDelegate,
-    bindBeaconOwnerDeclaration
-} from "../../script/20261022-bind-beacon-owner.s.sol";
+    GovernanceTimelockBindingMismatch,
+    BindGovernanceTimelockRecordMismatch,
+    BindGovernanceTimelockUnexpectedLine,
+    SafeNotGovernanceTimelockDelegate,
+    bindGovernanceTimelockDeclaration
+} from "../../script/20261022-bind-governance-timelock.s.sol";
 import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate-multisig-threshold.s.sol";
-import {BindBeaconOwnerHarness} from "./BindBeaconOwnerHarness.sol";
+import {BindGovernanceTimelockHarness} from "./BindGovernanceTimelockHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -37,11 +37,11 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 /// @dev A Safe line write past the bind.
 bytes32 constant LATER = keccak256("later");
 
-/// @title BindBeaconOwnerTest
+/// @title BindGovernanceTimelockTest
 /// @notice The bind on every deployment network at head, with every
 /// predecessor on the Safe's line and the root's approval of the Safe written
 /// on the fork where the chain lacks them.
-contract BindBeaconOwnerTest is Test {
+contract BindGovernanceTimelockTest is Test {
     IConfigRegistryV5 internal constant CONFIG_REGISTRY =
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
 
@@ -75,15 +75,15 @@ contract BindBeaconOwnerTest is Test {
 
     function assertBundle(string memory network) internal {
         vm.createSelectFork(network);
-        BindBeaconOwnerHarness script = new BindBeaconOwnerHarness(network);
+        BindGovernanceTimelockHarness script = new BindGovernanceTimelockHarness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        bytes32 id = bindBeaconOwnerDeclaration().id;
+        bytes32 id = bindGovernanceTimelockDeclaration().id;
 
         if (LibStoxMigrations.applied(safe, id) != 0) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the binding"));
-            assertEq(LibStoxConfig.beaconOwner(), timelock, "bound owner");
-            vm.expectPartialRevert(BindBeaconOwnerUnexpectedLine.selector);
+            assertEq(LibStoxConfig.governanceTimelock(), timelock, "bound timelock");
+            vm.expectPartialRevert(BindGovernanceTimelockUnexpectedLine.selector);
             script.callPreflight();
             return;
         }
@@ -103,27 +103,27 @@ contract BindBeaconOwnerTest is Test {
         assertEq(artifactSafe, safe, "artifact Safe");
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
-        assertEq(LibStoxConfig.beaconOwner(), timelock, "bound owner");
+        assertEq(LibStoxConfig.governanceTimelock(), timelock, "bound timelock");
         assertEq(LibStoxMigrations.applied(safe, id), block.timestamp, "record moment");
         assertEq(LibStoxMigrations.head(safe), id, "line head");
 
-        vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerUnexpectedLine.selector, id));
+        vm.expectRevert(abi.encodeWithSelector(BindGovernanceTimelockUnexpectedLine.selector, id));
         script.callPreflight();
     }
 
     /// @dev A HyperEVM fork just before the bind, or false once the bind has
     /// executed on chain.
-    function readyOnFork(string memory tag) internal returns (BindBeaconOwnerHarness script, address safe, bool ready) {
+    function readyOnFork(string memory tag) internal returns (BindGovernanceTimelockHarness script, address safe, bool ready) {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        script = new BindBeaconOwnerHarness(tag);
+        script = new BindGovernanceTimelockHarness(tag);
         safe = LibSafeInvariants.safeForChainId(block.chainid);
-        ready = LibStoxMigrations.applied(safe, bindBeaconOwnerDeclaration().id) == 0;
+        ready = LibStoxMigrations.applied(safe, bindGovernanceTimelockDeclaration().id) == 0;
         if (!ready) console2.log("SPENT: the bind has executed on this chain");
     }
 
     function executedOnFork(string memory tag)
         internal
-        returns (BindBeaconOwnerHarness script, address safe, bool ready)
+        returns (BindGovernanceTimelockHarness script, address safe, bool ready)
     {
         (script, safe, ready) = readyOnFork(tag);
         if (!ready) return (script, safe, ready);
@@ -134,29 +134,29 @@ contract BindBeaconOwnerTest is Test {
     }
 
     function testPreflightRefusesAnUnapprovedSafe() external {
-        (BindBeaconOwnerHarness script, address safe, bool ready) = readyOnFork("unapproved");
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = readyOnFork("unapproved");
         if (!ready) return;
         advanceLine(safe, "unapproved");
         if (CONFIG_REGISTRY.approvedV5(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe)) {
             vm.prank(LibStoxConfig.ROOT_AUTHORITY);
             CONFIG_REGISTRY.revokeV5(LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe);
         }
-        vm.expectRevert(abi.encodeWithSelector(SafeNotBeaconOwnerDelegate.selector, safe));
+        vm.expectRevert(abi.encodeWithSelector(SafeNotGovernanceTimelockDelegate.selector, safe));
         script.callPreflight();
     }
 
     function testPreflightRefusesALineBeforeTheThreshold() external {
-        (BindBeaconOwnerHarness script, address safe, bool ready) = readyOnFork("early");
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = readyOnFork("early");
         if (!ready) return;
         bytes32 head = LibStoxMigrations.head(safe);
         if (head == migrateMultisigThresholdDeclaration().id) return;
         approveSafe(safe);
-        vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerUnexpectedLine.selector, head));
+        vm.expectRevert(abi.encodeWithSelector(BindGovernanceTimelockUnexpectedLine.selector, head));
         script.callPreflight();
     }
 
     function testPreflightRefusesALinePastTheThreshold() external {
-        (BindBeaconOwnerHarness script, address safe, bool ready) = readyOnFork("past");
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = readyOnFork("past");
         if (!ready) return;
         advanceLine(safe, "past");
         approveSafe(safe);
@@ -169,31 +169,31 @@ contract BindBeaconOwnerTest is Test {
                 LibStoxMigrations.onto(safe, migrateMultisigThresholdDeclaration().id),
                 ""
             );
-        vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerUnexpectedLine.selector, LATER));
+        vm.expectRevert(abi.encodeWithSelector(BindGovernanceTimelockUnexpectedLine.selector, LATER));
         script.callPreflight();
     }
 
-    function testPostStateRefusesAnotherOwner() external {
+    function testPostStateRefusesAnotherTimelock() external {
         address other = address(0xBEEF);
-        (BindBeaconOwnerHarness script,, bool ready) = executedOnFork("other-owner");
+        (BindGovernanceTimelockHarness script,, bool ready) = executedOnFork("other-timelock");
         if (!ready) return;
         vm.warp(block.timestamp + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         CONFIG_REGISTRY.registerV5(
             LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(other), ""
         );
-        vm.expectRevert(abi.encodeWithSelector(BeaconOwnerBindingMismatch.selector, abi.encode(other), block.timestamp));
+        vm.expectRevert(abi.encodeWithSelector(GovernanceTimelockBindingMismatch.selector, abi.encode(other), block.timestamp));
         script.callAssertPostState();
     }
 
     function testPostStateRefusesABindingFromAnotherBlock() external {
-        (BindBeaconOwnerHarness script,, bool ready) = executedOnFork("binding-block");
+        (BindGovernanceTimelockHarness script,, bool ready) = executedOnFork("binding-block");
         if (!ready) return;
         uint256 boundAt = block.timestamp;
         vm.warp(boundAt + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                BeaconOwnerBindingMismatch.selector,
+                GovernanceTimelockBindingMismatch.selector,
                 abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)),
                 boundAt
             )
@@ -202,7 +202,7 @@ contract BindBeaconOwnerTest is Test {
     }
 
     function testPostStateRefusesARecordFromAnotherBlock() external {
-        (BindBeaconOwnerHarness script,, bool ready) = executedOnFork("record-block");
+        (BindGovernanceTimelockHarness script,, bool ready) = executedOnFork("record-block");
         if (!ready) return;
         uint256 recordedAt = block.timestamp;
         vm.warp(recordedAt + 1);
@@ -214,12 +214,12 @@ contract BindBeaconOwnerTest is Test {
             abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)),
             ""
         );
-        vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerRecordMismatch.selector, recordedAt));
+        vm.expectRevert(abi.encodeWithSelector(BindGovernanceTimelockRecordMismatch.selector, recordedAt));
         script.callAssertPostState();
     }
 
     function testPostStateRefusesALineThatDoesNotEndAtTheRecord() external {
-        (BindBeaconOwnerHarness script, address safe, bool ready) = executedOnFork("line");
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = executedOnFork("line");
         if (!ready) return;
         vm.prank(safe);
         IMigrationRegistryV5(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
@@ -227,15 +227,15 @@ contract BindBeaconOwnerTest is Test {
                 safe,
                 LibStoxMigrations.NAMESPACE,
                 LATER,
-                LibStoxMigrations.onto(safe, bindBeaconOwnerDeclaration().id),
+                LibStoxMigrations.onto(safe, bindGovernanceTimelockDeclaration().id),
                 ""
             );
-        vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerUnexpectedLine.selector, LATER));
+        vm.expectRevert(abi.encodeWithSelector(BindGovernanceTimelockUnexpectedLine.selector, LATER));
         script.callAssertPostState();
     }
 
     function testPreflightRefusesAnUnpinnedRegistry() external {
-        (BindBeaconOwnerHarness script, address safe, bool ready) = readyOnFork("unpinned");
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = readyOnFork("unpinned");
         if (!ready) return;
         advanceLine(safe, "unpinned");
         approveSafe(safe);
@@ -251,7 +251,7 @@ contract BindBeaconOwnerTest is Test {
     }
 
     function testPostStateRefusesADriftedSafe() external {
-        (BindBeaconOwnerHarness script, address safe, bool ready) = executedOnFork("drifted");
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = executedOnFork("drifted");
         if (!ready) return;
         vm.mockCall(safe, abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(4)));
         vm.expectRevert(

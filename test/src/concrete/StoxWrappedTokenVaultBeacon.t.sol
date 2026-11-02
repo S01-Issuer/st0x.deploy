@@ -10,7 +10,7 @@ import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedToke
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {LibStoxConfigFork} from "../../../src/lib/LibStoxConfigFork.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
@@ -19,7 +19,8 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
     address internal constant OWNER = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
     function deployBeacon() internal returns (address) {
-        LibStoxConfigFork.bindBeaconOwner(vm, OWNER);
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(OWNER));
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         return LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
@@ -40,7 +41,8 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
     /// depend on it.
     function testFuzzBeaconOwnerFollowsBinding(address owner) external {
         vm.assume(owner != address(0));
-        LibStoxConfigFork.bindBeaconOwner(vm, owner);
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner));
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         address beacon = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
@@ -50,7 +52,7 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
 
     /// An unbound owner refuses construction.
     function testBeaconOwnerUnboundReverts() external {
-        LibStoxConfigFork.etchConfigRegistry(vm);
+        LibTestDeploy.etchConfigRegistry(vm);
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         vm.expectRevert(

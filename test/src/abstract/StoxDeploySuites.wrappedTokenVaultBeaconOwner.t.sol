@@ -12,7 +12,7 @@ import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
 import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {LibStoxConfigFork} from "../../../src/lib/LibStoxConfigFork.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 
 contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySuites {
@@ -40,7 +40,8 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
             uint256 preDeploy = vm.snapshotState();
             vm.chainId(chainIds[i]);
             address timelock = LibTimelockInvariants.timelockForChainId(chainIds[i]);
-            LibStoxConfigFork.bindBeaconOwner(vm, timelock);
+            LibTestDeploy.etchConfigRegistry(vm);
+            LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(timelock));
             assertDeployedAtThePin(this.deploySuite());
             assertEq(Ownable(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE).owner(), timelock, "owner");
             vm.revertToState(preDeploy);
@@ -50,7 +51,8 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
     function testFuzzBeaconSuiteAddressIsTheSameWhateverTheChainId(uint64 chainId, address owner) external {
         vm.assume(owner != address(0));
         vm.chainId(chainId);
-        LibStoxConfigFork.bindBeaconOwner(vm, owner);
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner));
         assertEq(
             deployedAddress(declaration(), beaconSuite(), chainId),
             V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE,

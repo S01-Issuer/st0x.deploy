@@ -7,7 +7,7 @@ import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 /// @notice External-call harness so `vm.expectRevert` sees `LibStoxConfig`'s
 /// reverts.
 contract LibStoxConfigHarness {
-    function beaconOwner() external view returns (address) {
-        return LibStoxConfig.beaconOwner();
+    function governanceTimelock() external view returns (address) {
+        return LibStoxConfig.governanceTimelock();
     }
 }
