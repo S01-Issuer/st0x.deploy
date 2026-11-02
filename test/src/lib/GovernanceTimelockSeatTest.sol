@@ -46,7 +46,9 @@ abstract contract GovernanceTimelockSeatTest is Test {
     }
 
     function testFuzzSeatRefusesOtherCodeAtTheRegistry(bytes memory code) external {
-        vm.assume(code.length > 0 && keccak256(code) != LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_CODEHASH);
+        // Deployed code never starts 0xef (EIP-3541); vm.etch reads 0xef01 as an EIP-7702 designator.
+        vm.assume(code.length > 0 && code[0] != 0xef);
+        vm.assume(keccak256(code) != LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_CODEHASH);
         vm.etch(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, code);
         vm.expectRevert(
             abi.encodeWithSelector(
