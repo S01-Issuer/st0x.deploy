@@ -16,14 +16,17 @@ import {
     ORCHESTRATOR_EMERGENCY_ROLE,
     ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
 } from "../../../src/concrete/ST0xOrchestrator.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
-import {BeaconOwnerMismatch, BeaconImplementationMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
+import {
+    BeaconNotDeployed,
+    BeaconCodehashMismatch,
+    BeaconOwnerMismatch,
+    BeaconImplementationMismatch
+} from "../../../src/lib/LibBeaconInvariants.sol";
 import {
     LibOrchestratorInvariants,
-    OrchestratorSetDeployerMissing,
     OrchestratorInstanceMissing,
     OrchestratorRoleMissing,
     OrchestratorUnexpectedRoleHolder,
@@ -31,13 +34,14 @@ import {
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
+import {LibTestOrchestratorDeploy} from "../../lib/LibTestOrchestratorDeploy.sol";
 
 /// @title LibOrchestratorInvariantsTest
 /// @notice The mint-caps orchestrator invariants against a local deploy that
-/// matches production: the current-release orchestrator and beacon-set
-/// deployer Zoltu-deployed on Base, then the first `deploy()`. Green on that
-/// deploy, and each holder, wiring or address deviation reverts with its
-/// own typed error.
+/// matches production: the current-release orchestrator and its beacon
+/// Zoltu-deployed on Base, then the instance the production deploy step
+/// creates. Green on that deploy, and each holder, wiring or address
+/// deviation reverts with its own typed error.
 contract LibOrchestratorInvariantsMintCapsTest is Test {
     /// @notice Stand-in for the chain's token-owner Safe; the invariants only
     /// read its role membership.
@@ -49,7 +53,7 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
     LibOrchestratorInvariantsHarness internal harness;
     address internal timelock;
     address internal deployKey;
-    ST0xOrchestratorBeaconSetDeployer internal setDeployer;
+    address internal deployedBeacon;
 
     function setUp() external {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
@@ -59,14 +63,11 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         deployKey = LibProdDeployCurrent.BEACON_INITIAL_OWNER;
 
         LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
-        setDeployer = ST0xOrchestratorBeaconSetDeployer(
-            LibRainDeploy.deployZoltu(type(ST0xOrchestratorBeaconSetDeployer).creationCode)
-        );
+        deployedBeacon = LibTestOrchestratorDeploy.deployBeacon();
     }
 
     function deployInstance() internal returns (IAccessControl) {
-        return IAccessControl(setDeployer.deploy());
+        return IAccessControl(LibTestOrchestratorDeploy.deployInstance(vm, deployKey));
     }
 
     function adminRoles() internal pure returns (bytes32[4] memory) {
@@ -88,10 +89,9 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
     }
 
     /// @notice The derived beacon and instance are where the production
-    /// deployer actually creates them.
+    /// deploy actually creates them.
     function testMintCapsAddressesMatchDeploy() external {
-        assertEq(address(setDeployer), LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER, "set deployer");
-        assertEq(address(setDeployer.iOrchestratorBeacon()), LibOrchestratorInvariants.mintCapsBeacon(), "beacon");
+        assertEq(deployedBeacon, LibOrchestratorInvariants.mintCapsBeacon(), "beacon");
         assertEq(address(deployInstance()), LibOrchestratorInvariants.mintCapsInstance(), "instance");
     }
 
@@ -99,9 +99,25 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         harness.callAssertMintCapsBeaconSet();
     }
 
-    function testAssertMintCapsBeaconSetRevertsWhenDeployerMissing() external {
-        vm.etch(address(setDeployer), "");
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorSetDeployerMissing.selector, address(setDeployer)));
+    function testAssertMintCapsBeaconSetRevertsWhenBeaconMissing() external {
+        vm.etch(deployedBeacon, "");
+        vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, deployedBeacon));
+        harness.callAssertMintCapsBeaconSet();
+    }
+
+    function testFuzzAssertMintCapsBeaconSetRevertsOnOtherCode(bytes memory code) external {
+        // Deployed code never starts 0xef (EIP-3541); vm.etch reads 0xef01 as an EIP-7702 designator.
+        vm.assume(code.length > 0 && code[0] != 0xef);
+        vm.assume(keccak256(code) != LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH);
+        vm.etch(deployedBeacon, code);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconCodehashMismatch.selector,
+                deployedBeacon,
+                LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH,
+                keccak256(code)
+            )
+        );
         harness.callAssertMintCapsBeaconSet();
     }
 
