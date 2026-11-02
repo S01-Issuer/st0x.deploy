@@ -42,6 +42,7 @@ import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/li
 import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
+import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.7/src/interface/ICloneableV2.sol";
 
 /// @dev The orchestrator's role ids at file level, so a library can name them:
 /// a contract's `public constant` is not reachable as `ST0xOrchestrator.X`.
@@ -144,6 +145,7 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 contract ST0xOrchestrator is
     IST0xOrchestratorV2,
     IInterpreterCallerV5,
+    ICloneableV2,
     Initializable,
     AccessControlUpgradeable,
     EIP712Upgradeable,
@@ -238,9 +240,10 @@ contract ST0xOrchestrator is
     /// `LibStoxConfig.GOVERNANCE_TIMELOCK_NAME` as an `address`.
     ///
     /// @dev The timelock is resolved from the `ConfigRegistry` rather than
-    /// taken as an argument, so a caller of the permissionless beacon-set
-    /// deployer cannot seat an admin of its own.
-    function initialize() external initializer {
+    /// taken as an argument, so whoever creates the registry beacon proxy
+    /// cannot seat an admin of its own. `data` is unused.
+    /// @inheritdoc ICloneableV2
+    function initialize(bytes calldata) external initializer returns (bytes32) {
         address timelock = LibStoxConfig.governanceTimelock();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
@@ -267,6 +270,8 @@ contract ST0xOrchestrator is
         _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
         _setRoleAdmin(EMERGENCY_ADMIN_ROLE, EMERGENCY_ADMIN_ROLE);
         _grantRole(EMERGENCY_ADMIN_ROLE, timelock);
+
+        return ICLONEABLE_V2_SUCCESS;
     }
 
     // ------------------------------------------------------------------ //

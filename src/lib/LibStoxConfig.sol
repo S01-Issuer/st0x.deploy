@@ -23,6 +23,9 @@ library LibStoxConfig {
     /// @notice `abi.encode(address)`: the beacon production wrappers proxy.
     bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
 
+    /// @notice `abi.encode(address)`: the orchestrator's beacon.
+    bytes32 internal constant ORCHESTRATOR_BEACON_NAME = keccak256("st0x.orchestrator-beacon.v2");
+
     /// @notice `abi.encode(address)`: the governance timelock.
     bytes32 internal constant GOVERNANCE_TIMELOCK_NAME = keccak256("st0x.governance-timelock.v1");
 
