@@ -113,7 +113,10 @@ contract BindGovernanceTimelockTest is Test {
 
     /// @dev A HyperEVM fork just before the bind, or false once the bind has
     /// executed on chain.
-    function readyOnFork(string memory tag) internal returns (BindGovernanceTimelockHarness script, address safe, bool ready) {
+    function readyOnFork(string memory tag)
+        internal
+        returns (BindGovernanceTimelockHarness script, address safe, bool ready)
+    {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         script = new BindGovernanceTimelockHarness(tag);
         safe = LibSafeInvariants.safeForChainId(block.chainid);
@@ -182,7 +185,9 @@ contract BindGovernanceTimelockTest is Test {
         CONFIG_REGISTRY.registerV5(
             LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(other), ""
         );
-        vm.expectRevert(abi.encodeWithSelector(GovernanceTimelockBindingMismatch.selector, abi.encode(other), block.timestamp));
+        vm.expectRevert(
+            abi.encodeWithSelector(GovernanceTimelockBindingMismatch.selector, abi.encode(other), block.timestamp)
+        );
         script.callAssertPostState();
     }
 

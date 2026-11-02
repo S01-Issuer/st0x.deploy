@@ -41,7 +41,13 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
             vm.chainId(chainIds[i]);
             address timelock = LibTimelockInvariants.timelockForChainId(chainIds[i]);
             LibTestDeploy.etchConfigRegistry(vm);
-            LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(timelock));
+            LibTestDeploy.bind(
+                vm,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                "address",
+                abi.encode(timelock)
+            );
             assertDeployedAtThePin(this.deploySuite());
             assertEq(Ownable(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE).owner(), timelock, "owner");
             vm.revertToState(preDeploy);
@@ -52,7 +58,9 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
         vm.assume(owner != address(0));
         vm.chainId(chainId);
         LibTestDeploy.etchConfigRegistry(vm);
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner));
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner)
+        );
         assertEq(
             deployedAddress(declaration(), beaconSuite(), chainId),
             V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE,

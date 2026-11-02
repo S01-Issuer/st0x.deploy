@@ -20,7 +20,9 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
 
     function deployBeacon() internal returns (address) {
         LibTestDeploy.etchConfigRegistry(vm);
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(OWNER));
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(OWNER)
+        );
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         return LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);
@@ -42,7 +44,9 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
     function testFuzzBeaconOwnerFollowsBinding(address owner) external {
         vm.assume(owner != address(0));
         LibTestDeploy.etchConfigRegistry(vm);
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner));
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner)
+        );
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         address beacon = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVaultBeacon).creationCode);

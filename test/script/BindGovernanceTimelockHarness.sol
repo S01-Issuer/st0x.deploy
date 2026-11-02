@@ -18,7 +18,10 @@ contract BindGovernanceTimelockHarness is BindGovernanceTimelock {
 
     /// @inheritdoc BindGovernanceTimelock
     function artifactPath() internal view override returns (string memory) {
-        return string.concat("out/20261022-bind-governance-timelock-", vm.toString(block.chainid), "-", sArtifactTag, ".json");
+        return
+            string.concat(
+                "out/20261022-bind-governance-timelock-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
+            );
     }
 
     function callPreflight() external view {

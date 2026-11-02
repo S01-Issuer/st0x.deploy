@@ -19,9 +19,13 @@ contract LibStoxConfigTest is Test {
     }
 
     function testFuzzGovernanceTimelockFollowsBinding(address first, address second) external {
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(first));
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(first)
+        );
         assertEq(harness.governanceTimelock(), first);
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(second));
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(second)
+        );
         assertEq(harness.governanceTimelock(), second);
     }
 

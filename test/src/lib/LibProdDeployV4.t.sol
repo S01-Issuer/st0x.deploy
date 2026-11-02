@@ -50,7 +50,13 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 contract LibProdDeployV4Test is Test {
     function setUp() external {
         LibTestDeploy.etchConfigRegistry(vm);
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK));
+        LibTestDeploy.bind(
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+            "address",
+            abi.encode(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK)
+        );
     }
 
     function deployZoltuWithinEip170(bytes memory creationCode) internal returns (address) {

@@ -431,9 +431,9 @@
           "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
         }
       },
-      "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+      "id": "0xf74cc4e6553982bab7cdc60718fd3ba12f8f31932ac8caa9843e622b7afde48b",
       "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-      "script": "script/20261022-bind-beacon-owner.s.sol"
+      "script": "script/20261022-bind-governance-timelock.s.sol"
     },
     {
       "chains": {
