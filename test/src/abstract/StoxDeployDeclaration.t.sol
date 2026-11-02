@@ -27,6 +27,7 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
 
 /// @title StoxDeployDeclarationTest
 /// @notice The suite fields only a dispatch, a verifier or a broadcast reads.
@@ -55,6 +56,7 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
             return type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
         }
         if (key == keccak256(bytes(ORCHESTRATOR))) return type(ST0xOrchestrator).creationCode;
+        if (key == keccak256(bytes(ATTEST_SUB_PARSER))) return type(St0xAttestSubParser).creationCode;
         revert(string.concat("no source for suite: ", suite));
     }
 

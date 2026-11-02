@@ -49,6 +49,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = "stox-wrapped-token-vault-beacon-set-deployer";
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
+    string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
     string constant RECEIPT_PATH = "src/concrete/StoxReceipt.sol:StoxReceipt";
@@ -68,6 +69,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH =
         "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer";
+    string constant ATTEST_SUB_PARSER_PATH = "src/concrete/St0xAttestSubParser.sol:St0xAttestSubParser";
 
     /// @inheritdoc RainDeploySuitesBase
     function declaration() internal view virtual override returns (DeployDeclaration memory) {
@@ -83,7 +85,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     }
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
-        DeployCandidate[] memory candidates = new DeployCandidate[](8);
+        DeployCandidate[] memory candidates = new DeployCandidate[](9);
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -175,6 +177,17 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                     V4.STOX_RECEIPT_VAULT_CANDIDATE,
                     V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
                 )
+            )
+        );
+        candidates[8] = anchored(
+            zoltu(
+                ATTEST_SUB_PARSER,
+                V4.ST0X_ATTEST_SUB_PARSER_CREATION_CODE_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_CODEHASH_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_RUNTIME_CODE_CANDIDATE,
+                ATTEST_SUB_PARSER_PATH,
+                new DeployDependency[](0)
             )
         );
         return candidates;
