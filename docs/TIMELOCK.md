@@ -223,9 +223,9 @@ sequence on a fork of each chain.
 
 1. Deploy the three implementations at their Zoltu addresses (permissionless):
    the facet, the receipt-vault implementation and the wrapped-token-vault
-   implementation named in `LibUnderlyingNamingRollout`
-   (`20261021-deploy-underlying-naming-implementations`, which deploys only a
-   frozen, audited release). The beacon script's pre-flight checks each codehash
+   implementation named in `LibUnderlyingNamingRollout`, by dispatching the
+   `FACET`, `RECEIPT_VAULT` and `WRAPPED_TOKEN_VAULT` suites through
+   `manual-sol-artifacts`. The beacon script's pre-flight checks each codehash
    against its pin before scheduling. The PR that freezes the release
    (`RELEASE_FROZEN`) also pins each chain's beacon and rename operation ids as
    literals, and declares both schedule scripts as timelock-written migrations
