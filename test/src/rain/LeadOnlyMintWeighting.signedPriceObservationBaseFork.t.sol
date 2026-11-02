@@ -8,8 +8,11 @@ import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV
 
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
-import {ST0xOrchestratorBaseForkFixture} from "test/src/concrete/ST0xOrchestratorBaseForkFixture.sol";
-import {OBSERVATION_SIGNER} from "test/src/concrete/St0xAttestSubParser.signedPriceObservation.t.sol";
+import {
+    ST0xOrchestratorBaseForkFixture,
+    BASE_FORK_TIMESTAMP
+} from "test/src/concrete/ST0xOrchestratorBaseForkFixture.sol";
+import {OBSERVATION_SIGNER, OBSERVATION_TIME} from "test/src/concrete/St0xAttestSubParser.signedPriceObservation.t.sol";
 
 /// @title LeadOnlyMintWeightingSignedPriceObservationBaseForkTest
 /// @notice `src/rain/lead-only-mint-weighting.rain`, bound to the price API's
@@ -23,9 +26,8 @@ contract LeadOnlyMintWeightingSignedPriceObservationBaseForkTest is ST0xOrchestr
     string internal constant SOURCE = "src/rain/lead-only-mint-weighting.rain";
     string internal constant ENTRYPOINT = "weighting";
 
-    /// The chain clock at the mint, 1793543722, less the observations'
-    /// attested time, 1793318400.
-    int256 internal constant MAX_TIME_SPREAD = 225322;
+    /// The chain clock at the mint less the observations' attested time.
+    int256 internal constant MAX_TIME_SPREAD = int256(BASE_FORK_TIMESTAMP) - int256(uint256(OBSERVATION_TIME));
     int256 internal constant MIN_PRICE = 100;
     int256 internal constant MAX_PRICE = 1000;
 
