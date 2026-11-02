@@ -331,6 +331,19 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         _refused(attestations, _ensure("Same operator twice"));
     }
 
+    /// The lead in a pool seat is refused even when the lead's address is
+    /// also on the allowlist and signs that seat under the pool's domain.
+    function testLeadInAPoolSeatIsRefusedWhenAlsoAllowlisted() external {
+        DotrainBinding[] memory bindings = _bindings();
+        bindings[2].value = vm.addr(LEAD_KEY).toHexString();
+        _install(_evaluable(LibTestDotrain.compose(vm.readFile(SOURCE), ENTRYPOINT, bindings)));
+
+        Attestation[] memory attestations = _quorum();
+        attestations[1].key = LEAD_KEY;
+        attestations[1].domain = POOL_DOMAIN;
+        _refused(attestations, _ensure("Same operator twice"));
+    }
+
     // ------------------------------------------------------------------ //
     //                             the domains                            //
     // ------------------------------------------------------------------ //
@@ -348,16 +361,20 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     /// A pool seat signed under any domain but `pool-domain-separator`, the
-    /// lead's included, in either seat.
+    /// lead's included, in either seat or in both.
     function testAttestorUnderAnotherDomainIsRefused(bytes32 other) external {
         vm.assume(other != POOL_DOMAIN);
         bytes32[2] memory domains = [LEAD_DOMAIN, other];
-        for (uint256 seat = 1; seat < 3; seat++) {
-            for (uint256 i = 0; i < domains.length; i++) {
+        for (uint256 i = 0; i < domains.length; i++) {
+            for (uint256 seat = 1; seat < 3; seat++) {
                 Attestation[] memory attestations = _quorum();
                 attestations[seat].domain = domains[i];
                 _refused(attestations, _ensure("Attestor domain mismatch"));
             }
+            Attestation[] memory both = _quorum();
+            both[1].domain = domains[i];
+            both[2].domain = domains[i];
+            _refused(both, _ensure("Attestor domain mismatch"));
         }
     }
 
@@ -474,17 +491,32 @@ contract MintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     /// A time further than `max-time-spread` from the chain clock, in either
-    /// direction, in any seat.
+    /// direction, in any seat or in all three at once.
     function testStaleAttestationIsRefused() external {
-        for (uint256 i = 0; i < 3; i++) {
-            Attestation[] memory attestations = _quorum();
-            attestations[i].time = _f(NOW - MAX_TIME_SPREAD - 1, 0);
-            _refused(attestations, _ensure("Times disagree"));
-
-            attestations = _quorum();
-            attestations[i].time = _f(NOW + MAX_TIME_SPREAD + 1, 0);
-            _refused(attestations, _ensure("Times disagree"));
+        int256[2] memory stale = [NOW - MAX_TIME_SPREAD - 1, NOW + MAX_TIME_SPREAD + 1];
+        for (uint256 t = 0; t < stale.length; t++) {
+            Attestation[] memory all = _quorum();
+            for (uint256 i = 0; i < 3; i++) {
+                Attestation[] memory attestations = _quorum();
+                attestations[i].time = _f(stale[t], 0);
+                _refused(attestations, _ensure("Times disagree"));
+                all[i].time = _f(stale[t], 0);
+            }
+            _refused(all, _ensure("Times disagree"));
         }
+    }
+
+    /// The price tolerance is proportional only: under a floor of 1, prices
+    /// of 10 and 10.5 are under one whole unit apart but 5% of 10.5, and are
+    /// refused.
+    function testASubUnitPriceDisagreementIsRefused() external {
+        DotrainBinding[] memory bindings = _bindings();
+        bindings[4 + POOL_SIZE].value = "1";
+        _install(_evaluable(LibTestDotrain.compose(vm.readFile(SOURCE), ENTRYPOINT, bindings)));
+
+        Attestation[] memory attestations = _quorumAt(_f(10, 0));
+        attestations[1].price = _f(105, -1);
+        _refused(attestations, _ensure("Attestors disagree"));
     }
 
     // ------------------------------------------------------------------ //
