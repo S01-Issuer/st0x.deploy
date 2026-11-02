@@ -12,7 +12,6 @@ compose() {
   nix shell .#rain-cli -c rain dotrain compose -i "$input" -e weighting "${binds[@]}" > "$output"
 }
 
-mkdir -p test/composed
 
 for bind in test/composed/*.bind; do
   set_name="$(basename "$bind" .bind)"

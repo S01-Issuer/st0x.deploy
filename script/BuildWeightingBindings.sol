@@ -50,10 +50,9 @@ contract BuildWeightingBindings is Script {
     }
 
     function run() external {
+        vm.createDir(DIR, true);
         vm.writeFile(string.concat(DIR, "mint-weighting.bind"), mintWeighting(address(0), MIN_PRICE));
-        vm.writeFile(
-            string.concat(DIR, "mint-weighting-operator-6.bind"), mintWeighting(vm.addr(LEAD_KEY), MIN_PRICE)
-        );
+        vm.writeFile(string.concat(DIR, "mint-weighting-operator-6.bind"), mintWeighting(vm.addr(LEAD_KEY), MIN_PRICE));
         vm.writeFile(string.concat(DIR, "mint-weighting-min-price.bind"), mintWeighting(address(0), MIN_PRICE_VARIANT));
         vm.writeFile(string.concat(DIR, "lead-only-mint-weighting.bind"), common(vm.addr(LEAD_KEY), MIN_PRICE));
     }
