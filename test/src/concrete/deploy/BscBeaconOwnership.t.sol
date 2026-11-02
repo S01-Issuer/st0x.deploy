@@ -6,7 +6,6 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdBeacons0_1_1} from "../../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
-import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 
@@ -23,24 +22,20 @@ contract BscBeaconOwnershipTest is Test {
 
         vm.createSelectFork(LibStoxDeployNetworks.BSC);
         address[4] memory beacons = LibProdBeacons0_1_1.beacons();
-        address[4] memory impls = LibProdBeacons0_1_1.implementations();
-        // Every expected implementation is named as an explicit pin. The
-        // wrapped-token-vault beacon serves the 0.1.1 impl its bootstrap
-        // baked; the receipt + receipt-vault beacons were moved onto 0.1.30
-        // by the fleet upgrade (20260825-upgrade-fleet-to-0-1-30), which has
-        // landed on every chain. Reading the beacon's own
-        // `implementation()` back as the expectation asserted only that the
-        // beacon agrees with itself, which no upgrade can ever break.
+        address[4] memory impls =
+            LibBeaconInvariants.prodExpectedImplementationsForChainId(LibSafeInvariants.BSC_CHAIN_ID);
         LibBeaconInvariants.assertBeaconInvariants(
             beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX],
             timelock,
             impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
         );
         LibBeaconInvariants.assertBeaconInvariants(
-            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], timelock, LibProdDeployV4.STOX_RECEIPT_0_1_30
+            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], timelock, impls[LibBeaconInvariants.RECEIPT_BEACON_INDEX]
         );
         LibBeaconInvariants.assertBeaconInvariants(
-            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX], timelock, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30
+            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX],
+            timelock,
+            impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]
         );
     }
 }

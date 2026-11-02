@@ -6,7 +6,6 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibProdBeaconsBase} from "../../../../src/lib/LibProdBeaconsBase.sol";
-import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 
@@ -44,17 +43,20 @@ contract BaseBeaconOwnershipTest is Test {
 
         vm.createSelectFork(LibRainDeploy.BASE);
         address[4] memory beacons = LibProdBeaconsBase.beacons();
-        address[4] memory impls = LibProdBeaconsBase.implementations();
+        address[4] memory impls =
+            LibBeaconInvariants.prodExpectedImplementationsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
         LibBeaconInvariants.assertBeaconInvariants(
             beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX],
             timelock,
             impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
         );
         LibBeaconInvariants.assertBeaconInvariants(
-            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], timelock, LibProdDeployV4.STOX_RECEIPT_0_1_30
+            beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX], timelock, impls[LibBeaconInvariants.RECEIPT_BEACON_INDEX]
         );
         LibBeaconInvariants.assertBeaconInvariants(
-            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX], timelock, LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30
+            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX],
+            timelock,
+            impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]
         );
     }
 }
