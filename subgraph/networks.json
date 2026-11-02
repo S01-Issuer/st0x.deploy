@@ -16,6 +16,10 @@
       "address": "0x434046377aa43790864713D9A3Fe00c5bE16D7ea",
       "startBlock": 53284564
     },
+    "CloneFactoryV8": {
+      "address": "0x9B05C2dd4e17E9D45560A3CAd6602cfA7D74E529",
+      "startBlock": 53416641
+    },
     "ConfigRegistry": {
       "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
       "startBlock": 52910632
@@ -77,6 +81,10 @@
     "CloneFactoryV7": {
       "address": "0x434046377aa43790864713D9A3Fe00c5bE16D7ea",
       "startBlock": 130654385
+    },
+    "CloneFactoryV8": {
+      "address": "0x9B05C2dd4e17E9D45560A3CAd6602cfA7D74E529",
+      "startBlock": 131241239
     },
     "ConfigRegistry": {
       "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
@@ -140,6 +148,10 @@
       "address": "0x434046377aa43790864713D9A3Fe00c5bE16D7ea",
       "startBlock": 49920177
     },
+    "CloneFactoryV8": {
+      "address": "0x9B05C2dd4e17E9D45560A3CAd6602cfA7D74E529",
+      "startBlock": 50188642
+    },
     "ConfigRegistry": {
       "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
       "startBlock": 49159867
@@ -202,6 +214,10 @@
       "address": "0x434046377aa43790864713D9A3Fe00c5bE16D7ea",
       "startBlock": 26305173
     },
+    "CloneFactoryV8": {
+      "address": "0x9B05C2dd4e17E9D45560A3CAd6602cfA7D74E529",
+      "startBlock": 26327109
+    },
     "ConfigRegistry": {
       "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
       "startBlock": 26243049
@@ -263,6 +279,10 @@
     "CloneFactoryV7": {
       "address": "0x434046377aa43790864713D9A3Fe00c5bE16D7ea",
       "startBlock": 101680821
+    },
+    "CloneFactoryV8": {
+      "address": "0x9B05C2dd4e17E9D45560A3CAd6602cfA7D74E529",
+      "startBlock": 104216860
     },
     "ConfigRegistry": {
       "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
