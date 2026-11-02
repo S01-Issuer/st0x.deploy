@@ -13,3 +13,14 @@ compose() {
 }
 
 mkdir -p test/composed
+
+for bind in test/composed/*.bind; do
+  set_name="$(basename "$bind" .bind)"
+  binds=()
+  while IFS= read -r b; do binds+=("$b"); done < "$bind"
+  case "$set_name" in
+    mint-weighting-*) rain=mint-weighting ;;
+    *) rain="$set_name" ;;
+  esac
+  compose "src/rain/${rain}.rain" "test/composed/${set_name}.rl" "${binds[@]}"
+done
