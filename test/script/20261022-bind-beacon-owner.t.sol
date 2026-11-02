@@ -6,16 +6,16 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.22/src/interface/IConfigRegistryV3.sol";
-import {IMigrationRegistryV3} from "rain-deploy-0.1.22/src/interface/IMigrationRegistryV3.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.22/src/lib/LibConfigRegistry.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibConfigRegistryDeploy.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.22/src/lib/LibSafeTx.sol";
-import {LibSafe} from "rain-deploy-0.1.22/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.22/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.22/src/lib/LibSafeTxBuilderJson.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV5.sol";
+import {IMigrationRegistryV5} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.29/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibConfigRegistryDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
+import {LibSafe} from "rain-deploy-0.1.29/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
     BeaconOwnerBindingMismatch,
@@ -24,10 +24,9 @@ import {
     SafeNotBeaconOwnerDelegate,
     bindBeaconOwnerDeclaration
 } from "../../script/20261022-bind-beacon-owner.s.sol";
-import {backfillMigrationRegistryV3Declaration} from "../../script/20261022-backfill-migration-registry-v3.s.sol";
 import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {BindBeaconOwnerHarness} from "./BindBeaconOwnerHarness.sol";
-import {BackfillMigrationRegistryV3Harness} from "./BackfillMigrationRegistryV3Harness.sol";
+import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
@@ -43,14 +42,14 @@ bytes32 constant LATER = keccak256("later");
 /// predecessor on the Safe's line and the root's approval of the Safe written
 /// on the fork where the chain lacks them.
 contract BindBeaconOwnerTest is Test {
-    IConfigRegistryV3 internal constant CONFIG_REGISTRY =
-        IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
+    IConfigRegistryV5 internal constant CONFIG_REGISTRY =
+        IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
 
     /// @dev Applies every predecessor on the Safe's line that the chain lacks.
     function advanceLine(address safe, string memory tag) internal {
-        if (LibStoxMigrations.applied(safe, backfillMigrationRegistryV3Declaration().id) == 0) {
+        if (LibStoxMigrations.applied(safe, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5) == 0) {
             LibSafeFork.executeBundle(
-                vm, Safe(payable(safe)), new BackfillMigrationRegistryV3Harness(tag).callAuthorBundle()
+                vm, Safe(payable(safe)), new BackfillMigrationRegistryV5Harness(tag).callAuthorBundle()
             );
         }
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) == 0) {
@@ -68,9 +67,9 @@ contract BindBeaconOwnerTest is Test {
 
     /// @dev The root approves the Safe where the chain lacks the approval.
     function approveSafe(address safe) internal {
-        if (!CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe)) {
+        if (!CONFIG_REGISTRY.approvedV5(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe)) {
             vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-            CONFIG_REGISTRY.approveV3(LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe);
+            CONFIG_REGISTRY.approveV5(LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe);
         }
     }
 
@@ -138,9 +137,9 @@ contract BindBeaconOwnerTest is Test {
         (BindBeaconOwnerHarness script, address safe, bool ready) = readyOnFork("unapproved");
         if (!ready) return;
         advanceLine(safe, "unapproved");
-        if (CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe)) {
+        if (CONFIG_REGISTRY.approvedV5(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe)) {
             vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-            CONFIG_REGISTRY.revokeV3(LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe);
+            CONFIG_REGISTRY.revokeV5(LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, safe);
         }
         vm.expectRevert(abi.encodeWithSelector(SafeNotBeaconOwnerDelegate.selector, safe));
         script.callPreflight();
@@ -162,12 +161,13 @@ contract BindBeaconOwnerTest is Test {
         advanceLine(safe, "past");
         approveSafe(safe);
         vm.prank(safe);
-        IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
-            .applyMigrationV3(
+        IMigrationRegistryV5(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+            .applyMigrationV5(
                 safe,
                 LibStoxMigrations.NAMESPACE,
                 LATER,
-                LibStoxMigrations.onto(safe, migrateMultisigThresholdDeclaration().id)
+                LibStoxMigrations.onto(safe, migrateMultisigThresholdDeclaration().id),
+                ""
             );
         vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerUnexpectedLine.selector, LATER));
         script.callPreflight();
@@ -179,7 +179,9 @@ contract BindBeaconOwnerTest is Test {
         if (!ready) return;
         vm.warp(block.timestamp + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-        CONFIG_REGISTRY.registerV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, abi.encode(other));
+        CONFIG_REGISTRY.registerV5(
+            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(other), ""
+        );
         vm.expectRevert(abi.encodeWithSelector(BeaconOwnerBindingMismatch.selector, abi.encode(other), block.timestamp));
         script.callAssertPostState();
     }
@@ -205,10 +207,12 @@ contract BindBeaconOwnerTest is Test {
         uint256 recordedAt = block.timestamp;
         vm.warp(recordedAt + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-        CONFIG_REGISTRY.registerV3(
+        CONFIG_REGISTRY.registerV5(
             LibStoxConfig.ROOT_AUTHORITY,
             LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
-            abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid))
+            "address",
+            abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)),
+            ""
         );
         vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerRecordMismatch.selector, recordedAt));
         script.callAssertPostState();
@@ -218,9 +222,13 @@ contract BindBeaconOwnerTest is Test {
         (BindBeaconOwnerHarness script, address safe, bool ready) = executedOnFork("line");
         if (!ready) return;
         vm.prank(safe);
-        IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
-            .applyMigrationV3(
-                safe, LibStoxMigrations.NAMESPACE, LATER, LibStoxMigrations.onto(safe, bindBeaconOwnerDeclaration().id)
+        IMigrationRegistryV5(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+            .applyMigrationV5(
+                safe,
+                LibStoxMigrations.NAMESPACE,
+                LATER,
+                LibStoxMigrations.onto(safe, bindBeaconOwnerDeclaration().id),
+                ""
             );
         vm.expectRevert(abi.encodeWithSelector(BindBeaconOwnerUnexpectedLine.selector, LATER));
         script.callAssertPostState();

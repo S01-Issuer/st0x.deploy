@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.22/src/interface/IConfigRegistryV3.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.22/src/lib/LibConfigRegistryDeploy.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibConfigRegistryDeploy.sol";
 
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibStoxConfigFork} from "../../../src/lib/LibStoxConfigFork.sol";
@@ -28,7 +28,7 @@ contract LibStoxConfigTest is Test {
     function testBeaconOwnerUnboundReverts() external {
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector,
+                IConfigRegistryV5.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
                 LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
             )
@@ -39,11 +39,11 @@ contract LibStoxConfigTest is Test {
     function testFuzzBeaconOwnerIgnoresOtherAuthority(address authority, address owner) external {
         vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY);
         vm.prank(authority);
-        IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV3(authority, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, abi.encode(owner));
+        IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
+            .registerV5(authority, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner), "");
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector,
+                IConfigRegistryV5.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
                 LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
             )
@@ -54,11 +54,11 @@ contract LibStoxConfigTest is Test {
     function testFuzzBeaconOwnerIgnoresOtherName(bytes32 name, address owner) external {
         vm.assume(name != LibStoxConfig.GOVERNANCE_TIMELOCK_NAME);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-        IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV3(LibStoxConfig.ROOT_AUTHORITY, name, abi.encode(owner));
+        IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
+            .registerV5(LibStoxConfig.ROOT_AUTHORITY, name, "address", abi.encode(owner), "");
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector,
+                IConfigRegistryV5.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
                 LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
             )
