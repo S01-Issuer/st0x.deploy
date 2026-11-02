@@ -32,7 +32,7 @@ contract DeployBeaconsTest is Test {
             abi.encodeWithSelector(
                 IConfigRegistryV3.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.BEACON_OWNER_NAME
+                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
             )
         );
         script.callBoundZoltuDeployStep("base", address(this), type(StoxWrappedTokenVaultBeacon).creationCode);
