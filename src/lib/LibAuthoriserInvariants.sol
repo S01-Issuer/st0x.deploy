@@ -85,6 +85,7 @@ library LibAuthoriserInvariants {
 
     /// @notice The EU assets authoriser clone on Base.
     /// https://basescan.org/address/0xdb9152e46c1d140db6a6f814461f21c571f3275e
+    /// Every EU clone landed in manual-broadcast run 37698322610.
     address internal constant STOX_EU_AUTHORISER_CLONE = address(0xDB9152e46c1D140DB6a6f814461f21c571F3275e);
 
     /// @notice The EU assets authoriser clone on Ethereum. Shared with
@@ -157,6 +158,11 @@ library LibAuthoriserInvariants {
     /// `20260623` swap bundle executes on Base.
     /// https://basescan.org/address/0x315b16faa6ee413fabca877d3851b3818369f0cd
     address internal constant STOX_PROD_AUTHORISER = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
+
+    /// @notice The V3-era production authoriser clone on Base. No production
+    /// vault's `authorizer()` returns it.
+    /// https://basescan.org/address/0x35f9fa9d80aaf2b0fb27f0ff015641b3408d7456
+    address internal constant STOX_PROD_AUTHORISER_V3_CLONE = address(0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456);
 
     /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
     /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the

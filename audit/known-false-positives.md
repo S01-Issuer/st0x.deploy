@@ -12,3 +12,16 @@ is only ever created once in its store, so the guard is unobservable in tests.
 `subgraph/tests/discovery.test.ts` records the same limitation for the deployer
 path. The guard stays: graph-node would otherwise spawn a second data source for
 the same address.
+
+## `src/lib/LibUnderlyingNamingRollout.sol`: row check and leading-rows cut
+
+Mutants: `assertUnderlyingsWellFormed` drops its `assertRowsWellFormed(rows)`
+call, and `tokens()` returns the chain's table without `leadingRows`. Both are
+equivalent while every production row is well formed and every table has exactly
+`TOKEN_COUNT` rows, so no test can tell them apart. The behavior is pinned
+around them: `testEveryChainsRowsAreWellFormed` checks the production rows
+through `assertRowsWellFormed` directly, the row loop's refusals are tested on
+built rows, `testLeadingRowsCutsALongerTableAndRefusesAShorterOne` tests the cut
+on a longer table, and `testTokenSetIsPinnedByIdentity` fails on a 57th row.
+Both calls stay: the rename pre-flight must check the rows it sets, and the
+rename id must not move when a table grows.
