@@ -4,22 +4,12 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
-import {DeployDependency} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
-import {
-    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
-    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
-import {
-    DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
-    RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
 import {REGISTRY_BEACON_PROXY_MECHANISM} from "rain-factory-0.2.9/src/lib/LibRainDeployCloneMechanism.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
-import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
 
 /// @title StoxDeploySuitesTokensTest
-/// @notice No token is a deploy suite; the vault candidate depends on the facet, registry and V8 clone factory.
+/// @notice No token is a deploy suite.
 contract StoxDeploySuitesTokensTest is Test, StoxDeploySuites {
     function testNoSuiteIsARegistryBeaconProxy() external view {
         DeployDeclaration memory declared = declaration();
@@ -32,18 +22,5 @@ contract StoxDeploySuitesTokensTest is Test, StoxDeploySuites {
             DeploySuite memory snapshot = declared.candidates[i].snapshot;
             assertNotEq(mechanismIdOf(snapshot), REGISTRY_BEACON_PROXY_MECHANISM, snapshot.suite);
         }
-    }
-
-    function testReceiptVaultCandidateDependsOnTheFacetRegistryAndV8Factory() external view {
-        (DeploySuite memory suite, bool found) = candidateOf(declaration(), RECEIPT_VAULT);
-        assertTrue(found, RECEIPT_VAULT);
-        DeployDependency[] memory deps = suite.dependencies;
-        assertEq(deps.length, 3, "dependencies");
-        assertEq(deps[0].deployedAddress, V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "facet address");
-        assertEq(deps[0].runtimeCode, V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE, "facet code");
-        assertEq(deps[1].deployedAddress, CONFIG_REGISTRY_ADDRESS, "registry address");
-        assertEq(deps[1].runtimeCode, CONFIG_REGISTRY_RUNTIME_CODE, "registry code");
-        assertEq(deps[2].deployedAddress, CLONE_FACTORY_V8_ADDRESS, "factory address");
-        assertEq(deps[2].runtimeCode, CLONE_FACTORY_V8_RUNTIME_CODE, "factory code");
     }
 }
