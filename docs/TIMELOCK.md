@@ -60,10 +60,9 @@ timelock). That keeps the audited contract set untouched.
 - **Min delay: 48 hours** (`LibTimelockInvariants.TIMELOCK_MIN_DELAY`). Changing
   it is a timelocked `updateDelay` operation and must update the pin in the same
   operational window.
-- **The CI deploy key holds nothing, ever.** The deploy passes
-  `admin = address(0)`, so the constructor grants the deployer no role — there
-  is no configuration window and nothing to revoke. The deploy script's
-  post-state proves it.
+- **The deployer holds nothing, ever.** The constructor passes
+  `admin = address(0)`, so it grants the deployer no role — there is no
+  configuration window and nothing to revoke.
 - **No open roles.** OZ treats a zero-address grantee as "role open to
   everyone"; `assertTimelockState` rejects that on every lifecycle role.
 - **Dedicated canceller.** The OZ constructor grants cancellership to proposers,
@@ -78,10 +77,15 @@ timelock). That keeps the audited contract set untouched.
 ## Addresses
 
 The timelock is deployed via the **Zoltu deterministic factory**: its address is
-a pure function of its creation code (OZ creation bytecode + constructor args).
-The chain's Safe is a constructor arg, so each chain gets a distinct,
-precomputable address —
-`LibTimelockInvariants.expectedTimelockAddress(chain's Safe)`.
+a pure function of its creation code. `StoxGovernanceTimelock` (the
+`stox-governance-timelock` suite) reads the chain's Safe from the
+`ConfigRegistry` under `GOVERNANCE_SAFE_NAME` (`st0x.governance-safe.v1`), so its
+creation code, and its address, is the same on every chain.
+
+The five live timelocks take the chain's Safe as a constructor arg, so each sits
+at a distinct address —
+`LibTimelockInvariants.expectedTimelockAddress(chain's Safe)`. Their pins stay
+until governance moves to the suite timelock.
 
 Constants (in `src/lib/LibTimelockInvariants.sol`) that future scripts and
 invariants target:
@@ -99,20 +103,18 @@ Every pin is written with its chain arm, derived from the frozen creation
 bytecode and that chain's Safe pin before any deploy —
 `testPinsMatchDerivedAddresses` asserts each equality unconditionally, so a
 wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
-every consumer (the deploy pre-flight, the migration authoring,
-`assertTimelockState`) refuses it as a reverted or never-hydrated arm rather
+every consumer (the migration authoring, `assertTimelockState`) refuses it as a reverted or never-hydrated arm rather
 than proceeding against a wrong address. All five timelocks are live at their
 pins.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
-1. **Chain arm + pin** — a governed chain's `LibTimelockInvariants` arm is added
-   WITH its pin, derived from the frozen creation bytecode and the chain's Safe
-   pin (`expectedTimelockAddress`). The deploy refuses a zero pin, so the arm
-   always precedes the broadcast.
+1. **Bind the Safe** — the chain's governance Safe is bound under
+   `GOVERNANCE_SAFE_NAME` in the `ConfigRegistry`. The constructor's typed
+   resolve reverts on an unset name, so the bind always precedes the deploy.
 2. **Deploy** — Actions → `manual-sol-artifacts` → `stox-governance-timelock`.
-   The Zoltu suite lands at one address on every network; its constructor
-   reads the chain's governance Safe from the `ConfigRegistry`.
+   The Zoltu suite lands at one address on every network; the chain's
+   `LibTimelockInvariants` arm pins it.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
    `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
