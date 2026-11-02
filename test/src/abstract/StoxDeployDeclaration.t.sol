@@ -8,7 +8,7 @@ import {DeployDeclaration, RainDeploySuitesBase} from "rain-deploy-0.1.29/src/ab
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
-} from "rain-factory-deploy-0.2.4/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
