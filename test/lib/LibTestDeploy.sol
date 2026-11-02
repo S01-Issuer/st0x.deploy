@@ -4,23 +4,26 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.27/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.27/src/generated/0_1_26/ConfigRegistry.sol";
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.4/src/generated/0_2_4/CloneFactory.sol";
-import {ICloneableFactoryV7} from "rain-factory-0.2.6/src/interface/ICloneableFactoryV7.sol";
-import {IConfigRegistryV4} from "rain-deploy-0.1.27/src/interface/IConfigRegistryV4.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.13/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.9/src/interface/ICloneableFactoryV7.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV5.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
+import {
+    OffchainAssetReceiptVaultRbacV1,
+    OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
+} from "rain-vats-0.2.16/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
     OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.13/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.16/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -143,7 +146,7 @@ library LibTestDeploy {
             vm,
             authority,
             name,
-            "(address,address)",
+            OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE,
             abi.encode(OffchainAssetReceiptVaultRbacV1({owner: owner, authorizer: authorizer}))
         );
     }
@@ -154,7 +157,7 @@ library LibTestDeploy {
     function bind(Vm vm, address authority, bytes32 name, string memory valueType, bytes memory value) internal {
         vm.warp(block.timestamp + 1);
         vm.prank(authority);
-        IConfigRegistryV4(CONFIG_REGISTRY_ADDRESS).registerV4(authority, name, valueType, value, "");
+        IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS).registerV5(authority, name, valueType, value, "");
     }
 
     /// The init data of a vault named `name`, `symbol`, resolving its RBAC from

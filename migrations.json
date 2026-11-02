@@ -317,7 +317,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x13eafbac6fd7d8b9f4430b1c984b689d895fa88d8f31da8c55fe9bd182971d81",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -328,7 +328,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x13eafbac6fd7d8b9f4430b1c984b689d895fa88d8f31da8c55fe9bd182971d81",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -339,7 +339,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x13eafbac6fd7d8b9f4430b1c984b689d895fa88d8f31da8c55fe9bd182971d81",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -350,7 +350,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x13eafbac6fd7d8b9f4430b1c984b689d895fa88d8f31da8c55fe9bd182971d81",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
             }
@@ -361,7 +361,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x13eafbac6fd7d8b9f4430b1c984b689d895fa88d8f31da8c55fe9bd182971d81",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -431,31 +431,31 @@
           "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
         }
       },
-      "id": "0x13eafbac6fd7d8b9f4430b1c984b689d895fa88d8f31da8c55fe9bd182971d81",
+      "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
       "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-      "script": "script/20261022-backfill-migration-registry-v4.s.sol"
+      "script": "script/20261030-backfill-migration-registry-v5.s.sol"
     }
   ],
   "networks": {
     "1": {
       "network": "ethereum",
-      "registry": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "4663": {
       "network": "robinhood",
-      "registry": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "56": {
       "network": "bsc",
-      "registry": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "8453": {
       "network": "base",
-      "registry": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "999": {
       "network": "hyperevm",
-      "registry": "0x172e587adcf5cadD70B2B13F720171a9F5BeC591"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     }
   },
   "version": 1

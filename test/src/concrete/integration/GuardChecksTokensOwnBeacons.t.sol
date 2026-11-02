@@ -3,8 +3,11 @@
 pragma solidity =0.8.25;
 
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {OffchainAssetReceiptVaultRbacV1} from "rain-vats-0.2.13/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
+import {
+    OffchainAssetReceiptVaultRbacV1,
+    OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
+} from "rain-vats-0.2.16/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
@@ -39,7 +42,7 @@ contract GuardChecksTokensOwnBeaconsTest is OrchestratorIntegrationTest {
             vm,
             OTHER_AUTHORITY,
             RBAC_NAME,
-            "(address,address)",
+            OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE,
             abi.encode(OffchainAssetReceiptVaultRbacV1({owner: ADMIN, authorizer: IAuthorizeV1(address(authorizer))}))
         );
         return LibTestDeploy.newVault(
