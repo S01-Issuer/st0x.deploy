@@ -17,6 +17,7 @@ path = [
   "flake.lock",
   ".prettierignore",
   "flake.nix",
+  "meta/**/",
   "foundry.toml",
   "privileged-addresses.json",
   "ideal-roles.json",
