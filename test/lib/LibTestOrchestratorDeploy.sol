@@ -8,10 +8,7 @@ import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyTarget
 } from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {
-    DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
-    RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
+import {RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
 
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibProdOrchestratorTarget} from "../../src/lib/LibProdOrchestratorTarget.sol";
@@ -41,7 +38,7 @@ library LibTestOrchestratorDeploy {
     /// `deployer` runs the production deploy step of the orchestrator target.
     function deployInstance(Vm vm, address deployer) internal returns (address) {
         RegistryBeaconProxyTarget memory target = LibProdOrchestratorTarget.orchestratorTarget();
-        vm.etch(CLONE_FACTORY_ADDRESS, CLONE_FACTORY_RUNTIME_CODE);
+        vm.etch(target.factory, CLONE_FACTORY_RUNTIME_CODE);
         LibTestDeploy.bind(
             vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.ORCHESTRATOR_BEACON_NAME, "address", abi.encode(target.beacon)
         );
