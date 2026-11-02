@@ -110,11 +110,9 @@ pins.
    WITH its pin, derived from the frozen creation bytecode and the chain's Safe
    pin (`expectedTimelockAddress`). The deploy refuses a zero pin, so the arm
    always precedes the broadcast.
-2. **Deploy** — Actions → `manual-broadcast` →
-   `20260729-deploy-governance-timelock`. One dispatch covers every governed
-   chain: the script iterates `networks()`, skips-with-assert any chain already
-   carrying its timelock, and the CI deploy key broadcasts the rest — each
-   landing at its derived address, fully configured by its constructor.
+2. **Deploy** — Actions → `manual-sol-artifacts` → `stox-governance-timelock`.
+   The Zoltu suite lands at one address on every network; its constructor
+   reads the chain's governance Safe from the `ConfigRegistry`.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
    `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
