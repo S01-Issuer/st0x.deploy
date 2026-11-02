@@ -7,7 +7,7 @@ import {
   Entity,
   Bytes,
   Address,
-  BigInt
+  BigInt,
 } from "@graphprotocol/graph-ts";
 
 export class OwnershipTransferred extends ethereum.Event {
@@ -65,7 +65,7 @@ export class UpgradeableBeacon extends ethereum.SmartContract {
     let result = super.tryCall(
       "implementation",
       "implementation():(address)",
-      []
+      [],
     );
     if (result.reverted) {
       return new ethereum.CallResult();

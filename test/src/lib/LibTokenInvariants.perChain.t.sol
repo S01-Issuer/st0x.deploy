@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.22/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {LibAuthoriserInvariants, UnsupportedChainForAuthoriser} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig, UnknownUnderlying} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
