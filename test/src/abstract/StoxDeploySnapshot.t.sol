@@ -4,5 +4,16 @@ pragma solidity =0.8.25;
 
 import {RainDeployVerifySnapshot} from "rain-deploy-0.1.29/src/abstract/RainDeployVerifySnapshot.sol";
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
+import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
-contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {}
+contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {
+    /// The timelock candidate's constructor resolves the governance Safe; a
+    /// Safe other than the build's checks the snapshot does not depend on it.
+    function setUp() external {
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(address(0x5AFE))
+        );
+    }
+}
