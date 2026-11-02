@@ -20,7 +20,7 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {ST0xOrchestratorBeacon} from "../../../src/concrete/ST0xOrchestratorBeacon.sol";
 import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
 
 /// @title LibProdDeployV4Test
@@ -159,20 +159,16 @@ contract LibProdDeployV4Test is Test {
         assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE);
     }
 
-    // --- ST0xOrchestratorBeaconSetDeployer (candidate — rebuilt: its constructor
-    // bakes a beacon over the rebuilt candidate orchestrator impl, so the current
-    // source compiles to the candidate deployer.
-    // Needs the candidate orchestrator impl deployed first so the beacon's
-    // impl-has-code check passes). ---
+    // --- ST0xOrchestratorBeacon (candidate; its implementation must have code). ---
 
-    function testDeployAddressST0xOrchestratorBeaconSetDeployer() external {
+    function testDeployAddressST0xOrchestratorBeacon() external {
         LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
-        address deployed = deployZoltuWithinEip170(type(ST0xOrchestratorBeaconSetDeployer).creationCode);
-        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE);
+        address deployed = deployZoltuWithinEip170(type(ST0xOrchestratorBeacon).creationCode);
+        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE);
+        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH_CANDIDATE);
     }
 
     function testDeployAddressSt0xAttestSubParser() external {
@@ -218,8 +214,8 @@ contract LibProdDeployV4Test is Test {
         );
         assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE, type(ST0xOrchestrator).creationCode);
         assertEq(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
-            type(ST0xOrchestratorBeaconSetDeployer).creationCode
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CREATION_CODE_CANDIDATE,
+            type(ST0xOrchestratorBeacon).creationCode
         );
         assertEq(LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CREATION_CODE_CANDIDATE, type(St0xAttestSubParser).creationCode);
     }
@@ -594,7 +590,7 @@ contract LibProdDeployV4Test is Test {
     // --- candidate movers' frozen redeploys (seven candidate contracts differ
     // from the audited 0.1.1 set: the corporate-actions facet plus the receipt
     // vault, OARV beacon-set deployer, unified deployer, orchestrator, and
-    // orchestrator beacon-set deployer that cascade from it, and the
+    // orchestrator beacon that cascade from it, and the
     // wrapped-token-vault beacon-set deployer moved by the ERC-165
     // `supportsInterface` fix; the other candidate contracts are byte-identical
     // to their 0.1.1 counterparts and Zoltu-derive the same already-occupied
@@ -633,17 +629,17 @@ contract LibProdDeployV4Test is Test {
         );
     }
 
-    /// Its constructor builds an `UpgradeableBeacon` over the orchestrator impl,
-    /// so the impl is deployed (frozen, at its candidate address) first.
-    function testFrozenRedeployST0xOrchestratorBeaconSetDeployer_CANDIDATE() external {
+    /// The beacon's implementation must have code, so it is deployed (frozen,
+    /// at its candidate address) first.
+    function testFrozenRedeployST0xOrchestratorBeacon_CANDIDATE() external {
         LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
         _assertFrozenRedeploy(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH_CANDIDATE
         );
     }
 }
