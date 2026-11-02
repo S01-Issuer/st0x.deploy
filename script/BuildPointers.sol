@@ -23,7 +23,7 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {ST0xOrchestratorBeacon} from "../src/concrete/ST0xOrchestratorBeacon.sol";
 import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
@@ -68,7 +68,7 @@ contract BuildPointers is Script, StoxDeploySuites {
         names[5] = "StoxOffchainAssetReceiptVaultAuthorizerV1";
         names[6] = "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1";
         names[7] = "ST0xOrchestrator";
-        names[8] = "ST0xOrchestratorBeaconSetDeployer";
+        names[8] = "ST0xOrchestratorBeacon";
         names[9] = "St0xAttestSubParser";
         return names;
     }
@@ -83,7 +83,7 @@ contract BuildPointers is Script, StoxDeploySuites {
         codes[5] = type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode;
         codes[6] = type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
         codes[7] = type(ST0xOrchestrator).creationCode;
-        codes[8] = type(ST0xOrchestratorBeaconSetDeployer).creationCode;
+        codes[8] = type(ST0xOrchestratorBeacon).creationCode;
         codes[9] = type(St0xAttestSubParser).creationCode;
         return codes;
     }
@@ -155,7 +155,8 @@ contract BuildPointers is Script, StoxDeploySuites {
         templates[8] = candidates[6].snapshot;
         templates[9] = candidates[0].snapshot;
         templates[10] = candidates[7].snapshot;
-        templates[11] = candidates[8].snapshot;
+        templates[11].suite = ORCHESTRATOR_BEACON_SET_DEPLOYER;
+        templates[11].artifactPath = ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH;
         templates[12] = candidates[9].snapshot;
         return templates;
     }
