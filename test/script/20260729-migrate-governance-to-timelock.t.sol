@@ -10,7 +10,6 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 
-import {DeployGovernanceTimelockHarness} from "./DeployGovernanceTimelockHarness.sol";
 import {
     MigrateGovernanceToTimelock,
     UnexpectedVaultOwner,
@@ -39,8 +38,8 @@ import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariant
 /// The migration has executed on every chain, so each fork is first rewound
 /// to the pre-migration state with the timelock's own powers
 /// (`rewindMigration`): the script stays re-dispatchable for audit, and its
-/// authoring path stays proven against real production contracts. The happy path stands up the real timelock (via the deploy
-/// script, at its derived Zoltu address), drives the full `run()` — bundle
+/// authoring path stays proven against real production contracts. The happy path runs against the chain's pinned live
+/// timelock, drives the full `run()` — bundle
 /// build, simulation, post-state, artifact, governance-loop proof — and
 /// then independently re-derives the expected bundle from the pre-run state
 /// and asserts the emitted artifact matches it exactly, the same check a
@@ -141,14 +140,14 @@ contract MigrateGovernanceToTimelockTest is Test {
         vm.stopPrank();
     }
 
-    /// @notice Deploy the real timelock on the fork at its derived address
-    /// via the deploy broadcast script, exactly as production will.
-    function deployTimelock() internal returns (address) {
-        // Deploy ONLY on the fork this test selected. The script's `run()`
-        // iterates every network and leaves the last one selected, which would
-        // silently move these assertions onto another chain.
-        new DeployGovernanceTimelockHarness().callDeployOnActiveChain();
-        return LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.safeForChainId(block.chainid));
+    /// @notice The active fork's pinned timelock, live at its derived address and in its pinned state.
+    function pinnedTimelock() internal view returns (address) {
+        address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        assertEq(timelock, LibTimelockInvariants.expectedTimelockAddress(safe), "pin must be the derived timelock");
+        assertGt(timelock.code.length, 0, "pinned timelock must be live");
+        LibTimelockInvariants.assertTimelockState(timelock, safe);
+        return timelock;
     }
 
     /// @notice The full authoring against live Base state: post-state holds
@@ -204,7 +203,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// same assertions rather than a per-chain copy that could drift.
     /// @param safe The active chain's token-owner Safe.
     function _assertAuthorsFullMigration(address safe) internal {
-        address timelock = deployTimelock();
+        address timelock = pinnedTimelock();
 
         // Derive the expected target set from the PRE-run fork state — the
         // same derivation a reviewing signer performs.
@@ -372,7 +371,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// left on the Safe to move.
     function testRunRefusesWhenNothingToMigrate() external {
         selectBaseFork();
-        address timelock = deployTimelock();
+        address timelock = pinnedTimelock();
         new MigrateGovernanceToTimelockHarness(timelock).run();
 
         MigrateGovernanceToTimelockHarness second = new MigrateGovernanceToTimelockHarness(timelock);
@@ -385,7 +384,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// blind `transferOwnership`.
     function testRunRejectsUnknownVaultOwner() external {
         selectBaseFork();
-        address timelock = deployTimelock();
+        address timelock = pinnedTimelock();
         address[] memory vaults = LibTokenInvariants.productionReceiptVaults();
         address stranger = address(0xDEAD);
         vm.mockCall(vaults[3], abi.encodeWithSignature("owner()"), abi.encode(stranger));
@@ -401,7 +400,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// proxy, so an unrecognised owner must never be papered over.
     function testRunRejectsUnknownBeaconOwner() external {
         selectBaseFork();
-        address timelock = deployTimelock();
+        address timelock = pinnedTimelock();
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         address stranger = address(0xDEAD);
         vm.mockCall(beacons[1], abi.encodeWithSignature("owner()"), abi.encode(stranger));
@@ -424,7 +423,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         selectBaseFork();
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        address timelock = deployTimelock();
+        address timelock = pinnedTimelock();
         new MigrateGovernanceToTimelockHarness(timelock).run();
 
         address successor = address(0x5000000000000000000000000000000000000001);
@@ -470,7 +469,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     function testBeaconUpgradeRunsThroughTimelock() external {
         selectBaseFork();
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
-        address timelock = deployTimelock();
+        address timelock = pinnedTimelock();
         new MigrateGovernanceToTimelockHarness(timelock).run();
 
         address beacon = LibBeaconInvariants.prodBeaconsForChainId(block.chainid)[0];
@@ -497,7 +496,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         selectBaseFork();
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address authoriser = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        address timelock = deployTimelock();
+        address timelock = pinnedTimelock();
         new MigrateGovernanceToTimelockHarness(timelock).run();
 
         address vault = _activeChainVaults()[0];
@@ -522,7 +521,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// untouched.
     function testVerifyAcceptsAuthoredArtifactAndRejectsTamper() external {
         selectBaseFork();
-        address timelock = deployTimelock();
+        address timelock = pinnedTimelock();
         new MigrateGovernanceToTimelockHarness(timelock).run();
         string memory path =
             string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json");
@@ -530,7 +529,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         // Fresh fork: authoring mutated the previous fork's state; the live
         // chain a signer verifies against is untouched.
         selectBaseFork();
-        assertEq(deployTimelock(), timelock, "derived timelock must be stable across forks");
+        assertEq(pinnedTimelock(), timelock, "derived timelock must be stable across forks");
         MigrateGovernanceToTimelockHarness verifier = new MigrateGovernanceToTimelockHarness(timelock);
         verifier.verify(path);
 
