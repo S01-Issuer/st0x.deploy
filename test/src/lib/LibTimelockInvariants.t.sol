@@ -12,14 +12,19 @@ import {
 } from "rain-deploy-0.1.29/src/generated/0_1_18/TimelockController.sol";
 import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
+import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
+import {StoxGovernanceTimelock} from "../../../src/concrete/StoxGovernanceTimelock.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTimelockInvariantsHarness} from "./LibTimelockInvariantsHarness.sol";
 
 /// @title LibTimelockInvariantsTest
 /// @notice Local (non-fork) coverage for what `LibTimelockInvariants` adds to
 /// `rain-deploy`'s `LibTimelockController`: the pinned delay, the per-chain
-/// pins and their derivation, and the role-id mirrors. The role model's own
-/// assertion — no code, other code, other delay, every missing or open role,
-/// the proposer as admin — is `LibTimelockController`'s and tested there.
+/// pins and their derivation, the codehash a timelock's address selects, and
+/// the role-id mirrors. The role model's own assertion — no code, other code,
+/// other delay, every missing or open role, the proposer as admin — is
+/// `LibTimelockController`'s and tested there.
 contract LibTimelockInvariantsTest is Test {
     /// @notice Stand-in for a chain's token-owner Safe. The invariants only
     /// read role membership for this address, so a plain EOA-style address
@@ -37,6 +42,22 @@ contract LibTimelockInvariantsTest is Test {
     function deployPinnedTimelock() internal returns (address) {
         LibRainDeploy.etchZoltuFactory(vm);
         return LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(SAFE));
+    }
+
+    function bindGovernanceSafe(address safe) internal {
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
+        );
+    }
+
+    /// @notice Run `initCode` as a constructor at `where`, so the instance's
+    /// self-administration is keyed to `where`.
+    function deployCodeAt(address where, bytes memory initCode) internal {
+        vm.etch(where, initCode);
+        (bool success, bytes memory runtime) = where.call("");
+        assertTrue(success, "constructor");
+        vm.etch(where, runtime);
     }
 
     /// @notice The full state assertion passes against a fresh
@@ -162,5 +183,115 @@ contract LibTimelockInvariantsTest is Test {
             LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BSC_CHAIN_ID),
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC
         );
+    }
+
+    /// @notice The suite timelock at its Zoltu address passes on any chain.
+    function testAssertTimelockStatePassesForTheSuiteTimelock(uint64 chainId) external {
+        vm.chainId(chainId);
+        bindGovernanceSafe(SAFE);
+        LibRainDeploy.etchZoltuFactory(vm);
+        address timelock = LibRainDeploy.deployZoltu(type(StoxGovernanceTimelock).creationCode);
+        assertEq(timelock, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, "suite address");
+        LibTimelockInvariants.assertTimelockState(timelock, SAFE);
+    }
+
+    /// @notice A per-Safe timelock in the pinned state at the suite address
+    /// fails on its codehash alone.
+    function testAssertRejectsPerSafeTimelockAtTheSuiteAddress() external {
+        address suite = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
+        deployCodeAt(suite, LibTimelockInvariants.timelockInitCode(SAFE));
+        LibTimelockController.assertTimelockState(
+            TIMELOCK_BYTECODE_HASH, suite, LibTimelockInvariants.TIMELOCK_MIN_DELAY, SAFE, new address[](0)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockCodehashMismatch.selector,
+                suite,
+                LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH,
+                TIMELOCK_BYTECODE_HASH
+            )
+        );
+        harness.callAssertTimelockState(suite, SAFE);
+    }
+
+    /// @notice A suite timelock in the pinned state at a per-Safe address
+    /// fails on its codehash alone.
+    function testAssertRejectsSuiteTimelockAtAPerSafeAddress() external {
+        address perSafe = LibTimelockInvariants.expectedTimelockAddress(SAFE);
+        bindGovernanceSafe(SAFE);
+        deployCodeAt(perSafe, type(StoxGovernanceTimelock).creationCode);
+        LibTimelockController.assertTimelockState(
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH,
+            perSafe,
+            LibTimelockInvariants.TIMELOCK_MIN_DELAY,
+            SAFE,
+            new address[](0)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockCodehashMismatch.selector,
+                perSafe,
+                TIMELOCK_BYTECODE_HASH,
+                LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH
+            )
+        );
+        harness.callAssertTimelockState(perSafe, SAFE);
+    }
+
+    function armChainIds() internal pure returns (uint256[5] memory) {
+        return [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+    }
+
+    /// @notice On every chain arm, the per-Safe timelock for the chain's Safe
+    /// passes at the arm's pin.
+    function testEveryArmPassesThePerSafeTimelockAtItsPin() external {
+        uint256[5] memory chainIds = armChainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.chainId(chainIds[i]);
+            address safe = LibSafeInvariants.safeForChainId(chainIds[i]);
+            address pin = LibTimelockInvariants.timelockForChainId(chainIds[i]);
+            LibRainDeploy.etchZoltuFactory(vm);
+            assertEq(LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(safe)), pin, "pin");
+            LibTimelockInvariants.assertTimelockState(pin, safe);
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice On every chain arm, a suite timelock bound to the chain's Safe
+    /// in the pinned state fails at the arm's pin on its codehash alone.
+    function testEveryArmRejectsTheSuiteTimelockAtItsPin() external {
+        uint256[5] memory chainIds = armChainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.chainId(chainIds[i]);
+            address safe = LibSafeInvariants.safeForChainId(chainIds[i]);
+            address pin = LibTimelockInvariants.timelockForChainId(chainIds[i]);
+            bindGovernanceSafe(safe);
+            deployCodeAt(pin, type(StoxGovernanceTimelock).creationCode);
+            LibTimelockController.assertTimelockState(
+                LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH,
+                pin,
+                LibTimelockInvariants.TIMELOCK_MIN_DELAY,
+                safe,
+                new address[](0)
+            );
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    LibTimelockController.TimelockCodehashMismatch.selector,
+                    pin,
+                    TIMELOCK_BYTECODE_HASH,
+                    LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH
+                )
+            );
+            harness.callAssertTimelockState(pin, safe);
+            vm.revertToState(snapshot);
+        }
     }
 }
