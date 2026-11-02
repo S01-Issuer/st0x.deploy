@@ -172,7 +172,7 @@ contract LibProdDeployV4Test is Test {
     /// The committed `candidate` snapshot MUST match the current source: the
     /// stored per-contract CREATION_CODE constant equals `type(C).creationCode`.
     /// Fails if the source changes without regenerating `candidate` via
-    /// `forge script ./script/BuildPointers.sol`. Pure-forge; no git/shell.
+    /// `forge script ./script/Build.sol`. Pure-forge; no git/shell.
     function testCandidateSelfConsistent() external pure {
         assertEq(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_CANDIDATE, type(StoxReceipt).creationCode);
         assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_CANDIDATE, type(StoxReceiptVault).creationCode);

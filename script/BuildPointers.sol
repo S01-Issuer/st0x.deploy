@@ -79,7 +79,7 @@ contract BuildPointers is Script, StoxDeploySuites {
         return codes;
     }
 
-    function run() external {
+    function run() public virtual {
         buildSubParserPointers(address(new St0xAttestSubParser()));
         DeployCandidate[] memory candidates = candidateSuites();
         string[9] memory names = candidateContractNames();
