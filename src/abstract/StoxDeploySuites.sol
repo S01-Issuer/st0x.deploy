@@ -58,6 +58,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
     string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
+    string constant GOVERNANCE_TIMELOCK = "stox-governance-timelock";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
     string constant RECEIPT_PATH = "src/concrete/StoxReceipt.sol:StoxReceipt";
@@ -78,6 +79,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH =
         "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer";
     string constant ATTEST_SUB_PARSER_PATH = "src/concrete/St0xAttestSubParser.sol:St0xAttestSubParser";
+    string constant GOVERNANCE_TIMELOCK_PATH = "src/concrete/StoxGovernanceTimelock.sol:StoxGovernanceTimelock";
 
     /// @inheritdoc RainDeploySuitesBase
     function declaration() internal view virtual override returns (DeployDeclaration memory) {
@@ -93,7 +95,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     }
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
-        DeployCandidate[] memory candidates = new DeployCandidate[](9);
+        DeployCandidate[] memory candidates = new DeployCandidate[](10);
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -202,6 +204,17 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.ST0X_ATTEST_SUB_PARSER_CODEHASH_CANDIDATE,
                 V4.ST0X_ATTEST_SUB_PARSER_RUNTIME_CODE_CANDIDATE,
                 ATTEST_SUB_PARSER_PATH,
+                new DeployDependency[](0)
+            )
+        );
+        candidates[9] = anchored(
+            zoltu(
+                GOVERNANCE_TIMELOCK,
+                V4.STOX_GOVERNANCE_TIMELOCK_CREATION_CODE_CANDIDATE,
+                V4.STOX_GOVERNANCE_TIMELOCK_CANDIDATE,
+                V4.STOX_GOVERNANCE_TIMELOCK_CODEHASH_CANDIDATE,
+                V4.STOX_GOVERNANCE_TIMELOCK_RUNTIME_CODE_CANDIDATE,
+                GOVERNANCE_TIMELOCK_PATH,
                 new DeployDependency[](0)
             )
         );
