@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title LibProdBeaconsBaseTest

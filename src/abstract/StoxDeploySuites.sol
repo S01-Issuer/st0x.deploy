@@ -4,23 +4,33 @@ pragma solidity ^0.8.25;
 
 import {
     DeployCandidate,
+    DeployDeclaration,
     DeployDependency,
-    DeployMechanism,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.25/src/abstract/RainDeploySuitesBase.sol";
-import {CloneDeploy} from "rain-deploy-0.1.25/src/lib/LibRainDeployClone.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.25/src/lib/LibRainDeploy.sol";
-import {LibRainDeployMechanism} from "rain-deploy-0.1.25/src/lib/LibRainDeployMechanism.sol";
+} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.29/src/lib/LibRainDeployDeclaration.sol";
+import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.29/src/lib/LibRainDeployZoltuMechanism.sol";
+import {CloneDeploy} from "rain-factory-0.2.9/src/lib/LibRainDeployClone.sol";
+import {LibCloneCandidates} from "rain-factory-0.2.9/src/lib/LibCloneCandidates.sol";
+import {LibRainDeployCloneMechanism} from "rain-factory-0.2.9/src/lib/LibRainDeployCloneMechanism.sol";
+import {
+    DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
+    RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.3/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     RUNTIME_CODE as TOFU_DECIMALS_RUNTIME_CODE
-} from "rain-tofu-erc20-decimals-deploy-0.1.3/src/generated/0_1_0/TOFUTokenDecimals.sol";
+} from "rain-tofu-erc20-decimals-deploy-0.1.4/src/generated/0_1_0/TOFUTokenDecimals.sol";
 
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
@@ -47,6 +57,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = "stox-wrapped-token-vault-beacon-set-deployer";
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
+    string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
     string constant RECEIPT_PATH = "src/concrete/StoxReceipt.sol:StoxReceipt";
@@ -66,19 +77,22 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH =
         "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer";
+    string constant ATTEST_SUB_PARSER_PATH = "src/concrete/St0xAttestSubParser.sol:St0xAttestSubParser";
 
     /// @inheritdoc RainDeploySuitesBase
-    function supportedNetworks() internal view virtual override returns (string[] memory) {
-        return LibStoxDeployNetworks.deploymentNetworks();
+    function declaration() internal view virtual override returns (DeployDeclaration memory) {
+        DeployDeclaration memory declared;
+        LibRainDeployDeclaration.extend(declared);
+        LibRainDeployDeclaration.setNetworks(declared, LibStoxDeployNetworks.deploymentNetworks());
+        LibRainDeployZoltuMechanism.extend(declared);
+        LibRainDeployCloneMechanism.extend(declared);
+        LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
+        LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
+        LibCloneCandidates.addClones(declared, euAuthoriserClones());
+        return declared;
     }
 
-    /// @inheritdoc RainDeploySuitesBase
-    function releasedSuites() internal pure override returns (DeploySuite[] memory) {
-        return LibReleasedSuites.releasedSuites();
-    }
-
-    /// @inheritdoc RainDeploySuitesBase
-    function candidateSuites() internal view override returns (DeployCandidate[] memory) {
+    function candidateSuites() internal pure returns (DeployCandidate[] memory) {
         DeployCandidate[] memory candidates = new DeployCandidate[](9);
         candidates[0] = anchored(
             zoltu(
@@ -110,7 +124,14 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE,
                 V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
                 RECEIPT_VAULT_PATH,
-                one(V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE)
+                three(
+                    V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE,
+                    V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    CLONE_FACTORY_V8_ADDRESS,
+                    CLONE_FACTORY_V8_RUNTIME_CODE
+                )
             )
         );
         candidates[3] = anchored(
@@ -173,42 +194,41 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 )
             )
         );
-        candidates[8] = euAuthoriserCandidate();
+        candidates[8] = anchored(
+            zoltu(
+                ATTEST_SUB_PARSER,
+                V4.ST0X_ATTEST_SUB_PARSER_CREATION_CODE_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_CODEHASH_CANDIDATE,
+                V4.ST0X_ATTEST_SUB_PARSER_RUNTIME_CODE_CANDIDATE,
+                ATTEST_SUB_PARSER_PATH,
+                new DeployDependency[](0)
+            )
+        );
         return candidates;
     }
 
     /// The EU assets authoriser: a clone of the 0.1.1 authoriser whose init
     /// data names each chain's token-owner Safe, so its address is per network.
-    /// @return The candidate.
-    function euAuthoriserCandidate() internal view returns (DeployCandidate memory) {
-        return LibRainDeployMechanism.cloneCandidate(
-            CloneDeploy({
-                suite: EU_AUTHORISER,
-                factory: CLONE_FACTORY_ADDRESS,
-                implementation: LibEuAuthoriserClone.implementation(),
-                data: "",
-                initDataPerNetwork: true,
-                initData: LibEuAuthoriserClone.cloneData,
-                salt: EU_AUTHORISER_SALT,
-                dependencies: two(
-                    CLONE_FACTORY_ADDRESS,
-                    CLONE_FACTORY_RUNTIME_CODE,
-                    LibEuAuthoriserClone.implementation(),
-                    V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1
-                )
-            }),
-            supportedChainIds()
-        );
-    }
-
-    /// @return The chain id of every network in `supportedNetworks()`, in order.
-    function supportedChainIds() internal view returns (uint256[] memory) {
-        SupportedNetwork[] memory configs = LibRainDeploy.declaredNetworkConfigs(supportedNetworks());
-        uint256[] memory chainIds = new uint256[](configs.length);
-        for (uint256 i = 0; i < configs.length; i++) {
-            chainIds[i] = configs[i].chainId;
-        }
-        return chainIds;
+    /// @return The clone.
+    function euAuthoriserClones() internal pure returns (CloneDeploy[] memory) {
+        CloneDeploy[] memory clones = new CloneDeploy[](1);
+        clones[0] = CloneDeploy({
+            suite: EU_AUTHORISER,
+            factory: CLONE_FACTORY_ADDRESS,
+            implementation: LibEuAuthoriserClone.implementation(),
+            data: "",
+            initDataPerNetwork: true,
+            initData: LibEuAuthoriserClone.cloneData,
+            salt: EU_AUTHORISER_SALT,
+            dependencies: two(
+                CLONE_FACTORY_ADDRESS,
+                CLONE_FACTORY_RUNTIME_CODE,
+                LibEuAuthoriserClone.implementation(),
+                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1
+            )
+        });
+        return clones;
     }
 
     function zoltu(
@@ -228,8 +248,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             storedRuntimeCode: runtimeCode,
             artifactPath: artifactPath,
             dependencies: dependencies,
-            mechanism: DeployMechanism.Zoltu,
-            mechanismData: ""
+            mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
+            networks: new string[](0)
         });
     }
 
@@ -251,6 +271,21 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         DeployDependency[] memory deps = new DeployDependency[](2);
         deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
         deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        return deps;
+    }
+
+    function three(
+        address a,
+        bytes memory aRuntimeCode,
+        address b,
+        bytes memory bRuntimeCode,
+        address c,
+        bytes memory cRuntimeCode
+    ) internal pure returns (DeployDependency[] memory) {
+        DeployDependency[] memory deps = new DeployDependency[](3);
+        deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
+        deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
         return deps;
     }
 }
