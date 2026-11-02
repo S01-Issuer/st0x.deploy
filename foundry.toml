@@ -35,6 +35,7 @@ fs_permissions = [
   # `out` is needed by the RAI-296 multisig migration script and its tests:
   # the script writes the Safe Tx Builder JSON artifact under `out/`, and
   # the LibSafeOps round-trip tests round-trip the JSON through disk.
+  { access = "read-write", path = "meta" },
   { access = "read-write", path = "out" },
   { access = "read-write", path = "privileged-addresses.json" },
   { access = "read-write", path = "ideal-roles.json" },
@@ -74,7 +75,10 @@ safe-global-safe-smart-account = "1.4.1-3"
 rain-tofu-erc20-decimals-deploy = "0.1.4"
 "rain-vats" = "0.2.13"
 "rain-verify-interface" = "0.1.0"
-rain-metadata = "0.1.43"
+"rain-intorastring" = "0.1.4"
+"rain-lib-typecast" = "0.1.4"
+"rain-metadata" = "0.1.43"
+rainlang = "0.2.31"
 
 [soldeer]
 recursive_deps = false
