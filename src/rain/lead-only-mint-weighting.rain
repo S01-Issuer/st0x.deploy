@@ -23,8 +23,6 @@
 
 #lead-signer !The mandatory lead signer, S01 as issuer.
 
-#lead-domain-separator !The EIP-712 domain separator the lead signs under.
-
 #max-time-spread !How far apart the lead's attested time and the chain clock may be, in seconds.
 #min-price !Absolute floor on the attested price.
 #max-price !Absolute ceiling on the attested price.
@@ -37,8 +35,16 @@ using-words-from st0x-attest-subparser
   "Lead attestation missing"
 ),
 
+eip712-domain-typehash: 0xb03948446334eb9b2196d5eb166f69b9d49403eb4a12f36de8d3f9f3cb8e15c3,
 :ensure(
-  binary-equal-to(lead-domain() lead-domain-separator)
+  binary-equal-to(
+    lead-domain()
+    hash(
+      eip712-domain-typehash
+      utf8-hash("proof-of-reserves.org/prices/" lead-source() "/" lead-currency())
+      utf8-hash("1")
+    )
+  )
   "Lead domain mismatch"
 ),
 
