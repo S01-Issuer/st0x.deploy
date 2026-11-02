@@ -22,6 +22,7 @@ import {
 import {CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION} from "src/lib/LibCorporateActionReceipt.sol";
 import {ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
 import {ERC1155_STORAGE_LOCATION} from "src/lib/LibERC1155Storage.sol";
+import {UNDERLYING_STORAGE_LOCATION} from "../../../src/lib/LibUnderlying.sol";
 import {NODE_NONE} from "src/lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "src/lib/LibStockSplit.sol";
 import {
@@ -262,15 +263,22 @@ contract LibConstantsStructureTest is Test {
         assertEq(ERC1155_STORAGE_LOCATION, expected);
     }
 
+    function testUnderlyingStorageLocationMatchesNamespace() external pure {
+        bytes32 expected =
+            keccak256(abi.encode(uint256(keccak256("rain.storage.underlying.1")) - 1)) & ~bytes32(uint256(0xff));
+        assertEq(UNDERLYING_STORAGE_LOCATION, expected);
+    }
+
     /// Every storage-location constant must occupy a distinct slot. A
     /// collision would have two libraries sharing storage at the same
     /// ERC-7201 slot, breaking diamond-storage isolation.
     function testStorageLocationsPairwiseDistinct() external pure {
-        bytes32[4] memory slots = [
+        bytes32[5] memory slots = [
             CORPORATE_ACTION_STORAGE_LOCATION,
             CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION,
             ERC20_STORAGE_LOCATION,
-            ERC1155_STORAGE_LOCATION
+            ERC1155_STORAGE_LOCATION,
+            UNDERLYING_STORAGE_LOCATION
         ];
 
         for (uint256 i; i < slots.length; i++) {
