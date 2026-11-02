@@ -71,7 +71,9 @@ abstract contract St0xAttestSubParserTest is Test, BuildWeightingBindings {
         }
 
         I_SUB_PARSER = St0xAttestSubParser(LibRainDeploy.etchAndDeployZoltu(vm, type(St0xAttestSubParser).creationCode));
-        require(address(I_SUB_PARSER) == LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE, "sub-parser not at candidate");
+        require(
+            address(I_SUB_PARSER) == LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE, "sub-parser not at candidate"
+        );
     }
 
     /// Parses `rainString` and evals its first source against `context` in
