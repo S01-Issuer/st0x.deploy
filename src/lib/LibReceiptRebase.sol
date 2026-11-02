@@ -51,10 +51,9 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// `getActionParameters` iterations — such an implementation could
 /// inflate, zero, or arbitrarily drift balances on first-touch. The
 /// receipt assumes the beacon owner only installs audited vault
-/// implementations behind
-/// every receipt's manager pointer. Beacon upgrade authority is the
-/// trust root; if that key is compromised, every downstream balance
-/// derived from this walk is compromised.
+/// implementations behind every receipt's manager pointer. Beacon
+/// upgrade authority is the trust root; if that key is compromised,
+/// every downstream balance derived from this walk is compromised.
 library LibReceiptRebase {
     /// @notice Walk the vault's completed stock split list from
     /// `fromActionId` forward, returning the rebased balance and the

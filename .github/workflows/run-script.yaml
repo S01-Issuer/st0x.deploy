@@ -33,7 +33,7 @@ on:
           - 20261030-backfill-migration-registry-v5
           - 20261021-schedule-underlying-naming-beacons
           - 20261021-schedule-underlying-naming-rename
-          - 20261022-bind-beacon-owner
+          - 20261022-bind-governance-timelock
       network:
         description: 'Network to author against (default: base)'
         required: true

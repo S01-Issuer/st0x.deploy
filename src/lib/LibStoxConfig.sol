@@ -25,10 +25,10 @@ library LibStoxConfig {
     /// of every beacon a current st0x deploy constructs.
     bytes32 internal constant GOVERNANCE_TIMELOCK_NAME = keccak256("st0x.governance-timelock.v1");
 
-    /// @notice The bound beacon owner. Reverts `NameNotRegistered` where it is
-    /// unbound.
-    /// @return The owner.
-    function beaconOwner() internal view returns (address) {
+    /// @notice The bound governance timelock. Reverts `NameNotRegistered` where
+    /// it is unbound.
+    /// @return The timelock.
+    function governanceTimelock() internal view returns (address) {
         // slither-disable-next-line unused-return
         (bytes memory value,) =
             LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_TIMELOCK_NAME, keccak256("address"));
