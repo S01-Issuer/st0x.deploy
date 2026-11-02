@@ -10,9 +10,9 @@ import {
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
 } from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
 import {
-    DEPLOYED_ADDRESS as CLONE_FACTORY_V7_ADDRESS,
-    BYTECODE_HASH as CLONE_FACTORY_V7_CODEHASH
-} from "rain-factory-deploy-0.2.5/src/generated/0_2_4/CloneFactory.sol";
+    DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
+    BYTECODE_HASH as CLONE_FACTORY_V8_CODEHASH
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
@@ -73,7 +73,7 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
         externals[0] = ExternalDeployment({deployedAddress: CLONE_FACTORY_ADDRESS, codeHash: CLONE_FACTORY_CODEHASH});
         externals[1] = ExternalDeployment({deployedAddress: TOFU_DECIMALS_ADDRESS, codeHash: TOFU_DECIMALS_CODEHASH});
         externals[2] =
-            ExternalDeployment({deployedAddress: CLONE_FACTORY_V7_ADDRESS, codeHash: CLONE_FACTORY_V7_CODEHASH});
+            ExternalDeployment({deployedAddress: CLONE_FACTORY_V8_ADDRESS, codeHash: CLONE_FACTORY_V8_CODEHASH});
         externals[3] =
             ExternalDeployment({deployedAddress: CONFIG_REGISTRY_ADDRESS, codeHash: CONFIG_REGISTRY_CODEHASH});
         externals[4] = ExternalDeployment({
