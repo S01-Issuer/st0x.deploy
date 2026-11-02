@@ -159,6 +159,12 @@ library LibAuthoriserInvariants {
     /// https://basescan.org/address/0x315b16faa6ee413fabca877d3851b3818369f0cd
     address internal constant STOX_PROD_AUTHORISER = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
+    /// @notice The V3-era production authoriser clone on Base, which
+    /// `STOX_PROD_AUTHORISER` named until commit 2ec93458 repointed it to the
+    /// V4 clone. No production vault's `authorizer()` returns it any more.
+    /// https://basescan.org/address/0x35f9fa9d80aaf2b0fb27f0ff015641b3408d7456
+    address internal constant STOX_PROD_AUTHORISER_V3_CLONE = address(0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456);
+
     /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
     /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the
     /// entries that track the admin holder. The slice's position and length
