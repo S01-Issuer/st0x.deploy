@@ -4,9 +4,6 @@ pragma solidity ^0.8.25;
 
 import {LibConfigRegistry} from "rain-deploy-0.1.29/src/lib/LibConfigRegistry.sol";
 
-/// @notice The root authority bound a zero governance Safe.
-error ZeroGovernanceSafe();
-
 /// @title LibStoxConfig
 /// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V3, all under the
 /// root authority: the same account on every chain, so a consumer's creation
@@ -25,15 +22,13 @@ library LibStoxConfig {
     bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
 
     /// @notice `abi.encode(address)`: the chain's governance Safe, the
-    /// timelock's sole proposer, canceller and executor.
+    /// timelock's sole proposer and canceller.
     bytes32 internal constant GOVERNANCE_SAFE_NAME = keccak256("st0x.governance-safe.v1");
 
-    /// @return The chain's governance Safe; reverts while unbound or zero.
+    /// @return The chain's governance Safe; reverts while unbound.
     function governanceSafe() internal view returns (address) {
         // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_SAFE_NAME, keccak256("address"));
-        address safe = abi.decode(value, (address));
-        if (safe == address(0)) revert ZeroGovernanceSafe();
-        return safe;
+        return abi.decode(value, (address));
     }
 }

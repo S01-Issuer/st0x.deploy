@@ -8,14 +8,14 @@ import {LibTimelockInvariants} from "../lib/LibTimelockInvariants.sol";
 
 /// @title StoxGovernanceTimelock
 /// @notice The st0x governance `TimelockController`, Zoltu-deployed. Its
-/// proposer and executor are the governance Safe bound in the
-/// `ConfigRegistry`, so the creation code is chain-invariant; `admin` is zero
-/// so it self-administers and the deploy key holds nothing.
+/// proposer is the governance Safe bound in the `ConfigRegistry`, so the
+/// creation code is chain-invariant.
 contract StoxGovernanceTimelock is
     TimelockController(
         LibTimelockInvariants.TIMELOCK_MIN_DELAY,
         LibStoxGovernanceTimelockArgs.safeArray(),
-        LibStoxGovernanceTimelockArgs.safeArray(),
+        // Mirrors rain-deploy LibTimelockController.timelockConstructorArgs: open execution, no admin.
+        LibStoxGovernanceTimelockArgs.openExecutors(),
         address(0)
     )
 {}
@@ -25,5 +25,9 @@ library LibStoxGovernanceTimelockArgs {
         address[] memory safes = new address[](1);
         safes[0] = LibStoxConfig.governanceSafe();
         return safes;
+    }
+
+    function openExecutors() internal pure returns (address[] memory) {
+        return new address[](1);
     }
 }
