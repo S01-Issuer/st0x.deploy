@@ -109,12 +109,17 @@ All five timelocks are live at their pins.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
-1. **Bind the Safe** — the chain's governance Safe is bound under
+The five chains run the per-Safe timelocks at their `LibTimelockInvariants` pins
+(see Addresses), so steps 1-2 do not apply to them. Steps 1-2 are the path for a
+chain whose timelock is the `stox-governance-timelock` suite; steps 3-5 apply to
+every chain.
+
+1. **Bind the Safe** — bind the chain's governance Safe under
    `GOVERNANCE_SAFE_NAME` in the `ConfigRegistry`. The constructor's typed
    resolve reverts on an unset name, so the bind always precedes the deploy.
 2. **Deploy** — Actions → `manual-sol-artifacts` → `stox-governance-timelock`.
-   The Zoltu suite lands at one address on every network; the chain's
-   `LibTimelockInvariants` arm pins it.
+   The Zoltu suite lands at one address on every network; that chain's
+   `LibTimelockInvariants` arm then pins the suite address and codehash.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
    `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
