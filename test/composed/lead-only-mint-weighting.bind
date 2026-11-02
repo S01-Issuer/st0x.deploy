@@ -1,0 +1,5 @@
+st0x-attest-subparser=0x28Df1347eae93f7d85bCBe4b6605034a2F6F1cBD
+lead-signer=0xB05Da3f2e145C6b156D97872386Bc8645B34b668
+max-time-spread=600
+min-price=100
+max-price=1000
