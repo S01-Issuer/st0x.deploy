@@ -215,9 +215,8 @@ library LibTimelockInvariants {
         if (TIMELOCK_CANCELLER != address(0)) {
             cancellers[0] = TIMELOCK_CANCELLER;
         }
-        // The chain's arm decides the shape: a suite-pinned arm requires the suite codehash.
+        // The suite's Zoltu address is a function of its code, so the address decides the shape.
         bytes32 codehash = timelock == LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
-            && timelockForChainId(block.chainid) == timelock
             ? LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH
             : TIMELOCK_BYTECODE_HASH;
         LibTimelockController.assertTimelockState(codehash, timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers);
