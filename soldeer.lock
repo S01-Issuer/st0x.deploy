@@ -69,6 +69,13 @@ checksum = "ce1339c0a06de699508247dc882c5aaf715ab4ae67d53336ae72ae88810f5540"
 integrity = "eeb92ffe224186151d210137324a69e6154947bf987c18ea8b3233174291ce5c"
 
 [[dependencies]]
+name = "rain-math-binary"
+version = "0.1.4"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-binary/0_1_4_17-08-2026_05:22:01_rain.math.zip"
+checksum = "1787eb0bc883c4922deb5e547ecaf0bd0f9a31e99c51f3b11744c3324eb592f6"
+integrity = "857d22060d058ec173e88448c2d44f0cb884b2381669d0dbe1d3bebb168715ea"
+
+[[dependencies]]
 name = "rain-math-fixedpoint"
 version = "0.2.2"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-fixedpoint/0_2_2_01-10-2026_22:26:31_rain.math.zip"
@@ -102,6 +109,13 @@ version = "0.1.28"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-solmem/0_1_28_03-09-2026_07:34:16_rain.zip"
 checksum = "3dafbef001edb181683a43c3c295e3f88e2ffcedd751e986562e71e29560c9f0"
 integrity = "e7508cd81a998a67118a0fca314d504dc62850d6b535d29c824f696f214e4b23"
+
+[[dependencies]]
+name = "rain-string"
+version = "0.3.9"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-string/0_3_9_25-08-2026_10:18:31_rain.zip"
+checksum = "fbeecc1f85d4449728c600abe78667db8367df5c391591195fe3bfc6bffd868e"
+integrity = "898116147f72443a8c34315abbeb9906d8a4665fdcbb39e6ad70ddd84354db53"
 
 [[dependencies]]
 name = "rain-tofu-erc20-decimals"
