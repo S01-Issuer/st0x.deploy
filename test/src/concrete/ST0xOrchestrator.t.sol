@@ -175,7 +175,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     /// the bound governance timelock.
     function _deployProxy() internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (""));
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
         return ST0xOrchestrator(payable(address(proxy)));
     }
@@ -364,7 +364,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     function testConstructorDisablesInitializers() external {
         ST0xOrchestrator raw = new ST0xOrchestrator();
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        raw.initialize();
+        raw.initialize("");
     }
 
     function testInitializeGrantsAdmin() external view {
@@ -381,7 +381,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     function testDoubleInitializeReverts() external {
         vm.expectRevert(Initializable.InvalidInitialization.selector);
-        orchestrator.initialize();
+        orchestrator.initialize("");
     }
 
     // ------------------------------------------------------------------ //

@@ -20,7 +20,7 @@ contract ST0xOrchestratorGovernanceTimelockTest is GovernanceTimelockSeatTest {
     }
 
     function seat() internal override returns (address) {
-        return address(new BeaconProxy(address(beacon), abi.encodeCall(ST0xOrchestrator.initialize, ())));
+        return address(new BeaconProxy(address(beacon), abi.encodeCall(ST0xOrchestrator.initialize, (""))));
     }
 
     function assertSeated(address seated, address timelock) internal view override {

@@ -75,7 +75,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         _makeGuardPass();
         ST0xOrchestrator impl = new ST0xOrchestrator();
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        BeaconProxy proxy = new BeaconProxy(address(beacon), abi.encodeCall(ST0xOrchestrator.initialize, ()));
+        BeaconProxy proxy = new BeaconProxy(address(beacon), abi.encodeCall(ST0xOrchestrator.initialize, ("")));
         orchestrator = ST0xOrchestrator(payable(address(proxy)));
 
         _mockToken(TOKEN, tokenSymbol());

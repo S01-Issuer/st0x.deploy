@@ -31,7 +31,7 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
+import {ST0xOrchestratorBeacon} from "../../../src/concrete/ST0xOrchestratorBeacon.sol";
 import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
 
 /// @title StoxDeployDeclarationTest
@@ -61,9 +61,7 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
             return type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
         }
         if (key == keccak256(bytes(ORCHESTRATOR))) return type(ST0xOrchestrator).creationCode;
-        if (key == keccak256(bytes(ORCHESTRATOR_BEACON_SET_DEPLOYER))) {
-            return type(ST0xOrchestratorBeaconSetDeployer).creationCode;
-        }
+        if (key == keccak256(bytes(ORCHESTRATOR_BEACON))) return type(ST0xOrchestratorBeacon).creationCode;
         if (key == keccak256(bytes(ATTEST_SUB_PARSER))) return type(St0xAttestSubParser).creationCode;
         revert(string.concat("no source for suite: ", suite));
     }

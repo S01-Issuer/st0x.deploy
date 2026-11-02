@@ -23,8 +23,6 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "../../../src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
-import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// The frozen 0.1.30 orchestrator beacon-set deployer's beacon getter.
 interface IOrchestratorBeaconSet0_1_30 {
@@ -258,21 +256,6 @@ contract LibBeaconInvariantsTest is Test {
             address(IOrchestratorBeaconSet0_1_30(deployer).iOrchestratorBeacon()).codehash,
             LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
             "0.1.30 beacon pin no longer matches the beacon the frozen 0.1.30 deployer builds"
-        );
-    }
-
-    /// @notice `UPGRADEABLE_BEACON_CODEHASH_CANDIDATE` is the runtime of the
-    /// beacon the candidate orchestrator beacon-set deployer builds.
-    function testCandidateOrchestratorBeaconCodehashPin() external {
-        LibTestDeploy.bindGovernanceTimelock(vm, address(1));
-        LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
-        address deployer =
-            LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE);
-        assertEq(
-            address(ST0xOrchestratorBeaconSetDeployer(deployer).iOrchestratorBeacon()).codehash,
-            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_CANDIDATE,
-            "candidate beacon pin no longer matches the beacon the candidate deployer builds"
         );
     }
 

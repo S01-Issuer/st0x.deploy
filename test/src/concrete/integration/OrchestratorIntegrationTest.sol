@@ -192,7 +192,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
 
     function _deployOrchestrator() internal returns (ST0xOrchestrator) {
         UpgradeableBeacon beacon = new UpgradeableBeacon(address(impl), address(this));
-        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, ());
+        bytes memory initData = abi.encodeCall(ST0xOrchestrator.initialize, (""));
         BeaconProxy proxy = new BeaconProxy(address(beacon), initData);
         return ST0xOrchestrator(payable(address(proxy)));
     }
