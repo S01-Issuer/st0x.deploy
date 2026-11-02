@@ -25,6 +25,12 @@ import {
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
+import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV5.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibGenParseMeta} from "rainlang-0.2.31/src/lib/codegen/LibGenParseMeta.sol";
@@ -80,6 +86,17 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function run() external {
+        // The generated code does not depend on the bound timelock value.
+        vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
+        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
+            .registerV5(
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                "address",
+                abi.encode(address(1)),
+                ""
+            );
         buildSubParserPointers(address(new St0xAttestSubParser()));
         DeployCandidate[] memory candidates = candidateSuites();
         string[9] memory names = candidateContractNames();
@@ -439,7 +456,6 @@ contract Build is Script, StoxDeploySuites {
         vm.writeLine(GEN_CURRENT_PATH, "");
         vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
         vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
-        vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
         vm.writeLine(
             GEN_CURRENT_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"
