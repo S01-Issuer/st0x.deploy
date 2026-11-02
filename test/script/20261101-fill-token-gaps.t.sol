@@ -38,6 +38,7 @@ import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 
 /// @title FillTokenGapsTest
@@ -150,7 +151,8 @@ contract FillTokenGapsTest is Test {
     }
 
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {
-        return LibTestDeploy.vaultData(config.name, config.symbol, LibStoxConfig.ROOT_AUTHORITY, rbacName(config.region));
+        return
+            LibTestDeploy.vaultData(config.name, config.symbol, LibStoxConfig.ROOT_AUTHORITY, rbacName(config.region));
     }
 
     function bindBeacon(bytes32 name, address beacon) internal {
@@ -232,10 +234,18 @@ contract FillTokenGapsTest is Test {
 
     function changeDependency(address dependency, bytes memory code) internal returns (bytes memory) {
         bytes memory refusal = abi.encodeWithSelector(
-            LibRainDeploy.DependencyChanged.selector, LibRainDeploy.BASE, dependency, dependency.codehash, keccak256(code)
+            LibRainDeploy.DependencyChanged.selector,
+            LibRainDeploy.BASE,
+            dependency,
+            dependency.codehash,
+            keccak256(code)
         );
         vm.etch(dependency, code);
         return refusal;
+    }
+
+    function testDeclaresItselfNotAMigration() external view {
+        assertEq(abi.encode(sScript.declaration()), abi.encode(LibStoxMigrations.notAMigration()));
     }
 
     function testRunLandsEveryRowAtItsAddressAsItsToken() external {
@@ -307,7 +317,9 @@ contract FillTokenGapsTest is Test {
         bindRoot();
         vm.etch(CLONE_FACTORY_V8_ADDRESS, "");
         vm.expectRevert(
-            abi.encodeWithSelector(LibRainDeploy.MissingDependency.selector, LibRainDeploy.BASE, CLONE_FACTORY_V8_ADDRESS)
+            abi.encodeWithSelector(
+                LibRainDeploy.MissingDependency.selector, LibRainDeploy.BASE, CLONE_FACTORY_V8_ADDRESS
+            )
         );
         sScript.run();
     }
@@ -323,7 +335,9 @@ contract FillTokenGapsTest is Test {
         bindRoot();
         vm.etch(CONFIG_REGISTRY_ADDRESS, "");
         vm.expectRevert(
-            abi.encodeWithSelector(LibRainDeploy.MissingDependency.selector, LibRainDeploy.BASE, CONFIG_REGISTRY_ADDRESS)
+            abi.encodeWithSelector(
+                LibRainDeploy.MissingDependency.selector, LibRainDeploy.BASE, CONFIG_REGISTRY_ADDRESS
+            )
         );
         sScript.run();
     }
@@ -497,7 +511,9 @@ contract FillTokenGapsTest is Test {
         deployEveryRow();
         vm.etch(CLONE_FACTORY_V8_ADDRESS, "");
         vm.expectRevert(
-            abi.encodeWithSelector(LibRainDeploy.MissingDependency.selector, LibRainDeploy.BASE, CLONE_FACTORY_V8_ADDRESS)
+            abi.encodeWithSelector(
+                LibRainDeploy.MissingDependency.selector, LibRainDeploy.BASE, CLONE_FACTORY_V8_ADDRESS
+            )
         );
         sScript.check();
     }
@@ -515,7 +531,9 @@ contract FillTokenGapsTest is Test {
         deployEveryRow();
         vm.etch(CONFIG_REGISTRY_ADDRESS, "");
         vm.expectRevert(
-            abi.encodeWithSelector(LibRainDeploy.MissingDependency.selector, LibRainDeploy.BASE, CONFIG_REGISTRY_ADDRESS)
+            abi.encodeWithSelector(
+                LibRainDeploy.MissingDependency.selector, LibRainDeploy.BASE, CONFIG_REGISTRY_ADDRESS
+            )
         );
         sScript.check();
     }
