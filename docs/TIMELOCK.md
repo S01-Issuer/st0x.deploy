@@ -79,8 +79,8 @@ timelock). That keeps the audited contract set untouched.
 The timelock is deployed via the **Zoltu deterministic factory**: its address is
 a pure function of its creation code. `StoxGovernanceTimelock` (the
 `stox-governance-timelock` suite) reads the chain's Safe from the
-`ConfigRegistry` under `GOVERNANCE_SAFE_NAME` (`st0x.governance-safe.v1`), so its
-creation code, and its address, is the same on every chain.
+`ConfigRegistry` under `GOVERNANCE_SAFE_NAME` (`st0x.governance-safe.v1`), so
+its creation code, and its address, is the same on every chain.
 
 The five live timelocks take the chain's Safe as a constructor arg, so each sits
 at a distinct address —
@@ -103,9 +103,9 @@ Every pin is written with its chain arm, derived from the frozen creation
 bytecode and that chain's Safe pin before any deploy —
 `testPinsMatchDerivedAddresses` asserts each equality unconditionally, so a
 wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
-every consumer (the migration authoring, `assertTimelockState`) refuses it as a reverted or never-hydrated arm rather
-than proceeding against a wrong address. All five timelocks are live at their
-pins.
+every consumer (the migration authoring, `assertTimelockState`) refuses it as a
+reverted or never-hydrated arm rather than proceeding against a wrong address.
+All five timelocks are live at their pins.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
