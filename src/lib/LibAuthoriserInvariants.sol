@@ -164,6 +164,10 @@ library LibAuthoriserInvariants {
     /// https://basescan.org/address/0x35f9fa9d80aaf2b0fb27f0ff015641b3408d7456
     address internal constant STOX_PROD_AUTHORISER_V3_CLONE = address(0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456);
 
+    /// @notice The implementation behind `STOX_PROD_AUTHORISER_V3_CLONE`.
+    /// https://basescan.org/address/0x2b4a510c3619d5e888095bfe9f95902d32da5556
+    address internal constant STOX_PROD_AUTHORISER_V3_IMPL = address(0x2B4A510c3619d5E888095BFE9f95902D32dA5556);
+
     /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
     /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the
     /// entries that track the admin holder. The slice's position and length
