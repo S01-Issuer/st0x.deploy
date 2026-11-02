@@ -9,14 +9,11 @@ import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
 import {ST0xOrchestratorBaseForkFixture} from "test/src/concrete/ST0xOrchestratorBaseForkFixture.sol";
-import {
-    OBSERVATION_SIGNER,
-    OBSERVATION_DOMAIN
-} from "test/src/concrete/St0xAttestSubParser.signedPriceObservation.t.sol";
+import {OBSERVATION_SIGNER} from "test/src/concrete/St0xAttestSubParser.signedPriceObservation.t.sol";
 
 /// @title LeadOnlyMintWeightingSignedPriceObservationBaseForkTest
 /// @notice `src/rain/lead-only-mint-weighting.rain`, bound to the price API's
-/// signer and domain, parsed and evaluated by the Rainlang deployed on base:
+/// signer, parsed and evaluated by the Rainlang deployed on base:
 /// either signed AAPL observation alone as the lead mints `tAAPL` through the
 /// candidate orchestrator and is charged `amount * 344.63`.
 contract LeadOnlyMintWeightingSignedPriceObservationBaseForkTest is ST0xOrchestratorBaseForkFixture {
@@ -39,14 +36,13 @@ contract LeadOnlyMintWeightingSignedPriceObservationBaseForkTest is ST0xOrchestr
     }
 
     function _bindings() internal pure returns (DotrainBinding[] memory) {
-        DotrainBinding[] memory bindings = new DotrainBinding[](6);
+        DotrainBinding[] memory bindings = new DotrainBinding[](5);
         bindings[0] =
             DotrainBinding("st0x-attest-subparser", LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE.toHexString());
         bindings[1] = DotrainBinding("lead-signer", OBSERVATION_SIGNER.toHexString());
-        bindings[2] = DotrainBinding("lead-domain-separator", vm.toString(OBSERVATION_DOMAIN));
-        bindings[3] = DotrainBinding("max-time-spread", vm.toString(MAX_TIME_SPREAD));
-        bindings[4] = DotrainBinding("min-price", vm.toString(MIN_PRICE));
-        bindings[5] = DotrainBinding("max-price", vm.toString(MAX_PRICE));
+        bindings[2] = DotrainBinding("max-time-spread", vm.toString(MAX_TIME_SPREAD));
+        bindings[3] = DotrainBinding("min-price", vm.toString(MIN_PRICE));
+        bindings[4] = DotrainBinding("max-price", vm.toString(MAX_PRICE));
         return bindings;
     }
 

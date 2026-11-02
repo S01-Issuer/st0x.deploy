@@ -6,6 +6,7 @@ import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV5.sol";
+import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
 
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
@@ -70,22 +71,42 @@ contract LeadOnlyMintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     }
 
     function _bindings() internal view returns (DotrainBinding[] memory) {
-        DotrainBinding[] memory bindings = new DotrainBinding[](6);
+        DotrainBinding[] memory bindings = new DotrainBinding[](5);
         bindings[0] = DotrainBinding("st0x-attest-subparser", address(I_SUB_PARSER).toHexString());
         bindings[1] = DotrainBinding("lead-signer", vm.addr(LEAD_KEY).toHexString());
-        bindings[2] = DotrainBinding("lead-domain-separator", vm.toString(LEAD_DOMAIN));
-        bindings[3] = DotrainBinding("max-time-spread", vm.toString(MAX_TIME_SPREAD));
-        bindings[4] = DotrainBinding("min-price", vm.toString(MIN_PRICE));
-        bindings[5] = DotrainBinding("max-price", vm.toString(MAX_PRICE));
+        bindings[2] = DotrainBinding("max-time-spread", vm.toString(MAX_TIME_SPREAD));
+        bindings[3] = DotrainBinding("min-price", vm.toString(MIN_PRICE));
+        bindings[4] = DotrainBinding("max-price", vm.toString(MAX_PRICE));
         return bindings;
     }
 
+    /// The EIP-712 domain separator of name
+    /// `proof-of-reserves.org/prices/alpaca/<currency>`, version `1`.
+    function _leadDomain(bytes32 currency) internal pure returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                keccak256("EIP712Domain(string name,string version)"),
+                keccak256(
+                    bytes(
+                        string.concat(
+                            "proof-of-reserves.org/prices/",
+                            LibIntOrAString.toStringV3(IntOrAString.wrap(uint256(ALPACA_SOURCE))),
+                            "/",
+                            LibIntOrAString.toStringV3(IntOrAString.wrap(uint256(currency)))
+                        )
+                    )
+                ),
+                keccak256("1")
+            )
+        );
+    }
+
     /// The lead attesting `[TICKER, PRICE, now, "alpaca", "USD"]` under
-    /// `LEAD_DOMAIN`.
+    /// `_leadDomain("USD")`.
     function _leadAttestation() internal view returns (Attestation memory) {
         return Attestation({
             key: LEAD_KEY,
-            domain: LEAD_DOMAIN,
+            domain: _leadDomain(OBSERVATION_CURRENCY),
             ticker: TICKER,
             price: _f(PRICE, 0),
             time: _f(int256(block.timestamp), 0),
@@ -265,7 +286,7 @@ contract LeadOnlyMintWeightingTest is ST0xOrchestratorMintWeightingFixture {
     // ------------------------------------------------------------------ //
 
     function testLeadUnderAnotherDomainIsRefused(bytes32 other) external {
-        vm.assume(other != LEAD_DOMAIN);
+        vm.assume(other != _leadDomain(OBSERVATION_CURRENCY));
         bytes32[2] memory domains = [POOL_DOMAIN, other];
         for (uint256 i = 0; i < domains.length; i++) {
             Attestation[] memory attestations = _lead();
@@ -323,6 +344,7 @@ contract LeadOnlyMintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         for (uint256 i = 0; i < currencies.length; i++) {
             Attestation[] memory attestations = _lead();
             attestations[0].currency = currencies[i];
+            attestations[0].domain = _leadDomain(currencies[i]);
             _refused(attestations, _ensure("Price not in USD"));
         }
     }
@@ -331,6 +353,7 @@ contract LeadOnlyMintWeightingTest is ST0xOrchestratorMintWeightingFixture {
         vm.assume(currency != OBSERVATION_CURRENCY);
         Attestation[] memory attestations = _lead();
         attestations[0].currency = currency;
+        attestations[0].domain = _leadDomain(currency);
         _refused(attestations, _ensure("Price not in USD"));
     }
 
