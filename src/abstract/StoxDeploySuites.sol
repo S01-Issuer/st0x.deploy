@@ -199,7 +199,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             zoltu(
                 ORCHESTRATOR_BEACON,
                 V4.ST0X_ORCHESTRATOR_BEACON_CREATION_CODE_CANDIDATE,
-                V4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE,
                 V4.ST0X_ORCHESTRATOR_BEACON_CODEHASH_CANDIDATE,
                 V4.ST0X_ORCHESTRATOR_BEACON_RUNTIME_CODE_CANDIDATE,
                 ORCHESTRATOR_BEACON_PATH,
@@ -258,7 +258,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             registry: CONFIG_REGISTRY_ADDRESS,
             authority: LibStoxConfig.ROOT_AUTHORITY,
             beaconName: LibStoxConfig.ORCHESTRATOR_BEACON_NAME,
-            beacon: V4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
+            beacon: V4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE,
             data: "",
             salt: keccak256(bytes(ORCHESTRATOR))
         });

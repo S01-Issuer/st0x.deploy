@@ -3,8 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {VmSafe} from "forge-std-1.17.0/src/Vm.sol";
+import {Vm, VmSafe} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploySnapshot} from "rain-deploy-0.1.29/src/lib/LibRainDeploySnapshot.sol";
+import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {
     DeployCandidate,
     DeployDeclaration,
@@ -113,6 +115,24 @@ contract BuildPointers is Script, StoxDeploySuites {
 
         genProdLibs();
         genReleasedLibs(candidates);
+        genOrchestratorProxy();
+    }
+
+    function genOrchestratorProxy() internal {
+        bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
+            Vm(address(vm)),
+            orchestratorTarget(),
+            V4.ST0X_ORCHESTRATOR_CANDIDATE,
+            V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE
+        );
+        writeGeneratedHeader(GEN_ORCHESTRATOR_PROXY_PATH);
+        vm.writeLine(GEN_ORCHESTRATOR_PROXY_PATH, "");
+        vm.writeLine(GEN_ORCHESTRATOR_PROXY_PATH, "library LibST0xOrchestratorProxy {");
+        vm.writeLine(
+            GEN_ORCHESTRATOR_PROXY_PATH,
+            string.concat('    bytes constant RUNTIME_CODE = hex"', vm.replace(vm.toString(code), "0x", ""), '";')
+        );
+        vm.writeLine(GEN_ORCHESTRATOR_PROXY_PATH, "}");
     }
 
     /// @notice Writes `src/generated/St0xAttestSubParserPointers.sol`. The
@@ -139,8 +159,8 @@ contract BuildPointers is Script, StoxDeploySuites {
     /// @notice The key and artifact path each released lib is emitted with,
     /// index-aligned with `contractNames()`. Contracts with no candidate carry
     /// only those two fields.
-    function releasedTemplates(DeployCandidate[] memory candidates) internal pure returns (DeploySuite[13] memory) {
-        DeploySuite[13] memory templates;
+    function releasedTemplates(DeployCandidate[] memory candidates) internal pure returns (DeploySuite[14] memory) {
+        DeploySuite[14] memory templates;
         templates[0] = candidates[1].snapshot;
         templates[1] = candidates[2].snapshot;
         templates[2] = candidates[3].snapshot;
@@ -158,12 +178,13 @@ contract BuildPointers is Script, StoxDeploySuites {
         templates[11].suite = ORCHESTRATOR_BEACON_SET_DEPLOYER;
         templates[11].artifactPath = ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH;
         templates[12] = candidates[9].snapshot;
+        templates[13] = candidates[8].snapshot;
         return templates;
     }
 
     function genReleasedLibs(DeployCandidate[] memory candidates) internal {
-        string[13] memory names = contractNames();
-        DeploySuite[13] memory templates = releasedTemplates(candidates);
+        string[14] memory names = contractNames();
+        DeploySuite[14] memory templates = releasedTemplates(candidates);
         string[] memory released = new string[](names.length);
         DeployDeclaration memory d = declaration();
         for (uint256 i = 0; i < names.length; i++) {
@@ -186,6 +207,7 @@ contract BuildPointers is Script, StoxDeploySuites {
 
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
+    string constant GEN_ORCHESTRATOR_PROXY_PATH = "src/generated/LibST0xOrchestratorProxy.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
@@ -196,7 +218,7 @@ contract BuildPointers is Script, StoxDeploySuites {
     // REUSE-IgnoreEnd
 
     /// @notice Pointer filenames (record file names without `.sol`) in a fixed order.
-    function contractNames() internal pure returns (string[13] memory names) {
+    function contractNames() internal pure returns (string[14] memory names) {
         names[0] = "StoxReceipt";
         names[1] = "StoxReceiptVault";
         names[2] = "StoxWrappedTokenVault";
@@ -210,10 +232,11 @@ contract BuildPointers is Script, StoxDeploySuites {
         names[10] = "ST0xOrchestrator";
         names[11] = "ST0xOrchestratorBeaconSetDeployer";
         names[12] = "St0xAttestSubParser";
+        names[13] = "ST0xOrchestratorBeacon";
     }
 
     /// @notice The constant BASE for each contract, in the same order.
-    function contractBases() internal pure returns (string[13] memory bases) {
+    function contractBases() internal pure returns (string[14] memory bases) {
         bases[0] = "STOX_RECEIPT";
         bases[1] = "STOX_RECEIPT_VAULT";
         bases[2] = "STOX_WRAPPED_TOKEN_VAULT";
@@ -227,6 +250,7 @@ contract BuildPointers is Script, StoxDeploySuites {
         bases[10] = "ST0X_ORCHESTRATOR";
         bases[11] = "ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER";
         bases[12] = "ST0X_ATTEST_SUB_PARSER";
+        bases[13] = "ST0X_ORCHESTRATOR_BEACON_V2";
     }
 
     /// @notice The last path segment of `path` (the basename).
@@ -365,12 +389,12 @@ contract BuildPointers is Script, StoxDeploySuites {
 
     /// @notice Generate `LibProdDeployV4.sol`: one versioned alias set per tag.
     function genV4(string[] memory tags) internal {
-        string[13] memory names = contractNames();
-        string[13] memory bases = contractBases();
+        string[14] memory names = contractNames();
+        string[14] memory bases = contractBases();
 
         writeGeneratedHeader(GEN_V4_PATH);
         for (uint256 t = 0; t < tags.length; t++) {
-            for (uint256 c = 0; c < 13; c++) {
+            for (uint256 c = 0; c < 14; c++) {
                 if (pointerExists(tags[t], names[c])) {
                     vm.writeLine(GEN_V4_PATH, v4ImportLine(names[c], bases[c], tags[t]));
                 }
@@ -437,7 +461,7 @@ contract BuildPointers is Script, StoxDeploySuites {
             "address constant ST0X_ORCHESTRATOR_INSTANCE = address(0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2);"
         );
         for (uint256 t = 0; t < tags.length; t++) {
-            for (uint256 c = 0; c < 13; c++) {
+            for (uint256 c = 0; c < 14; c++) {
                 if (pointerExists(tags[t], names[c])) {
                     emitV4Constants(tags[t], bases[c]);
                 }
@@ -452,8 +476,8 @@ contract BuildPointers is Script, StoxDeploySuites {
         string memory tag = deployTag();
         string memory suffix = tagSuffix(tag);
         require(vm.exists(string.concat("src/generated/", tag)), "BuildPointers: current tag dir missing");
-        string[13] memory names = contractNames();
-        string[13] memory bases = contractBases();
+        string[14] memory names = contractNames();
+        string[14] memory bases = contractBases();
 
         writeGeneratedHeader(GEN_CURRENT_PATH);
         vm.writeLine(GEN_CURRENT_PATH, 'import {LibProdDeployV4} from "./LibProdDeployV4.sol";');
@@ -469,7 +493,7 @@ contract BuildPointers is Script, StoxDeploySuites {
             GEN_CURRENT_PATH,
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;"
         );
-        for (uint256 c = 0; c < 13; c++) {
+        for (uint256 c = 0; c < 14; c++) {
             if (!pointerExists(tag, names[c])) continue;
             string memory base = bases[c];
             vm.writeLine(
