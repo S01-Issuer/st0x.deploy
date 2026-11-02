@@ -12,5 +12,6 @@ jobs:
         nix develop "github:rainlanguage/rainix/${RAINIX_SHA}#sol-shell" -c forge script ./script/BuildSubgraphNetworks.sol
         nix develop "github:rainlanguage/rainix/${RAINIX_SHA}#sol-shell" -c forge script ./script/BuildIdealRoles.sol
         nix develop "github:rainlanguage/rainix/${RAINIX_SHA}#sol-shell" -c forge script ./script/BuildMigrations.sol
+        ./script/compose-weightings.sh
         # https://github.com/rainlanguage/rainix/issues/357
         git add --intent-to-add --all
