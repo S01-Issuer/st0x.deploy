@@ -35,24 +35,16 @@ import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.4/src/lib/Lib
 
 import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestContext, CONTEXT_ATTESTATION_ROWS} from "src/lib/LibSt0xAttestContext.sol";
+import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestTofu} from "test/lib/LibTestTofu.sol";
+import {BuildWeightingBindings} from "script/BuildWeightingBindings.sol";
 
 /// @title St0xAttestSubParserTest
 /// @notice Binds a `St0xAttestSubParser` beside the test Rainlang etched at
 /// its fixed addresses, and signs attestations the way a caller would, so the
 /// tests parse and eval real expressions over a real grid.
-abstract contract St0xAttestSubParserTest is Test {
+abstract contract St0xAttestSubParserTest is Test, BuildWeightingBindings {
     using Strings for address;
-
-    /// @dev Private key of the lead signer.
-    uint256 internal constant LEAD_KEY = 0x1EAD;
-    /// @dev Private key of pool operator `i` is `OPERATOR_KEY_0 + i`.
-    uint256 internal constant OPERATOR_KEY_0 = 0x0A00;
-
-    /// @dev EIP-712 domain separator the lead signs under.
-    bytes32 internal constant LEAD_DOMAIN = keccak256("st0x.test.lead-domain");
-    /// @dev EIP-712 domain separator every pool operator signs under.
-    bytes32 internal constant POOL_DOMAIN = keccak256("st0x.test.pool-domain");
 
     //solhint-disable-next-line private-vars-leading-underscore
     BaseRainlangCompiler internal immutable I_COMPILER;
@@ -78,7 +70,8 @@ abstract contract St0xAttestSubParserTest is Test {
             LibRainDeploy.deployZoltu(DECIMAL_FLOAT_CREATION_CODE);
         }
 
-        I_SUB_PARSER = new St0xAttestSubParser();
+        I_SUB_PARSER = St0xAttestSubParser(LibRainDeploy.etchAndDeployZoltu(vm, type(St0xAttestSubParser).creationCode));
+        require(address(I_SUB_PARSER) == LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE, "sub-parser not at candidate");
     }
 
     /// Parses `rainString` and evals its first source against `context` in

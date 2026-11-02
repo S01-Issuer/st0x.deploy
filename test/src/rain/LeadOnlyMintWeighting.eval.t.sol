@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV5.sol";
@@ -17,15 +16,12 @@ import {
     CONTEXT_ATTESTATION_ROW_SOURCE,
     CONTEXT_ATTESTATION_ROW_CURRENCY
 } from "src/lib/LibSt0xAttestContext.sol";
-import {DotrainBinding} from "test/lib/LibTestDotrain.sol";
 import {WeightingEvalTest} from "test/src/rain/WeightingEvalTest.sol";
 
 /// @title LeadOnlyMintWeightingEvalTest
 /// @notice `src/rain/lead-only-mint-weighting.rain` evaluated directly over a
 /// grid: its stack, and each of its refusals.
 contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
-    using Strings for address;
-
     struct Attestation {
         uint256 key;
         bytes32 domain;
@@ -40,18 +36,8 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
 
     bytes32 internal constant EIP712_DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version)");
 
-    function dotrainPath() internal pure override returns (string memory) {
-        return "src/rain/lead-only-mint-weighting.rain";
-    }
-
-    function bindings() internal view override returns (DotrainBinding[] memory) {
-        DotrainBinding[] memory all = new DotrainBinding[](5);
-        all[0] = DotrainBinding("st0x-attest-subparser", address(I_SUB_PARSER).toHexString());
-        all[1] = DotrainBinding("lead-signer", vm.addr(LEAD_KEY).toHexString());
-        all[2] = DotrainBinding("max-time-spread", vm.toString(MAX_TIME_SPREAD));
-        all[3] = DotrainBinding("min-price", vm.toString(MIN_PRICE));
-        all[4] = DotrainBinding("max-price", vm.toString(MAX_PRICE));
-        return all;
+    function bindingSet() internal pure override returns (string memory) {
+        return "lead-only-mint-weighting";
     }
 
     function eip712Domain(bytes32 typehash, string memory name, string memory version) internal pure returns (bytes32) {

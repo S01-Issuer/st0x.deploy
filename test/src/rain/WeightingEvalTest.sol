@@ -9,7 +9,6 @@ import {StateNamespace} from "rainlang-0.2.31/src/interface/IInterpreterStoreV3.
 import {LibNamespace} from "rainlang-0.2.31/src/lib/ns/LibNamespace.sol";
 
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
-import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 
 /// @title WeightingEvalTest
@@ -18,48 +17,27 @@ import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest
 abstract contract WeightingEvalTest is St0xAttestSubParserTest {
     using LibDecimalFloat for Float;
 
-    string internal constant ENTRYPOINT = "weighting";
-
     string internal constant VAULT_SYMBOL = "tMSTR";
     string internal constant TICKER = "MSTR";
     string internal constant OTHER_VAULT_SYMBOL = "tAAPL";
     string internal constant OTHER_TICKER = "AAPL";
 
-    int256 internal constant MAX_TIME_SPREAD = 600;
-    int256 internal constant MIN_PRICE = 100;
-    int256 internal constant MAX_PRICE = 1000;
     int256 internal constant PRICE = 150;
     int256 internal constant AMOUNT = 2;
     int256 internal constant NOW = 1_760_000_000;
 
     bytes internal bytecode;
 
-    function dotrainPath() internal pure virtual returns (string memory);
-
-    function bindings() internal view virtual returns (DotrainBinding[] memory);
+    function bindingSet() internal pure virtual returns (string memory);
 
     function setUp() public {
         // forge-lint: disable-next-line(unsafe-typecast)
         vm.warp(uint256(NOW));
-        install(bindings());
+        install(bindingSet());
     }
 
-    function install(DotrainBinding[] memory with) internal {
-        bytecode = I_COMPILER.parse2(bytes(LibTestDotrain.compose(vm.readFile(dotrainPath()), ENTRYPOINT, with)));
-    }
-
-    function rebind(DotrainBinding[] memory all, string memory name, string memory value)
-        internal
-        pure
-        returns (DotrainBinding[] memory)
-    {
-        for (uint256 i = 0; i < all.length; i++) {
-            if (keccak256(bytes(all[i].name)) == keccak256(bytes(name))) {
-                all[i].value = value;
-                return all;
-            }
-        }
-        revert(string.concat("no binding ", name));
+    function install(string memory set) internal {
+        bytecode = I_COMPILER.parse2(bytes(vm.readFile(string.concat(DIR, set, ".rl"))));
     }
 
     function decimal(int256 coefficient, int256 exponent) internal pure returns (Float) {
