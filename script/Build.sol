@@ -109,7 +109,7 @@ contract Build is Script, StoxDeploySuites {
             LibRainDeploy.deployZoltu(V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_1);
         require(
             deployer == V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1,
-            "BuildPointers: beacon set deployer address"
+            "Build: beacon set deployer address"
         );
         bytes memory code = address(IST0xVaultBeaconSet(deployer).iOffchainAssetReceiptVaultBeacon()).code;
         writeGeneratedHeader(GEN_VAULT_BEACON_PATH);
