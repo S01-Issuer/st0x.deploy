@@ -26,6 +26,12 @@ import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {StoxGovernanceTimelock} from "../src/concrete/StoxGovernanceTimelock.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
+import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV5.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibGenParseMeta} from "rainlang-0.2.31/src/lib/codegen/LibGenParseMeta.sol";
@@ -83,6 +89,13 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function run() external {
+        // TimelockController has no immutables, so any bound Safe snapshots the same runtime code.
+        vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
+        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
+            .registerV5(
+                LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(address(1)), ""
+            );
         buildSubParserPointers(address(new St0xAttestSubParser()));
         DeployCandidate[] memory candidates = candidateSuites();
         string[10] memory names = candidateContractNames();
@@ -355,7 +368,7 @@ contract Build is Script, StoxDeploySuites {
 
         writeGeneratedHeader(GEN_V4_PATH);
         for (uint256 t = 0; t < tags.length; t++) {
-            for (uint256 c = 0; c < 13; c++) {
+            for (uint256 c = 0; c < names.length; c++) {
                 if (pointerExists(tags[t], names[c])) {
                     vm.writeLine(GEN_V4_PATH, v4ImportLine(names[c], bases[c], tags[t]));
                 }
@@ -422,7 +435,7 @@ contract Build is Script, StoxDeploySuites {
             "address constant ST0X_ORCHESTRATOR_INSTANCE = address(0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2);"
         );
         for (uint256 t = 0; t < tags.length; t++) {
-            for (uint256 c = 0; c < 13; c++) {
+            for (uint256 c = 0; c < names.length; c++) {
                 if (pointerExists(tags[t], names[c])) {
                     emitV4Constants(tags[t], bases[c]);
                 }
@@ -454,7 +467,7 @@ contract Build is Script, StoxDeploySuites {
             GEN_CURRENT_PATH,
             "bytes32 constant STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;"
         );
-        for (uint256 c = 0; c < 13; c++) {
+        for (uint256 c = 0; c < names.length; c++) {
             if (!pointerExists(tag, names[c])) continue;
             string memory base = bases[c];
             vm.writeLine(

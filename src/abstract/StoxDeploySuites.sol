@@ -215,7 +215,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_GOVERNANCE_TIMELOCK_CODEHASH_CANDIDATE,
                 V4.STOX_GOVERNANCE_TIMELOCK_RUNTIME_CODE_CANDIDATE,
                 GOVERNANCE_TIMELOCK_PATH,
-                new DeployDependency[](0)
+                one(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE)
             )
         );
         return candidates;

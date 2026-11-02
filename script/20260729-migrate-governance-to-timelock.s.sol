@@ -28,9 +28,8 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 
 /// @notice The active chain's governance-timelock pin is still a
-/// placeholder. The migration cannot be authored before the
-/// `20260729-deploy-governance-timelock` broadcast has executed on this
-/// chain and the post-execution pin PR has hydrated the pin.
+/// placeholder. The migration cannot be authored before the chain's
+/// governance timelock is deployed and its pin hydrated.
 /// @param chainId The active chain id whose pin is unhydrated.
 error TimelockNotPinned(uint256 chainId);
 
