@@ -429,9 +429,10 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         }
     }
 
-    /// Under a floor of 1, 10 and 10.5 are within one whole unit but 5% apart.
+    /// Under a floor of 1 a quorum at 10 is accepted, but 10 and 10.5 are within one whole unit and 5% apart.
     function testThePriceToleranceIsProportionalOnly() external {
         install("mint-weighting-min-price");
+        accepted(quorumAt(decimal(10, 0)), decimal(AMOUNT * 10, 0));
         Attestation[] memory attestations = quorumAt(decimal(10, 0));
         attestations[1].price = decimal(105, -1);
         refused(attestations, "Attestors disagree");
