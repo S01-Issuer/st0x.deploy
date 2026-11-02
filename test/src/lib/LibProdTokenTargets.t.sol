@@ -47,6 +47,7 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// @title LibProdTokenTargetsTest
 /// @notice One V8 registry beacon proxy per production token row; each row's deploy step lands its token.
+contract LibProdTokenTargetsTest is Test {
     address internal constant US_OWNER = address(uint160(uint256(keccak256("st0x.test.token-targets.us-owner"))));
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.token-targets.eu-owner"))));
     address internal constant DEPLOYER = address(uint160(uint256(keccak256("st0x.test.token-targets.deployer"))));

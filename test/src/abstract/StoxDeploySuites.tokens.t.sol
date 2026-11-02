@@ -20,6 +20,7 @@ import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol"
 
 /// @title StoxDeploySuitesTokensTest
 /// @notice No token is a deploy suite; the vault candidate depends on the facet, registry and V8 clone factory.
+contract StoxDeploySuitesTokensTest is Test, StoxDeploySuites {
     function testNoSuiteIsARegistryBeaconProxy() external view {
         DeployDeclaration memory declared = declaration();
         for (uint256 i = 0; i < declared.released.length; i++) {
