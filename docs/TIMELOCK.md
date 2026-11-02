@@ -111,8 +111,7 @@ All five timelocks are live at their pins.
 
 The five chains run the per-Safe timelocks at their `LibTimelockInvariants` pins
 (see Addresses), so steps 1-2 do not apply to them. Steps 1-2 are the path for a
-chain whose timelock is the `stox-governance-timelock` suite; steps 3-5 apply to
-every chain.
+chain whose timelock is the `stox-governance-timelock` suite.
 
 1. **Bind the Safe** — bind the chain's governance Safe under
    `GOVERNANCE_SAFE_NAME` in the `ConfigRegistry`. The constructor's typed
