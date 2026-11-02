@@ -5,9 +5,9 @@ pragma solidity ^0.8.25;
 import {DeployDependency} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {RegistryBeaconProxyTarget} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
-    DEPLOYED_ADDRESS as CLONE_FACTORY_V7_ADDRESS,
-    RUNTIME_CODE as CLONE_FACTORY_V7_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.5/src/generated/0_2_4/CloneFactory.sol";
+    DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
+    RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
@@ -28,7 +28,7 @@ library LibProdTokenTargets {
         address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
             targets[i] = RegistryBeaconProxyTarget({
-                factory: CLONE_FACTORY_V7_ADDRESS,
+                factory: CLONE_FACTORY_V8_ADDRESS,
                 registry: CONFIG_REGISTRY_ADDRESS,
                 authority: LibStoxConfig.ROOT_AUTHORITY,
                 beaconName: LibStoxConfig.VAULT_BEACON_NAME,
@@ -76,7 +76,7 @@ library LibProdTokenTargets {
     function tokenDependencies() internal pure returns (DeployDependency[] memory) {
         DeployDependency[] memory dependencies = new DeployDependency[](3);
         dependencies[0] =
-            DeployDependency({deployedAddress: CLONE_FACTORY_V7_ADDRESS, runtimeCode: CLONE_FACTORY_V7_RUNTIME_CODE});
+            DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
         dependencies[1] =
             DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
         dependencies[2] =

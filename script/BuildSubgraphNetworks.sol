@@ -10,7 +10,7 @@ import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_V5} from "rain-deploy-0.1.29/src/gen
 import {DEPLOYED_ADDRESS as MIGRATION_REGISTRY_V5} from "rain-deploy-0.1.29/src/generated/0_1_27/MigrationRegistry.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_V5} from "rain-factory-deploy-0.2.5/src/generated/0_2_1/CloneFactory.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_V6} from "rain-factory-deploy-0.2.5/src/generated/0_2_2/CloneFactory.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_V7} from "rain-factory-deploy-0.2.5/src/generated/0_2_4/CloneFactory.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_V8} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
@@ -56,7 +56,7 @@ contract BuildSubgraphNetworks is Script {
             LibAuthoriserInvariants.authoriserForChainId(chainId),
             CLONE_FACTORY_V5,
             CLONE_FACTORY_V6,
-            CLONE_FACTORY_V7,
+            CLONE_FACTORY_V8,
             CONFIG_REGISTRY_V3,
             CONFIG_REGISTRY_V5,
             LibAuthoriserInvariants.euAuthoriserForChainId(chainId),
