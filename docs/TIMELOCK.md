@@ -118,8 +118,9 @@ chain whose timelock is the `stox-governance-timelock` suite.
    resolve reverts on an unset name, so the bind always precedes the deploy.
 2. **Deploy** — Actions → `manual-sol-artifacts` → `stox-governance-timelock`.
    The Zoltu suite lands at one address on every network; that chain's
-   `timelockForChainId` arm then returns `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`,
-   and `assertTimelockState` requires `STOX_GOVERNANCE_TIMELOCK_CODEHASH` there.
+   `timelockForChainId` arm then returns
+   `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, and `assertTimelockState`
+   requires `STOX_GOVERNANCE_TIMELOCK_CODEHASH` there.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
    `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
