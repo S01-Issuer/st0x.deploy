@@ -98,7 +98,13 @@ contract BindBeaconOwner is SafeBundleScript, IStoxScript {
             value: 0,
             data: abi.encodeCall(
                 IConfigRegistryV5.registerV5,
-                (LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(timelock), "")
+                (
+                    LibStoxConfig.ROOT_AUTHORITY,
+                    LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                    "address",
+                    abi.encode(timelock),
+                    ""
+                )
             ),
             operation: Enum.Operation.Call
         });
@@ -111,10 +117,9 @@ contract BindBeaconOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
         address chainSafe = address(safe());
-        (bytes memory value, uint256 registeredAt) =
-            LibConfigRegistry.resolve(
-                LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, keccak256("address")
-            );
+        (bytes memory value, uint256 registeredAt) = LibConfigRegistry.resolve(
+            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, keccak256("address")
+        );
         bytes memory expected = abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid));
         // forge-lint: disable-next-line(block-timestamp)
         if (keccak256(value) != keccak256(expected) || registeredAt != block.timestamp) {
