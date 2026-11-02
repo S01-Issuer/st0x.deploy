@@ -29,6 +29,7 @@ import {ST0xOrchestratorBeacon} from "../src/concrete/ST0xOrchestratorBeacon.sol
 import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
+import {LibProdOrchestratorTarget} from "../src/lib/LibProdOrchestratorTarget.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
@@ -121,7 +122,7 @@ contract BuildPointers is Script, StoxDeploySuites {
     function genOrchestratorProxy() internal {
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
             Vm(address(vm)),
-            orchestratorTarget(),
+            LibProdOrchestratorTarget.orchestratorTarget(),
             V4.ST0X_ORCHESTRATOR_CANDIDATE,
             V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE
         );
