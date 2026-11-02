@@ -15,13 +15,17 @@ import {CloneDeploy} from "rain-factory-0.2.9/src/lib/LibRainDeployClone.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.9/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.9/src/lib/LibRainDeployCloneMechanism.sol";
 import {
-    DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
-    RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
+    DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
+    RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
 } from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
+import {
+    DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
+    RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
+} from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
@@ -124,11 +128,13 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_RECEIPT_VAULT_CODEHASH_CANDIDATE,
                 V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
                 RECEIPT_VAULT_PATH,
-                two(
+                three(
                     V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE,
                     V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
                     CONFIG_REGISTRY_ADDRESS,
-                    CONFIG_REGISTRY_RUNTIME_CODE
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    CLONE_FACTORY_V8_ADDRESS,
+                    CLONE_FACTORY_V8_RUNTIME_CODE
                 )
             )
         );
