@@ -3,7 +3,7 @@
 # SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 
 # Builds `meta/St0xAttestSubParser.rain.meta`, the authoring meta of the
-# subparser's words as a deflated cbor document. `script/BuildPointers.sol`
+# subparser's words as a deflated cbor document. `script/Build.sol`
 # hashes it into the generated pointers file, so run this before that.
 
 set -euxo pipefail

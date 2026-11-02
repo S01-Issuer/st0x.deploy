@@ -9,7 +9,7 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {
     /// The orchestrator beacon-set deployer's constructor resolves the
     /// governance timelock; its bytecode does not depend on the bound value,
-    /// as in `script/BuildPointers.sol`.
+    /// as in `script/Build.sol`.
     function setUp() external {
         LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
     }
