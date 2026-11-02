@@ -9,6 +9,7 @@ import {
 } from "rain-deploy-0.1.29/src/generated/0_1_18/TimelockController.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
+import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 
 /// @notice No ST0x governance timelock address is pinned for the active
 /// chain. Deliberately a typed revert rather than a silent fallback to
@@ -214,8 +215,11 @@ library LibTimelockInvariants {
         if (TIMELOCK_CANCELLER != address(0)) {
             cancellers[0] = TIMELOCK_CANCELLER;
         }
-        LibTimelockController.assertTimelockState(
-            TIMELOCK_BYTECODE_HASH, timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers
-        );
+        // The chain's arm decides the shape: a suite-pinned arm requires the suite codehash.
+        bytes32 codehash = timelock == LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+            && timelockForChainId(block.chainid) == timelock
+            ? LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH
+            : TIMELOCK_BYTECODE_HASH;
+        LibTimelockController.assertTimelockState(codehash, timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers);
     }
 }
