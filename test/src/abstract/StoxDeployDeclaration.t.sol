@@ -8,7 +8,15 @@ import {DeployDeclaration, RainDeploySuitesBase} from "rain-deploy-0.1.29/src/ab
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
-} from "rain-factory-deploy-0.2.4/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
+import {
+    DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
+    BYTECODE_HASH as CLONE_FACTORY_V8_CODEHASH
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
@@ -61,9 +69,13 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
     }
 
     function externalDeployments() internal pure returns (ExternalDeployment[] memory) {
-        ExternalDeployment[] memory externals = new ExternalDeployment[](2);
+        ExternalDeployment[] memory externals = new ExternalDeployment[](4);
         externals[0] = ExternalDeployment({deployedAddress: CLONE_FACTORY_ADDRESS, codeHash: CLONE_FACTORY_CODEHASH});
         externals[1] = ExternalDeployment({deployedAddress: TOFU_DECIMALS_ADDRESS, codeHash: TOFU_DECIMALS_CODEHASH});
+        externals[2] =
+            ExternalDeployment({deployedAddress: CLONE_FACTORY_V8_ADDRESS, codeHash: CLONE_FACTORY_V8_CODEHASH});
+        externals[3] =
+            ExternalDeployment({deployedAddress: CONFIG_REGISTRY_ADDRESS, codeHash: CONFIG_REGISTRY_CODEHASH});
         return externals;
     }
 }
