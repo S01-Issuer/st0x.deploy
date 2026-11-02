@@ -9,6 +9,7 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.5/src/concrete/CloneFactory.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.29/src/lib/LibRegistryAuthority.sol";
 import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
@@ -34,7 +35,6 @@ import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
-import {LibStoxConfig} from "../../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibTestTofu} from "../../../lib/LibTestTofu.sol";
 
@@ -85,13 +85,15 @@ abstract contract OrchestratorIntegrationTest is Test {
         // Real authoriser clone, bound with ADMIN as owner in the RBAC the
         // vault resolves at initialize.
         authorizer = _newAuthorizer();
-        LibTestDeploy.bindRbac(vm, LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer)));
+        LibTestDeploy.bindRbac(
+            vm, LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME, ADMIN, IAuthorizeV1(address(authorizer))
+        );
 
         // A real vault + receipt beacon-proxy pair from the clone factory, over
         // the beacon the guard version-locks against.
         vault = LibTestDeploy.newVault(
-            LibStoxConfig.ROOT_AUTHORITY,
-            LibTestDeploy.vaultData("Test tStock", "tTEST", LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME)
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibTestDeploy.vaultData("Test tStock", "tTEST", LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME)
         );
         receipt = IERC1155(address(vault.receipt()));
 
