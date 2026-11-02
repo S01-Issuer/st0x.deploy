@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: LicenseRef-DCL-1.0
+# SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
+---
+/* A mint weighting that needs only the lead attestation, kept under test.
+ * What `ST0xOrchestrator.setMintWeighting` installs is governance's; this file
+ * is not it.
+ *
+ * One expression: it checks the lead attestation that came with a mint and
+ * prices the mint, or reverts. Pool attestations, if present, are not read.
+ * Every attestation word is from the `St0xAttestSubParser`; everything else is
+ * standard Rainlang. The elided bindings below are per-deployment
+ * configuration, bound at compose time with
+ * `rain dotrain compose -e weighting -b <name>=<value>`. Nothing is per token:
+ * one composed expression serves every vault, deriving the ticker from the
+ * symbol of the vault being minted.
+ *
+ * Only the entrypoint `weighting` is composed. The mint amount is in whole
+ * tokens and the output is `mint-amount * lead-price`, the value the mint-cap
+ * buckets are charged with.
+ */
+
+#st0x-attest-subparser !The St0xAttestSubParser on this chain, the source of the attestation words.
+
+#lead-signer !The mandatory lead signer, S01 as issuer.
+
+#max-time-spread !How far apart the lead's attested time and the chain clock may be, in seconds.
+#min-price !Absolute floor on the attested price.
+#max-price !Absolute ceiling on the attested price.
+
+#weighting
+using-words-from st0x-attest-subparser
+
+:ensure(
+  binary-equal-to(lead() lead-signer)
+  "Lead attestation missing"
+),
+
+eip712-domain-typehash: 0xb03948446334eb9b2196d5eb166f69b9d49403eb4a12f36de8d3f9f3cb8e15c3,
+:ensure(
+  binary-equal-to(
+    lead-domain()
+    hash(
+      eip712-domain-typehash
+      utf8-hash("proof-of-reserves.org/prices/" lead-source() "/" lead-currency())
+      utf8-hash("1")
+    )
+  )
+  "Lead domain mismatch"
+),
+
+vault-symbol: mint-symbol(),
+symbol-scale: uint256-power(0x0100 bitwise-and(vault-symbol 0x1f)),
+symbol-first: uint256-div(vault-symbol symbol-scale),
+
+:ensure(
+  binary-equal-to(symbol-first 0x74)
+  "Vault symbol has no t prefix"
+),
+ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
+:ensure(
+  binary-equal-to(lead-symbol() ticker)
+  "Attestation for another token"
+),
+
+:ensure(
+  binary-equal-to(lead-currency() "USD")
+  "Price not in USD"
+),
+
+:ensure(
+  agree(
+    max-time-spread 0
+    now() lead-time()
+  )
+  "Times disagree"
+),
+
+:ensure(
+  less-than-or-equal-to(min-price lead-price() max-price)
+  "Price outside bounds"
+),
+
+value: mul(mint-amount() lead-price());
