@@ -8,10 +8,7 @@ import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV
 
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";
-import {
-    ST0xOrchestratorBaseForkFixture,
-    BASE_FORK_TIMESTAMP
-} from "test/src/concrete/ST0xOrchestratorBaseForkFixture.sol";
+import {ST0xOrchestratorBaseForkFixture} from "test/src/concrete/ST0xOrchestratorBaseForkFixture.sol";
 import {OBSERVATION_SIGNER, OBSERVATION_TIME} from "test/src/concrete/St0xAttestSubParser.signedPriceObservation.t.sol";
 
 /// @title LeadOnlyMintWeightingSignedPriceObservationBaseForkTest
@@ -26,8 +23,6 @@ contract LeadOnlyMintWeightingSignedPriceObservationBaseForkTest is ST0xOrchestr
     string internal constant SOURCE = "src/rain/lead-only-mint-weighting.rain";
     string internal constant ENTRYPOINT = "weighting";
 
-    /// The chain clock at the mint less the observations' attested time.
-    int256 internal constant MAX_TIME_SPREAD = int256(BASE_FORK_TIMESTAMP) - int256(uint256(OBSERVATION_TIME));
     int256 internal constant MIN_PRICE = 100;
     int256 internal constant MAX_PRICE = 1000;
 
@@ -37,12 +32,17 @@ contract LeadOnlyMintWeightingSignedPriceObservationBaseForkTest is ST0xOrchestr
         _setLimits(CAPACITY, CAPACITY);
     }
 
-    function _bindings() internal pure returns (DotrainBinding[] memory) {
+    /// The chain clock at the mint less the observations' attested time.
+    function _maxTimeSpread() internal view returns (int256) {
+        return int256(block.timestamp) - int256(uint256(OBSERVATION_TIME));
+    }
+
+    function _bindings() internal view returns (DotrainBinding[] memory) {
         DotrainBinding[] memory bindings = new DotrainBinding[](5);
         bindings[0] =
             DotrainBinding("st0x-attest-subparser", LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE.toHexString());
         bindings[1] = DotrainBinding("lead-signer", OBSERVATION_SIGNER.toHexString());
-        bindings[2] = DotrainBinding("max-time-spread", vm.toString(MAX_TIME_SPREAD));
+        bindings[2] = DotrainBinding("max-time-spread", vm.toString(_maxTimeSpread()));
         bindings[3] = DotrainBinding("min-price", vm.toString(MIN_PRICE));
         bindings[4] = DotrainBinding("max-price", vm.toString(MAX_PRICE));
         return bindings;
