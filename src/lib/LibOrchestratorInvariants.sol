@@ -273,8 +273,8 @@ library LibOrchestratorInvariants {
     }
 }
 
-/// @dev Local mirror of the set deployer's `iOrchestratorBeacon` immutable
-/// getter; `IST0xOrchestratorBeaconSetDeployerV1` and `V2` carry only the
+/// @dev Local mirror of the 0.1.30 set deployer's `iOrchestratorBeacon`
+/// immutable getter; `IST0xOrchestratorBeaconSetDeployerV1` carries only the
 /// `deploy` surface.
 interface ST0xOrchestratorBeaconSetDeployerLike {
     function iOrchestratorBeacon() external view returns (IBeacon);
