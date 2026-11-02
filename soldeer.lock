@@ -55,6 +55,20 @@ checksum = "6d3ef086c34cebce692eb3b184dad52ded129f55d420d986394c86c55e2204a3"
 integrity = "e007413db6e96fc7d1ea69285b8164170d65d821582f3185dcfebe27fcde6ca8"
 
 [[dependencies]]
+name = "rain-intorastring"
+version = "0.1.4"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-intorastring/0_1_4_06-09-2026_09:01:02_rain.zip"
+checksum = "653feaa47d7b05b10fad3daf7346a1d47b42755b310d2c0c5f8fa64da9e44a0c"
+integrity = "30ca2e895ebcb79303897b53010793d9357b2c98210aba40014db69a304b8231"
+
+[[dependencies]]
+name = "rain-lib-typecast"
+version = "0.1.4"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-lib-typecast/0_1_4_21-08-2026_15:46:41_rain.lib.zip"
+checksum = "ce1339c0a06de699508247dc882c5aaf715ab4ae67d53336ae72ae88810f5540"
+integrity = "eeb92ffe224186151d210137324a69e6154947bf987c18ea8b3233174291ce5c"
+
+[[dependencies]]
 name = "rain-math-fixedpoint"
 version = "0.2.2"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-math-fixedpoint/0_2_2_01-10-2026_22:26:31_rain.math.zip"
@@ -116,6 +130,13 @@ version = "0.1.0"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-verify-interface/0_1_0_14-05-2026_09:35:51_rain.verify.zip"
 checksum = "780098e43c6f07d4fb020e2c3c72e1f5f4836eec6ccfeb1eb34646b664188e89"
 integrity = "f2bcbeb84854cb1f628e2f3cd79cce0444ee21010b4dc368c0410acd17261074"
+
+[[dependencies]]
+name = "rainlang"
+version = "0.2.31"
+url = "https://soldeer-revisions.s3.amazonaws.com/rainlang/0_2_31_02-11-2026_12:42:25_rainlang.zip"
+checksum = "fa2da7990303778bfc61034b154e6b6631ca70fc155a3746397631161ea6aea8"
+integrity = "de4815af43a41a3066c996993786179ecdf3e303b8122fb5d309fc7330b0ba6c"
 
 [[dependencies]]
 name = "safe-global-safe-smart-account"
