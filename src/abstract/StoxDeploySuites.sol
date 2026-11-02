@@ -53,6 +53,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = "stox-wrapped-token-vault-beacon-set-deployer";
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
+    string constant ORCHESTRATOR_BEACON = "stox-orchestrator-beacon";
     string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
@@ -73,6 +74,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH =
         "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer";
+    string constant ORCHESTRATOR_BEACON_PATH = "src/concrete/ST0xOrchestratorBeacon.sol:ST0xOrchestratorBeacon";
     string constant ATTEST_SUB_PARSER_PATH = "src/concrete/St0xAttestSubParser.sol:St0xAttestSubParser";
 
     /// @inheritdoc RainDeploySuitesBase
@@ -192,12 +194,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         );
         candidates[8] = anchored(
             zoltu(
-                ORCHESTRATOR_BEACON_SET_DEPLOYER,
-                V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE,
-                V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE,
-                V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CODEHASH_CANDIDATE,
-                V4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_RUNTIME_CODE_CANDIDATE,
-                ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH,
+                ORCHESTRATOR_BEACON,
+                V4.ST0X_ORCHESTRATOR_BEACON_CREATION_CODE_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_CODEHASH_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_RUNTIME_CODE_CANDIDATE,
+                ORCHESTRATOR_BEACON_PATH,
                 two(
                     V4.ST0X_ORCHESTRATOR_CANDIDATE,
                     V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
