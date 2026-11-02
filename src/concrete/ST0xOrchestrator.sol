@@ -56,7 +56,7 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 
 /// @title ST0xOrchestrator
 /// @notice Singleton mint/burn proxy for the ST0x receipt-vault set. One
-/// instance (behind a beacon proxy) serves every token; all per-token state
+/// instance (behind a registry beacon proxy) serves every token; all per-token state
 /// is keyed by the token's `OffchainAssetReceiptVault` address. It holds the
 /// vault-side `DEPOSIT` + `WITHDRAW` roles and owns every receipt; callers
 /// never touch one.
