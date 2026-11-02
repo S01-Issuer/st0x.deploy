@@ -169,15 +169,6 @@ library LibOrchestratorInvariants {
         );
     }
 
-    /// @notice The address `deployer` creates with `CREATE` at `nonce`, for a
-    /// nonce in `[1, 0x7f]` (one RLP byte).
-    /// @param deployer The creating account.
-    /// @param nonce The creating account's nonce.
-    /// @return The created address.
-    function createAddress(address deployer, uint8 nonce) internal pure returns (address) {
-        return address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xd6), bytes1(0x94), deployer, nonce)))));
-    }
-
     /// @notice Assert the mint-caps orchestrator beacon on the active chain:
     /// it has the `ST0xOrchestratorBeacon` codehash, points at the
     /// current-release orchestrator and is owned by the chain's governance
