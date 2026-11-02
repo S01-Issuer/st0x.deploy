@@ -66,7 +66,6 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         return LibDecimalFloat.packLossless(coefficient, exponent);
     }
 
-    /// `offset` seconds from the chain clock.
     function at(int256 offset) internal pure returns (Float) {
         return decimal(NOW + offset, 0);
     }
@@ -102,7 +101,6 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         return abi.encodeWithSignature("Error(string)", reason);
     }
 
-    /// The vault's symbol less its first character.
     function tickerOf(string memory vaultSymbol) internal pure returns (string memory) {
         bytes memory vault = bytes(vaultSymbol);
         bytes memory ticker = new bytes(vault.length - 1);
@@ -112,9 +110,7 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         return string(ticker);
     }
 
-    /// Evals `context`, asserting no state writes, `stackLength` items, and the
-    /// top five: `value`, then the ticker, first character, scale and symbol
-    /// derived from `vaultSymbol`.
+    /// Evals `context`: no writes, `stackLength` items, `value` atop the outputs derived from `vaultSymbol`.
     function evalAccepted(bytes32[][] memory context, uint256 stackLength, string memory vaultSymbol, Float value)
         internal
         view

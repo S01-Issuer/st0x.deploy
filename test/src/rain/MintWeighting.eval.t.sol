@@ -55,14 +55,12 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         return vm.addr(OPERATOR_KEY_0 + i);
     }
 
-    /// `key` attesting `[TICKER, PRICE, now]` under `domainOf(key)`.
     function attestationBy(uint256 key) internal pure returns (Attestation memory) {
         return Attestation({
             key: key, domain: domainOf(key), attestedSymbol: symbol(TICKER), price: decimal(PRICE, 0), time: at(0)
         });
     }
 
-    /// The lead and pool operators 0 and 1 in agreement.
     function quorum() internal pure returns (Attestation[] memory) {
         Attestation[] memory attestations = new Attestation[](3);
         attestations[0] = attestationBy(LEAD_KEY);
@@ -383,11 +381,9 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         refused(attestations, "Times disagree");
     }
 
-    function testTimesAgreeIffWithinTheSpreadOfEachOtherAndTheClock(
-        int256 leadOffset,
-        int256 offset0,
-        int256 offset1
-    ) external {
+    function testTimesAgreeIffWithinTheSpreadOfEachOtherAndTheClock(int256 leadOffset, int256 offset0, int256 offset1)
+        external
+    {
         int256[3] memory offsets = [
             bound(leadOffset, -2 * MAX_TIME_SPREAD, 2 * MAX_TIME_SPREAD),
             bound(offset0, -2 * MAX_TIME_SPREAD, 2 * MAX_TIME_SPREAD),
@@ -434,9 +430,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         }
     }
 
-    function testPricesAgreeIffWithinMaxDeviationOfTheHighest(int256 leadCents, int256 cents0, int256 cents1)
-        external
-    {
+    function testPricesAgreeIffWithinMaxDeviationOfTheHighest(int256 leadCents, int256 cents0, int256 cents1) external {
         leadCents = bound(leadCents, MIN_PRICE * 100, MAX_PRICE * 100);
         int256[3] memory cents = [
             leadCents,

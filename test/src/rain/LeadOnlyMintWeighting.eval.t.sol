@@ -54,11 +54,7 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         return all;
     }
 
-    function eip712Domain(bytes32 typehash, string memory name, string memory version)
-        internal
-        pure
-        returns (bytes32)
-    {
+    function eip712Domain(bytes32 typehash, string memory name, string memory version) internal pure returns (bytes32) {
         return keccak256(abi.encode(typehash, keccak256(bytes(name)), keccak256(bytes(version))));
     }
 
@@ -71,14 +67,11 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         );
     }
 
-    /// The domain the spec has the lead sign `priceSource`'s prices in
-    /// `currency` under.
+    /// The spec's per-source lead domain.
     function leadDomain(bytes32 priceSource, bytes32 currency) internal pure returns (bytes32) {
         return eip712Domain(EIP712_DOMAIN_TYPEHASH, leadDomainName(priceSource, currency), "1");
     }
 
-    /// The lead attesting `[TICKER, PRICE, now, "alpaca", "USD"]` under its
-    /// domain.
     function lead() internal pure returns (Attestation memory) {
         bytes32 priceSource = symbol("alpaca");
         bytes32 currency = symbol("USD");
