@@ -34,9 +34,9 @@ import {
 } from "rainlang-deploy-0.1.12/src/generated/0_1_11/RainlangParser.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
-import {ST0xOrchestratorBeaconSetDeployer} from "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestDeploy} from "test/lib/LibTestDeploy.sol";
+import {LibTestOrchestratorDeploy} from "test/lib/LibTestOrchestratorDeploy.sol";
 import {MockMintRecipient} from "test/src/concrete/MockMintRecipient.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 import {
@@ -61,7 +61,7 @@ uint256 constant BASE_FORK_TIMESTAMP = 1793543721;
 
 /// @title ST0xOrchestratorBaseForkFixture
 /// @notice Base forked at `BASE_FORK_BLOCK`, minting through the candidate
-/// orchestrator, deployed by the candidate beacon-set deployer, with
+/// orchestrator, deployed as the registry beacon proxy of its beacon, with
 /// weightings parsed and evaluated by the Rainlang deployed on base (nothing
 /// etched) using the words of the candidate `St0xAttestSubParser`. The vault
 /// side is mocked as in `ST0xOrchestratorMintWeightingFixture`, as `tAAPL`.
@@ -89,16 +89,8 @@ abstract contract ST0xOrchestratorBaseForkFixture is ST0xOrchestratorMintWeighti
         LibTestDeploy.bindGovernanceTimelock(vm, OWNER);
         recipient = new MockMintRecipient(true);
         _makeGuardPass();
-        assertEq(
-            LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE),
-            LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE,
-            "orchestrator address"
-        );
-        ST0xOrchestratorBeaconSetDeployer deployer = ST0xOrchestratorBeaconSetDeployer(
-            LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_CANDIDATE)
-        );
-        assertEq(address(deployer), LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CANDIDATE, "deployer address");
-        orchestrator = ST0xOrchestrator(payable(deployer.deploy()));
+        LibTestOrchestratorDeploy.deployBeacon();
+        orchestrator = ST0xOrchestrator(payable(LibTestOrchestratorDeploy.deployInstance(vm, makeAddr("deployer"))));
 
         _mockToken(TOKEN, tokenSymbol());
 
