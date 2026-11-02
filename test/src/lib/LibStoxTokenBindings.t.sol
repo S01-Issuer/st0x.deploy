@@ -5,12 +5,12 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.29/src/lib/LibConfigRegistry.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.13/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
-} from "rain-vats-0.2.13/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.16/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 
 import {LibStoxTokenBindings, TokenBindingMismatch} from "../../../src/lib/LibStoxTokenBindings.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";

@@ -9,7 +9,7 @@ import {
     LibOffchainAssetReceiptVaultRbac,
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
-} from "rain-vats-0.2.13/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.16/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 

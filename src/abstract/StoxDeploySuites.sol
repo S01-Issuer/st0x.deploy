@@ -17,7 +17,7 @@ import {LibRainDeployCloneMechanism} from "rain-factory-0.2.9/src/lib/LibRainDep
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V7_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V7_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.4/src/generated/0_2_4/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_4/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
@@ -25,7 +25,7 @@ import {
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.4/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,

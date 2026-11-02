@@ -7,7 +7,7 @@ import {RegistryBeaconProxyTarget} from "rain-factory-0.2.9/src/lib/LibRainDeplo
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V7_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V7_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.4/src/generated/0_2_4/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.5/src/generated/0_2_4/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
@@ -15,7 +15,7 @@ import {
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.13/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.16/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxVaultBeacon} from "../generated/LibStoxVaultBeacon.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
