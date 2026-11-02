@@ -7,6 +7,8 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
+import {LibProdOrchestratorTarget} from "./LibProdOrchestratorTarget.sol";
+import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
@@ -153,20 +155,18 @@ library LibOrchestratorInvariants {
         return grants;
     }
 
-    /// @notice The beacon the mint-caps orchestrator's beacon-set deployer
-    /// creates in its constructor: its `CREATE` at nonce 1. The deployer is
-    /// the current-release Zoltu deploy, so this is the same on every chain.
     /// @return The mint-caps orchestrator beacon.
     function mintCapsBeacon() internal pure returns (address) {
-        return createAddress(LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER, 1);
+        return LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2;
     }
 
-    /// @notice The mint-caps orchestrator instance: the `BeaconProxy` the
-    /// first `deploy()` on its beacon-set deployer creates, its `CREATE` at
-    /// nonce 2.
+    /// @notice The mint-caps orchestrator instance: the registry beacon proxy
+    /// `LibProdOrchestratorTarget.orchestratorTarget()` deploys.
     /// @return The mint-caps orchestrator instance.
     function mintCapsInstance() internal pure returns (address) {
-        return createAddress(LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER, 2);
+        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(
+            LibProdOrchestratorTarget.orchestratorTarget()
+        );
     }
 
     /// @notice The address `deployer` creates with `CREATE` at `nonce`, for a
@@ -178,25 +178,16 @@ library LibOrchestratorInvariants {
         return address(uint160(uint256(keccak256(abi.encodePacked(bytes1(0xd6), bytes1(0x94), deployer, nonce)))));
     }
 
-    /// @notice Assert the mint-caps orchestrator's beacon set on the active
-    /// chain: the current-release beacon-set deployer is live and reports
-    /// `mintCapsBeacon()`, and that beacon has the codehash
-    /// `UPGRADEABLE_BEACON_CODEHASH_CANDIDATE`, points at the current-release orchestrator
-    /// implementation and is owned by the chain's governance timelock.
+    /// @notice Assert the mint-caps orchestrator beacon on the active chain:
+    /// it has the `ST0xOrchestratorBeacon` codehash, points at the
+    /// current-release orchestrator and is owned by the chain's governance
+    /// timelock.
     function assertMintCapsBeaconSet() internal view {
-        address setDeployer = LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER;
-        if (setDeployer.code.length == 0) {
-            revert OrchestratorSetDeployerMissing(setDeployer);
-        }
-        address beacon = address(ST0xOrchestratorBeaconSetDeployerLike(setDeployer).iOrchestratorBeacon());
-        if (beacon != mintCapsBeacon()) {
-            revert OrchestratorBeaconMismatch(mintCapsBeacon(), beacon);
-        }
         LibBeaconInvariants.assertBeaconInvariants(
-            beacon,
+            mintCapsBeacon(),
             LibTimelockInvariants.timelockForChainId(block.chainid),
             LibProdDeployCurrent.ST0X_ORCHESTRATOR,
-            LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_CANDIDATE
+            LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH
         );
     }
 
