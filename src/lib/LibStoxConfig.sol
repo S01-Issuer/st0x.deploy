@@ -30,7 +30,8 @@ library LibStoxConfig {
     /// @return The owner.
     function beaconOwner() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_TIMELOCK_NAME, keccak256("address"));
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_TIMELOCK_NAME, keccak256("address"));
         return abi.decode(value, (address));
     }
 }
