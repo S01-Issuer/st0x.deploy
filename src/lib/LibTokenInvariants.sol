@@ -518,7 +518,7 @@ library LibTokenInvariants {
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
-    /// (cross-chain parity, per-token config checks) iterate this instead.
+    /// iterate this instead.
     /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
@@ -1551,8 +1551,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on Robinhood
     /// Chain (chain id 4663) — Base's underlyings in Base row order, so the
-    /// tables pair by index as well as by key (the cross-chain parity pin
-    /// asserts the alignment).
+    /// tables pair by index as well as by key.
     /// @return tokens The production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
@@ -1896,8 +1895,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on BNB Smart
     /// Chain (chain id 56) — Base's underlyings in Base row order, so the
-    /// tables pair by index as well as by key (the cross-chain parity pin
-    /// asserts the alignment).
+    /// tables pair by index as well as by key.
     /// @return tokens The production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](56);
