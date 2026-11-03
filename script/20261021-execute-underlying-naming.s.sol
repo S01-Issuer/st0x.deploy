@@ -10,7 +10,7 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
-import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice The broadcasting key holds `EXECUTOR_ROLE`, so an execution would
@@ -30,16 +30,14 @@ error NoUnderlyingNamingOperationReady(bytes32 beaconId, bool beaconDone, bytes3
 /// @param id The operation id.
 error UnderlyingNamingOperationNotDone(bytes32 id);
 
-/// @notice This script's declaration: the timelock's record, after the rehearsal execution.
+/// @notice This script's declaration on the root line: after the rename schedule.
 /// @return The declaration.
 function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.migrationOnto(
-        MigrationWriter.Timelock,
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
-        LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
-        false
-    );
+    return ScriptDeclaration({
+        id: LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
+        onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
+        history: false
+    });
 }
 
 /// @title ExecuteUnderlyingNaming
@@ -62,7 +60,7 @@ function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration me
 /// `script = 20261021-execute-underlying-naming` per chain.
 contract ExecuteUnderlyingNaming is Script, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return executeUnderlyingNamingDeclaration();
     }
 
