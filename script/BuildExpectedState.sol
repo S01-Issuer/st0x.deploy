@@ -19,9 +19,7 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
-import {
-    BYTECODE_HASH as TIMELOCK_BYTECODE_HASH
-} from "rain-deploy-0.1.29/src/generated/0_1_18/TimelockController.sol";
+import {BYTECODE_HASH as TIMELOCK_BYTECODE_HASH} from "rain-deploy-0.1.29/src/generated/0_1_18/TimelockController.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks, per deployment network: beacons
