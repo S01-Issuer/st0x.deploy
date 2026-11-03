@@ -5,6 +5,10 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {LibSafe} from "rain-deploy-0.1.29/src/lib/LibSafe.sol";
+import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.29/src/lib/LibRainDeployDeclaration.sol";
+import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.29/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibReleasedSuites} from "../src/lib/LibReleasedSuites.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
@@ -23,7 +27,8 @@ import {
 /// @notice Writes `expected-state.json`, the live state the dashboard checks, per deployment network: beacons
 /// (address, codehash, implementation, owner; `address(0)` where `beaconSetDeployer` resolves it), the token-owner
 /// Safe lock-down, the timelock, the orchestrator, the V4 and EU authoriser clones, and each production token's
-/// receipt vault, receipt, wrapped token vault, name, symbol, owner and authoriser.
+/// receipt vault, receipt, wrapped token vault, name, symbol, owner and authoriser, and every released Zoltu suite
+/// declared on that network (key, address, codehash).
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
@@ -134,6 +139,41 @@ contract BuildExpectedState is Script {
         return rows;
     }
 
+    function releasedSuites() internal pure returns (DeploySuite[] memory) {
+        DeployDeclaration memory declared;
+        LibRainDeployDeclaration.setNetworks(declared, LibStoxDeployNetworks.deploymentNetworks());
+        LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
+        return declared.released;
+    }
+
+    function zoltuOn(DeploySuite memory suite, uint256 chainId) internal pure returns (bool) {
+        return LibRainDeployDeclaration.mechanismIdOf(suite) == ZOLTU_MECHANISM_ID
+            && LibRainDeploy.hasChainId(LibRainDeploy.declaredNetworkConfigs(suite.networks), chainId);
+    }
+
+    function zoltuJson(uint256 chainId, string memory key) internal returns (string[] memory) {
+        DeploySuite[] memory suites = releasedSuites();
+        uint256 count = 0;
+        for (uint256 i = 0; i < suites.length; i++) {
+            if (zoltuOn(suites[i], chainId)) {
+                count++;
+            }
+        }
+        string[] memory rows = new string[](count);
+        uint256 j = 0;
+        for (uint256 i = 0; i < suites.length; i++) {
+            if (!zoltuOn(suites[i], chainId)) {
+                continue;
+            }
+            string memory row = string.concat(key, ".zoltu.", vm.toString(j));
+            vm.serializeString(row, "key", suites[i].suite);
+            vm.serializeAddress(row, "address", suites[i].storedDeployedAddress);
+            rows[j] = vm.serializeBytes32(row, "codehash", suites[i].storedBytecodeHash);
+            j++;
+        }
+        return rows;
+    }
+
     function chainJson(SupportedNetwork memory network) internal returns (string memory) {
         uint256 chainId = network.chainId;
         string memory key = vm.toString(chainId);
@@ -161,6 +201,7 @@ contract BuildExpectedState is Script {
                 LibEuAuthoriserClone.cloneDeployedCodehash()
             )
         );
+        vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
         return vm.serializeString(key, "tokens", tokensJson(chainId, key));
     }
 
