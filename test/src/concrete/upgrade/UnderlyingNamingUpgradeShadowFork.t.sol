@@ -8,8 +8,8 @@ import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/acce
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.16/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.16/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.17/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.17/src/interface/IReceiptV3.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
