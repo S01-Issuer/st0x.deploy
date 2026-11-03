@@ -17,10 +17,8 @@ import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
 import {LibSafe} from "rain-deploy-0.1.29/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
-import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {LibRbacMigration} from "../src/lib/LibRbacMigration.sol";
 
 /// @notice The orchestrator mint/burn path is not fully enabled on this
 /// chain — retiring the signer's direct roles now would leave NO working
@@ -39,17 +37,16 @@ error SafeMissingRoleAdminForRetire(bytes32 adminRole);
 /// executed on this chain and a re-dispatch has nothing to author.
 error DirectSignerRolesAlreadyRetired();
 
-/// @notice This script's declaration: the timelock's first `st0x.rbac`
-/// record, the service signer's direct roles retired.
+/// @notice This script's migration id on the root line.
+bytes32 constant RETIRE_DIRECT_SIGNER_ROLES = keccak256("script/20260831-retire-direct-signer-roles.s.sol");
+
+/// @notice This script's declaration on the root line, after the
+/// orchestrator admin moves to the timelock.
 /// @return The declaration.
 function retireDirectSignerRolesDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.migrationOnto(
-        MigrationWriter.Timelock,
-        LibRbacMigration.STOX_RBAC_NAMESPACE,
-        LibRbacMigration.SERVICE_SIGNER_DIRECT_ROLES_RETIRED,
-        MIGRATION_HEAD_GENESIS,
-        false
-    );
+    return ScriptDeclaration({
+        id: RETIRE_DIRECT_SIGNER_ROLES, onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, history: false
+    });
 }
 
 /// @title RetireDirectSignerRoles
@@ -83,7 +80,7 @@ function retireDirectSignerRolesDeclaration() pure returns (ScriptDeclaration me
 /// refusal can be re-derived.
 contract RetireDirectSignerRoles is Script, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return retireDirectSignerRolesDeclaration();
     }
 
@@ -159,10 +156,12 @@ contract RetireDirectSignerRoles is Script, IStoxScript {
         if (count == 0) {
             revert DirectSignerRolesAlreadyRetired();
         }
-        SafeTx[] memory txs = new SafeTx[](count);
+        SafeTx[] memory txs = new SafeTx[](count + 1);
         for (uint256 i = 0; i < count; i++) {
             txs[i] = candidates[i];
         }
+        (address recordTo, bytes memory recordData) = LibStoxMigrations.recordCall(retireDirectSignerRolesDeclaration());
+        txs[count] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
 
