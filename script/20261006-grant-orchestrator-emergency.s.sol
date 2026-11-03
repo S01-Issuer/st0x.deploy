@@ -15,7 +15,6 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {migrateGovernanceToTimelockDeclaration} from "./20260729-migrate-governance-to-timelock.s.sol";
 
 /// @notice The Safe's line in the migration registry is not where this
 /// script applies: it has recorded something, so either this bundle has
@@ -51,12 +50,9 @@ error EmergencyNotGranted();
 /// governance-timelock move.
 /// @return The declaration.
 function grantOrchestratorEmergencyDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-        LibStoxMigrations.GOVERNANCE_TIMELOCK,
-        false
-    );
+    return ScriptDeclaration({
+        id: LibStoxMigrations.ORCHESTRATOR_EMERGENCY, onto: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, history: false
+    });
 }
 
 /// @title GrantOrchestratorEmergency
@@ -91,7 +87,7 @@ function grantOrchestratorEmergencyDeclaration() pure returns (ScriptDeclaration
 /// the Safe's line has moved off genesis (`UnexpectedMigrationLine`).
 contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return grantOrchestratorEmergencyDeclaration();
     }
 
@@ -126,8 +122,8 @@ contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
         LibTimelockInvariants.assertTimelockState(timelock, chainSafe);
         LibOrchestratorInvariants.assertBeaconSet();
 
-        bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != migrateGovernanceToTimelockDeclaration().prerequisites[0].migration) {
+        bytes32 head = LibStoxMigrations.head();
+        if (head != grantOrchestratorEmergencyDeclaration().onto) {
             revert UnexpectedMigrationLine(head);
         }
         if (ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)) {
@@ -140,22 +136,17 @@ contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
     /// @dev The grant, then the two records.
     function authorBundle() internal view override returns (SafeTx[] memory) {
         address chainSafe = address(safe());
-        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
 
-        SafeTx[] memory txs = new SafeTx[](3);
+        SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
             to: address(ORCHESTRATOR),
             value: 0,
             data: abi.encodeCall(IAccessControl.grantRole, (ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe)),
             operation: Enum.Operation.Call
         });
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        (address historyTo, bytes memory historyData) =
-            LibStoxMigrations.historyCall(migrateGovernanceToTimelockDeclaration(), executedAt, chainSafe, timelock);
-        txs[1] = SafeTx({to: historyTo, value: 0, data: historyData, operation: Enum.Operation.Call});
         (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(grantOrchestratorEmergencyDeclaration(), chainSafe, timelock);
-        txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
+            LibStoxMigrations.recordCall(grantOrchestratorEmergencyDeclaration());
+        txs[1] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
 
@@ -164,20 +155,15 @@ contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
     /// `EMERGENCY_ROLE`, and the Safe still carries the token-owner policy.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
-        (uint256 executedAt,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        uint256 timelockRecord = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.GOVERNANCE_TIMELOCK);
-        if (timelockRecord != executedAt) {
-            revert RecordMismatch(LibStoxMigrations.GOVERNANCE_TIMELOCK, executedAt, timelockRecord);
-        }
         // The registry stamps the block the record lands in, which on the
         // fork is this block: an equality with a known value, not a window.
-        uint256 emergencyRecord = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        uint256 emergencyRecord = LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         // forge-lint: disable-next-line(block-timestamp)
         if (emergencyRecord != block.timestamp) {
             // forge-lint: disable-next-line(block-timestamp)
             revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, block.timestamp, emergencyRecord);
         }
-        bytes32 head = LibStoxMigrations.head(chainSafe);
+        bytes32 head = LibStoxMigrations.head();
         if (head != grantOrchestratorEmergencyDeclaration().id) {
             revert LineHeadMismatch(head);
         }
