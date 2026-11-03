@@ -19,6 +19,62 @@ on:
           - stox-orchestrator
           - stox-attest-sub-parser
           - stox-eu-assets-authoriser
+          - stox-token-tMSTR
+          - stox-token-tTSLA
+          - stox-token-tCOIN
+          - stox-token-tSPYM
+          - stox-token-tSIVR
+          - stox-token-tCRCL
+          - stox-token-tNVDA
+          - stox-token-tIAU
+          - stox-token-tPPLT
+          - stox-token-tAMZN
+          - stox-token-tBMNR
+          - stox-token-tIBHG
+          - stox-token-tSGOV
+          - stox-token-tQQQM
+          - stox-token-tVWO
+          - stox-token-tARKK
+          - stox-token-tSPCX
+          - stox-token-tCEG
+          - stox-token-tDRAM
+          - stox-token-tTSM
+          - stox-token-tSKHY
+          - stox-token-tASML
+          - stox-token-tMU
+          - stox-token-tAMD
+          - stox-token-tAVGO
+          - stox-token-tAMAT
+          - stox-token-tLRCX
+          - stox-token-tTTWO
+          - stox-token-tRKLB
+          - stox-token-tGOOGL
+          - stox-token-tAAPL
+          - stox-token-tMSFT
+          - stox-token-tLLY
+          - stox-token-tPTY
+          - stox-token-tINTC
+          - stox-token-tHOOD
+          - stox-token-tORCL
+          - stox-token-tSMCI
+          - stox-token-tBABA
+          - stox-token-tTQQQ
+          - stox-token-tFTF
+          - stox-token-tCBRS
+          - stox-token-tMCD
+          - stox-token-tNKE
+          - stox-token-tGRND
+          - stox-token-tDNUT
+          - stox-token-tPLBY
+          - stox-token-tTR
+          - stox-token-tWEN
+          - stox-token-tFGI
+          - stox-token-tBIRD
+          - stox-token-tSPY
+          - stox-token-tSNES
+          - stox-token-tWMT
+          - stox-token-tMC
+          - stox-token-tDIS
           - stox-corporate-actions-facet@0_1_1
           - stox-receipt@0_1_1
           - stox-receipt-vault@0_1_1
