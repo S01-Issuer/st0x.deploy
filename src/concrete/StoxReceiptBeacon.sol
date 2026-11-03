@@ -10,4 +10,6 @@ import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 /// @notice An UpgradeableBeacon with a hardcoded implementation and its owner
 /// read from `ConfigRegistry`, enabling deterministic deployment via the Zoltu
 /// factory. The owner must never call `renounceOwnership`.
-contract StoxReceiptBeacon is UpgradeableBeacon(LibProdDeployCurrent.STOX_RECEIPT, LibStoxConfig.governanceTimelock()) {}
+contract StoxReceiptBeacon is
+    UpgradeableBeacon(LibProdDeployCurrent.STOX_RECEIPT, LibStoxConfig.governanceTimelock())
+{}
