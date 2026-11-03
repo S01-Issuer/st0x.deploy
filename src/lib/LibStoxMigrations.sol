@@ -66,6 +66,31 @@ library LibStoxMigrations {
     bytes32 internal constant BACKFILL_MIGRATION_REGISTRY_V5 =
         keccak256("script/20261030-backfill-migration-registry-v5.s.sol");
 
+    /// @notice `script/20260619-migrate-multisig-threshold.s.sol`.
+    bytes32 internal constant MULTISIG_THRESHOLD = keccak256("script/20260619-migrate-multisig-threshold.s.sol");
+
+    /// @notice `script/20260813-timelock-rehearsal-schedule.s.sol`.
+    bytes32 internal constant TIMELOCK_REHEARSAL_SCHEDULE =
+        keccak256("script/20260813-timelock-rehearsal-schedule.s.sol");
+
+    /// @notice `script/20260813-timelock-rehearsal-cancel.s.sol`.
+    bytes32 internal constant TIMELOCK_REHEARSAL_CANCEL = keccak256("script/20260813-timelock-rehearsal-cancel.s.sol");
+
+    /// @notice `script/20260813-execute-timelock-operations.s.sol`.
+    bytes32 internal constant EXECUTE_TIMELOCK_OPERATIONS =
+        keccak256("script/20260813-execute-timelock-operations.s.sol");
+
+    /// @notice `script/20261021-schedule-underlying-naming-beacons.s.sol`.
+    bytes32 internal constant SCHEDULE_UNDERLYING_NAMING_BEACONS =
+        keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol");
+
+    /// @notice `script/20261021-schedule-underlying-naming-rename.s.sol`.
+    bytes32 internal constant SCHEDULE_UNDERLYING_NAMING_RENAME =
+        keccak256("script/20261021-schedule-underlying-naming-rename.s.sol");
+
+    /// @notice `script/20261021-execute-underlying-naming.s.sol`.
+    bytes32 internal constant EXECUTE_UNDERLYING_NAMING = keccak256("script/20261021-execute-underlying-naming.s.sol");
+
     /// @notice A migration `writer` records in `namespace`, applied onto
     /// `headMigration` in `writer`'s own line of that namespace.
     /// @param writer The account that records it, by role.
@@ -82,11 +107,7 @@ library LibStoxMigrations {
         MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](1);
         prerequisites[0] = MigrationPrerequisite({writer: writer, namespace: namespace, migration: headMigration});
         return ScriptDeclaration({
-            namespace: namespace,
-            id: id,
-            writer: writer,
-            prerequisites: prerequisites,
-            history: history
+            namespace: namespace, id: id, writer: writer, prerequisites: prerequisites, history: history
         });
     }
 

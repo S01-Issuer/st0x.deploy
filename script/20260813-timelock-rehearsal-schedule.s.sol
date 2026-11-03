@@ -36,6 +36,17 @@ error RehearsalAlreadyScheduled(bytes32 id);
 /// @param actual The delay after.
 error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 
+/// @notice This script's declaration: the Safe's record, after the threshold migration.
+/// @return The declaration.
+function timelockRehearsalScheduleDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE,
+        LibStoxMigrations.MULTISIG_THRESHOLD,
+        false
+    );
+}
+
 /// @title TimelockRehearsalSchedule
 /// @notice Authors the Safe bundle that SCHEDULES the timelock
 /// rehearsal no-op — see `LibTimelockRehearsal` for what the operation is and
@@ -61,7 +72,12 @@ error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 contract TimelockRehearsalSchedule is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(LibStoxMigrations.NAMESPACE, keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"), keccak256("script/20260619-migrate-multisig-threshold.s.sol"), false);
+        return LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
+            keccak256("script/20260619-migrate-multisig-threshold.s.sol"),
+            false
+        );
     }
 
     /// @notice Author the schedule bundle for the active chain.

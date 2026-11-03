@@ -45,6 +45,17 @@ error OperationNotPendingInsideDelay(bytes32 id);
 /// @param actual The beacon's implementation.
 error BeaconNotUpgraded(address beacon, address expected, address actual);
 
+/// @notice This script's declaration: the Safe's record, after the rehearsal cancel.
+/// @return The declaration.
+function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+        LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL,
+        false
+    );
+}
+
 /// @title ScheduleUnderlyingNamingBeacons
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the
 /// underlying-naming beacon batch on the chain's governance timelock (rollout
@@ -67,7 +78,12 @@ error BeaconNotUpgraded(address beacon, address expected, address actual);
 contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(LibStoxMigrations.NAMESPACE, keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol"), keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"), false);
+        return LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol"),
+            keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
+            false
+        );
     }
 
     /// @inheritdoc SafeBundleScript

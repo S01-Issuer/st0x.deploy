@@ -43,6 +43,17 @@ error RenameNotPendingInsideDelay(bytes32 id);
 /// @param actual The value read.
 error RenamedMetadataMismatch(address token, string expected, string actual);
 
+/// @notice This script's declaration: the Safe's record, after the beacon schedule.
+/// @return The declaration.
+function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.safeMigrationOnto(
+        LibStoxMigrations.NAMESPACE,
+        LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
+        LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+        false
+    );
+}
+
 /// @title ScheduleUnderlyingNamingRename
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch
 /// (rollout step 3 in `docs/TIMELOCK.md`): `setUnderlying(ticker,
@@ -70,7 +81,12 @@ error RenamedMetadataMismatch(address token, string expected, string actual);
 contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(LibStoxMigrations.NAMESPACE, keccak256("script/20261021-schedule-underlying-naming-rename.s.sol"), keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol"), false);
+        return LibStoxMigrations.safeMigrationOnto(
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20261021-schedule-underlying-naming-rename.s.sol"),
+            keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol"),
+            false
+        );
     }
 
     /// @inheritdoc SafeBundleScript

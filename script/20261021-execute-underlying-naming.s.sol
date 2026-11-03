@@ -31,6 +31,18 @@ error NoUnderlyingNamingOperationReady(bytes32 beaconId, bool beaconDone, bytes3
 /// @param id The operation id.
 error UnderlyingNamingOperationNotDone(bytes32 id);
 
+/// @notice This script's declaration: the timelock's record, after the rehearsal execution.
+/// @return The declaration.
+function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibStoxMigrations.migrationOnto(
+        MigrationWriter.Timelock,
+        LibStoxMigrations.NAMESPACE,
+        LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
+        LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
+        false
+    );
+}
+
 /// @title ExecuteUnderlyingNaming
 /// @notice Executes the next ready underlying-naming operation on the active
 /// chain from the CI deploy key, which holds no role: the beacon batch if it is
@@ -52,7 +64,13 @@ error UnderlyingNamingOperationNotDone(bytes32 id);
 contract ExecuteUnderlyingNaming is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.migrationOnto(MigrationWriter.Timelock, LibStoxMigrations.NAMESPACE, keccak256("script/20261021-execute-underlying-naming.s.sol"), keccak256("script/20260813-execute-timelock-operations.s.sol"), false);
+        return LibStoxMigrations.migrationOnto(
+            MigrationWriter.Timelock,
+            LibStoxMigrations.NAMESPACE,
+            keccak256("script/20261021-execute-underlying-naming.s.sol"),
+            keccak256("script/20260813-execute-timelock-operations.s.sol"),
+            false
+        );
     }
 
     /// @notice Execute the next ready rollout operation.
