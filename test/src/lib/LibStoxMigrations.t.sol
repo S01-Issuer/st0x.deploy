@@ -12,6 +12,7 @@ import {
 } from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 import {IRegistryDelegatesV3} from "rain-deploy-0.1.29/src/interface/IRegistryDelegatesV3.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
 } from "rain-deploy-0.1.29/src/generated/candidate/MigrationRegistry.sol";
@@ -24,6 +25,14 @@ import {MigrationWriter, ScriptDeclaration} from "../../../src/interface/IStoxSc
 import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
+
+/// @dev The first block on each chain at which the migration registry has
+/// code. Every chain's governance-timelock migration is earlier.
+uint256 constant MIGRATION_REGISTRY_DEPLOYED_BLOCK_BASE = 53210703;
+uint256 constant MIGRATION_REGISTRY_DEPLOYED_BLOCK_ETHEREUM = 26292913;
+uint256 constant MIGRATION_REGISTRY_DEPLOYED_BLOCK_HYPEREVM = 49769995;
+uint256 constant MIGRATION_REGISTRY_DEPLOYED_BLOCK_ROBINHOOD = 100268990;
+uint256 constant MIGRATION_REGISTRY_DEPLOYED_BLOCK_BSC = 130326266;
 
 /// @title LibStoxMigrationsTest
 /// @notice The pinned execution moment of the governance-timelock migration is the chain's own record of
@@ -65,8 +74,24 @@ contract LibStoxMigrationsTest is Test {
         ext.governanceTimelockExecution(31337);
     }
 
+    function registryDeployedBlock(string memory network) internal pure returns (uint256) {
+        bytes32 name = keccak256(bytes(network));
+        if (name == keccak256(bytes(LibRainDeploy.BASE))) return MIGRATION_REGISTRY_DEPLOYED_BLOCK_BASE;
+        if (name == keccak256(bytes(LibStoxDeployNetworks.ETHEREUM))) {
+            return MIGRATION_REGISTRY_DEPLOYED_BLOCK_ETHEREUM;
+        }
+        if (name == keccak256(bytes(LibStoxDeployNetworks.HYPEREVM))) {
+            return MIGRATION_REGISTRY_DEPLOYED_BLOCK_HYPEREVM;
+        }
+        if (name == keccak256(bytes(LibStoxDeployNetworks.ROBINHOOD))) {
+            return MIGRATION_REGISTRY_DEPLOYED_BLOCK_ROBINHOOD;
+        }
+        if (name == keccak256(bytes(LibStoxDeployNetworks.BSC))) return MIGRATION_REGISTRY_DEPLOYED_BLOCK_BSC;
+        revert(string.concat(network, ": no pinned migration registry block"));
+    }
+
     function assertExecution(string memory network) internal {
-        vm.createSelectFork(network);
+        vm.createSelectFork(network, registryDeployedBlock(network));
         LibMigrationRegistry.checkCodeHash();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
