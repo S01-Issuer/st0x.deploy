@@ -57,6 +57,7 @@ import {
 import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
 import {IOwnable} from "../../src/interface/IOwnable.sol";
+import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,
     TickerNotBoundToVault,
@@ -413,6 +414,26 @@ contract UnderlyingNamingRolloutTest is Test {
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).symbol(), "NVDAs");
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).name(), "NVIDIA Corporation (ST0x)");
         mintAndBurn(orchestrator, LibTokenInvariants.NVDA_RECEIPT_VAULT);
+
+        // The live-fork name pins accept exactly this renamed state, for
+        // every renamed token.
+        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
+        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
+            TokenInstance memory token = chainTokens[tokenIndex];
+            TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
+            string memory vaultName = IERC20Metadata(token.receiptVault).name();
+            assertTrue(LibTestTokenMetadata.vaultRenamed(config, vaultName), token.underlying);
+            assertTrue(
+                LibTestTokenMetadata.consistent(
+                    config,
+                    vaultName,
+                    IERC20Metadata(token.receiptVault).symbol(),
+                    IERC20Metadata(token.wrappedTokenVault).name(),
+                    IERC20Metadata(token.wrappedTokenVault).symbol()
+                ),
+                token.underlying
+            );
+        }
     }
 
     /// @notice Mints `token` through the live orchestrator to a fresh EOA that
