@@ -56,6 +56,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant RECEIPT_VAULT = "stox-receipt-vault";
     string constant WRAPPED_TOKEN_VAULT = "stox-wrapped-token-vault";
     string constant WRAPPED_TOKEN_VAULT_BEACON = "stox-wrapped-token-vault-beacon";
+    string constant RECEIPT_BEACON = "stox-receipt-beacon";
+    string constant RECEIPT_VAULT_BEACON = "stox-receipt-vault-beacon";
     string constant AUTHORIZER = "stox-offchain-asset-receipt-vault-authorizer";
     string constant PAYMENT_MINT_AUTHORIZER = "stox-offchain-asset-receipt-vault-payment-mint-authorizer";
     string constant ORCHESTRATOR = "stox-orchestrator";
@@ -73,6 +75,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant WRAPPED_TOKEN_VAULT_PATH = "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault";
     string constant WRAPPED_TOKEN_VAULT_BEACON_PATH =
         "src/concrete/StoxWrappedTokenVaultBeacon.sol:StoxWrappedTokenVaultBeacon";
+    string constant RECEIPT_BEACON_PATH = "src/concrete/StoxReceiptBeacon.sol:StoxReceiptBeacon";
+    string constant RECEIPT_VAULT_BEACON_PATH = "src/concrete/StoxReceiptVaultBeacon.sol:StoxReceiptVaultBeacon";
     string constant AUTHORIZER_PATH =
         "src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol:StoxOffchainAssetReceiptVaultAuthorizerV1";
     string constant PAYMENT_MINT_AUTHORIZER_PATH =
@@ -102,7 +106,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     }
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
-        DeployCandidate[] memory candidates = new DeployCandidate[](9);
+        DeployCandidate[] memory candidates = new DeployCandidate[](11);
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -162,7 +166,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_CANDIDATE,
                 V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_CANDIDATE,
                 WRAPPED_TOKEN_VAULT_BEACON_PATH,
-                one(V4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE, V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_CANDIDATE)
+                two(
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    V4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE,
+                    V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_CANDIDATE
+                )
             )
         );
         candidates[5] = anchored(
@@ -212,6 +221,38 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.ST0X_ATTEST_SUB_PARSER_RUNTIME_CODE_CANDIDATE,
                 ATTEST_SUB_PARSER_PATH,
                 new DeployDependency[](0)
+            )
+        );
+        candidates[9] = anchored(
+            zoltu(
+                RECEIPT_BEACON,
+                V4.STOX_RECEIPT_BEACON_CREATION_CODE_CANDIDATE,
+                V4.STOX_RECEIPT_BEACON_CANDIDATE,
+                V4.STOX_RECEIPT_BEACON_CODEHASH_CANDIDATE,
+                V4.STOX_RECEIPT_BEACON_RUNTIME_CODE_CANDIDATE,
+                RECEIPT_BEACON_PATH,
+                two(
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    V4.STOX_RECEIPT_CANDIDATE,
+                    V4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE
+                )
+            )
+        );
+        candidates[10] = anchored(
+            zoltu(
+                RECEIPT_VAULT_BEACON,
+                V4.STOX_RECEIPT_VAULT_BEACON_CREATION_CODE_CANDIDATE,
+                V4.STOX_RECEIPT_VAULT_BEACON_CANDIDATE,
+                V4.STOX_RECEIPT_VAULT_BEACON_CODEHASH_CANDIDATE,
+                V4.STOX_RECEIPT_VAULT_BEACON_RUNTIME_CODE_CANDIDATE,
+                RECEIPT_VAULT_BEACON_PATH,
+                two(
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    V4.STOX_RECEIPT_VAULT_CANDIDATE,
+                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
+                )
             )
         );
         return candidates;
