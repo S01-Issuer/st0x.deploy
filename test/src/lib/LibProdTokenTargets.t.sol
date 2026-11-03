@@ -3,6 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {DeployDependency, LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
 import {
@@ -19,6 +21,7 @@ import {
 } from "rain-vats-0.2.16/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
+import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxTokenProxy} from "../../../src/generated/LibStoxTokenProxy.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenTargets} from "../../../src/lib/LibProdTokenTargets.sol";
@@ -32,12 +35,13 @@ contract LibProdTokenTargetsTest is Test {
     address internal constant US_OWNER = address(uint160(uint256(keccak256("st0x.test.token-targets.us-owner"))));
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.token-targets.eu-owner"))));
     address internal constant DEPLOYER = address(uint160(uint256(keccak256("st0x.test.token-targets.deployer"))));
+    address internal constant TIMELOCK = address(uint160(uint256(keccak256("st0x.test.token-targets.timelock"))));
 
-    function testVaultBeaconIsTheBeaconSetDeployersVaultBeacon() external {
-        assertEq(
-            address(LibTestTokenEnvironment.deployVaultBeaconSet(vm).iOffchainAssetReceiptVaultBeacon()),
-            LibProdTokenTargets.vaultBeacon()
-        );
+    function testVaultBeaconServesTheCurrentReceiptVaultOwnedByTheBoundTimelock() external {
+        (, address vaultBeacon) = LibTestTokenEnvironment.deployBeacons(vm, TIMELOCK);
+        assertEq(LibProdTokenTargets.vaultBeacon(), vaultBeacon, "vault beacon");
+        assertEq(IBeacon(vaultBeacon).implementation(), LibProdDeployCurrent.STOX_RECEIPT_VAULT, "implementation");
+        assertEq(Ownable(vaultBeacon).owner(), TIMELOCK, "owner");
     }
 
     function testEachTargetIsARegistryBeaconProxyOfItsRowOverTheRootVaultBeacon() external pure {
@@ -96,8 +100,7 @@ contract LibProdTokenTargetsTest is Test {
     }
 
     function testDependenciesAreTheV8FactoryRegistryAndVaultBeaconAsDeployed() external {
-        address beacon = address(LibTestTokenEnvironment.deployVaultBeaconSet(vm).iOffchainAssetReceiptVaultBeacon());
-        LibTestTokenEnvironment.deployFactoryAndRegistry();
+        (, address beacon) = LibTestTokenEnvironment.deployBeacons(vm, TIMELOCK);
         DeployDependency[] memory deps = LibProdTokenTargets.tokenDependencies();
         assertEq(deps.length, 3, "dependencies");
         assertEq(deps[0].deployedAddress, CLONE_FACTORY_V8_ADDRESS, "factory address");
@@ -109,7 +112,8 @@ contract LibProdTokenTargetsTest is Test {
     }
 
     function testEachRowsDeployStepLandsItsTokenAtItsAddress() external {
-        (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) = LibTestTokenEnvironment.deploy(vm, US_OWNER, EU_OWNER);
+        (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) =
+            LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
 
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();

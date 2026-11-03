@@ -25,6 +25,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     address internal constant US_OWNER = address(uint160(uint256(keccak256("st0x.test.token-suites.us-owner"))));
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.token-suites.eu-owner"))));
     address internal constant DEPLOYER = address(uint160(uint256(keccak256("st0x.test.token-suites.deployer"))));
+    address internal constant TIMELOCK = address(uint160(uint256(keccak256("st0x.test.token-suites.timelock"))));
 
     /// Released and candidate suites alike, so a token declared as a release is counted.
     function declaredTokenSuites(DeployDeclaration memory declared) internal pure returns (DeploySuite[] memory) {
@@ -95,8 +96,33 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         }
     }
 
+    function testEachTokenSuiteProxiesAndDependsOnTheReceiptVaultBeaconSuite() external view {
+        DeployDeclaration memory declared = declaration();
+        (DeploySuite memory beacon, bool found) = candidateOf(declared, RECEIPT_VAULT_BEACON);
+        assertTrue(found, RECEIPT_VAULT_BEACON);
+        DeploySuite[] memory suites = declaredTokenSuites(declared);
+        for (uint256 i = 0; i < suites.length; i++) {
+            assertEq(
+                LibRainDeployCloneMechanism.registryBeaconProxyTarget(suites[i]).beacon,
+                beacon.storedDeployedAddress,
+                suites[i].suite
+            );
+            uint256 matches = 0;
+            for (uint256 j = 0; j < suites[i].dependencies.length; j++) {
+                if (suites[i].dependencies[j].deployedAddress == beacon.storedDeployedAddress) {
+                    matches++;
+                    assertEq(
+                        keccak256(suites[i].dependencies[j].runtimeCode), beacon.storedBytecodeHash, suites[i].suite
+                    );
+                }
+            }
+            assertEq(matches, 1, suites[i].suite);
+        }
+    }
+
     function testEachTokenSuiteDeploysAtItsStoredAddressWithItsStoredRuntimeCode() external {
-        (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) = LibTestTokenEnvironment.deploy(vm, US_OWNER, EU_OWNER);
+        (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) =
+            LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
         DeployDeclaration memory declared = declaration();
         DeploySuite[] memory suites = declaredTokenSuites(declared);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();

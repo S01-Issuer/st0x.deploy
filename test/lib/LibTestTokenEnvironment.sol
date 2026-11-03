@@ -3,7 +3,6 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
@@ -28,35 +27,35 @@ import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibProdDeployV4 as V4} from "../../src/generated/LibProdDeployV4.sol";
-import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "./LibTestDeploy.sol";
 
 /// @title LibTestTokenEnvironment
-/// @notice What production tokens deploy into on the local EVM: the frozen
-/// 0.1.1 beacon set serving the candidate implementations, the V8 clone
-/// factory and ConfigRegistry, and the root authority's beacon and RBAC
-/// bindings.
+/// @notice What production tokens deploy into on the local EVM: the receipt
+/// and vault beacon suites serving the candidate implementations and owned by
+/// the bound governance timelock, the V8 clone factory and ConfigRegistry, and
+/// the root authority's beacon and RBAC bindings.
 library LibTestTokenEnvironment {
-    /// The frozen 0.1.1 beacon-set deployer at its Zoltu address.
-    function deployVaultBeaconSet(Vm vm) internal returns (IST0xVaultBeaconSet) {
-        LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(V4.STOX_RECEIPT_CREATION_CODE_0_1_1);
-        LibRainDeploy.deployZoltu(V4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_1);
-        address deployer =
-            LibRainDeploy.deployZoltu(V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_1);
-        require(deployer == V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1, "beacon set deployer");
-        return IST0xVaultBeaconSet(deployer);
-    }
-
     function deployFactoryAndRegistry() internal {
         require(LibRainDeploy.deployZoltu(CLONE_FACTORY_V8_CREATION_CODE) == CLONE_FACTORY_V8_ADDRESS, "factory");
         require(LibRainDeploy.deployZoltu(CONFIG_REGISTRY_CREATION_CODE) == CONFIG_REGISTRY_ADDRESS, "registry");
     }
 
-    function upgrade(Vm vm, address beacon, address implementation) internal {
-        vm.prank(UpgradeableBeacon(beacon).owner());
-        UpgradeableBeacon(beacon).upgradeTo(implementation);
+    /// The candidate implementations, the V8 clone factory and ConfigRegistry,
+    /// `timelock` bound as the governance timelock, then the receipt and vault
+    /// beacon suites at their Zoltu addresses.
+    /// @return The receipt beacon and the vault beacon.
+    function deployBeacons(Vm vm, address timelock) internal returns (address, address) {
+        LibTestDeploy.deployImplementations(vm);
+        deployFactoryAndRegistry();
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(timelock)
+        );
+        address receiptBeacon = LibRainDeploy.deployZoltu(V4.STOX_RECEIPT_BEACON_CREATION_CODE_CANDIDATE);
+        require(receiptBeacon == V4.STOX_RECEIPT_BEACON_CANDIDATE, "receipt beacon");
+        address vaultBeacon = LibRainDeploy.deployZoltu(V4.STOX_RECEIPT_VAULT_BEACON_CREATION_CODE_CANDIDATE);
+        require(vaultBeacon == V4.STOX_RECEIPT_VAULT_BEACON_CANDIDATE, "vault beacon");
+        return (receiptBeacon, vaultBeacon);
     }
 
     function newAuthorizer(address admin) internal returns (IAuthorizeV1) {
@@ -82,28 +81,19 @@ library LibTestTokenEnvironment {
     }
 
     /// @return The US and EU authorizers, administered by `usOwner` and `euOwner`.
-    function deploy(Vm vm, address usOwner, address euOwner) internal returns (IAuthorizeV1, IAuthorizeV1) {
-        IST0xVaultBeaconSet set = deployVaultBeaconSet(vm);
-        LibTestDeploy.deployImplementations(vm);
+    function deploy(Vm vm, address timelock, address usOwner, address euOwner)
+        internal
+        returns (IAuthorizeV1, IAuthorizeV1)
+    {
+        (address receiptBeacon, address vaultBeacon) = deployBeacons(vm, timelock);
         LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
-        upgrade(vm, address(set.iReceiptBeacon()), V4.STOX_RECEIPT_CANDIDATE);
-        upgrade(vm, address(set.iOffchainAssetReceiptVaultBeacon()), V4.STOX_RECEIPT_VAULT_CANDIDATE);
-        deployFactoryAndRegistry();
         IAuthorizeV1 usAuthorizer = newAuthorizer(usOwner);
         IAuthorizeV1 euAuthorizer = newAuthorizer(euOwner);
         LibTestDeploy.bind(
-            vm,
-            LibStoxConfig.ROOT_AUTHORITY,
-            LibStoxConfig.VAULT_BEACON_NAME,
-            "address",
-            abi.encode(address(set.iOffchainAssetReceiptVaultBeacon()))
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.VAULT_BEACON_NAME, "address", abi.encode(vaultBeacon)
         );
         LibTestDeploy.bind(
-            vm,
-            LibStoxConfig.ROOT_AUTHORITY,
-            LibStoxConfig.RECEIPT_BEACON_NAME,
-            "address",
-            abi.encode(address(set.iReceiptBeacon()))
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.RECEIPT_BEACON_NAME, "address", abi.encode(receiptBeacon)
         );
         bindRbac(vm, LibStoxConfig.RBAC_US_NAME, usOwner, usAuthorizer);
         bindRbac(vm, LibStoxConfig.RBAC_EU_NAME, euOwner, euAuthorizer);

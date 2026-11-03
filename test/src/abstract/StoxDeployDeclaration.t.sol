@@ -28,6 +28,8 @@ import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
+import {StoxReceiptBeacon} from "../../../src/concrete/StoxReceiptBeacon.sol";
+import {StoxReceiptVaultBeacon} from "../../../src/concrete/StoxReceiptVaultBeacon.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -35,8 +37,6 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
-import {LibBeaconInvariants} from "../../../src/lib/LibBeaconInvariants.sol";
-import {LibProdTokenTargets} from "../../../src/lib/LibProdTokenTargets.sol";
 import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
 
 /// @title StoxDeployDeclarationTest
@@ -61,6 +61,8 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
         if (key == keccak256(bytes(RECEIPT_VAULT))) return type(StoxReceiptVault).creationCode;
         if (key == keccak256(bytes(WRAPPED_TOKEN_VAULT))) return type(StoxWrappedTokenVault).creationCode;
         if (key == keccak256(bytes(WRAPPED_TOKEN_VAULT_BEACON))) return type(StoxWrappedTokenVaultBeacon).creationCode;
+        if (key == keccak256(bytes(RECEIPT_BEACON))) return type(StoxReceiptBeacon).creationCode;
+        if (key == keccak256(bytes(RECEIPT_VAULT_BEACON))) return type(StoxReceiptVaultBeacon).creationCode;
         if (key == keccak256(bytes(AUTHORIZER))) return type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode;
         if (key == keccak256(bytes(PAYMENT_MINT_AUTHORIZER))) {
             return type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
@@ -71,17 +73,13 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
     }
 
     function externalDeployments() internal pure returns (ExternalDeployment[] memory) {
-        ExternalDeployment[] memory externals = new ExternalDeployment[](5);
+        ExternalDeployment[] memory externals = new ExternalDeployment[](4);
         externals[0] = ExternalDeployment({deployedAddress: CLONE_FACTORY_ADDRESS, codeHash: CLONE_FACTORY_CODEHASH});
         externals[1] = ExternalDeployment({deployedAddress: TOFU_DECIMALS_ADDRESS, codeHash: TOFU_DECIMALS_CODEHASH});
         externals[2] =
             ExternalDeployment({deployedAddress: CLONE_FACTORY_V8_ADDRESS, codeHash: CLONE_FACTORY_V8_CODEHASH});
         externals[3] =
             ExternalDeployment({deployedAddress: CONFIG_REGISTRY_ADDRESS, codeHash: CONFIG_REGISTRY_CODEHASH});
-        externals[4] = ExternalDeployment({
-            deployedAddress: LibProdTokenTargets.vaultBeacon(),
-            codeHash: LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH
-        });
         return externals;
     }
 }
