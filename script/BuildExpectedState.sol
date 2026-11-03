@@ -110,6 +110,9 @@ contract BuildExpectedState is Script {
             string memory row = string.concat(key, ".token.", vm.toString(i));
             vm.serializeString(row, "underlying", tokens[i].underlying);
             vm.serializeAddress(row, "receiptVault", tokens[i].receiptVault);
+            vm.serializeAddress(row, "receipt", tokens[i].receipt);
+            vm.serializeAddress(row, "wrappedTokenVault", tokens[i].wrappedTokenVault);
+            vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
             rows[i] = vm.serializeAddress(
                 row, "authoriser", LibTokenInvariants.expectedAuthoriser(tokens[i].underlying, usAuthoriser, chainId)
             );
