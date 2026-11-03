@@ -63,10 +63,6 @@ library LibStoxMigrations {
     bytes32 internal constant ORCHESTRATOR_ADMIN_TO_TIMELOCK =
         keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol");
 
-    /// @notice `script/20260831-retire-direct-signer-roles.s.sol`.
-    bytes32 internal constant RETIRE_DIRECT_SIGNER_ROLES =
-        keccak256("script/20260831-retire-direct-signer-roles.s.sol");
-
     /// @notice `script/20261030-backfill-migration-registry-v5.s.sol`: the
     /// Safe's V2 `MigrationRegistry` records replayed onto V5.
     bytes32 internal constant BACKFILL_MIGRATION_REGISTRY_V5 =
