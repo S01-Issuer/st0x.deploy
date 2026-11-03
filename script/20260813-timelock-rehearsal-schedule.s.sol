@@ -72,12 +72,7 @@ function timelockRehearsalScheduleDeclaration() pure returns (ScriptDeclaration 
 contract TimelockRehearsalSchedule is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
-            keccak256("script/20260619-migrate-multisig-threshold.s.sol"),
-            false
-        );
+        return timelockRehearsalScheduleDeclaration();
     }
 
     /// @notice Author the schedule bundle for the active chain.

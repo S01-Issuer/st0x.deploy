@@ -12,7 +12,6 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 
 /// @notice The broadcasting key holds `EXECUTOR_ROLE`, so an execution would
 /// prove nothing about permissionless execution.
@@ -64,13 +63,7 @@ function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration me
 contract ExecuteUnderlyingNaming is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.migrationOnto(
-            MigrationWriter.Timelock,
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20261021-execute-underlying-naming.s.sol"),
-            keccak256("script/20260813-execute-timelock-operations.s.sol"),
-            false
-        );
+        return executeUnderlyingNamingDeclaration();
     }
 
     /// @notice Execute the next ready rollout operation.

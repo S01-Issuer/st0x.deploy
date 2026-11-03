@@ -81,12 +81,7 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20261021-schedule-underlying-naming-rename.s.sol"),
-            keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol"),
-            false
-        );
+        return scheduleUnderlyingNamingRenameDeclaration();
     }
 
     /// @inheritdoc SafeBundleScript

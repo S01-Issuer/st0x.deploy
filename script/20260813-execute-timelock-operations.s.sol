@@ -86,13 +86,7 @@ function executeTimelockOperationsDeclaration() pure returns (ScriptDeclaration 
 contract ExecuteTimelockOperations is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.migrationOnto(
-            MigrationWriter.Timelock,
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20260813-execute-timelock-operations.s.sol"),
-            MIGRATION_HEAD_GENESIS,
-            false
-        );
+        return executeTimelockOperationsDeclaration();
     }
 
     /// @notice Execute the rehearsal operation on the active chain if it has

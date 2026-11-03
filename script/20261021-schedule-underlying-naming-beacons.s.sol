@@ -78,12 +78,7 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol"),
-            keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
-            false
-        );
+        return scheduleUnderlyingNamingBeaconsDeclaration();
     }
 
     /// @inheritdoc SafeBundleScript

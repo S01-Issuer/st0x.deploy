@@ -59,12 +59,7 @@ function timelockRehearsalCancelDeclaration() pure returns (ScriptDeclaration me
 contract TimelockRehearsalCancel is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.safeMigrationOnto(
-            LibStoxMigrations.NAMESPACE,
-            keccak256("script/20260813-timelock-rehearsal-cancel.s.sol"),
-            keccak256("script/20260813-timelock-rehearsal-schedule.s.sol"),
-            false
-        );
+        return timelockRehearsalCancelDeclaration();
     }
 
     /// @notice Author the cancel bundle for the active chain.
