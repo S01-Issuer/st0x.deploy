@@ -7,6 +7,7 @@ import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRai
 import {LibSafe} from "rain-deploy-0.1.29/src/lib/LibSafe.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
+import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -77,9 +78,9 @@ contract BuildExpectedState is Script {
     }
 
     /// Grants are not emitted: ideal-roles.json carries them keyed by clone address.
-    function authoriserJson(string memory at, address clone) internal returns (string memory) {
+    function authoriserJson(string memory at, address clone, bytes32 codehash) internal returns (string memory) {
         vm.serializeAddress(at, "address", clone);
-        return vm.serializeBytes32(at, "codehash", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH);
+        return vm.serializeBytes32(at, "codehash", codehash);
     }
 
     /// Roles are not emitted: ideal-roles.json carries them keyed by timelock address.
@@ -116,12 +117,20 @@ contract BuildExpectedState is Script {
         vm.serializeString(
             key,
             "authoriser",
-            authoriserJson(string.concat(key, ".authoriser"), LibAuthoriserInvariants.authoriserForChainId(chainId))
+            authoriserJson(
+                string.concat(key, ".authoriser"),
+                LibAuthoriserInvariants.authoriserForChainId(chainId),
+                LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
+            )
         );
         vm.serializeString(
             key,
             "euAuthoriser",
-            authoriserJson(string.concat(key, ".euAuthoriser"), LibAuthoriserInvariants.euAuthoriserForChainId(chainId))
+            authoriserJson(
+                string.concat(key, ".euAuthoriser"),
+                LibAuthoriserInvariants.euAuthoriserForChainId(chainId),
+                LibEuAuthoriserClone.cloneDeployedCodehash()
+            )
         );
         return vm.serializeString(key, "tokens", tokensJson(chainId, key));
     }
