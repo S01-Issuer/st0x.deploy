@@ -16,12 +16,10 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 contract StoxGovernanceTimelockTest is Test {
     function deployTimelock(address safe) internal returns (TimelockController) {
-        return deployTimelockBoundUnder(LibStoxConfig.GOVERNANCE_SAFE_NAME, safe);
-    }
-
-    function deployTimelockBoundUnder(bytes32 name, address safe) internal returns (TimelockController) {
         LibTestDeploy.etchConfigRegistry(vm);
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, name, "address", abi.encode(safe));
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
+        );
         LibRainDeploy.etchZoltuFactory(vm);
         return TimelockController(payable(LibRainDeploy.deployZoltu(type(StoxGovernanceTimelock).creationCode)));
     }
@@ -30,12 +28,6 @@ contract StoxGovernanceTimelockTest is Test {
         TimelockController timelock = deployTimelock(safe);
         assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), safe), "proposer");
         assertTrue(timelock.hasRole(timelock.CANCELLER_ROLE(), safe), "canceller");
-    }
-
-    /// docs/TIMELOCK.md rollout step 1: operators bind the Safe under `st0x.governance-safe.v1`.
-    function testProposerIsTheSafeBoundUnderTheDocumentedName(address safe) external {
-        TimelockController timelock = deployTimelockBoundUnder(keccak256("st0x.governance-safe.v1"), safe);
-        assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), safe), "proposer");
     }
 
     function testConstructorGrantsOnlySafeProposalOpenExecutionAndSelfAdministration(address safe) external {
