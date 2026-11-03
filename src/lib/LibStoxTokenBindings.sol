@@ -24,9 +24,16 @@ error TokenBindingMismatch(string network, bytes32 name, string field, address e
 library LibStoxTokenBindings {
     bytes32 internal constant ADDRESS_VALUE_TYPE_HASH = keccak256("address");
 
-    function check(string memory network, address beacon) internal view {
+    function check(string memory network, address beacon, address receiptBeacon) internal view {
         compare(
             network, LibStoxConfig.VAULT_BEACON_NAME, "beacon", beacon, resolveAddress(LibStoxConfig.VAULT_BEACON_NAME)
+        );
+        compare(
+            network,
+            LibStoxConfig.RECEIPT_BEACON_NAME,
+            "beacon",
+            receiptBeacon,
+            resolveAddress(LibStoxConfig.RECEIPT_BEACON_NAME)
         );
         address timelock = resolveAddress(LibStoxConfig.GOVERNANCE_TIMELOCK_NAME);
         checkRbac(
