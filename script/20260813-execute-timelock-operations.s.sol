@@ -2,8 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
@@ -73,7 +74,7 @@ error ExecutorHoldsRole(address timelock, address executor);
 contract ExecuteTimelockOperations is Script, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return LibStoxMigrations.migrationOnto(MigrationWriter.Timelock, LibStoxMigrations.NAMESPACE, keccak256("script/20260813-execute-timelock-operations.s.sol"), MIGRATION_HEAD_GENESIS, false);
     }
 
     /// @notice Execute the rehearsal operation on the active chain if it has

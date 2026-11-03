@@ -70,7 +70,7 @@ error RenamedMetadataMismatch(address token, string expected, string actual);
 contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+        return LibStoxMigrations.safeMigrationOnto(LibStoxMigrations.NAMESPACE, keccak256("script/20261021-schedule-underlying-naming-rename.s.sol"), keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol"), false);
     }
 
     /// @inheritdoc SafeBundleScript
