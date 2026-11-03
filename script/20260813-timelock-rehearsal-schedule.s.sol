@@ -5,16 +5,13 @@ pragma solidity =0.8.25;
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
-import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
+import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.29/src/abstract/SafeBundleScript.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTimelockRehearsal} from "../src/lib/LibTimelockRehearsal.sol";
 
@@ -36,76 +33,101 @@ error RehearsalAlreadyScheduled(bytes32 id);
 /// @param actual The delay after.
 error RehearsalChangedMinDelay(uint256 expected, uint256 actual);
 
-/// @notice This script's declaration: the Safe's record, after the threshold migration.
+/// @notice After the bundle, the root line does not end at this script's record.
+/// @param head The line's head.
+error LineHeadMismatch(bytes32 head);
+
+/// @notice This script's declaration: on Base, history after the threshold
+/// migration; elsewhere, recorded after the history block.
+/// @param chainId The chain id.
 /// @return The declaration.
-function timelockRehearsalScheduleDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE,
-        LibStoxMigrations.MULTISIG_THRESHOLD,
-        false
-    );
+function timelockRehearsalScheduleDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
+    if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+        return ScriptDeclaration({
+            id: LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE, onto: LibStoxMigrations.MULTISIG_THRESHOLD, history: true
+        });
+    }
+    return ScriptDeclaration({
+        id: LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE,
+        onto: LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+        history: false
+    });
 }
 
 /// @title TimelockRehearsalSchedule
-/// @notice Authors the Safe bundle that SCHEDULES the timelock
-/// rehearsal no-op — see `LibTimelockRehearsal` for what the operation is and
-/// why it was chosen.
-///
-/// Dispatch via `Actions → run-script` with
-/// `script = 20260813-timelock-rehearsal-schedule` and the target `network`.
-///
-/// Re-dispatch this same script for the "re-propose" stage: `cancel` clears
-/// the timestamp, so the identical operation becomes schedulable again, and
-/// that recovery is itself the property worth rehearsing. No separate
-/// re-schedule script exists because there is no separate operation.
+/// @notice Authors the Safe bundle that SCHEDULES the timelock rehearsal
+/// no-op (see `LibTimelockRehearsal`) and writes this script's record on the
+/// root line.
 ///
 /// Execution is NOT a Safe action: the timelock grants `EXECUTOR_ROLE` to
 /// `address(0)`, so anyone may execute once the delay has run.
 /// `20260813-execute-timelock-operations` does that from the CI deploy key.
-///
-/// @dev Pre-flight asserts the Safe's pinned policy and the timelock's pinned
-/// configuration, and refuses if the operation is already registered — so a
-/// stage dispatched out of order fails here rather than in the Safe. The run
-/// then proves the whole loop on the fork: warp past the delay, execute as an
-/// address holding no roles, and confirm the delay is unchanged.
-contract TimelockRehearsalSchedule is Script, IStoxScript {
+contract TimelockRehearsalSchedule is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return timelockRehearsalScheduleDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return timelockRehearsalScheduleDeclaration(chainId);
     }
 
-    /// @notice Author the schedule bundle for the active chain.
-    function run() external {
-        Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));
+    /// @inheritdoc SafeBundleScript
+    function bundleName() internal pure override returns (string memory) {
+        return "ST0x timelock rehearsal: schedule the no-op";
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function artifactPath() internal view virtual override returns (string memory) {
+        return string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json");
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function safe() internal view override returns (Safe) {
+        return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function preflight() internal view override {
+        address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         if (timelock == address(0)) revert RehearsalTimelockNotPinned(block.chainid);
-        LibTimelockInvariants.assertTimelockState(timelock, address(safe));
-
-        TimelockController controller = TimelockController(payable(timelock));
+        LibTimelockInvariants.assertTimelockState(timelock, chainSafe);
         bytes32 id = LibTimelockRehearsal.operationId(timelock);
-        if (controller.isOperation(id)) revert RehearsalAlreadyScheduled(id);
+        if (TimelockController(payable(timelock)).isOperation(id)) revert RehearsalAlreadyScheduled(id);
+    }
 
-        SafeTx[] memory txs = new SafeTx[](1);
+    /// @inheritdoc SafeBundleScript
+    function authorBundle() internal view override returns (SafeTx[] memory) {
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
             to: timelock,
             value: 0,
             data: LibTimelockRehearsal.scheduleCalldata(timelock),
             operation: Enum.Operation.Call
         });
+        (address recordTo, bytes memory recordData) =
+            LibStoxMigrations.recordCall(timelockRehearsalScheduleDeclaration(block.chainid));
+        txs[1] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
+        return txs;
+    }
 
-        uint256 nonce = safe.nonce();
-        bytes32 safeTxHash = LibSafeTx.safeTxHash(safe, txs[0], nonce);
-
-        uint256 delayBefore = controller.getMinDelay();
-        LibSafeFork.simulateCall(vm, safe, txs[0].to, txs[0].data);
-
-        // Pending, and NOT executable until the delay has run.
+    /// @inheritdoc SafeBundleScript
+    function assertPostState() internal view override {
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 id = LibTimelockRehearsal.operationId(timelock);
         require(controller.isOperationPending(id), "TimelockRehearsalSchedule: operation not registered");
         require(!controller.isOperationReady(id), "TimelockRehearsalSchedule: ready before the delay elapsed");
+        bytes32 head = LibStoxMigrations.head();
+        if (head != LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE) revert LineHeadMismatch(head);
+        LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
+    }
 
-        // Prove the loop on the fork, executing as an address with no roles —
-        // which is what permissionless execution means.
+    /// @inheritdoc SafeBundleScript
+    /// @dev Execution by a roleless address after the delay leaves the delay unchanged.
+    function assertReversible() internal override {
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 id = LibTimelockRehearsal.operationId(timelock);
+        uint256 delayBefore = controller.getMinDelay();
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
         require(controller.isOperationReady(id), "TimelockRehearsalSchedule: not ready after the delay");
         vm.prank(address(uint160(uint256(keccak256("st0x.rehearsal.roleless-executor")))));
@@ -113,22 +135,5 @@ contract TimelockRehearsalSchedule is Script, IStoxScript {
         require(controller.isOperationDone(id), "TimelockRehearsalSchedule: execution did not complete");
         uint256 delayAfter = controller.getMinDelay();
         if (delayAfter != delayBefore) revert RehearsalChangedMinDelay(delayBefore, delayAfter);
-
-        string memory artifactPath =
-            string.concat("out/20260813-timelock-rehearsal-schedule-", vm.toString(block.chainid), ".json");
-        string memory json = LibSafeTxBuilderJson.toJson(
-            vm, address(safe), block.chainid, "ST0x timelock rehearsal: schedule the no-op", txs
-        );
-        vm.writeFile(artifactPath, json);
-
-        console2.log("==== TX BUILDER JSON BEGIN ====");
-        console2.log(json);
-        console2.log("==== TX BUILDER JSON END ====");
-        console2.log("Artifact:", artifactPath);
-        console2.log("SafeTxHash:", vm.toString(safeTxHash));
-        console2.log("Nonce:", nonce);
-        console2.log("Operation id:", vm.toString(id));
-        console2.log("Chain:", block.chainid);
-        console2.log("Loop proven on fork: schedule -> 48h -> execute BY A ROLELESS ADDRESS -> delay unchanged");
     }
 }
