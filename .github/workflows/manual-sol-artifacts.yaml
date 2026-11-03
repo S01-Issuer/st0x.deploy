@@ -14,6 +14,8 @@ on:
           - stox-receipt-vault
           - stox-wrapped-token-vault
           - stox-wrapped-token-vault-beacon
+          - stox-receipt-beacon
+          - stox-receipt-vault-beacon
           - stox-offchain-asset-receipt-vault-authorizer
           - stox-offchain-asset-receipt-vault-payment-mint-authorizer
           - stox-orchestrator

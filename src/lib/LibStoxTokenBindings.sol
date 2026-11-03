@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.29/src/lib/LibConfigRegistry.sol";
 import {
     LibOffchainAssetReceiptVaultRbac,
@@ -25,14 +23,6 @@ error TokenBindingMismatch(string network, bytes32 name, string field, address e
 /// typed, to what the declaration expects on each network.
 library LibStoxTokenBindings {
     bytes32 internal constant ADDRESS_VALUE_TYPE_HASH = keccak256("address");
-
-    function checkOnNetworks(Vm vm, string[] memory networks, address beacon) internal {
-        uint256[] memory forkIds = LibRainDeploy.createForks(vm, networks);
-        for (uint256 i = 0; i < networks.length; i++) {
-            vm.selectFork(forkIds[i]);
-            check(networks[i], beacon);
-        }
-    }
 
     function check(string memory network, address beacon) internal view {
         compare(
