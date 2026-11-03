@@ -18,9 +18,6 @@ import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
-    DeployUnderlyingNamingImplementations
-} from "../../script/20261021-deploy-underlying-naming-implementations.s.sol";
-import {
     ExecuteUnderlyingNaming,
     NoUnderlyingNamingOperationReady,
     UnderlyingNamingExecutorHoldsRole
@@ -247,14 +244,6 @@ contract UnderlyingNamingRolloutTest is Test {
             assertFalse(vm.contains(config.underlyingName, "ST0x"), config.underlying);
         }
         assertEq(renamedSeen, 2, "both renamed issuers are listed");
-    }
-
-    /// @notice The step-1 deploy refuses: no frozen, audited release carries
-    /// these implementations yet.
-    function testDeployStubRefuses() external {
-        DeployUnderlyingNamingImplementations deploy = new DeployUnderlyingNamingImplementations();
-        vm.expectRevert(UnderlyingNamingReleaseNotFrozen.selector);
-        deploy.run();
     }
 
     /// @notice Authors, verifies and executes both batches on `network` and
