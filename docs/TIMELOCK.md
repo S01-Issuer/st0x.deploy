@@ -138,15 +138,55 @@ chain whose timelock is the `stox-governance-timelock` suite.
    grants to the timelock → N vault `transferOwnership` → one beacon
    `transferOwnership` per in-use beacon (four) → 7 Safe renounces.
 5. **Post-execution flip** — every production invariant asserts the timelock
-   exactly: vault owner (`LibTokenInvariants.assertAll` / `LibInvariants`),
-   beacon owner (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,
+   exactly: beacon owner
+   (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,
    `LibOrchestratorInvariants.assertBeaconSet`) and `_ADMIN` holder
    (`LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock)`).
    The migration has executed on all five chains, so this is the current state.
+   Vault owner is asserted only by the scripts' own post-states, through
+   `LibTokenInvariants.assertUniformOwnership`.
 
 `GovernanceTimelockMigration.t.sol` pins the governed state on every chain. The
 migration script's own tests rewind each fork to the pre-migration state with
 the timelock's powers, so the script stays re-dispatchable and proven.
+
+### Base: tWMT, tMC and tDIS
+
+tWMT, tMC and tDIS were deployed on Base after the migration executed there and
+were handed to the Safe. Their `owner()` is the only governance surface they do
+not share with the other 53 Base vaults: they proxy the same timelock-owned
+beacons, sit on the timelock-administered authorisers (tMC on the EU assets
+authoriser), and their receipts are managed by the vaults. On the other four
+chains every vault is already timelock-owned. The rename rollout's batch calls
+`setUnderlying` on every vault, so it needs these three on the timelock first.
+
+`20261103-hand-wmt-mc-dis-to-timelock` hands them over in one Safe MultiSend of
+three `transferOwnership(timelock)` calls. The vault is single-step
+`OwnableUpgradeable`, so no accept step follows. The pre-flight refuses unless
+the chain is Base, over the rename's 56 rows the Safe owns exactly these three
+and the timelock owns every other vault the rename rollout covers and every
+beacon, the authoriser maps hold with no `_ADMIN` role on the Safe, and none of
+the three carries an owner freeze. It writes no registry record (see the
+script's NatSpec). To execute:
+
+1. Before signing, cancel any timelock operation already scheduled against the
+   three vaults: once the timelock owns them, anyone can execute it. The
+   script's NatSpec has the subgraph query. Check that the index reads as
+   current, and cancel only pending ids: `cancel` reverts on anything else.
+2. Actions → `run-script` → `20261103-hand-wmt-mc-dis-to-timelock`, network
+   `base`, `run()`.
+3. One signer imports the CI artifact into the Safe Tx Builder and proposes it
+   without executing.
+4. Before signing, each signer unzips the artifact into `out/` (`verify` can
+   only read files there) and runs
+   `forge script script/20261103-hand-wmt-mc-dis-to-timelock.s.sol --sig 'verify(string)' out/<artifact>.json --rpc-url base`.
+   The printed `SafeTxHash` must equal the one in the Safe UI; on a mismatch,
+   stop. Then sign to threshold and execute.
+5. Check that `owner()` of all three vaults is the timelock.
+
+Rollback: the Safe schedules `transferOwnership(safe)` on the three through the
+timelock, and anyone executes it after 48h. The script's fork proof runs exactly
+this.
 
 ## Rehearsing the timelock
 
@@ -395,7 +435,9 @@ as `admin`.
 
 - **New Base tokens** are deployed by the sft-ops CD pipeline, not by a script
   here. It must hand each new vault to `STOX_GOVERNANCE_TIMELOCK`
-  (`transferOwnership`); a vault left on the Safe fails the token and governance
-  invariants as soon as it is pinned.
+  (`transferOwnership`). `LibInvariants` does not check vault ownership: a vault
+  left on the Safe shows only on the rain-org-health dashboard. The ownership
+  checks in the rollout and handover fork tests cover the rename's fixed 56
+  rows, not vaults pinned later.
 
 - **Dedicated canceller** — see the role model above.

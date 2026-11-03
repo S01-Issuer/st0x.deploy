@@ -9,7 +9,6 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
@@ -36,6 +35,7 @@ import {
 } from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
+import {HandWmtMcDisToTimelockHarness} from "./HandWmtMcDisToTimelockHarness.sol";
 
 import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
@@ -317,26 +317,33 @@ contract UnderlyingNamingRolloutTest is Test {
     }
 
     /// @notice Every production vault must be owned by the timelock before
-    /// the rename batch can be authored. Where one is not, the rename
-    /// pre-flight refuses, and the pending ownership handover is applied on the
-    /// fork so the rest of the rollout can be exercised.
+    /// the rename batch can be authored. On Base, tWMT, tMC and tDIS move to
+    /// the timelock in `20261103-hand-wmt-mc-dis-to-timelock`; while that is
+    /// pending on chain the rename pre-flight refuses, and the handover's own
+    /// bundle is executed by the Safe on the fork, so the rollout below runs
+    /// against the state the handover leaves. On every chain the rollout then
+    /// requires every vault of its fixed rows timelock-owned: one of those no
+    /// script hands over fails here.
     function completeOwnershipHandover(uint256 chainId, ScheduleUnderlyingNamingRenameHarness rename) internal {
         address timelock = LibTimelockInvariants.timelockForChainId(chainId);
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
-        bool refused = false;
+        bool pending = false;
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            address owner = IOwnable(chainTokens[tokenIndex].receiptVault).owner();
-            if (owner == timelock) continue;
-            if (!refused) {
-                vm.expectPartialRevert(ReceiptVaultOwnerMismatch.selector);
-                rename.callPreflight();
-                refused = true;
-            }
-            console2.log("PREREQUISITE: vault not owned by the timelock, handed over on the fork");
-            console2.log(chainTokens[tokenIndex].receiptVault);
-            vm.prank(owner);
-            OwnableUpgradeable(chainTokens[tokenIndex].receiptVault).transferOwnership(timelock);
+            if (IOwnable(chainTokens[tokenIndex].receiptVault).owner() != timelock) pending = true;
         }
+        if (pending) {
+            vm.expectPartialRevert(ReceiptVaultOwnerMismatch.selector);
+            rename.callPreflight();
+            if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+                console2.log("PREREQUISITE: the tWMT, tMC and tDIS handover executed on the fork");
+                HandWmtMcDisToTimelockHarness handover = new HandWmtMcDisToTimelockHarness("rollout");
+                handover.callPreflight();
+                LibSafeFork.executeBundle(
+                    vm, Safe(payable(LibSafeInvariants.safeForChainId(chainId))), handover.callAuthorBundle()
+                );
+            }
+        }
+        LibTokenInvariants.assertUniformOwnership(chainTokens, timelock);
     }
 
     /// @notice Logs the gas the rename batch's `executeBatch` alone takes, on a

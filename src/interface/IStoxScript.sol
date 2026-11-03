@@ -17,7 +17,11 @@ struct MigrationPrerequisite {
 }
 
 /// @notice What a script declares about itself: whether it is a migration, one that
-/// changes the ownership, roles or configuration of live contracts. For a migration: the
+/// changes the ownership, roles or configuration of live contracts and records it in
+/// the registry. A one-shot fix-up that completes an already declared migration may
+/// declare no record when its pre-flight refuses a re-run and a record would have to
+/// wait behind unrelated pending migrations in its writer's line
+/// (`20261103-hand-wmt-mc-dis-to-timelock`). For a migration: the
 /// registry record its bundle writes, the writer by role, what it is recorded
 /// after, and whether it is recorded later as history (`IStoxHistoryMigration`
 /// gives when it ran). Every other kind declares no record.
