@@ -26,9 +26,13 @@ import {IAuthorizableV1} from "rain-vats-0.2.16/src/interface/IAuthorizableV1.so
 import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
 import {ICertifiableV1} from "rain-vats-0.2.16/src/interface/ICertifiableV1.sol";
 
+/// @dev A Base block after the governance-timelock migration, so the receipt
+/// vault beacon is owned by `PROD_BEACON_OWNER`.
+uint256 constant V3_SHADOW_FORK_BLOCK_BASE = 53450000;
+
 /// @title V3UpgradeShadowForkTest
 /// @notice Shadow-fork verification of the receipt vault V3 upgrade against
-/// LIVE production tokens. `setUp()` forks Base at head, applies the
+/// LIVE production tokens. `setUp()` forks Base at a pinned block, applies the
 /// beacon-ownership migration (PR-A) and the V3 upgrade (PR-B) to the fork,
 /// then each test exercises a behaviour against a real on-chain receipt vault
 /// in the upgraded state.
@@ -69,7 +73,7 @@ contract V3UpgradeShadowForkTest is Test {
     address internal constant LIVE_WRAPPED_VAULT = LibTokenInvariants.MSTR_WRAPPED_TOKEN_VAULT;
 
     function setUp() public {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.createSelectFork(LibRainDeploy.BASE, V3_SHADOW_FORK_BLOCK_BASE);
 
         // 1. Plant the V3 receipt vault implementation and the corporate-
         //    actions facet at their deterministic addresses, running their
