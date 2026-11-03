@@ -106,11 +106,7 @@ library LibUnderlyingNamingRollout {
     /// the st0x.registry token lists accept both `wt<TICKER>` and
     /// `<TICKER>s` in production. The rename cannot be undone, so the rename
     /// script refuses until this flips, in a reviewed PR that links each
-    /// service's release. That PR also updates the live-fork tests that pin
-    /// the initialized names (`testConfigMatchesLiveBase`,
-    /// `testWrappedDerivationHoldsOnBase` and the `wt*` symbol pins in
-    /// `LibTokenInvariants.addresses.t.sol`) to accept the renamed values, or
-    /// they go red once a chain executes the rename.
+    /// service's release.
     bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = false;
 
     /// @notice How many leading rows of each chain's production token table

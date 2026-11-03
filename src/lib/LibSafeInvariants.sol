@@ -181,7 +181,7 @@ library LibSafeInvariants {
     /// by chain id. The Safe address is a per-chain deploy artifact (the
     /// matched-address approach was abandoned), so consumers that must resolve
     /// "this chain's Safe" — the multichain production-state bundle, the
-    /// cross-chain parity pin, the Ethereum token-authorise script — read it
+    /// Ethereum token-authorise script — read it
     /// here. Reverts `UnsupportedChainForTokenOwnerSafe` for any chain without
     /// a pinned Safe rather than falling back to another chain's address.
     /// @param chainId The active chain id (`block.chainid`).
