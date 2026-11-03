@@ -12,6 +12,9 @@ import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
+import {
+    BYTECODE_HASH as TIMELOCK_BYTECODE_HASH
+} from "rain-deploy-0.1.29/src/generated/0_1_18/TimelockController.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`: per deployment network, the state CI asserts live. Each in-use beacon in
@@ -79,6 +82,14 @@ contract BuildExpectedState is Script {
         return vm.serializeBytes32(at, "codehash", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH);
     }
 
+    /// Roles are not emitted: ideal-roles.json carries them keyed by timelock address.
+    function timelockJson(uint256 chainId, string memory key) internal returns (string memory) {
+        string memory at = string.concat(key, ".timelock");
+        vm.serializeAddress(at, "address", LibTimelockInvariants.timelockForChainId(chainId));
+        vm.serializeBytes32(at, "codehash", TIMELOCK_BYTECODE_HASH);
+        return vm.serializeUint(at, "minDelay", LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+    }
+
     function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
@@ -101,6 +112,7 @@ contract BuildExpectedState is Script {
         vm.serializeAddress(key, "beaconSetDeployer", LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId));
         vm.serializeString(key, "beacons", beaconsJson(chainId, key));
         vm.serializeString(key, "safe", safeJson(chainId, key));
+        vm.serializeString(key, "timelock", timelockJson(chainId, key));
         vm.serializeString(
             key,
             "authoriser",
