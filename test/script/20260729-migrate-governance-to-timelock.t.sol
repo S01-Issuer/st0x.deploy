@@ -167,10 +167,10 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// beacon shape, so the chain-generic script must author there on
     /// identical terms — this is the assertion that proves HyperEVM is
     /// actually covered rather than merely reachable through the chain map.
-    /// @dev Forks unconditionally, matching `StoxProdV4Test`: CI supplies
-    /// `HYPEREVM_RPC_URL` to the shared rainix test workflow from the
-    /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC must fail at fork
-    /// time rather than pass having asserted nothing.
+    /// @dev Forks unconditionally: CI supplies `HYPEREVM_RPC_URL` to the
+    /// shared rainix test workflow from the `RPC_URL_HYPEREVM_FORK` secret,
+    /// so a missing RPC must fail at fork time rather than pass having
+    /// asserted nothing.
     function testRunAuthorsFullMigrationOnHyperevm() external {
         selectRewoundFork(LibStoxDeployNetworks.HYPEREVM);
         _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);

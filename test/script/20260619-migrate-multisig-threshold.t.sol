@@ -31,8 +31,7 @@ contract MigrateMultisigThresholdTest is Test {
     Safe internal safe;
 
     /// @notice Selects the Base fork at chain head — deliberately
-    /// unpinned. Same precedent as
-    /// `StoxProdV2.t.sol::testProdDeployBaseV2`.
+    /// unpinned.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         script = new MigrateMultisigThreshold();

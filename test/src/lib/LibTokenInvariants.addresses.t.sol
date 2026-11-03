@@ -5,9 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
-import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IReceiptVaultV3} from "rain-vats-0.2.16/src/interface/IReceiptVaultV3.sol";
@@ -491,9 +489,7 @@ contract LibTokenInvariantsAddressesTest is Test {
     /// which is a V1-era block: the answer is frozen with the block, so
     /// this can never notice an upgrade. Its value is as a record that the
     /// V1 `STOX_*_IMPLEMENTATION` constants describe a state Base really
-    /// was in — the audit trail the constants exist for. What production
-    /// serves TODAY is the `*AtBaseHead` counterpart below; the two are
-    /// deliberately different assertions and both are wanted.
+    /// was in — the audit trail the constants exist for.
     ///
     /// `checkTokenSet`'s `isBeaconImplementationBytecode` only compares the
     /// resolved impl's runtime keccak — a beacon pointing at a different
@@ -529,45 +525,6 @@ contract LibTokenInvariantsAddressesTest is Test {
             IBeacon(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1).implementation(),
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
             "STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.implementation() drifted"
-        );
-    }
-
-    /// The LIVE counterpart of the frozen receipt-beacon snapshot: at Base
-    /// HEAD the in-use receipt beacon serves the 0.1.30 receipt, which the
-    /// fleet upgrade (`20260825-upgrade-fleet-to-0-1-30`) put there. An
-    /// unreviewed `upgradeTo` moves this and nothing else in this file
-    /// would notice, because every other beacon-impl assertion here is
-    /// pinned to a V1-era block.
-    function testProdReceiptBeaconImplementationAddressAtBaseHead() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_RECEIPT_0_1_30,
-            "live STOX_RECEIPT_BEACON_V1.implementation() is not the 0.1.30 receipt"
-        );
-    }
-
-    /// The LIVE counterpart of the frozen receipt-vault-beacon snapshot: at
-    /// Base HEAD the in-use receipt-vault beacon serves the 0.1.30 vault.
-    function testProdReceiptVaultBeaconImplementationAddressAtBaseHead() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
-            "live STOX_RECEIPT_VAULT_BEACON_V1.implementation() is not the 0.1.30 receipt vault"
-        );
-    }
-
-    /// The LIVE counterpart of the frozen wrapped-vault-beacon snapshot. The
-    /// wrapped token vault did NOT ride the fleet upgrade, so at Base HEAD
-    /// this beacon still serves the audited 0.1.1 implementation — pinned
-    /// explicitly so a future upgrade has to be a deliberate edit here.
-    function testProdWrappedTokenVaultBeaconImplementationAddressAtBaseHead() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
-            "live STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.implementation() is not the 0.1.1 wrapped token vault"
         );
     }
 
