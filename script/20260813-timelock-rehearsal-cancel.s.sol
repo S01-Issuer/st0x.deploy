@@ -2,107 +2,46 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, IStoxHistoryMigration, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-
-import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
-
-import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
-import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {LibTimelockRehearsal} from "../src/lib/LibTimelockRehearsal.sol";
 
-/// @notice The active chain's governance-timelock pin is unhydrated, so
-/// there is nothing to rehearse against.
+/// @notice The rehearsal never runs live; the backfill bundle writes its record.
 /// @param chainId The active chain id.
-error CancelTimelockNotPinned(uint256 chainId);
+error RehearsalCancelRecordedByBackfill(uint256 chainId);
 
-/// @notice The rehearsal operation is not pending, so there is nothing to
-/// cancel and the bundle would revert inside the Safe.
-/// @param id The operation id that is not pending.
-error RehearsalNotScheduled(bytes32 id);
+/// @notice The rehearsal cancel only executed on Base.
+/// @param chainId The chain id asked for.
+error RehearsalCancelNotHistory(uint256 chainId);
 
-/// @notice This script's declaration: the Safe's record, after the rehearsal schedule.
+/// @notice This script's declaration: onto the rehearsal schedule on every
+/// chain; history on Base, record-only elsewhere.
+/// @param chainId The chain id.
 /// @return The declaration.
-function timelockRehearsalCancelDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL,
-        LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE,
-        false
-    );
+function timelockRehearsalCancelDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
+    return ScriptDeclaration({
+        id: LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL,
+        onto: LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE,
+        history: chainId == LibSafeInvariants.BASE_CHAIN_ID
+    });
 }
 
 /// @title TimelockRehearsalCancel
-/// @notice Authors the Safe bundle that CANCELS the scheduled
-/// timelock rehearsal — see `LibTimelockRehearsal` for the operation.
-///
-/// This is the stage that demonstrates the veto: a scheduled operation can be
-/// stopped inside its window, and OZ's `cancel` has no open-role path, so
-/// vetoing stays privileged even though execution is permissionless. After it
-/// lands, the identical operation becomes schedulable again — re-dispatch
-/// `20260813-timelock-rehearsal-schedule` for the re-propose stage.
-///
-/// Dispatch via `Actions → run-script` with
-/// `script = 20260813-timelock-rehearsal-cancel` and the target `network`.
-///
-/// @dev Refuses unless the operation is actually pending, so cancelling
-/// nothing fails at authoring time rather than in the Safe. Post-state
-/// asserts the operation is fully deregistered, which is what makes the
-/// re-propose stage possible.
-contract TimelockRehearsalCancel is Script, IStoxScript {
+/// @notice The timelock rehearsal cancel (see `LibTimelockRehearsal`), run on
+/// Base only; every chain's record is written by the backfill bundle.
+contract TimelockRehearsalCancel is IStoxScript, IStoxHistoryMigration {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return timelockRehearsalCancelDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return timelockRehearsalCancelDeclaration(chainId);
     }
 
-    /// @notice Author the cancel bundle for the active chain.
-    function run() external {
-        Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        if (timelock == address(0)) revert CancelTimelockNotPinned(block.chainid);
-        LibTimelockInvariants.assertTimelockState(timelock, address(safe));
+    /// @inheritdoc IStoxHistoryMigration
+    function executedAt(uint256 chainId) external pure returns (uint256) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return 1787152049;
+        revert RehearsalCancelNotHistory(chainId);
+    }
 
-        TimelockController controller = TimelockController(payable(timelock));
-        bytes32 id = LibTimelockRehearsal.operationId(timelock);
-        if (!controller.isOperationPending(id)) revert RehearsalNotScheduled(id);
-
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = SafeTx({
-            to: timelock, value: 0, data: LibTimelockRehearsal.cancelCalldata(timelock), operation: Enum.Operation.Call
-        });
-
-        uint256 nonce = safe.nonce();
-        bytes32 safeTxHash = LibSafeTx.safeTxHash(safe, txs[0], nonce);
-
-        LibSafeFork.simulateCall(vm, safe, txs[0].to, txs[0].data);
-
-        // Fully deregistered: not pending, and not known to the timelock at
-        // all — which is what lets the same operation be scheduled again.
-        require(!controller.isOperationPending(id), "TimelockRehearsalCancel: still pending after cancel");
-        require(!controller.isOperation(id), "TimelockRehearsalCancel: still registered after cancel");
-
-        string memory artifactPath =
-            string.concat("out/20260813-timelock-rehearsal-cancel-", vm.toString(block.chainid), ".json");
-        string memory json = LibSafeTxBuilderJson.toJson(
-            vm, address(safe), block.chainid, "ST0x timelock rehearsal: cancel the no-op", txs
-        );
-        vm.writeFile(artifactPath, json);
-
-        console2.log("==== TX BUILDER JSON BEGIN ====");
-        console2.log(json);
-        console2.log("==== TX BUILDER JSON END ====");
-        console2.log("Artifact:", artifactPath);
-        console2.log("SafeTxHash:", vm.toString(safeTxHash));
-        console2.log("Nonce:", nonce);
-        console2.log("Operation id:", vm.toString(id));
-        console2.log("Chain:", block.chainid);
-        console2.log("Cancelled: the same operation is schedulable again - re-dispatch the schedule script");
+    function run() external view {
+        revert RehearsalCancelRecordedByBackfill(block.chainid);
     }
 }
