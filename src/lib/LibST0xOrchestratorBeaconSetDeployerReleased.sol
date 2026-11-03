@@ -45,7 +45,8 @@ library LibST0xOrchestratorBeaconSetDeployerReleased {
             artifactPath: "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer",
             dependencies: abi.decode(ST0xOrchestratorBeaconSetDeployer_0_1_30_DEPENDENCIES, (DeployDependency[])),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         return suites;
     }

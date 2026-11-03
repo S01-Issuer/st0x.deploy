@@ -45,7 +45,8 @@ library LibST0xOrchestratorReleased {
             artifactPath: "src/concrete/ST0xOrchestrator.sol:ST0xOrchestrator",
             dependencies: abi.decode(ST0xOrchestrator_0_1_30_DEPENDENCIES, (DeployDependency[])),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         return suites;
     }

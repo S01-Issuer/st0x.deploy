@@ -53,7 +53,8 @@ library LibStoxCorporateActionsFacetReleased {
             artifactPath: "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             dependencies: abi.decode(StoxCorporateActionsFacet_0_1_1_DEPENDENCIES, (DeployDependency[])),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         suites[1] = DeploySuite({
             suite: "stox-corporate-actions-facet@0_1_30",
@@ -64,7 +65,8 @@ library LibStoxCorporateActionsFacetReleased {
             artifactPath: "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             dependencies: abi.decode(StoxCorporateActionsFacet_0_1_30_DEPENDENCIES, (DeployDependency[])),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         return suites;
     }

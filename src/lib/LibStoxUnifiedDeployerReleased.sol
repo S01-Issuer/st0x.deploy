@@ -45,7 +45,8 @@ library LibStoxUnifiedDeployerReleased {
             artifactPath: "src/concrete/deploy/StoxUnifiedDeployer.sol:StoxUnifiedDeployer",
             dependencies: abi.decode(StoxUnifiedDeployer_0_1_1_DEPENDENCIES, (DeployDependency[])),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         return suites;
     }

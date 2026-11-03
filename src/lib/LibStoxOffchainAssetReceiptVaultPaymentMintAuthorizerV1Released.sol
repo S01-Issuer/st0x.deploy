@@ -47,7 +47,8 @@ library LibStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1Released {
                 StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1_0_1_1_DEPENDENCIES, (DeployDependency[])
             ),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         return suites;
     }

@@ -55,7 +55,8 @@ library LibStoxOffchainAssetReceiptVaultBeaconSetDeployerReleased {
                 StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_1_DEPENDENCIES, (DeployDependency[])
             ),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         suites[1] = DeploySuite({
             suite: "stox-offchain-asset-receipt-vault-beacon-set-deployer@0_1_30",
@@ -68,7 +69,8 @@ library LibStoxOffchainAssetReceiptVaultBeaconSetDeployerReleased {
                 StoxOffchainAssetReceiptVaultBeaconSetDeployer_0_1_30_DEPENDENCIES, (DeployDependency[])
             ),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         return suites;
     }

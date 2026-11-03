@@ -45,7 +45,8 @@ library LibStoxWrappedTokenVaultReleased {
             artifactPath: "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
             dependencies: abi.decode(StoxWrappedTokenVault_0_1_1_DEPENDENCIES, (DeployDependency[])),
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
         return suites;
     }
