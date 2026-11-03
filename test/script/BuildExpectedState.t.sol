@@ -148,8 +148,7 @@ contract BuildExpectedStateTest is Test {
             assertEq(proxies[1], LibSafe.SAFE_V1_3_0_PROXY_CODEHASH);
 
             address[] memory singletons = vm.parseJsonAddressArray(json, string.concat(at, ".singletons"));
-            bytes32[] memory singletonHashes =
-                vm.parseJsonBytes32Array(json, string.concat(at, ".singletonCodehashes"));
+            bytes32[] memory singletonHashes = vm.parseJsonBytes32Array(json, string.concat(at, ".singletonCodehashes"));
             assertEq(singletons.length, 2);
             assertEq(singletonHashes.length, 2);
             assertEq(singletons[0], LibSafe.SAFE_V1_4_1_L1_SINGLETON);
@@ -208,7 +207,8 @@ contract BuildExpectedStateTest is Test {
                 LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30
             );
             assertEq(
-                vm.parseJsonAddress(json, string.concat(at, ".implementation")), LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
+                vm.parseJsonAddress(json, string.concat(at, ".implementation")),
+                LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
             );
             assertEq(
                 vm.parseJsonAddress(json, string.concat(at, ".owner")),
@@ -278,7 +278,8 @@ contract BuildExpectedStateTest is Test {
                     vm.parseJsonAddress(json, string.concat(row, ".wrappedTokenVault")), tokens[i].wrappedTokenVault
                 );
                 assertEq(
-                    vm.parseJsonAddress(json, string.concat(row, ".owner")), LibTimelockInvariants.timelockForChainId(id)
+                    vm.parseJsonAddress(json, string.concat(row, ".owner")),
+                    LibTimelockInvariants.timelockForChainId(id)
                 );
                 address expected = config.region == Region.EU
                     ? LibAuthoriserInvariants.euAuthoriserForChainId(id)
