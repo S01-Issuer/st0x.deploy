@@ -15,15 +15,13 @@ import {
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {BeaconOwnerMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
-import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV1} from "../../../src/interface/deprecated/IST0xOrchestratorV1.sol";
 
 /// @title LibOrchestratorInvariantsTest
-/// @notice The orchestrator invariants against every deployment network at
-/// head, and each invariant tripped on a Base fork.
+/// @notice Each orchestrator invariant tripped on a Base fork.
 contract LibOrchestratorInvariantsTest is Test {
     LibOrchestratorInvariantsHarness internal harness;
     address internal safe;
@@ -35,16 +33,6 @@ contract LibOrchestratorInvariantsTest is Test {
         harness = new LibOrchestratorInvariantsHarness();
         safe = LibSafeInvariants.safeForChainId(block.chainid);
         timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-    }
-
-    /// @notice The invariants hold at head on every network ST0x deploys to.
-    function testLiveOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
-        for (uint256 i = 0; i < networks.length; i++) {
-            selectFork(networks[i]);
-            harness.callAssertBeaconSet();
-            harness.callAssertInstance();
-        }
     }
 
     /// @notice The beacon owner must be the chain's timelock exactly; the

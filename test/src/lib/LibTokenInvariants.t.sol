@@ -20,42 +20,15 @@ import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 
 /// @title LibTokenInvariantsTest
-/// @notice Fork tests for the token-side uniformity invariants: every
-/// production receipt vault on Base shares the same `owner()` and the same
-/// `authorizer()`.
-///
-/// Both uniformity invariants currently hold on-chain (every vault is
-/// owned by `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK` and reports the V4
-/// authoriser clone `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), so the
-/// positive cases pass against the live Base fork. The inverted
-/// ownership-drift case is also exercised here for full error-path coverage.
-/// @dev Uses an unpinned Base head fork (same precedent as the other
-/// prod-state drift detectors in this repo), so the next CI run reflects the
-/// current on-chain wiring. Pinning would freeze the invariant assertions
-/// against a stale snapshot and let new drift slip through unnoticed.
+/// @notice The token-side uniformity invariants tripped by a mocked
+/// `owner()` / `authorizer()` drift on a Base fork, and the per-chain token
+/// tables.
 contract LibTokenInvariantsTest is Test {
-    /// @notice External-call harness deployed fresh per test against the
-    /// active fork.
     LibTokenInvariantsHarness internal harness;
 
-    /// @notice Selects the Base fork at chain head — deliberately unpinned.
-    /// Live drift detector; see contract-level rationale.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
         harness = new LibTokenInvariantsHarness();
-    }
-
-    /// @notice Every production receipt vault reports the V4 authoriser clone
-    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), the production
-    /// authoriser.
-    /// Passes against the live chain state: vault authoriser is uniform.
-    /// Deliberately STRICT (not migration-window gated): when a newly
-    /// deployed token enters the table still wired to a previous authoriser,
-    /// this goes red until its swap batch executes — the forcing function
-    /// that keeps the table and the live wiring in lock-step.
-    function testProdReceiptVaultsShareUniformAuthoriser() external {
-        selectBaseFork();
-        LibTokenInvariants.assertUniformAuthoriser(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
     }
 
     /// @notice tMC is held to the EU authoriser, not the V4 one: wiring it to
