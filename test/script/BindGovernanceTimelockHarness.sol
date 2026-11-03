@@ -39,4 +39,8 @@ contract BindGovernanceTimelockHarness is BindGovernanceTimelock {
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
     }
+
+    function callScriptArtifactPath() external view returns (string memory) {
+        return super.artifactPath();
+    }
 }

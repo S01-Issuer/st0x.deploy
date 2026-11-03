@@ -11,11 +11,12 @@ import {IMigrationRegistryV5} from "rain-deploy-0.1.29/src/interface/IMigrationR
 import {LibConfigRegistry} from "rain-deploy-0.1.29/src/lib/LibConfigRegistry.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibConfigRegistryDeploy.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 import {LibSafe} from "rain-deploy-0.1.29/src/lib/LibSafe.sol";
 import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
+import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.29/src/lib/LibTimelockController.sol";
 
 import {
     GovernanceTimelockBindingMismatch,
@@ -285,6 +286,75 @@ contract BindGovernanceTimelockTest is Test {
 
     function testBindBundleBsc() external {
         assertBundle(LibStoxDeployNetworks.BSC);
+    }
+
+    function testPreflightRefusesASafeOffPolicy() external {
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = readyOnFork("safe-policy");
+        if (!ready) return;
+        advanceLine(safe, "safe-policy");
+        approveSafe(safe);
+        vm.mockCall(safe, abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibSafe.SafeThresholdMismatch.selector, safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, 1
+            )
+        );
+        script.callPreflight();
+    }
+
+    function testPreflightRefusesATimelockOffState() external {
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = readyOnFork("timelock-state");
+        if (!ready) return;
+        advanceLine(safe, "timelock-state");
+        approveSafe(safe);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        vm.mockCall(timelock, abi.encodeCall(ITimelockControllerState.getMinDelay, ()), abi.encode(uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockMinDelayMismatch.selector,
+                timelock,
+                LibTimelockInvariants.TIMELOCK_MIN_DELAY,
+                1
+            )
+        );
+        script.callPreflight();
+    }
+
+    function testArtifactNamesTheBundleForItsSigners() external {
+        (BindGovernanceTimelockHarness script, address safe, bool ready) = readyOnFork("bundle-name");
+        if (!ready) return;
+        advanceLine(safe, "bundle-name");
+        approveSafe(safe);
+        script.run();
+        assertEq(
+            vm.parseJsonString(vm.readFile(script.callArtifactPath()), ".meta.name"),
+            "ST0x: bind the governance timelock"
+        );
+    }
+
+    function testArtifactIsTheChainsJsonUnderOut() external {
+        BindGovernanceTimelockHarness script = new BindGovernanceTimelockHarness("path");
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            assertEq(
+                script.callScriptArtifactPath(),
+                string.concat("out/20261022-bind-governance-timelock-", vm.toString(networks[i].chainId), ".json")
+            );
+        }
+    }
+
+    function testBundleIsTheBindThenTheRecord() external {
+        (BindGovernanceTimelockHarness script, address safe,) = readyOnFork("bundle");
+        SafeTx[] memory txs = script.callAuthorBundle();
+        assertEq(txs.length, 2, "bundle length");
+        assertEq(txs[0].to, address(CONFIG_REGISTRY), "bind target");
+        (address to, bytes memory data) = LibStoxMigrations.recordCall(
+            bindGovernanceTimelockDeclaration(), safe, LibTimelockInvariants.timelockForChainId(block.chainid)
+        );
+        assertEq(txs[1].to, to, "record target");
+        assertEq(txs[1].data, data, "record call");
     }
 }
 
