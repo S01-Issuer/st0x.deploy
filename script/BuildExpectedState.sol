@@ -22,11 +22,13 @@ contract BuildExpectedState is Script {
     function beaconsJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
         address[4] memory implementations = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
+        bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(chainId);
         address owner = LibTimelockInvariants.timelockForChainId(chainId);
         string[] memory rows = new string[](pinned.length);
         for (uint256 i = 0; i < pinned.length; i++) {
             string memory row = string.concat(key, ".beacon.", vm.toString(i));
             vm.serializeAddress(row, "beacon", pinned[i]);
+            vm.serializeBytes32(row, "codehash", codehashes[i]);
             vm.serializeAddress(row, "implementation", implementations[i]);
             rows[i] = vm.serializeAddress(row, "owner", owner);
         }
