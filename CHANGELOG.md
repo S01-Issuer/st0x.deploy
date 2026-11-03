@@ -239,9 +239,9 @@
   `DEPLOYMENT_NETWORK` env var, the `network` choice on both workflows and the
   per-script supported-network lists are all removed, leaving one declaration of
   the set in `LibStoxDeployNetworks`. 0.1.1 no longer excludes Base — the whole
-  audited 0.1.1 set already has code at its pinned addresses there, as
-  `StoxProdV4Test` asserts per chain, so the exclusion had nothing left to
-  express and the run is a no-op on all three. Both workflows now pass
+  audited 0.1.1 set already has code at its pinned addresses there, so the
+  exclusion had nothing left to express and the run is a no-op on all three.
+  Both workflows now pass
   `legacy: true` unconditionally: `--legacy` is one flag over the whole
   `forge script` run, so it cannot vary per network within a run, and type-0 is
   valid on every network these scripts ship to.

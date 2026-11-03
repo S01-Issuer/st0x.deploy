@@ -55,10 +55,8 @@ error UnknownUnderlying(string underlying);
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
 /// addresses): the deploy script reads this to author the
-/// `newTokenAndWrapperVault` calls, and it is the CANONICAL BASELINE the
-/// cross-chain parity pin asserts every chain's live `name`/`symbol` against
-/// (Base included — `LibProdTokenConfigTest` pins this table to live Base, so
-/// the baseline itself is validated, not just chain-vs-chain).
+/// `newTokenAndWrapperVault` calls, and it is the expected `name`/`symbol`
+/// per token in expected-state.json.
 ///
 /// @dev Entries are in the same order as
 /// `LibTokenInvariants.productionTokensBase()` so the two tables pair by
