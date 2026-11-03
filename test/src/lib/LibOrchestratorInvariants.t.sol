@@ -17,6 +17,7 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {BeaconOwnerMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV1} from "../../../src/interface/deprecated/IST0xOrchestratorV1.sol";
 
@@ -89,5 +90,32 @@ contract LibOrchestratorInvariantsTest is Test {
         );
         vm.expectRevert(abi.encodeWithSelector(OrchestratorVaultLogicUnexpected.selector, address(orchestrator)));
         harness.callAssertInstance();
+    }
+
+    /// @notice On every chain the 0.1.30 set deployer reporting the pinned
+    /// beacon, serving the 0.1.30 orchestrator and owned by the chain's
+    /// timelock, passes.
+    function testAssertBeaconSetPassesOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.chainId(chainIds[i]);
+            LibLocalProdState.beacons(vm, chainIds[i]);
+            LibOrchestratorInvariants.assertBeaconSet();
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice On every chain the set deployer's first instance, whose
+    /// vault-logic lock reads the 0.1.30 receipt set, passes.
+    function testAssertInstancePassesOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.chainId(chainIds[i]);
+            LibLocalProdState.orchestrator(vm, chainIds[i]);
+            LibOrchestratorInvariants.assertInstance();
+            vm.revertToState(snapshot);
+        }
     }
 }
