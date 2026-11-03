@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -132,10 +131,14 @@ error GovernanceLoopNotProven(bytes32 id);
 /// @notice This script's declaration: the Safe's first record in this repo's
 /// namespace, written later as history by the orchestrator EMERGENCY bundle.
 /// @return The declaration.
-function migrateGovernanceToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, MIGRATION_HEAD_GENESIS, true
-    );
+function migrateGovernanceToTimelockDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
+    return ScriptDeclaration({
+        id: LibStoxMigrations.GOVERNANCE_TIMELOCK,
+        onto: chainId == LibSafeInvariants.BASE_CHAIN_ID
+            ? LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS
+            : LibStoxMigrations.MULTISIG_THRESHOLD,
+        history: true
+    });
 }
 
 /// @title MigrateGovernanceToTimelock
@@ -218,8 +221,8 @@ function migrateGovernanceToTimelockDeclaration() pure returns (ScriptDeclaratio
 ///    author a bundle that locks governance out.
 contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigration {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return migrateGovernanceToTimelockDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return migrateGovernanceToTimelockDeclaration(chainId);
     }
 
     /// @inheritdoc IStoxHistoryMigration
