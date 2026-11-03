@@ -9,6 +9,7 @@ import {
 } from "rain-deploy-0.1.30/src/generated/0_1_18/TimelockController.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
+import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 
 /// @notice No ST0x governance timelock address is pinned for the active
 /// chain. Deliberately a typed revert rather than a silent fallback to
@@ -166,7 +167,7 @@ library LibTimelockInvariants {
         revert UnsupportedChainForGovernanceTimelock(chainId);
     }
 
-    /// @notice The creation code the governance timelock deploy broadcasts:
+    /// @notice The creation code of the five per-Safe timelocks:
     /// `LibTimelockController.timelockInitCode` at `TIMELOCK_MIN_DELAY`, with
     /// the chain's Safe as sole proposer (and so canceller), execution open
     /// and the timelock self-administered from birth.
@@ -176,9 +177,8 @@ library LibTimelockInvariants {
         return LibTimelockController.timelockInitCode(TIMELOCK_CREATION_CODE, TIMELOCK_MIN_DELAY, proposerSafe);
     }
 
-    /// @notice The Zoltu address `timelockInitCode` deploys to. The deploy
-    /// script asserts the landed address equals this, and
-    /// `testPinsMatchDerivedAddresses` holds every per-chain pin to it.
+    /// @notice The Zoltu address `timelockInitCode` deploys to.
+    /// `testPinsMatchDerivedAddresses` holds every per-Safe pin to it.
     /// @param proposerSafe The chain's token-owner Safe.
     /// @return The deterministic timelock address for that Safe.
     function expectedTimelockAddress(address proposerSafe) internal pure returns (address) {
@@ -205,7 +205,9 @@ library LibTimelockInvariants {
     /// state: `LibTimelockController.assertTimelockState` at
     /// `TIMELOCK_MIN_DELAY` with `proposerSafe` as the proposer, and, once
     /// `TIMELOCK_CANCELLER` is hydrated, that canceller holding
-    /// `CANCELLER_ROLE`. Reverts with `LibTimelockController`'s typed errors.
+    /// `CANCELLER_ROLE`. The suite timelock's address requires the suite
+    /// codehash; every other address requires the per-Safe codehash. Reverts
+    /// with `LibTimelockController`'s typed errors.
     /// @param timelock The governance timelock to validate.
     /// @param proposerSafe The chain's token-owner Safe, the timelock's
     /// proposer.
@@ -214,8 +216,9 @@ library LibTimelockInvariants {
         if (TIMELOCK_CANCELLER != address(0)) {
             cancellers[0] = TIMELOCK_CANCELLER;
         }
-        LibTimelockController.assertTimelockState(
-            TIMELOCK_BYTECODE_HASH, timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers
-        );
+        bytes32 codehash = timelock == LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+            ? LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH
+            : TIMELOCK_BYTECODE_HASH;
+        LibTimelockController.assertTimelockState(codehash, timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers);
     }
 }
