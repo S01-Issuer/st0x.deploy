@@ -240,13 +240,24 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return clones;
     }
 
+    /// Suite keys allow only lowercase letters and hyphens; token symbols carry uppercase.
+    function lowercase(string memory s) internal pure returns (string memory) {
+        bytes memory b = bytes(s);
+        bytes memory out = new bytes(b.length);
+        for (uint256 i = 0; i < b.length; i++) {
+            bytes1 c = b[i];
+            out[i] = c >= "A" && c <= "Z" ? bytes1(uint8(c) + 32) : c;
+        }
+        return string(out);
+    }
+
     function tokenSuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](targets.length);
         for (uint256 i = 0; i < targets.length; i++) {
             suites[i] = RegistryBeaconProxyDeploy({
-                suite: string.concat(TOKEN_PREFIX, configs[i].symbol),
+                suite: string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol)),
                 factory: targets[i].factory,
                 registry: targets[i].registry,
                 authority: targets[i].authority,
