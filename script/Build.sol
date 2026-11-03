@@ -30,6 +30,14 @@ import {
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
+import {StoxReceiptBeacon} from "../src/concrete/StoxReceiptBeacon.sol";
+import {StoxReceiptVaultBeacon} from "../src/concrete/StoxReceiptVaultBeacon.sol";
+import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
+} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistryV5.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibGenParseMeta} from "rainlang-0.2.31/src/lib/codegen/LibGenParseMeta.sol";
@@ -56,8 +64,8 @@ contract Build is Script, StoxDeploySuites {
 
     /// @notice Snapshot file names, index-aligned with the Zoltu entries of
     /// `candidateSuites()`.
-    function candidateContractNames() internal pure returns (string[9] memory) {
-        string[9] memory names;
+    function candidateContractNames() internal pure returns (string[11] memory) {
+        string[11] memory names;
         names[0] = "StoxCorporateActionsFacet";
         names[1] = "StoxReceipt";
         names[2] = "StoxReceiptVault";
@@ -67,11 +75,13 @@ contract Build is Script, StoxDeploySuites {
         names[6] = "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1";
         names[7] = "ST0xOrchestrator";
         names[8] = "St0xAttestSubParser";
+        names[9] = "StoxReceiptBeacon";
+        names[10] = "StoxReceiptVaultBeacon";
         return names;
     }
 
-    function candidateCreationCodes() internal pure returns (bytes[9] memory) {
-        bytes[9] memory codes;
+    function candidateCreationCodes() internal pure returns (bytes[11] memory) {
+        bytes[11] memory codes;
         codes[0] = type(StoxCorporateActionsFacet).creationCode;
         codes[1] = type(StoxReceipt).creationCode;
         codes[2] = type(StoxReceiptVault).creationCode;
@@ -81,14 +91,27 @@ contract Build is Script, StoxDeploySuites {
         codes[6] = type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
         codes[7] = type(ST0xOrchestrator).creationCode;
         codes[8] = type(St0xAttestSubParser).creationCode;
+        codes[9] = type(StoxReceiptBeacon).creationCode;
+        codes[10] = type(StoxReceiptVaultBeacon).creationCode;
         return codes;
     }
 
     function run() external {
+        // The generated code does not depend on the bound timelock value.
+        vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
+        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
+            .registerV5(
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                "address",
+                abi.encode(address(1)),
+                ""
+            );
         buildSubParserPointers(address(new St0xAttestSubParser()));
         DeployCandidate[] memory candidates = candidateSuites();
-        string[9] memory names = candidateContractNames();
-        bytes[9] memory codes = candidateCreationCodes();
+        string[11] memory names = candidateContractNames();
+        bytes[11] memory codes = candidateCreationCodes();
         for (uint256 i = 0; i < names.length; i++) {
             LibRainDeploySnapshot.writeSnapshot(
                 vm, RECORD_ROOT, CANDIDATE_TAG, names[i], codes[i], candidates[i].snapshot.dependencies
