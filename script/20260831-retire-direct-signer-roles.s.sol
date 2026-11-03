@@ -37,15 +37,14 @@ error SafeMissingRoleAdminForRetire(bytes32 adminRole);
 /// executed on this chain and a re-dispatch has nothing to author.
 error DirectSignerRolesAlreadyRetired();
 
-/// @notice This script's migration id on the root line.
-bytes32 constant RETIRE_DIRECT_SIGNER_ROLES = keccak256("script/20260831-retire-direct-signer-roles.s.sol");
-
 /// @notice This script's declaration on the root line, after the
 /// orchestrator admin moves to the timelock.
 /// @return The declaration.
 function retireDirectSignerRolesDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: RETIRE_DIRECT_SIGNER_ROLES, onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, history: false
+        id: LibStoxMigrations.RETIRE_DIRECT_SIGNER_ROLES,
+        onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        history: false
     });
 }
 

@@ -29,15 +29,13 @@ error EuAuthoriserNotDeployed(address clone);
 /// @param role The missing role.
 error SafeMissingRoleAdmin(address clone, bytes32 role);
 
-/// @notice This script's migration id on the root line.
-bytes32 constant GRANT_EU_AUTHORISER_ROLES = keccak256("script/20261006-grant-eu-authoriser-roles.s.sol");
-
 /// @notice This script's declaration on the root line: after the
 /// governance-timelock history, recorded as history at its V2 moment.
 /// @return The declaration.
 function grantEuAuthoriserRolesDeclaration() pure returns (ScriptDeclaration memory) {
-    return
-        ScriptDeclaration({id: GRANT_EU_AUTHORISER_ROLES, onto: LibStoxMigrations.GOVERNANCE_TIMELOCK, history: true});
+    return ScriptDeclaration({
+        id: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, onto: LibStoxMigrations.GOVERNANCE_TIMELOCK, history: true
+    });
 }
 
 /// @title GrantEuAuthoriserRoles
