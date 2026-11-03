@@ -17,18 +17,17 @@ import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConf
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 /// @title LibTokenInvariantsTest
 /// @notice The token-side uniformity invariants tripped by a mocked
-/// `owner()` / `authorizer()` drift on a Base fork, and the per-chain token
-/// tables.
+/// `owner()` / `authorizer()` drift on local Base state, and the per-chain
+/// token tables.
 contract LibTokenInvariantsTest is Test {
     LibTokenInvariantsHarness internal harness;
 
-    function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+    function selectLocalBase() internal {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         harness = new LibTokenInvariantsHarness();
     }
 
@@ -36,7 +35,8 @@ contract LibTokenInvariantsTest is Test {
     /// the shared authoriser would let every US-fleet depositor mint it, so
     /// that state must trip the invariant.
     function testInvertedEuTokenOnTheSharedAuthoriser() external {
-        selectBaseFork();
+        selectLocalBase();
+        LibLocalProdState.tokens(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address v4 = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address victim = LibTokenInvariants.MC_RECEIPT_VAULT;
         vm.mockCall(victim, abi.encodeWithSelector(IAuthorisable.authorizer.selector), abi.encode(v4));
@@ -50,7 +50,8 @@ contract LibTokenInvariantsTest is Test {
 
     /// @notice And the converse: a US token on the EU authoriser trips it.
     function testInvertedUsTokenOnTheEuAuthoriser() external {
-        selectBaseFork();
+        selectLocalBase();
+        LibLocalProdState.tokens(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address v4 = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address eu = LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE;
         address victim = LibTokenInvariants.WMT_RECEIPT_VAULT;
@@ -65,7 +66,7 @@ contract LibTokenInvariantsTest is Test {
     /// address comes from `LibTokenInvariants` (the source of truth for
     /// production receipt vaults).
     function testInvertedUniformOwnershipDrift() external {
-        selectBaseFork();
+        selectLocalBase();
         address expectedOwner = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
         address rogueOwner = address(0xBADC0DE);
         address victim = LibTokenInvariants.MSTR_RECEIPT_VAULT;
