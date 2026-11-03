@@ -46,12 +46,11 @@ error RenamedMetadataMismatch(address token, string expected, string actual);
 /// @notice This script's declaration: the Safe's record, after the beacon schedule.
 /// @return The declaration.
 function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
-        LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        false
-    );
+    return ScriptDeclaration({
+        id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
+        onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+        history: false
+    });
 }
 
 /// @title ScheduleUnderlyingNamingRename
@@ -80,7 +79,7 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// beacon batch is scheduled there.
 contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleUnderlyingNamingRenameDeclaration();
     }
 

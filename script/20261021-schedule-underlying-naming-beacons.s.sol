@@ -45,15 +45,14 @@ error OperationNotPendingInsideDelay(bytes32 id);
 /// @param actual The beacon's implementation.
 error BeaconNotUpgraded(address beacon, address expected, address actual);
 
-/// @notice This script's declaration: the Safe's record, after the rehearsal cancel.
+/// @notice This script's declaration: the Safe's record, after orchestrator-admin-to-timelock.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL,
-        false
-    );
+    return ScriptDeclaration({
+        id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+        onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        history: false
+    });
 }
 
 /// @title ScheduleUnderlyingNamingBeacons
@@ -77,7 +76,7 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 /// implementations are deployed there.
 contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleUnderlyingNamingBeaconsDeclaration();
     }
 

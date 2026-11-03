@@ -65,12 +65,12 @@ error GrantReadyInsideDelay(bytes32 operationId);
 error ScheduledGrantNotExecuted(bytes32 operationId);
 
 /// @notice This script's declaration on the root line, after the
-/// orchestrator-emergency record.
+/// backfill record.
 /// @return The declaration.
 function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        onto: LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+        onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
         history: false
     });
 }
