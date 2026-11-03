@@ -13,6 +13,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
+import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH
@@ -102,13 +103,26 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(at, "instance", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
     }
 
+    function tokenConfig(string memory underlying) internal pure returns (TokenConfig memory) {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 i = 0; i < configs.length; i++) {
+            if (keccak256(bytes(configs[i].underlying)) == keccak256(bytes(underlying))) {
+                return configs[i];
+            }
+        }
+        revert(string.concat("no token config for ", underlying));
+    }
+
     function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
+            TokenConfig memory config = tokenConfig(tokens[i].underlying);
             vm.serializeString(row, "underlying", tokens[i].underlying);
+            vm.serializeString(row, "name", config.name);
+            vm.serializeString(row, "symbol", config.symbol);
             vm.serializeAddress(row, "receiptVault", tokens[i].receiptVault);
             vm.serializeAddress(row, "receipt", tokens[i].receipt);
             vm.serializeAddress(row, "wrappedTokenVault", tokens[i].wrappedTokenVault);
