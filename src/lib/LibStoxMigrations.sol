@@ -17,25 +17,24 @@ import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 
 /// @title LibStoxMigrations
-/// @notice The ids under which this repo's operational scripts record what
-/// they applied in `rain-deploy`'s `MigrationRegistry`, and the calls that
-/// write and read those records.
+/// @notice The ids under which this repo's scripts record what they applied
+/// in `rain-deploy`'s `MigrationRegistry`, and the calls that write and read
+/// those records.
 ///
-/// A migration recorded with its change is recorded by the account that
-/// performs it, as the last call of the same transaction, so the record and
-/// the change land atomically:
+/// Every record is on one line: writer `LibRegistryAuthority.ROOT_AUTHORITY`,
+/// namespace `NAMESPACE`. The chain's token-owner Safe, an unscoped delegate
+/// of the root, writes every record, so the line does not depend on which
+/// account performs a migration:
 ///
-/// - a migration the chain's token-owner Safe performs directly records
-///   under the Safe, in the Safe's MultiSend (both orchestrator ids here);
-/// - a migration executed through the governance timelock records under the
-///   timelock, as the last call of the scheduled batch, so it lands
-///   atomically whoever executes the matured operation.
+/// - a migration the Safe performs directly is recorded as the last call of
+///   the Safe's MultiSend, so the record and the change land atomically;
+/// - a migration executed through the governance timelock is recorded by the
+///   Safe in its next bundle after the operation executes; no record rides in
+///   a timelock batch, so a pending batch never holds the line.
 ///
-/// The exception is a migration that ran before anything was recorded: it
-/// is recorded later as history, with the moment it executed
-/// (`GOVERNANCE_TIMELOCK`, written by the orchestrator EMERGENCY bundle).
-/// Until that record lands, `applied` answering zero does NOT mean it has
-/// not run.
+/// A migration that ran before anything was recorded is recorded later as
+/// history, with the moment it executed. Until that record lands, `applied`
+/// answering zero does NOT mean it has not run.
 ///
 /// The records live in ONE registry instance: the address and code hash
 /// `LibMigrationRegistryDeploy` carries in the imported rain-deploy.
