@@ -17,7 +17,6 @@ import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
 } from "rain-vats-0.2.16/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
-import {LibStoxVaultBeacon} from "../generated/LibStoxVaultBeacon.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "./LibProdTokenConfig.sol";
 
@@ -35,7 +34,7 @@ library LibProdTokenTargets {
                 beacon: beacon,
                 data: tokenData(configs[i]),
                 salt: keccak256(bytes(configs[i].underlying))
-            });
+        });
         }
         return targets;
     }
@@ -54,23 +53,8 @@ library LibProdTokenTargets {
         );
     }
 
-    /// The beacon-set deployer creates the receipt beacon then the vault
-    /// beacon in its constructor, so the vault beacon is its nonce-2 CREATE.
     function vaultBeacon() internal pure returns (address) {
-        return address(
-            uint160(
-                uint256(
-                    keccak256(
-                        abi.encodePacked(
-                            bytes1(0xd6),
-                            bytes1(0x94),
-                            V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1,
-                            bytes1(0x02)
-                        )
-                    )
-                )
-            )
-        );
+        return V4.STOX_RECEIPT_VAULT_BEACON_CANDIDATE;
     }
 
     function tokenDependencies() internal pure returns (DeployDependency[] memory) {
@@ -79,8 +63,9 @@ library LibProdTokenTargets {
             DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
         dependencies[1] =
             DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
-        dependencies[2] =
-            DeployDependency({deployedAddress: vaultBeacon(), runtimeCode: LibStoxVaultBeacon.RUNTIME_CODE});
+        dependencies[2] = DeployDependency({
+            deployedAddress: vaultBeacon(), runtimeCode: V4.STOX_RECEIPT_VAULT_BEACON_RUNTIME_CODE_CANDIDATE
+        });
         return dependencies;
     }
 }
