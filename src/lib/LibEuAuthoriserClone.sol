@@ -5,7 +5,7 @@ pragma solidity ^0.8.25;
 import {LibICloneableFactoryV5} from "rain-factory-0.2.10/src/lib/LibICloneableFactoryV5.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS
-} from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.6/src/generated/0_1_15/CloneFactory.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.2.17/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
