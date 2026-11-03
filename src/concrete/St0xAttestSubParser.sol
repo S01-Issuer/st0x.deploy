@@ -11,7 +11,7 @@ import {
 import {LibParseOperand} from "rainlang-0.2.31/src/lib/parse/LibParseOperand.sol";
 import {BadDynamicLength} from "rainlang-0.2.31/src/error/ErrOpList.sol";
 import {LibConvert} from "rain-lib-typecast-0.1.4/src/LibConvert.sol";
-import {IDescribedByMetaV1} from "rain-metadata-0.1.43/src/interface/IDescribedByMetaV1.sol";
+import {IDescribedByMetaV1} from "rain-metadata-0.1.45/src/interface/IDescribedByMetaV1.sol";
 
 import {LibSt0xAttestSubParser, SUB_PARSER_WORD_PARSERS_LENGTH} from "../lib/LibSt0xAttestSubParser.sol";
 import {
