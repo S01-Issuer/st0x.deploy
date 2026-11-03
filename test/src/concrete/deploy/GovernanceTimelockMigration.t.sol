@@ -3,7 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {BeaconOwnerMismatch} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibBeaconInvariantsHarness} from "../../lib/LibBeaconInvariantsHarness.sol";
 import {LibSafeInvariantsHarness} from "../../lib/LibSafeInvariantsHarness.sol";
@@ -13,6 +12,7 @@ import {LibProdBeaconsBase} from "../../../../src/lib/LibProdBeaconsBase.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, ReceiptVaultOwnerMismatch, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
+import {LibLocalProdState} from "../../../lib/LibLocalProdState.sol";
 
 /// @title GovernanceTimelockMigrationTest
 /// @notice Timelock coverage for every governed chain, and the ownership
@@ -77,7 +77,7 @@ contract GovernanceTimelockMigrationTest is Test {
     /// @notice A vault handed back to the Safe trips `ReceiptVaultOwnerMismatch`:
     /// the Safe is no longer an accepted owner on any surface.
     function testVaultBackOnTheSafeTrips() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
         vm.mockCall(tokens[0].receiptVault, abi.encodeWithSignature("owner()"), abi.encode(safe));
@@ -96,7 +96,8 @@ contract GovernanceTimelockMigrationTest is Test {
 
     /// @notice A beacon handed back to the Safe trips `BeaconOwnerMismatch`.
     function testBeaconBackOnTheSafeTrips() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibLocalProdState.beacons(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address beacon = LibProdBeaconsBase.beacons()[0];
         vm.mockCall(beacon, abi.encodeWithSignature("owner()"), abi.encode(safe));
