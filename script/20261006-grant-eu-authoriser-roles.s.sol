@@ -17,12 +17,19 @@ import {LibSafeTx, SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice The EU authoriser clone is absent or carries the wrong code hash.
 /// @param clone The clone address inspected.
 error EuAuthoriserNotDeployed(address clone);
+
+/// @notice The EU grant did not run on `chainId`.
+/// @param chainId The chain id.
+error NoGrantEuAuthoriserRolesOnChain(uint256 chainId);
+
+/// @notice The EU grant is already recorded on the root line.
+error GrantEuAuthoriserRolesAlreadyApplied();
 
 /// @notice The Safe does not hold an `_ADMIN` role the bundle grants with.
 /// @param clone The clone inspected.
@@ -42,7 +49,17 @@ function grantEuAuthoriserRolesDeclaration() pure returns (ScriptDeclaration mem
 /// @notice Authors the Safe bundle that applies the pinned role map to the EU
 /// assets authoriser clone and hands governance to the timelock. Broadcasts
 /// nothing; writes Safe Tx Builder JSON and prints the MultiSend `SafeTxHash`.
-contract GrantEuAuthoriserRoles is Script, IStoxScript {
+contract GrantEuAuthoriserRoles is Script, IStoxScript, IStoxHistoryMigration {
+    /// @inheritdoc IStoxHistoryMigration
+    function executedAt(uint256 chainId) external pure returns (uint256) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return 1_791_457_413;
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) return 1_792_605_263;
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return 1_792_605_943;
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return 1_792_606_144;
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return 1_792_605_427;
+        revert NoGrantEuAuthoriserRolesOnChain(chainId);
+    }
+
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return grantEuAuthoriserRolesDeclaration();
@@ -135,6 +152,9 @@ contract GrantEuAuthoriserRoles is Script, IStoxScript {
     /// @notice Authors the bundle, simulates it, asserts the post-state, writes
     /// the JSON.
     function run() external {
+        if (LibStoxMigrations.applied(LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES) != 0) {
+            revert GrantEuAuthoriserRolesAlreadyApplied();
+        }
         (address clone, address safe, address timelock) = preflight();
 
         SafeTx[] memory txs = grantBundle(clone, safe, timelock);

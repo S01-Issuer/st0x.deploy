@@ -13,7 +13,7 @@ import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The Safe's line in the migration registry is not where this
@@ -46,12 +46,16 @@ error EmergencyNotRevoked();
 /// @notice After the bundle, the Safe does not hold `EMERGENCY_ROLE`.
 error EmergencyNotGranted();
 
+/// @notice The emergency grant did not run on `chainId`.
+/// @param chainId The chain id.
+error NoOrchestratorEmergencyOnChain(uint256 chainId);
+
 /// @notice This script's declaration: the Safe's record after the
 /// governance-timelock move.
 /// @return The declaration.
 function grantOrchestratorEmergencyDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: LibStoxMigrations.ORCHESTRATOR_EMERGENCY, onto: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, history: false
+        id: LibStoxMigrations.ORCHESTRATOR_EMERGENCY, onto: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, history: true
     });
 }
 
@@ -85,7 +89,17 @@ function grantOrchestratorEmergencyDeclaration() pure returns (ScriptDeclaration
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-grant-orchestrator-emergency` per chain. Refuses once
 /// the Safe's line has moved off genesis (`UnexpectedMigrationLine`).
-contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript {
+contract GrantOrchestratorEmergency is SafeBundleScript, IStoxScript, IStoxHistoryMigration {
+    /// @inheritdoc IStoxHistoryMigration
+    function executedAt(uint256 chainId) external pure returns (uint256) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return 1_792_605_015;
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) return 1_792_605_299;
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return 1_792_605_977;
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return 1_792_606_175;
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return 1_792_605_822;
+        revert NoOrchestratorEmergencyOnChain(chainId);
+    }
+
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return grantOrchestratorEmergencyDeclaration();
