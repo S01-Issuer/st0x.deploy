@@ -16,17 +16,9 @@ import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
-import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {migrateGovernanceToTimelockDeclaration} from "./20260729-migrate-governance-to-timelock.s.sol";
-import {grantEuAuthoriserRolesDeclaration} from "./20261006-grant-eu-authoriser-roles.s.sol";
-import {grantOrchestratorEmergencyDeclaration} from "./20261006-grant-orchestrator-emergency.s.sol";
-import {migrateMultisigThresholdDeclaration} from "./20260619-migrate-multisig-threshold.s.sol";
-import {timelockRehearsalScheduleDeclaration} from "./20260813-timelock-rehearsal-schedule.s.sol";
-import {timelockRehearsalCancelDeclaration} from "./20260813-timelock-rehearsal-cancel.s.sol";
-import {executeTimelockOperationsDeclaration} from "./20260813-execute-timelock-operations.s.sol";
+import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 
 /// @notice The code at the V2 registry address is not the frozen 0.1.18
 /// registry.
@@ -45,15 +37,15 @@ error UnexpectedRegistryV2Line(bytes32 namespace, bytes32 head);
 /// @param onto What V2 says it was applied onto.
 error UnexpectedRegistryV2Order(bytes32 migration, bytes32 onto);
 
-/// @notice The V2 governance-timelock record disagrees with the moment
-/// `LibStoxMigrations.governanceTimelockExecution` pins.
-/// @param pinned The pinned moment.
-/// @param recorded The V2 moment.
-error GovernanceTimelockMomentMismatch(uint256 pinned, uint256 recorded);
-
-/// @notice After the bundle, a V5 record differs from its V2 record.
+/// @notice A V2 record's moment differs from its script's `executedAt`.
 /// @param migration The record.
-/// @param expected The V2 moment.
+/// @param executedAt The script's moment.
+/// @param recorded The V2 moment.
+error HistoryMomentMismatch(bytes32 migration, uint256 executedAt, uint256 recorded);
+
+/// @notice After the bundle, a V5 record differs from its expected moment.
+/// @param migration The record.
+/// @param expected The script's moment.
 /// @param actual The V5 moment.
 error BackfillV5RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 
@@ -63,14 +55,9 @@ error BackfillV5RecordMismatch(bytes32 migration, uint256 expected, uint256 actu
 /// @param onto What V5 says it was applied onto.
 error BackfillV5OrderMismatch(bytes32 migration, bytes32 onto);
 
-/// @notice After the bundle, V5 does not hold this script's own record.
+/// @notice After the bundle, V5 does not hold a record this backfill writes.
 /// @param migration The missing record.
 error BackfillV5RecordMissing(bytes32 migration);
-
-/// @notice No pinned moment for a no-record history migration on this chain.
-/// @param chainId The chain asked about.
-/// @param migration The migration.
-error NoHistoryMomentOnChain(uint256 chainId, bytes32 migration);
 
 /// @notice The frozen V2 rbac line the EU grant was recorded on.
 bytes32 constant V2_RBAC_NAMESPACE = keccak256("st0x.rbac");
@@ -78,41 +65,45 @@ bytes32 constant V2_RBAC_NAMESPACE = keccak256("st0x.rbac");
 /// @notice The EU grant's V2 id on `V2_RBAC_NAMESPACE`.
 bytes32 constant V2_EU_AUTHORISER_GRANT_AND_HANDOVER = keccak256("st0x.rbac.eu-assets-authoriser.grant-and-handover");
 
-/// @notice This script's declaration: after the orchestrator-emergency
-/// record that ends the history block.
+/// @notice This script's declaration: last record of the chain's block, after
+/// orchestrator-emergency on Base and after the record-only rehearsal entries
+/// elsewhere.
 /// @return The declaration.
-function backfillMigrationRegistryV5Declaration(uint256) pure returns (ScriptDeclaration memory) {
+function backfillMigrationRegistryV5Declaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
-        onto: LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+        onto: chainId == LibSafeInvariants.BASE_CHAIN_ID
+            ? LibStoxMigrations.ORCHESTRATOR_EMERGENCY
+            : LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
         history: false
     });
 }
 
-/// @notice One history record this backfill replays: the script's root-line
-/// declaration, where V2 holds it (zero `v2Id` when it has no V2 record),
-/// and its moment when it has none.
-struct HistoryRecord {
+/// @notice One record this backfill writes: the script that declares it,
+/// its root-line declaration, and where V2 holds it (zero `v2Id` when it has
+/// no V2 record). A history record is written at the script's `executedAt`.
+struct BackfillRecord {
+    address script;
     ScriptDeclaration declared;
     bytes32 v2Namespace;
     bytes32 v2Id;
     bytes32 v2Onto;
-    uint256 pinned;
 }
 
 /// @title BackfillMigrationRegistryV5
-/// @notice Authors the per-chain Safe Tx Builder bundle that replays the
+/// @notice Authors the per-chain Safe Tx Builder bundle that writes the
 /// chain's history onto the V5 root line (`ROOT_AUTHORITY`,
-/// `LibStoxMigrations.NAMESPACE`), each record as history at its real moment,
-/// in moment order:
+/// `LibStoxMigrations.NAMESPACE`), each history record at its script's
+/// `IStoxHistoryMigration.executedAt`:
 ///
-/// 1. `MULTISIG_THRESHOLD` onto genesis (no V2 record; pinned moment).
+/// 1. `MULTISIG_THRESHOLD` onto `MIGRATION_HEAD_GENESIS`.
 /// 2. Base only: `TIMELOCK_REHEARSAL_SCHEDULE`, `TIMELOCK_REHEARSAL_CANCEL`,
-///    `EXECUTE_TIMELOCK_OPERATIONS` (no V2 record; pinned moments).
-/// 3. `GOVERNANCE_TIMELOCK` at its V2 moment.
-/// 4. The EU grant at its V2 (`st0x.rbac`) moment.
-/// 5. `ORCHESTRATOR_EMERGENCY` at its V2 moment.
-/// 6. This script's own record onto `ORCHESTRATOR_EMERGENCY`.
+///    `EXECUTE_TIMELOCK_OPERATIONS` as history.
+/// 3. `GOVERNANCE_TIMELOCK`, the EU grant, `ORCHESTRATOR_EMERGENCY`, each
+///    checked against its V2 moment.
+/// 4. Off Base: `TIMELOCK_REHEARSAL_SCHEDULE`, `TIMELOCK_REHEARSAL_CANCEL`,
+///    `EXECUTE_TIMELOCK_OPERATIONS` record-only.
+/// 5. This script's own record.
 ///
 /// The Safe, an unscoped delegate of the root, writes every record. A record
 /// V5 already holds is skipped.
@@ -120,6 +111,21 @@ struct HistoryRecord {
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261030-backfill-migration-registry-v5` per chain.
 contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
+    address internal immutable MULTISIG_THRESHOLD_SCRIPT =
+        vm.deployCode("20260619-migrate-multisig-threshold.s.sol:MigrateMultisigThreshold");
+    address internal immutable REHEARSAL_SCHEDULE_SCRIPT =
+        vm.deployCode("20260813-timelock-rehearsal-schedule.s.sol:TimelockRehearsalSchedule");
+    address internal immutable REHEARSAL_CANCEL_SCRIPT =
+        vm.deployCode("20260813-timelock-rehearsal-cancel.s.sol:TimelockRehearsalCancel");
+    address internal immutable EXECUTE_TIMELOCK_OPERATIONS_SCRIPT =
+        vm.deployCode("20260813-execute-timelock-operations.s.sol:ExecuteTimelockOperations");
+    address internal immutable GOVERNANCE_TIMELOCK_SCRIPT =
+        vm.deployCode("20260729-migrate-governance-to-timelock.s.sol:MigrateGovernanceToTimelock");
+    address internal immutable EU_AUTHORISER_SCRIPT =
+        vm.deployCode("20261006-grant-eu-authoriser-roles.s.sol:GrantEuAuthoriserRoles");
+    address internal immutable ORCHESTRATOR_EMERGENCY_SCRIPT =
+        vm.deployCode("20261006-grant-orchestrator-emergency.s.sol:GrantOrchestratorEmergency");
+
     /// @inheritdoc IStoxScript
     function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
         return backfillMigrationRegistryV5Declaration(chainId);
@@ -140,96 +146,72 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
         return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
     }
 
-    /// @notice When the Safe's threshold was raised to 3 on `chainId`.
-    function multisigThresholdMoment(uint256 chainId) internal pure returns (uint256) {
-        SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
-        for (uint256 i = 0; i < networks.length; i++) {
-            if (networks[i].chainId == chainId) {
-                bytes32 name = keccak256(bytes(networks[i].name));
-                if (name == keccak256(bytes(LibRainDeploy.BASE))) return 1_782_241_221;
-                if (name == keccak256(bytes(LibRainDeploy.ETHEREUM))) return 1_784_297_831;
-                if (name == keccak256(bytes(LibRainDeploy.HYPEREVM))) return 1_784_902_282;
-                if (name == keccak256(bytes(LibRainDeploy.ROBINHOOD))) return 1_789_068_996;
-                if (name == keccak256(bytes(LibRainDeploy.BSC))) return 1_789_068_910;
-            }
-        }
-        revert NoHistoryMomentOnChain(chainId, LibStoxMigrations.MULTISIG_THRESHOLD);
+    function entry(address script, uint256 chainId, bytes32 v2Namespace, bytes32 v2Id, bytes32 v2Onto)
+        internal
+        view
+        returns (BackfillRecord memory)
+    {
+        return BackfillRecord({
+            script: script,
+            declared: IStoxScript(script).declaration(chainId),
+            v2Namespace: v2Namespace,
+            v2Id: v2Id,
+            v2Onto: v2Onto
+        });
     }
 
-    /// @notice The chain's history block, in replay order.
-    function records(uint256 chainId) internal pure returns (HistoryRecord[] memory) {
+    /// @notice The chain's block, in write order.
+    function records(uint256 chainId) internal view returns (BackfillRecord[] memory) {
         bool base = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-        HistoryRecord[] memory all = new HistoryRecord[](base ? 7 : 4);
+        BackfillRecord[] memory all = new BackfillRecord[](7);
         uint256 k = 0;
-        all[k++] = HistoryRecord({
-            declared: migrateMultisigThresholdDeclaration(chainId),
-            v2Namespace: bytes32(0),
-            v2Id: bytes32(0),
-            v2Onto: bytes32(0),
-            pinned: multisigThresholdMoment(chainId)
-        });
+        all[k++] = entry(MULTISIG_THRESHOLD_SCRIPT, chainId, bytes32(0), bytes32(0), bytes32(0));
         if (base) {
-            all[k++] = HistoryRecord({
-                declared: timelockRehearsalScheduleDeclaration(chainId),
-                v2Namespace: bytes32(0),
-                v2Id: bytes32(0),
-                v2Onto: bytes32(0),
-                pinned: 1_787_076_699
-            });
-            all[k++] = HistoryRecord({
-                declared: timelockRehearsalCancelDeclaration(chainId),
-                v2Namespace: bytes32(0),
-                v2Id: bytes32(0),
-                v2Onto: bytes32(0),
-                pinned: 1_787_152_049
-            });
-            all[k++] = HistoryRecord({
-                declared: executeTimelockOperationsDeclaration(chainId),
-                v2Namespace: bytes32(0),
-                v2Id: bytes32(0),
-                v2Onto: bytes32(0),
-                pinned: 1_787_336_483
-            });
+            all[k++] = entry(REHEARSAL_SCHEDULE_SCRIPT, chainId, bytes32(0), bytes32(0), bytes32(0));
+            all[k++] = entry(REHEARSAL_CANCEL_SCRIPT, chainId, bytes32(0), bytes32(0), bytes32(0));
+            all[k++] = entry(EXECUTE_TIMELOCK_OPERATIONS_SCRIPT, chainId, bytes32(0), bytes32(0), bytes32(0));
         }
-        all[k++] = HistoryRecord({
-            declared: migrateGovernanceToTimelockDeclaration(chainId),
-            v2Namespace: LibStoxMigrations.NAMESPACE,
-            v2Id: LibStoxMigrations.GOVERNANCE_TIMELOCK,
-            v2Onto: bytes32(0),
-            pinned: 0
-        });
-        all[k++] = HistoryRecord({
-            declared: grantEuAuthoriserRolesDeclaration(chainId),
-            v2Namespace: V2_RBAC_NAMESPACE,
-            v2Id: V2_EU_AUTHORISER_GRANT_AND_HANDOVER,
-            v2Onto: bytes32(0),
-            pinned: 0
-        });
-        all[k++] = HistoryRecord({
-            declared: grantOrchestratorEmergencyDeclaration(chainId),
-            v2Namespace: LibStoxMigrations.NAMESPACE,
-            v2Id: LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-            v2Onto: LibStoxMigrations.GOVERNANCE_TIMELOCK,
-            pinned: 0
-        });
+        all[k++] = entry(
+            GOVERNANCE_TIMELOCK_SCRIPT,
+            chainId,
+            LibStoxMigrations.NAMESPACE,
+            LibStoxMigrations.GOVERNANCE_TIMELOCK,
+            bytes32(0)
+        );
+        all[k++] =
+            entry(EU_AUTHORISER_SCRIPT, chainId, V2_RBAC_NAMESPACE, V2_EU_AUTHORISER_GRANT_AND_HANDOVER, bytes32(0));
+        all[k++] = entry(
+            ORCHESTRATOR_EMERGENCY_SCRIPT,
+            chainId,
+            LibStoxMigrations.NAMESPACE,
+            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+            LibStoxMigrations.GOVERNANCE_TIMELOCK
+        );
+        if (!base) {
+            all[k++] = entry(REHEARSAL_SCHEDULE_SCRIPT, chainId, bytes32(0), bytes32(0), bytes32(0));
+            all[k++] = entry(REHEARSAL_CANCEL_SCRIPT, chainId, bytes32(0), bytes32(0), bytes32(0));
+            all[k++] = entry(EXECUTE_TIMELOCK_OPERATIONS_SCRIPT, chainId, bytes32(0), bytes32(0), bytes32(0));
+        }
         return all;
     }
 
-    /// @notice `record`'s moment: pinned, or its V2 moment after checking V2
-    /// applied it onto what V2 wrote it onto.
-    function moment(address chainSafe, HistoryRecord memory record) internal view returns (uint256) {
-        if (record.v2Id == bytes32(0)) return record.pinned;
+    /// @notice `record`'s moment from its script, checked against V2 where
+    /// V2 holds it.
+    function moment(address chainSafe, BackfillRecord memory record) internal view returns (uint256) {
+        uint256 at = IStoxHistoryMigration(record.script).executedAt(block.chainid);
+        if (record.v2Id == bytes32(0)) return at;
         bytes32 actualOnto = IMigrationRegistryV2(REGISTRY_V2).appliedOnto(chainSafe, record.v2Namespace, record.v2Id);
         if (actualOnto != record.v2Onto) revert UnexpectedRegistryV2Order(record.v2Id, actualOnto);
-        return IMigrationRegistryV2(REGISTRY_V2).applied(chainSafe, record.v2Namespace, record.v2Id);
+        uint256 recorded = IMigrationRegistryV2(REGISTRY_V2).applied(chainSafe, record.v2Namespace, record.v2Id);
+        if (recorded != at) revert HistoryMomentMismatch(record.declared.id, at, recorded);
+        return at;
     }
 
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe and timelock are what this repo pins, V2 is the frozen
-    /// 0.1.18 registry, the V2 lines hold exactly the three records, the
-    /// governance-timelock one at its pinned moment, and each record is
-    /// declared onto the record before it.
+    /// 0.1.18 registry, the V2 lines hold exactly the three records at their
+    /// scripts' moments, history moments never decrease, and each record is
+    /// declared onto the record before it from `MIGRATION_HEAD_GENESIS`.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.timelockForChainId(block.chainid), chainSafe);
@@ -244,39 +226,39 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
             revert UnexpectedRegistryV2Line(V2_RBAC_NAMESPACE, rbacHead);
         }
 
-        HistoryRecord[] memory all = records(block.chainid);
-        bytes32 previous = bytes32(0);
+        BackfillRecord[] memory all = records(block.chainid);
+        bytes32 previous = MIGRATION_HEAD_GENESIS;
         uint256 previousMoment = 0;
         for (uint256 i = 0; i < all.length; i++) {
             if (all[i].declared.onto != previous) {
                 revert UnexpectedRegistryV2Order(all[i].declared.id, all[i].declared.onto);
             }
-            uint256 at = moment(chainSafe, all[i]);
-            if (at < previousMoment) revert UnexpectedRegistryV2Order(all[i].declared.id, previous);
+            if (all[i].declared.history) {
+                uint256 at = moment(chainSafe, all[i]);
+                if (at < previousMoment) revert UnexpectedRegistryV2Order(all[i].declared.id, previous);
+                previousMoment = at;
+            }
             previous = all[i].declared.id;
-            previousMoment = at;
         }
         if (backfillMigrationRegistryV5Declaration(block.chainid).onto != previous) {
             revert UnexpectedRegistryV2Order(LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, previous);
         }
-        (uint256 pinned,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        uint256 recorded = IMigrationRegistryV2(REGISTRY_V2)
-            .applied(chainSafe, LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK);
-        if (recorded != pinned) revert GovernanceTimelockMomentMismatch(pinned, recorded);
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Each history record V5 lacks, at its moment, then this script's
-    /// own record if V5 lacks it.
+    /// @dev Each record V5 lacks (history at its moment, else record-only),
+    /// then this script's own record if V5 lacks it.
     function authorBundle() internal view override returns (SafeTx[] memory) {
         address chainSafe = address(safe());
-        HistoryRecord[] memory all = records(block.chainid);
+        BackfillRecord[] memory all = records(block.chainid);
         ScriptDeclaration memory own = backfillMigrationRegistryV5Declaration(block.chainid);
         SafeTx[] memory txs = new SafeTx[](all.length + 1);
         uint256 k = 0;
         for (uint256 i = 0; i < all.length; i++) {
             if (LibStoxMigrations.applied(all[i].declared.id) != 0) continue;
-            (address to, bytes memory data) = LibStoxMigrations.historyCall(all[i].declared, moment(chainSafe, all[i]));
+            (address to, bytes memory data) = all[i].declared.history
+                ? LibStoxMigrations.historyCall(all[i].declared, moment(chainSafe, all[i]))
+                : LibStoxMigrations.recordCall(all[i].declared);
             txs[k++] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
         }
         if (LibStoxMigrations.applied(own.id) == 0) {
@@ -291,26 +273,31 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Every history record is on the root line at its moment onto its
-    /// declared predecessor, this script's record is onto
-    /// `ORCHESTRATOR_EMERGENCY`, and the Safe policy holds.
+    /// @dev Every record is on the root line onto its declared predecessor,
+    /// each history record at its moment, this script's record onto its
+    /// declared predecessor, and the Safe policy holds.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
-        HistoryRecord[] memory all = records(block.chainid);
+        BackfillRecord[] memory all = records(block.chainid);
         for (uint256 i = 0; i < all.length; i++) {
-            uint256 expected = moment(chainSafe, all[i]);
             uint256 actual = LibStoxMigrations.applied(all[i].declared.id);
-            if (actual != expected) revert BackfillV5RecordMismatch(all[i].declared.id, expected, actual);
-            bytes32 actualOnto = LibMigrationRegistry.appliedOntoV5(
-                LibRegistryAuthority.ROOT_AUTHORITY, LibStoxMigrations.NAMESPACE, all[i].declared.id
-            );
-            if (actualOnto != all[i].declared.onto) revert BackfillV5OrderMismatch(all[i].declared.id, actualOnto);
+            if (actual == 0) revert BackfillV5RecordMissing(all[i].declared.id);
+            if (all[i].declared.history) {
+                uint256 expected = moment(chainSafe, all[i]);
+                if (actual != expected) revert BackfillV5RecordMismatch(all[i].declared.id, expected, actual);
+            }
+            assertOnto(all[i].declared);
         }
-        bytes32 own = LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
-        if (LibStoxMigrations.applied(own) == 0) revert BackfillV5RecordMissing(own);
-        bytes32 ownOnto =
-            LibMigrationRegistry.appliedOntoV5(LibRegistryAuthority.ROOT_AUTHORITY, LibStoxMigrations.NAMESPACE, own);
-        if (ownOnto != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) revert BackfillV5OrderMismatch(own, ownOnto);
+        ScriptDeclaration memory own = backfillMigrationRegistryV5Declaration(block.chainid);
+        if (LibStoxMigrations.applied(own.id) == 0) revert BackfillV5RecordMissing(own.id);
+        assertOnto(own);
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
+    }
+
+    function assertOnto(ScriptDeclaration memory declared) internal view {
+        bytes32 actualOnto = LibMigrationRegistry.appliedOntoV5(
+            LibRegistryAuthority.ROOT_AUTHORITY, LibStoxMigrations.NAMESPACE, declared.id
+        );
+        if (actualOnto != declared.onto) revert BackfillV5OrderMismatch(declared.id, actualOnto);
     }
 }
