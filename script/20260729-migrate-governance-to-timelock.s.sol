@@ -104,6 +104,9 @@ error BeaconImplementationMoved(address beacon, address expected, address actual
 /// which is never meaningful.
 error NothingToMigrate();
 
+/// @notice The governance migration is already recorded on the root line.
+error GovernanceTimelockAlreadyApplied();
+
 /// @notice The migration work selected from live chain state, grouped so
 /// `run()` carries one local for the whole selection rather than four.
 /// @dev Grouping is load-bearing, not cosmetic: `via_ir` is off for this
@@ -301,6 +304,9 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigrati
     /// against the post-migration state. Does not broadcast — execution
     /// happens via the Safe UI using the emitted artifact.
     function run() external {
+        if (LibStoxMigrations.applied(LibStoxMigrations.GOVERNANCE_TIMELOCK) != 0) {
+            revert GovernanceTimelockAlreadyApplied();
+        }
         // --- Pre-flight ---------------------------------------------------
 
         Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));
