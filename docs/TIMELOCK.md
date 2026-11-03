@@ -266,13 +266,16 @@ sequence on a fork of each chain.
    `wt<TICKER>` and `<TICKER>s` in production, and the st0x.registry token lists
    carry the new symbols and names. Services that match the `wt` prefix would
    otherwise reject every renamed token. The script enforces this: it refuses
-   until `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is flipped
-   in a reviewed PR that links each service's release. It also refuses a row
-   whose ticker is not 1 to 16 of `A-Z`, `0-9` and `.`, or whose name is empty,
-   has a `"`, `\` or control byte, or already ends in the ST0x suffix. A rename
-   cannot be reverted to the initialized metadata: `setUnderlying` overwrites
-   the stored ERC-20 name and symbol and rejects empty values. The Safe can
-   still `cancel` the operation during its delay.
+   unless `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set.
+   RAI-4172 set it: st0x.liquidity accepts both symbols from release v1.29.0,
+   st0x.pricing and st0x-oracle-server never read an on-chain `symbol()`, and
+   the registry lists keep `symbol` as `wt<TICKER>` and carry the new values as
+   `nextSymbol` / `nextName`. The flag's NatSpec links the evidence. It also
+   refuses a row whose ticker is not 1 to 16 of `A-Z`, `0-9` and `.`, or whose
+   name is empty, has a `"`, `\` or control byte, or already ends in the ST0x
+   suffix. A rename cannot be reverted to the initialized metadata:
+   `setUnderlying` overwrites the stored ERC-20 name and symbol and rejects
+   empty values. The Safe can still `cancel` the operation during its delay.
 
 After the beacon batch, the in-use receipt-vault beacon serves a vault that
 initializes only from the ConfigRegistry (rain-vats 0.2.12, config V3). The
