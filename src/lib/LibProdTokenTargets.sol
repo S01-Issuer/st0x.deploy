@@ -34,7 +34,7 @@ library LibProdTokenTargets {
                 beacon: beacon,
                 data: tokenData(configs[i]),
                 salt: keccak256(bytes(configs[i].underlying))
-        });
+            });
         }
         return targets;
     }
