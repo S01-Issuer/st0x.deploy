@@ -16,13 +16,11 @@ struct MigrationPrerequisite {
     bytes32 migration;
 }
 
-/// @notice What a script declares about itself: whether it is a migration, one that
-/// changes the ownership, roles or configuration of live contracts. For a migration: the
-/// registry record its bundle writes, the writer by role, what it is recorded
-/// after, and whether it is recorded later as history (`IStoxHistoryMigration`
-/// gives when it ran). Every other kind declares no record.
+/// @notice What a script, a migration, declares about itself: the registry
+/// record its bundle writes, the writer by role, what it is recorded after, and
+/// whether it is recorded later as history (`IStoxHistoryMigration` gives when
+/// it ran).
 struct ScriptDeclaration {
-    bool migration;
     bytes32 namespace;
     bytes32 id;
     MigrationWriter writer;

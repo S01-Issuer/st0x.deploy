@@ -82,7 +82,6 @@ library LibStoxMigrations {
         MigrationPrerequisite[] memory prerequisites = new MigrationPrerequisite[](1);
         prerequisites[0] = MigrationPrerequisite({writer: writer, namespace: namespace, migration: headMigration});
         return ScriptDeclaration({
-            migration: true,
             namespace: namespace,
             id: id,
             writer: writer,
@@ -103,19 +102,6 @@ library LibStoxMigrations {
         returns (ScriptDeclaration memory)
     {
         return migrationOnto(MigrationWriter.Safe, namespace, id, headMigration, history);
-    }
-
-    /// @notice A script that writes no record.
-    /// @return The declaration.
-    function notAMigration() internal pure returns (ScriptDeclaration memory) {
-        return ScriptDeclaration({
-            migration: false,
-            namespace: bytes32(0),
-            id: bytes32(0),
-            writer: MigrationWriter.Safe,
-            prerequisites: new MigrationPrerequisite[](0),
-            history: false
-        });
     }
 
     /// @notice The address `writer` is, given the chain's Safe and timelock.

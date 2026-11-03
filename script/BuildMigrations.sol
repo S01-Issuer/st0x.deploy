@@ -251,16 +251,9 @@ contract BuildMigrations is Script {
     /// @dev `migrations.json` for the scripts in `dir` on `networks`; reverts on no network.
     function renderFor(string memory dir, SupportedNetwork[] memory networks) internal returns (string memory) {
         (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances) = discover(dir);
-        uint256 count = 0;
+        string[] memory rows = new string[](declarations.length);
         for (uint256 i = 0; i < declarations.length; i++) {
-            if (declarations[i].migration) count++;
-        }
-        string[] memory rows = new string[](count);
-        uint256 row = 0;
-        for (uint256 i = 0; i < declarations.length; i++) {
-            if (!declarations[i].migration) continue;
-            rows[row] = migrationJson(row, paths[i], declarations[i], instances[i], networks);
-            row++;
+            rows[i] = migrationJson(i, paths[i], declarations[i], instances[i], networks);
         }
         vm.serializeUint("root", "version", 1);
         vm.serializeBytes32("root", "genesis", MIGRATION_HEAD_GENESIS);

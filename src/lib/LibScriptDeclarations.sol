@@ -16,10 +16,6 @@ error MigrationWithoutRecord(string script);
 /// @param script The script's path.
 error MigrationWithoutPrerequisite(string script);
 
-/// @notice A script that is not a migration declares part of a record.
-/// @param script The script's path.
-error RecordOnNonMigration(string script);
-
 /// @notice A record in this repo's namespace is not keyed by its script path.
 /// @param script The script's path.
 error IdNotScriptPath(string script);
@@ -86,23 +82,15 @@ library LibScriptDeclarations {
     function validate(string[] memory paths, ScriptDeclaration[] memory declarations) internal pure {
         if (paths.length != declarations.length) revert DeclarationCountMismatch();
         for (uint256 i = 0; i < declarations.length; i++) {
-            ScriptDeclaration memory declared = declarations[i];
-            if (declared.migration) {
-                validateRecord(paths[i], declared);
-            } else if (
-                declared.namespace != 0 || declared.id != 0 || declared.prerequisites.length != 0 || declared.history
-            ) {
-                revert RecordOnNonMigration(paths[i]);
-            }
+            validateRecord(paths[i], declarations[i]);
         }
         for (uint256 i = 0; i < declarations.length; i++) {
-            if (!declarations[i].migration) continue;
             validatePrerequisites(paths, declarations, i);
             validateAgainstEarlier(paths, declarations, i);
         }
         uint256[] memory states = new uint256[](declarations.length);
         for (uint256 i = 0; i < declarations.length; i++) {
-            if (declarations[i].migration) visit(paths, declarations, states, i);
+            visit(paths, declarations, states, i);
         }
     }
 
@@ -192,7 +180,7 @@ library LibScriptDeclarations {
     {
         for (uint256 j = 0; j < declarations.length; j++) {
             if (
-                j != i && declarations[j].migration && declarations[j].namespace == prerequisite.namespace
+                j != i && declarations[j].namespace == prerequisite.namespace
                     && declarations[j].id == prerequisite.migration && declarations[j].writer == prerequisite.writer
             ) {
                 return j;
