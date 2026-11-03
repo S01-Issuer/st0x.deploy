@@ -11,6 +11,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
+import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`: per deployment network, the state CI asserts live. Each in-use beacon in
@@ -72,6 +73,12 @@ contract BuildExpectedState is Script {
         return vm.serializeUint(at, "threshold", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
     }
 
+    /// Grants are not emitted: ideal-roles.json carries them keyed by clone address.
+    function authoriserJson(string memory at, address clone) internal returns (string memory) {
+        vm.serializeAddress(at, "address", clone);
+        return vm.serializeBytes32(at, "codehash", LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH);
+    }
+
     function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
@@ -94,6 +101,16 @@ contract BuildExpectedState is Script {
         vm.serializeAddress(key, "beaconSetDeployer", LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId));
         vm.serializeString(key, "beacons", beaconsJson(chainId, key));
         vm.serializeString(key, "safe", safeJson(chainId, key));
+        vm.serializeString(
+            key,
+            "authoriser",
+            authoriserJson(string.concat(key, ".authoriser"), LibAuthoriserInvariants.authoriserForChainId(chainId))
+        );
+        vm.serializeString(
+            key,
+            "euAuthoriser",
+            authoriserJson(string.concat(key, ".euAuthoriser"), LibAuthoriserInvariants.euAuthoriserForChainId(chainId))
+        );
         return vm.serializeString(key, "tokens", tokensJson(chainId, key));
     }
 
