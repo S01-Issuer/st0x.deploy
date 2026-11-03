@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.29/src/abstract/RainDeployVerifyDeclaration.sol";
-import {ExternalDeployment} from "rain-deploy-0.1.29/src/abstract/RainDeployDeclarationChecks.sol";
-import {DeployDeclaration, RainDeploySuitesBase} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
+import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.30/src/abstract/RainDeployVerifyDeclaration.sol";
+import {ExternalDeployment} from "rain-deploy-0.1.30/src/abstract/RainDeployDeclarationChecks.sol";
+import {DeployDeclaration, RainDeploySuitesBase} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
@@ -16,7 +16,7 @@ import {
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
-} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
