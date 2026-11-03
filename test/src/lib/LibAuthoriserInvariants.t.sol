@@ -16,7 +16,6 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.5/src/generated/0_1_1/CloneFactory.sol";
 
@@ -25,10 +24,6 @@ import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.5
 /// maps, and each `LibAuthoriserInvariants` assertion tripped by a mocked or
 /// etched drift.
 contract LibAuthoriserInvariantsTest is Test {
-    function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
-    }
-
     /// @notice The four factory-derived clone pins are the first CREATE from
     /// the canonical CloneFactory (nonce 1) on each chain, re-derived here so a
     /// mistyped literal fails fork-free. Base's clone came from a factory with
@@ -111,7 +106,7 @@ contract LibAuthoriserInvariantsTest is Test {
     /// clone's runtime codehash drifts from the pinned EIP-1167 runtime.
     /// Simulated by etching alien bytecode over the pinned clone address.
     function testAssertAllRejectsWrongCodehash() external {
-        selectBaseFork();
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         vm.etch(clone, hex"600160005260206000f3");
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
@@ -166,7 +161,7 @@ contract LibAuthoriserInvariantsTest is Test {
     /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` pinpoints
     /// a missing `_ADMIN` on the timelock.
     function testAssertExpectedGrantsWithDistinctAdminHolder() external {
-        selectBaseFork();
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address safe = LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE;
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
@@ -183,10 +178,10 @@ contract LibAuthoriserInvariantsTest is Test {
     /// @notice The orchestrator rows are strict like every other row, under
     /// every production chain id alike: a revoked orchestrator `WITHDRAW`
     /// red-lines as `ExpectedGrantMissing` naming the orchestrator. Driven
-    /// on the Base fork with the chain id switched, so the row state is the
-    /// same under each id.
+    /// on local Base state with the chain id switched, so the row state is
+    /// the same under each id.
     function testAssertExpectedGrantsRejectsARevokedOrchestratorGrant() external {
-        selectBaseFork();
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address orchestrator = LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
@@ -220,7 +215,7 @@ contract LibAuthoriserInvariantsTest is Test {
     }
 
     function testAssertExpectedEuGrantsRejectsMissingServiceSignerCertify() external {
-        selectBaseFork();
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address clone = LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE;
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
