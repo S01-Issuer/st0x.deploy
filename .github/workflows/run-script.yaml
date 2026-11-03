@@ -23,10 +23,7 @@ on:
           # Broadcast scripts (dispatched with `--broadcast` from the CI
           # deploy key) live in `manual-broadcast.yaml` instead.
           - 20260729-migrate-governance-to-timelock
-          - 20260813-timelock-rehearsal-schedule
-          - 20260813-timelock-rehearsal-cancel
           - 20261006-grant-eu-authoriser-roles
-          - 20261006-grant-orchestrator-emergency
           - 20261006-orchestrator-admin-to-timelock
           - 20260619-migrate-multisig-threshold
           - 20261030-backfill-migration-registry-v5
