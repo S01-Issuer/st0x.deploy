@@ -152,6 +152,17 @@ contract BuildPrivilegedAddressesTest is Test {
         assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
     }
 
+    /// `run()` is what the `git-clean` workflow regenerates the tracked file
+    /// with, so it must rewrite that file, not leave a stale one in place.
+    function testRunRewritesTheTrackedFile() external {
+        string memory path = string.concat(vm.projectRoot(), "/privileged-addresses.json");
+        uint256 modifiedBefore = vm.fsMetadata(path).modified;
+        vm.sleep(1100);
+        build.run();
+        assertGt(vm.fsMetadata(path).modified, modifiedBefore);
+        assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
+    }
+
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {
         return string.concat(".chains.", vm.toString(network.chainId));
     }
