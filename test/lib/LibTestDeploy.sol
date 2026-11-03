@@ -15,15 +15,15 @@ import {
 } from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
 import {ICloneableFactoryV7} from "rain-factory-0.2.10/src/interface/ICloneableFactoryV7.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.17/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.17/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.18/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
     OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.17/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";

@@ -8,13 +8,13 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {Base64} from "@openzeppelin-contracts-5.7.0/utils/Base64.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.17/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.17/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.18/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1Config
-} from "rain-vats-0.2.17/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+} from "rain-vats-0.2.18/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";

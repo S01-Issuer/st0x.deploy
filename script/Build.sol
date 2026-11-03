@@ -27,7 +27,7 @@ import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
-import {LibGenParseMeta} from "rainlang-0.2.31/src/lib/codegen/LibGenParseMeta.sol";
+import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.sol";
 
 contract Build is Script, StoxDeploySuites {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,

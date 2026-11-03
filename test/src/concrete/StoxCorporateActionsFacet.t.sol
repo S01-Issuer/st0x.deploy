@@ -25,7 +25,7 @@ import {
     ActionDoesNotExist,
     InvalidMask
 } from "../../../src/error/ErrCorporateAction.sol";
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.17/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {
     CorporateActionNode,
