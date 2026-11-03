@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.29/src/lib/LibSafe.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -35,10 +36,39 @@ contract BuildExpectedState is Script {
         return rows;
     }
 
+    function safeProxyCodehashes() internal pure returns (bytes32[] memory) {
+        bytes32[] memory hashes = new bytes32[](2);
+        hashes[0] = LibSafe.SAFE_V1_4_1_PROXY_CODEHASH;
+        hashes[1] = LibSafe.SAFE_V1_3_0_PROXY_CODEHASH;
+        return hashes;
+    }
+
+    function safeSingletons() internal pure returns (address[] memory) {
+        address[] memory singletons = new address[](2);
+        singletons[0] = LibSafe.SAFE_V1_4_1_L1_SINGLETON;
+        singletons[1] = LibSafe.SAFE_V1_4_1_L2_SINGLETON;
+        return singletons;
+    }
+
+    function safeSingletonCodehashes() internal pure returns (bytes32[] memory) {
+        bytes32[] memory hashes = new bytes32[](2);
+        hashes[0] = LibSafe.SAFE_V1_4_1_L1_SINGLETON_CODEHASH;
+        hashes[1] = LibSafe.SAFE_V1_4_1_L2_SINGLETON_CODEHASH;
+        return hashes;
+    }
+
     function safeJson(uint256 chainId, string memory key) internal returns (string memory) {
         string memory at = string.concat(key, ".safe");
         vm.serializeAddress(at, "address", LibSafeInvariants.safeForChainId(chainId));
         vm.serializeAddress(at, "owners", LibSafeInvariants.expectedOwners());
+        vm.serializeBytes32(at, "proxyCodehashes", safeProxyCodehashes());
+        vm.serializeAddress(at, "singletons", safeSingletons());
+        vm.serializeBytes32(at, "singletonCodehashes", safeSingletonCodehashes());
+        vm.serializeString(at, "version", LibSafe.SAFE_V1_4_1_VERSION);
+        vm.serializeAddress(at, "modules", new address[](0));
+        vm.serializeAddress(at, "guard", address(0));
+        vm.serializeAddress(at, "fallbackHandler", LibSafe.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER);
+        vm.serializeBytes32(at, "fallbackHandlerCodehash", LibSafe.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER_CODEHASH);
         return vm.serializeUint(at, "threshold", LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
     }
 
