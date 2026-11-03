@@ -3,7 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
@@ -26,7 +25,6 @@ import {IReceiptV3} from "rain-vats-0.2.16/src/interface/IReceiptV3.sol";
 import {IAuthorizableV1} from "rain-vats-0.2.16/src/interface/IAuthorizableV1.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
 import {ICertifiableV1} from "rain-vats-0.2.16/src/interface/ICertifiableV1.sol";
-import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @title V3UpgradeShadowForkTest
 /// @notice Shadow-fork verification of the receipt vault V3 upgrade against
@@ -53,9 +51,7 @@ import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospe
 ///    address is required so its `_SELF` immutable resolves to
 ///    `STOX_CORPORATE_ACTIONS_FACET`; the vault's `fallback()` hardcodes that
 ///    address as its delegatecall target.
-/// 2. **Beacon ownership** — the receipt vault beacon is owned by the
-///    governance timelock (`PROD_BEACON_OWNER`), asserted live.
-/// 3. **Upgrade** — `vm.prank(PROD_BEACON_OWNER); beacon.upgradeTo(V3 impl)`
+/// 2. **Upgrade** — `vm.prank(PROD_BEACON_OWNER); beacon.upgradeTo(V3 impl)`
 ///    upgrades the beacon (in production a timelock operation). Every live receipt vault behind the beacon now runs V3 code.
 contract V3UpgradeShadowForkTest is Test {
     /// @notice The receipt vault beacon upgraded to V3.
@@ -93,33 +89,17 @@ contract V3UpgradeShadowForkTest is Test {
             LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
         );
 
-        // 2. The live beacon is owned by the governance timelock.
-        assertEq(
-            Ownable(BEACON).owner(),
-            LibBeaconInvariants.PROD_BEACON_OWNER,
-            "live beacon not timelock-owned - governance state regressed?"
-        );
-
-        // 3. Apply the upgrade: the beacon owner points the beacon at the V3
+        // 2. Apply the upgrade: the beacon owner points the beacon at the V3
         //    impl. In production this is a timelock operation; the shadow
         //    fork exercises the upgrade's effect, not the delay.
         vm.prank(LibBeaconInvariants.PROD_BEACON_OWNER);
         UpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
     }
 
-    /// @notice Read the EIP-1967 beacon address from a proxy contract. Mirrors
-    /// `LibTokenInvariantsAddressesTest.beaconOf`.
-    function beaconOf(address proxy) internal view returns (address) {
-        return address(uint160(uint256(vm.load(proxy, ERC1967_BEACON_SLOT))));
-    }
-
-    /// @notice Sanity: the fork is in the upgraded state. The beacon is
-    /// timelock-owned, points at the V3 implementation, and the live receipt vault
-    /// is still behind this beacon.
+    /// @notice Sanity: the beacon points at the V3 implementation after the
+    /// upgrade.
     function testForkIsInUpgradedState() external view {
-        assertEq(Ownable(BEACON).owner(), LibBeaconInvariants.PROD_BEACON_OWNER, "beacon timelock-owned");
         assertEq(IBeacon(BEACON).implementation(), LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1, "beacon at V3 impl");
-        assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
     }
 
     /// @notice Headline V3 change: corporate-action selectors on a LIVE

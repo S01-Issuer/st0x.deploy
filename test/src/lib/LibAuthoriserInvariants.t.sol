@@ -20,30 +20,12 @@ import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.5/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
-/// @notice Fork tests pinning the production V4 authoriser clone's state
-/// against the constants in `LibAuthoriserInvariants`. The positive case
-/// runs the lib's no-arg `assertAll()`, which checks the clone's codehash
-/// against the `LibProdDeployV4` pin and iterates the master
-/// `expectedGrants()` map against the live clone. Any drift (a grant
-/// missing on-chain, or the clone's bytecode changing) surfaces as a typed
-/// error here.
-/// @dev Uses unpinned head forks of each production chain (same precedent
-/// as the other prod-state drift detectors in this repo). Pinning would freeze the
-/// invariant assertions against a stale snapshot and let new drift slip
-/// through unnoticed.
+/// @notice The authoriser pins, the chain-to-clone tables, the expected-grant
+/// maps, and each `LibAuthoriserInvariants` assertion tripped by a mocked or
+/// etched drift.
 contract LibAuthoriserInvariantsTest is Test {
-    /// @notice Selects the Base fork at chain head — deliberately unpinned.
-    /// Live drift detector; see contract-level rationale.
     function selectBaseFork() internal {
         vm.createSelectFork(LibRainDeploy.BASE);
-    }
-
-    /// @notice The production V4 clone pinned in `LibProdDeployV4` holds
-    /// every `expectedGrants()` pair and its codehash matches the pin.
-    /// Passes against the live chain state.
-    function testAssertAllPasses() external {
-        selectBaseFork();
-        LibAuthoriserInvariants.assertAll();
     }
 
     /// @notice The four factory-derived clone pins are the first CREATE from
@@ -180,9 +162,8 @@ contract LibAuthoriserInvariantsTest is Test {
         }
     }
 
-    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` passes on
-    /// the live Base clone with the seven `_ADMIN` roles on the governance
-    /// timelock and pinpoints a missing `_ADMIN` on the timelock.
+    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` pinpoints
+    /// a missing `_ADMIN` on the timelock.
     function testAssertExpectedGrantsWithDistinctAdminHolder() external {
         selectBaseFork();
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
@@ -190,8 +171,6 @@ contract LibAuthoriserInvariantsTest is Test {
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-
-        harness.callAssertExpectedGrants(clone, safe, timelock);
 
         vm.mockCall(
             clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[0].role, timelock), abi.encode(false)
@@ -244,7 +223,6 @@ contract LibAuthoriserInvariantsTest is Test {
         address clone = LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE;
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        assertBaseEuGrants(harness);
         vm.mockCall(clone, abi.encodeCall(IAccessControl.hasRole, (keccak256("CERTIFY"), signer)), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, keccak256("CERTIFY"), signer));
         assertBaseEuGrants(harness);

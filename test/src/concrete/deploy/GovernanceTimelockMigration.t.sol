@@ -17,8 +17,7 @@ import {LibTokenInvariants, ReceiptVaultOwnerMismatch, TokenInstance} from "../.
 /// @title GovernanceTimelockMigrationTest
 /// @notice Timelock coverage for every governed chain, and the ownership
 /// checks that trip when a vault or beacon is handed back to the Safe. The
-/// live governed state is watched by the rain-org-health dashboard and
-/// `LibInvariantsTest`.
+/// live governed state is watched by the rain-org-health dashboard.
 contract GovernanceTimelockMigrationTest is Test {
     /// @notice Chain ids ST0x governs today or is expected to govern.
     ///
