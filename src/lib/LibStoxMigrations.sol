@@ -3,8 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {LibMigrationRegistry} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistry.sol";
-import {IMigrationRegistryV5, Prerequisite} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
+import {Prerequisite} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 
 import {LibRegistryAuthority} from "rain-deploy-0.1.29/src/lib/LibRegistryAuthority.sol";
@@ -64,10 +63,6 @@ library LibStoxMigrations {
     bytes32 internal constant ORCHESTRATOR_ADMIN_TO_TIMELOCK =
         keccak256("script/20261006-orchestrator-admin-to-timelock.s.sol");
 
-    /// @notice `script/20260831-retire-direct-signer-roles.s.sol`.
-    bytes32 internal constant RETIRE_DIRECT_SIGNER_ROLES =
-        keccak256("script/20260831-retire-direct-signer-roles.s.sol");
-
     /// @notice `script/20261030-backfill-migration-registry-v5.s.sol`: the
     /// Safe's V2 `MigrationRegistry` records replayed onto V5.
     bytes32 internal constant BACKFILL_MIGRATION_REGISTRY_V5 =
@@ -112,13 +107,8 @@ library LibStoxMigrations {
     /// @return The registry.
     /// @return The calldata.
     function recordCall(ScriptDeclaration memory declared) internal view returns (address, bytes memory) {
-        LibMigrationRegistry.checkCodeHash();
-        return (
-            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            abi.encodeCall(
-                IMigrationRegistryV5.applyMigrationV5,
-                (LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, prerequisitesFor(declared), "")
-            )
+        return LibMigrationRegistry.applyMigrationV4Call(
+            LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, prerequisitesFor(declared), ""
         );
     }
 
@@ -132,13 +122,8 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        LibMigrationRegistry.checkCodeHash();
-        return (
-            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            abi.encodeCall(
-                IMigrationRegistryV5.applyMigrationHistoryV5,
-                (LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, appliedAt, prerequisitesFor(declared), "")
-            )
+        return LibMigrationRegistry.applyMigrationHistoryV4Call(
+            LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, appliedAt, prerequisitesFor(declared), ""
         );
     }
 

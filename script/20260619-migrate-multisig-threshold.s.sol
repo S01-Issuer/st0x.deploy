@@ -14,7 +14,7 @@ import {LibSafeTx, SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
 
-import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 
@@ -33,8 +33,15 @@ error VerifyMismatch(string field);
 /// @param actualCount The number of transactions in the parsed artifact.
 error VerifyExpectedSingleTx(uint256 actualCount);
 
-/// @notice This script's declaration: the Safe's record of the threshold
-/// migration, after the orchestrator admin move.
+/// @notice The threshold migration did not run on `chainId`.
+/// @param chainId The chain id.
+error NoMultisigThresholdMigrationOnChain(uint256 chainId);
+
+/// @notice The threshold migration is already recorded on the root line.
+error MultisigThresholdAlreadyApplied();
+
+/// @notice This script's declaration: the root line's genesis record of the threshold
+/// migration, written as history by the backfill.
 /// @return The declaration.
 function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({id: LibStoxMigrations.MULTISIG_THRESHOLD, onto: MIGRATION_HEAD_GENESIS, history: true});
@@ -63,10 +70,20 @@ function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration m
 /// current truth. Post-state uses the full-args overload to override
 /// the threshold with the deliberately-changed `TARGET_THRESHOLD`
 /// while keeping the owner set pinned.
-contract MigrateMultisigThreshold is Script, IStoxScript {
+contract MigrateMultisigThreshold is Script, IStoxScript, IStoxHistoryMigration {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return migrateMultisigThresholdDeclaration();
+    }
+
+    /// @inheritdoc IStoxHistoryMigration
+    function executedAt(uint256 chainId) external pure returns (uint256) {
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return 1_782_241_221;
+        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) return 1_784_297_831;
+        if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return 1_784_902_282;
+        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return 1_789_068_996;
+        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return 1_789_068_910;
+        revert NoMultisigThresholdMigrationOnChain(chainId);
     }
 
     /// @notice Target signature threshold post-migration. Hardcoded literal
@@ -93,6 +110,9 @@ contract MigrateMultisigThreshold is Script, IStoxScript {
     /// verification in production and we explicitly simulate via
     /// `vm.prank`.
     function run() external {
+        if (LibStoxMigrations.applied(LibStoxMigrations.MULTISIG_THRESHOLD) != 0) {
+            revert MultisigThresholdAlreadyApplied();
+        }
         Safe safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
         // Pre-flight: every immutable invariant plus the pinned 6-owner
         // roster plus the pinned current threshold. Defaults from
