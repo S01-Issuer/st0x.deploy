@@ -2,9 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxScript, MigrationWriter, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
@@ -34,16 +33,16 @@ error OperationNotExecutable(bytes32 id, bool pending, bool ready, bool done);
 /// @param executor The broadcasting key that unexpectedly holds the role.
 error ExecutorHoldsRole(address timelock, address executor);
 
-/// @notice This script's declaration: the timelock's first record.
+/// @notice This script's declaration on the root line: after the rehearsal
+/// cancel; history on Base, record-only after the history block elsewhere.
+/// @param chainId The chain id.
 /// @return The declaration.
-function executeTimelockOperationsDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.migrationOnto(
-        MigrationWriter.Timelock,
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
-        MIGRATION_HEAD_GENESIS,
-        false
-    );
+function executeTimelockOperationsDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
+    return ScriptDeclaration({
+        id: LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
+        onto: LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL,
+        history: chainId == 8453
+    });
 }
 
 /// @title ExecuteTimelockOperations
@@ -85,8 +84,8 @@ function executeTimelockOperationsDeclaration() pure returns (ScriptDeclaration 
 /// transaction.
 contract ExecuteTimelockOperations is Script, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return executeTimelockOperationsDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return executeTimelockOperationsDeclaration(chainId);
     }
 
     /// @notice Execute the rehearsal operation on the active chain if it has
