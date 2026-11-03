@@ -22,7 +22,9 @@ contract DeployGovernanceTimelockSafeTest is Test {
     }
 
     function bindGovernanceSafe(address safe) internal {
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe));
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
+        );
     }
 
     function assumeNoChainSafe(address bound, SupportedNetwork[] memory networks) internal pure {
