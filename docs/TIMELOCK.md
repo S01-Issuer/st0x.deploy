@@ -223,13 +223,13 @@ sequence on a fork of each chain.
 
 1. Deploy the three implementations at their Zoltu addresses (permissionless):
    the facet, the receipt-vault implementation and the wrapped-token-vault
-   implementation named in `LibUnderlyingNamingRollout`
-   (`20261021-deploy-underlying-naming-implementations`, which deploys only a
-   frozen, audited release). The beacon script's pre-flight checks each codehash
-   against its pin before scheduling. The PR that freezes the release
-   (`RELEASE_FROZEN`) also pins each chain's beacon and rename operation ids as
-   literals. Each schedule script's Safe bundle ends in its root-line record; no
-   record rides in a timelock batch.
+   implementation named in `LibUnderlyingNamingRollout`, by dispatching the
+   `stox-corporate-actions-facet`, `stox-receipt-vault` and
+   `stox-wrapped-token-vault` suites through `manual-sol-artifacts`. The beacon
+   script's pre-flight checks each codehash against its pin before scheduling.
+   The PR that freezes the release (`RELEASE_FROZEN`) also pins each chain's
+   beacon and rename operation ids as literals. Each schedule script's Safe
+   bundle ends in its root-line record; no record rides in a timelock batch.
 2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
    one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
    beacon, then its in-use receipt-vault beacon
