@@ -18,6 +18,7 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 /// @title LibTokenInvariantsTest
 /// @notice The token-side uniformity invariants tripped by a mocked
@@ -160,5 +161,28 @@ contract LibTokenInvariantsTest is Test {
         assertTokenAddresses(LibTokenInvariants.productionTokensHyperEvm());
         assertTokenAddresses(LibTokenInvariants.productionTokensRobinhood());
         assertTokenAddresses(LibTokenInvariants.productionTokensBsc());
+    }
+
+    /// @notice Base's table with every vault on its region's authoriser
+    /// passes the Base overload against the production authoriser.
+    function testAssertUniformAuthoriserPassesOnLocalBase() external {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibLocalProdState.tokens(vm, LibSafeInvariants.BASE_CHAIN_ID);
+        LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+    }
+
+    /// @notice On every chain its table with every vault on its region's
+    /// authoriser passes the table overload against the chain's US clone.
+    function testAssertUniformAuthoriserTablePassesOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            vm.clearMockedCalls();
+            vm.chainId(chainIds[i]);
+            LibLocalProdState.tokens(vm, chainIds[i]);
+            LibTokenInvariants.assertUniformAuthoriser(
+                LibTokenInvariants.productionTokensForChainId(chainIds[i]),
+                LibAuthoriserInvariants.authoriserForChainId(chainIds[i])
+            );
+        }
     }
 }
