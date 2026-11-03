@@ -72,15 +72,14 @@ library LibSafeInvariants {
     /// (`0x4e1DCf7A…`, live on 4663 with the canonical codehash) with the
     /// identical initializer and salt nonce, so the CREATE2 address matches.
     /// A per-chain deployment with its own state, asserted against the shared
-    /// policy by `assertTokenOwnerSafePolicy` like every other chain's Safe
-    /// (`RobinhoodTokenOwnerSafeParityTest`).
+    /// policy by `assertTokenOwnerSafePolicy` like every other chain's Safe.
     address internal constant STOX_TOKEN_OWNER_SAFE_ROBINHOOD = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
 
     /// @notice The ST0x token-owner Safe on **BNB Smart Chain** (chain id
     /// 56). The same CREATE2 address again, for the same reason as Robinhood
     /// Chain's: canonical proxy factory, identical initializer and salt
     /// nonce (all of which are live on 56 with the canonical codehashes).
-    /// Asserted against the shared policy by `BscTokenOwnerSafeParityTest`.
+    /// Asserted against the shared policy by `assertTokenOwnerSafePolicy`.
     address internal constant STOX_TOKEN_OWNER_SAFE_BSC = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
 
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
