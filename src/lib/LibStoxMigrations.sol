@@ -3,8 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {LibMigrationRegistry} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistry.sol";
-import {IMigrationRegistryV5, Prerequisite} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.29/src/lib/LibMigrationRegistryDeploy.sol";
+import {Prerequisite} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 
 import {LibRegistryAuthority} from "rain-deploy-0.1.29/src/lib/LibRegistryAuthority.sol";
@@ -112,13 +111,8 @@ library LibStoxMigrations {
     /// @return The registry.
     /// @return The calldata.
     function recordCall(ScriptDeclaration memory declared) internal view returns (address, bytes memory) {
-        LibMigrationRegistry.checkCodeHash();
-        return (
-            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            abi.encodeCall(
-                IMigrationRegistryV5.applyMigrationV5,
-                (LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, prerequisitesFor(declared), "")
-            )
+        return LibMigrationRegistry.applyMigrationV4Call(
+            LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, prerequisitesFor(declared), ""
         );
     }
 
@@ -132,13 +126,8 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        LibMigrationRegistry.checkCodeHash();
-        return (
-            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
-            abi.encodeCall(
-                IMigrationRegistryV5.applyMigrationHistoryV5,
-                (LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, appliedAt, prerequisitesFor(declared), "")
-            )
+        return LibMigrationRegistry.applyMigrationHistoryV4Call(
+            LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, appliedAt, prerequisitesFor(declared), ""
         );
     }
 
