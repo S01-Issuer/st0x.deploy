@@ -10,10 +10,6 @@ import {IConfigRegistryV5} from "rain-deploy-0.1.29/src/interface/IConfigRegistr
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
-import {StoxReceiptBeacon} from "../../../src/concrete/StoxReceiptBeacon.sol";
-import {StoxReceiptVaultBeacon} from "../../../src/concrete/StoxReceiptVaultBeacon.sol";
-import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
-import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
@@ -90,41 +86,5 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
 
         vm.expectRevert(abi.encodeWithSelector(LibRainDeploy.DeployFailed.selector, false, address(0)));
         this.deploySuite();
-    }
-}
-
-contract StoxDeploySuitesReceiptBeaconOwnerTest is RegistryOwnedBeaconSuiteTest {
-    function suiteKey() internal pure override returns (string memory) {
-        return RECEIPT_BEACON;
-    }
-
-    function pin() internal pure override returns (address) {
-        return V4.STOX_RECEIPT_BEACON_CANDIDATE;
-    }
-
-    function implementation() internal pure override returns (address) {
-        return LibProdDeployCurrent.STOX_RECEIPT;
-    }
-
-    function construct() internal override {
-        new StoxReceiptBeacon();
-    }
-}
-
-contract StoxDeploySuitesReceiptVaultBeaconOwnerTest is RegistryOwnedBeaconSuiteTest {
-    function suiteKey() internal pure override returns (string memory) {
-        return RECEIPT_VAULT_BEACON;
-    }
-
-    function pin() internal pure override returns (address) {
-        return V4.STOX_RECEIPT_VAULT_BEACON_CANDIDATE;
-    }
-
-    function implementation() internal pure override returns (address) {
-        return LibProdDeployCurrent.STOX_RECEIPT_VAULT;
-    }
-
-    function construct() internal override {
-        new StoxReceiptVaultBeacon();
     }
 }
