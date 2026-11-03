@@ -23,6 +23,7 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 /// The frozen 0.1.30 orchestrator beacon-set deployer's beacon getter.
 interface IOrchestratorBeaconSet0_1_30 {
@@ -32,9 +33,8 @@ interface IOrchestratorBeaconSet0_1_30 {
 /// @title LibBeaconInvariantsTest
 /// @notice Inverted fork tests that exercise each invariant in
 /// `LibBeaconInvariants` by injecting drift via `vm.etch` / `vm.mockCall`
-/// and asserting the matching typed error is raised. The positive
-/// ("live state passes") cases live in the beacon-ownership migration's
-/// happy-path test, so this file focuses on coverage of every error path.
+/// and asserting the matching typed error is raised, and the pass paths
+/// against each chain's production beacons built locally.
 /// @dev Uses an unpinned Base head fork (same precedent as
 /// `LibSafeInvariants.t.sol`). Pinning would freeze the invariant
 /// assertions against a stale snapshot and let new drift slip through
@@ -268,5 +268,43 @@ contract LibBeaconInvariantsTest is Test {
             LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH != LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
             "generation pins collapsed into one value"
         );
+    }
+
+    /// @notice On every chain the four in-use beacons at their pinned
+    /// codehashes, owned by the chain's timelock, pass.
+    function testAssertProdBeaconsOwnedByChainTimelockOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.beacons(vm, chainIds[i]);
+            LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(chainIds[i]);
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice On every chain each token beacon passes the V1-generation
+    /// beacon assertion with the chain's timelock and its expected
+    /// implementation.
+    function testAssertBeaconInvariantsHoldsForEveryTokenBeacon() external {
+        uint256[3] memory tokenBeacons = [
+            LibBeaconInvariants.RECEIPT_BEACON_INDEX,
+            LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX,
+            LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX
+        ];
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.beacons(vm, chainIds[i]);
+            address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(chainIds[i]);
+            address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainIds[i]);
+            for (uint256 j = 0; j < tokenBeacons.length; j++) {
+                LibBeaconInvariants.assertBeaconInvariants(
+                    beacons[tokenBeacons[j]],
+                    LibTimelockInvariants.timelockForChainId(chainIds[i]),
+                    impls[tokenBeacons[j]]
+                );
+            }
+            vm.revertToState(snapshot);
+        }
     }
 }
