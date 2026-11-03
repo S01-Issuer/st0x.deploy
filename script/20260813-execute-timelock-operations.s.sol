@@ -9,6 +9,10 @@ import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.29/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -41,7 +45,7 @@ function executeTimelockOperationsDeclaration(uint256 chainId) pure returns (Scr
     return ScriptDeclaration({
         id: LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
         onto: LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL,
-        history: chainId == 8453
+        history: chainId == LibSafeInvariants.BASE_CHAIN_ID
     });
 }
 
@@ -126,5 +130,53 @@ contract ExecuteTimelockOperations is Script, IStoxScript {
 
         console2.log("Executed by:", vm.toString(executor));
         console2.log("That address holds no EXECUTOR_ROLE - execution is permissionless");
+    }
+}
+
+/// @notice The root line already holds this script's record.
+/// @param id The migration id.
+error ExecuteTimelockOperationsRecorded(bytes32 id);
+
+/// @title RecordExecuteTimelockOperations
+/// @notice The record-only Safe bundle that writes
+/// `ExecuteTimelockOperations`'s record on the root line, outside any timelock
+/// batch.
+contract RecordExecuteTimelockOperations is SafeBundleScript {
+    /// @inheritdoc SafeBundleScript
+    function bundleName() internal pure override returns (string memory) {
+        return "ST0x migration record: execute-timelock-operations";
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function artifactPath() internal view virtual override returns (string memory) {
+        return string.concat("out/20260813-execute-timelock-operations-record-", vm.toString(block.chainid), ".json");
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function safe() internal view override returns (Safe) {
+        return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function preflight() internal view override {
+        LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        bytes32 id = LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS;
+        if (LibStoxMigrations.applied(id) != 0) revert ExecuteTimelockOperationsRecorded(id);
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function authorBundle() internal view override returns (SafeTx[] memory txs) {
+        (address registry, bytes memory data) =
+            LibStoxMigrations.recordCall(executeTimelockOperationsDeclaration(block.chainid));
+        txs = new SafeTx[](1);
+        txs[0] = SafeTx({to: registry, value: 0, data: data, operation: Enum.Operation.Call});
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function assertPostState() internal view override {
+        require(
+            LibStoxMigrations.head() == LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
+            "RecordExecuteTimelockOperations: record not at head"
+        );
     }
 }

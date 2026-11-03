@@ -16,6 +16,7 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJ
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.29/src/interface/IMigrationRegistryV5.sol";
 
 /// @notice A previously emitted Tx Builder JSON artifact (parsed via
 /// `LibSafeTxBuilderJson.fromJson`) does not match the bundle the live
@@ -36,12 +37,7 @@ error VerifyExpectedSingleTx(uint256 actualCount);
 /// migration, after the orchestrator admin move.
 /// @return The declaration.
 function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20260619-migrate-multisig-threshold.s.sol"),
-        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        false
-    );
+    return ScriptDeclaration({id: LibStoxMigrations.MULTISIG_THRESHOLD, onto: MIGRATION_HEAD_GENESIS, history: true});
 }
 
 /// @title MigrateMultisigThreshold
@@ -69,7 +65,7 @@ function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration m
 /// while keeping the owner set pinned.
 contract MigrateMultisigThreshold is Script, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return migrateMultisigThresholdDeclaration();
     }
 

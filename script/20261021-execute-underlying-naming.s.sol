@@ -6,6 +6,10 @@ import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.29/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -99,6 +103,62 @@ contract ExecuteUnderlyingNaming is Script, IStoxScript {
         }
         revert NoUnderlyingNamingOperationReady(
             beaconId, controller.isOperationDone(beaconId), renameId, controller.isOperationDone(renameId)
+        );
+    }
+}
+
+/// @notice The rename batch has not executed, so there is nothing to record.
+/// @param renameId The rename batch's operation id.
+error UnderlyingNamingNotExecuted(bytes32 renameId);
+
+/// @notice The root line already holds this script's record.
+/// @param id The migration id.
+error ExecuteUnderlyingNamingRecorded(bytes32 id);
+
+/// @title RecordExecuteUnderlyingNaming
+/// @notice The record-only Safe bundle that writes `ExecuteUnderlyingNaming`'s
+/// record on the root line once the rename batch has executed, outside any
+/// timelock batch.
+contract RecordExecuteUnderlyingNaming is SafeBundleScript {
+    /// @inheritdoc SafeBundleScript
+    function bundleName() internal pure override returns (string memory) {
+        return "ST0x migration record: execute-underlying-naming";
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function artifactPath() internal view virtual override returns (string memory) {
+        return string.concat("out/20261021-execute-underlying-naming-record-", vm.toString(block.chainid), ".json");
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function safe() internal view override returns (Safe) {
+        return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function preflight() internal view override {
+        LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        if (!TimelockController(payable(timelock)).isOperationDone(renameId)) {
+            revert UnderlyingNamingNotExecuted(renameId);
+        }
+        bytes32 id = LibStoxMigrations.EXECUTE_UNDERLYING_NAMING;
+        if (LibStoxMigrations.applied(id) != 0) revert ExecuteUnderlyingNamingRecorded(id);
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function authorBundle() internal view override returns (SafeTx[] memory txs) {
+        (address registry, bytes memory data) = LibStoxMigrations.recordCall(executeUnderlyingNamingDeclaration());
+        txs = new SafeTx[](1);
+        txs[0] = SafeTx({to: registry, value: 0, data: data, operation: Enum.Operation.Call});
+    }
+
+    /// @inheritdoc SafeBundleScript
+    function assertPostState() internal view override {
+        require(
+            LibStoxMigrations.head() == LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
+            "RecordExecuteUnderlyingNaming: record not at head"
         );
     }
 }
