@@ -20,10 +20,10 @@ import {
 } from "rain-deploy-0.1.29/src/generated/0_1_18/TimelockController.sol";
 
 /// @title BuildExpectedState
-/// @notice Writes `expected-state.json`: per deployment network, the state CI asserts live. Each in-use beacon in
-/// `LibBeaconInvariants` index order with its expected implementation and owner (`beacon` is `address(0)` where
-/// `beaconSetDeployer` resolves it), the token-owner Safe with its owner set and threshold, and each production
-/// token's receipt vault with its region-routed authoriser.
+/// @notice Writes `expected-state.json`, the live state the dashboard checks, per deployment network: beacons
+/// (address, codehash, implementation, owner; `address(0)` where `beaconSetDeployer` resolves it), the token-owner
+/// Safe lock-down, the timelock, the orchestrator, the V4 and EU authoriser clones, and each production token's
+/// receipt vault, receipt, wrapped token vault, name, symbol, owner and authoriser.
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
