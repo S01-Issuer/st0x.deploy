@@ -30,7 +30,7 @@ error UnexpectedMigrationLine(bytes32 head);
 /// @param actual The moment the registry answers.
 error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 
-/// @notice After the bundle, the Safe's line does not end at this script's
+/// @notice After the bundle, the root line does not end at this script's
 /// record.
 /// @param head The line's head.
 error LineHeadMismatch(bytes32 head);
