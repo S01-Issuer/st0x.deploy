@@ -8,6 +8,7 @@ import {LibSafe} from "rain-deploy-0.1.29/src/lib/LibSafe.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
+import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -91,6 +92,16 @@ contract BuildExpectedState is Script {
         return vm.serializeUint(at, "minDelay", LibTimelockInvariants.TIMELOCK_MIN_DELAY);
     }
 
+    function orchestratorJson(uint256 chainId, string memory key) internal returns (string memory) {
+        string memory at = string.concat(key, ".orchestrator");
+        vm.serializeAddress(at, "setDeployer", LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30);
+        vm.serializeAddress(at, "beacon", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON);
+        vm.serializeBytes32(at, "beaconCodehash", LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30);
+        vm.serializeAddress(at, "implementation", LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30);
+        vm.serializeAddress(at, "owner", LibTimelockInvariants.timelockForChainId(chainId));
+        return vm.serializeAddress(at, "instance", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+    }
+
     function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
@@ -114,6 +125,7 @@ contract BuildExpectedState is Script {
         vm.serializeString(key, "beacons", beaconsJson(chainId, key));
         vm.serializeString(key, "safe", safeJson(chainId, key));
         vm.serializeString(key, "timelock", timelockJson(chainId, key));
+        vm.serializeString(key, "orchestrator", orchestratorJson(chainId, key));
         vm.serializeString(
             key,
             "authoriser",
