@@ -17,6 +17,7 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.5/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
@@ -226,5 +227,58 @@ contract LibAuthoriserInvariantsTest is Test {
         vm.mockCall(clone, abi.encodeCall(IAccessControl.hasRole, (keccak256("CERTIFY"), signer)), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, keccak256("CERTIFY"), signer));
         assertBaseEuGrants(harness);
+    }
+
+    /// @notice Base's V4 clone with the pinned codehash and the Base map
+    /// passes the focused authoriser bundle.
+    function testAssertAllPassesOnLocalBase() external {
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
+        LibAuthoriserInvariants.assertAll();
+    }
+
+    /// @notice Every chain's pinned EU clone, deployed over the audited
+    /// implementation, passes.
+    function testAssertEuAuthoriserDeployedOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.authorisers(vm, chainIds[i]);
+            LibAuthoriserInvariants.assertEuAuthoriserDeployed(chainIds[i]);
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice Every chain's US clone holding that chain's map passes the
+    /// three-argument grant assertion with that chain's Safe and timelock.
+    function testAssertExpectedGrantsHoldsOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.clearMockedCalls();
+            LibLocalProdState.authorisers(vm, chainIds[i]);
+            LibAuthoriserInvariants.assertExpectedGrants(
+                LibAuthoriserInvariants.authoriserForChainId(chainIds[i]),
+                LibSafeInvariants.safeForChainId(chainIds[i]),
+                LibTimelockInvariants.timelockForChainId(chainIds[i])
+            );
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice Every chain's EU clone holding the EU map passes with that
+    /// chain's timelock as admin holder and the EU minter.
+    function testAssertExpectedEuGrantsHoldsOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.clearMockedCalls();
+            LibLocalProdState.authorisers(vm, chainIds[i]);
+            LibAuthoriserInvariants.assertExpectedEuGrants(
+                LibAuthoriserInvariants.euAuthoriserForChainId(chainIds[i]),
+                LibTimelockInvariants.timelockForChainId(chainIds[i]),
+                LibAuthoriserInvariants.GRANTEE_EU_MINTER
+            );
+            vm.revertToState(snapshot);
+        }
     }
 }
