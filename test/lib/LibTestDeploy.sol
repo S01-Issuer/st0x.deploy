@@ -89,7 +89,13 @@ library LibTestDeploy {
     /// orchestrator initial admin to `admin`.
     function bindOrchestratorInitialAdmin(Vm vm, address admin) internal {
         etchConfigRegistry(vm);
-        bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, "address", abi.encode(admin));
+        bind(
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME,
+            "address",
+            abi.encode(admin)
+        );
     }
 
     /// The pinned clone factory.

@@ -95,7 +95,11 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
         vm.assume(admin != address(0));
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, valueType, abi.encode(admin)
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME,
+            valueType,
+            abi.encode(admin)
         );
         vm.expectRevert(
             abi.encodeWithSelector(
