@@ -91,9 +91,8 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
             vm.toString(vm.addr(LEAD_KEY)),
             vm.toString(OBSERVATION_SIGNER)
         );
-        (StackItem[] memory stack,) = parseAndEval(
-            bytes(rainlang), LibSt0xAttestContext.build(symbol("tAAPL"), float(1), observations())
-        );
+        (StackItem[] memory stack,) =
+            parseAndEval(bytes(rainlang), LibSt0xAttestContext.build(symbol("tAAPL"), float(1), observations()));
         assertTrue(LibDecimalFloat.eq(Float.wrap(StackItem.unwrap(stack[0])), LibDecimalFloat.packLossless(34463, -2)));
     }
 

@@ -238,14 +238,16 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
 
     function testLeadUnderANeighbouringDomainIsRefused() external {
         bytes32[7] memory domains = [
-            MessageHashUtils.toDomainSeparator(bytes1(0x03), "price", "1", 0, address(0), bytes32(0)),
-            MessageHashUtils.toDomainSeparator(bytes1(0x03), "prices", "2", 0, address(0), bytes32(0)),
-            MessageHashUtils.toDomainSeparator(bytes1(0x01), "prices", "", 0, address(0), bytes32(0)),
-            MessageHashUtils.toDomainSeparator(bytes1(0x07), "prices", "1", 0, address(0), bytes32(0)),
-            MessageHashUtils.toDomainSeparator(bytes1(0x07), "prices", "1", block.chainid, address(0), bytes32(0)),
-            MessageHashUtils.toDomainSeparator(bytes1(0x0b), "prices", "1", 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x03), string("price"), string("1"), 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x03), string("prices"), string("2"), 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x01), string("prices"), string(""), 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x07), string("prices"), string("1"), 0, address(0), bytes32(0)),
             MessageHashUtils.toDomainSeparator(
-                bytes1(0x03), "proof-of-reserves.org/prices/alpaca/USD", "1", 0, address(0), bytes32(0)
+                bytes1(0x07), string("prices"), string("1"), block.chainid, address(0), bytes32(0)
+            ),
+            MessageHashUtils.toDomainSeparator(bytes1(0x0b), string("prices"), string("1"), 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(
+                bytes1(0x03), string("proof-of-reserves.org/prices/alpaca/USD"), string("1"), 0, address(0), bytes32(0)
             )
         ];
         for (uint256 i = 0; i < domains.length; i++) {

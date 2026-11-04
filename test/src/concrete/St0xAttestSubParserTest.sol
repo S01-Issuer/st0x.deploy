@@ -124,7 +124,8 @@ abstract contract St0xAttestSubParserTest is Test, BuildWeightingBindings {
     }
 
     function priceDomain() internal pure returns (bytes32) {
-        return MessageHashUtils.toDomainSeparator(bytes1(0x03), "prices", "1", 0, address(0), bytes32(0));
+        return
+            MessageHashUtils.toDomainSeparator(bytes1(0x03), string("prices"), string("1"), 0, address(0), bytes32(0));
     }
 
     /// The EIP-712 digest of a `SignedContextV2` by `account` over `context`
