@@ -16,6 +16,7 @@ import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
 } from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
+import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "./LibProdTokenConfig.sol";
@@ -58,13 +59,17 @@ library LibProdTokenTargets {
     }
 
     function tokenDependencies() internal pure returns (DeployDependency[] memory) {
-        DeployDependency[] memory dependencies = new DeployDependency[](3);
+        DeployDependency[] memory dependencies = new DeployDependency[](4);
         dependencies[0] =
             DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
         dependencies[1] =
             DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
         dependencies[2] = DeployDependency({
             deployedAddress: vaultBeacon(), runtimeCode: V4.STOX_RECEIPT_VAULT_BEACON_RUNTIME_CODE_CANDIDATE
+        });
+        dependencies[3] = DeployDependency({
+            deployedAddress: LibProdDeployCurrent.STOX_RECEIPT_BEACON,
+            runtimeCode: V4.STOX_RECEIPT_BEACON_RUNTIME_CODE_CANDIDATE
         });
         return dependencies;
     }
