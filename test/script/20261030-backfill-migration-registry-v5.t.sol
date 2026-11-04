@@ -12,6 +12,7 @@ import {DEPLOYED_ADDRESS as REGISTRY_V2} from "rain-deploy-0.1.30/src/generated/
 import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
@@ -22,106 +23,165 @@ import {
     BackfillV5OrderMismatch,
     BackfillV5RecordMismatch,
     BackfillV5RecordMissing,
-    GovernanceTimelockMomentMismatch,
+    HistoryMomentMismatch,
     UnexpectedRegistryV2CodeHash,
     UnexpectedRegistryV2Line,
     UnexpectedRegistryV2Order,
+    V2_EU_AUTHORISER_GRANT_AND_HANDOVER,
+    V2_RBAC_NAMESPACE,
     backfillMigrationRegistryV5Declaration
 } from "../../script/20261030-backfill-migration-registry-v5.s.sol";
-import {grantEuAuthoriserRolesDeclaration} from "../../script/20261006-grant-eu-authoriser-roles.s.sol";
-import {grantOrchestratorEmergencyDeclaration} from "../../script/20261006-grant-orchestrator-emergency.s.sol";
-import {migrateGovernanceToTimelockDeclaration} from "../../script/20260729-migrate-governance-to-timelock.s.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
-import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
-import {LibRbacMigration} from "../../src/lib/LibRbacMigration.sol";
+import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
+import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
+struct LineRecord {
+    bytes32 id;
+    bool history;
+}
+
+struct V2Record {
+    bytes32 id;
+    bytes32 v2Namespace;
+    bytes32 v2Id;
+}
+
 /// @title BackfillMigrationRegistryV5Test
-/// @notice Per network: the bundle replays the Safe's V2 records onto V5 at
-/// their V2 moments and onto their V2 predecessors, skips what V5 holds, and
-/// ends with its own record onto `ORCHESTRATOR_EMERGENCY`; the script refuses
-/// a V2 state other than the one it carries over.
+/// @notice Per chain: the bundle writes the chain's records onto the root line
+/// in line order, each history record at its script's moment, the rehearsal
+/// records record-only off Base, skips what V5 holds, and ends with its own
+/// record; the script refuses a V2 state or a line it does not carry over.
 contract BackfillMigrationRegistryV5Test is Test {
     IMigrationRegistryV2 internal constant V2 = IMigrationRegistryV2(REGISTRY_V2);
-    IMigrationRegistryV5 internal constant V5 =
-        IMigrationRegistryV5(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+    address internal constant V5 = LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS;
+    address internal constant ROOT = LibRegistryAuthority.ROOT_AUTHORITY;
+    bytes32 internal constant NS = LibStoxMigrations.NAMESPACE;
+    bytes32 internal constant OWN = LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
+    bytes32 internal constant OTHER = keccak256("some other migration");
 
-    function v2Records() internal pure returns (ScriptDeclaration[] memory) {
-        ScriptDeclaration[] memory all = new ScriptDeclaration[](3);
-        all[0] = migrateGovernanceToTimelockDeclaration();
-        all[1] = grantOrchestratorEmergencyDeclaration();
-        all[2] = grantEuAuthoriserRolesDeclaration();
+    function line(uint256 chainId) internal pure returns (LineRecord[] memory) {
+        LineRecord[] memory all = new LineRecord[](7);
+        all[0] = LineRecord(LibStoxMigrations.MULTISIG_THRESHOLD, true);
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            all[1] = LineRecord(LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE, true);
+            all[2] = LineRecord(LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, true);
+            all[3] = LineRecord(LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS, true);
+            all[4] = LineRecord(LibStoxMigrations.GOVERNANCE_TIMELOCK, true);
+            all[5] = LineRecord(LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, true);
+            all[6] = LineRecord(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, true);
+        } else {
+            all[1] = LineRecord(LibStoxMigrations.GOVERNANCE_TIMELOCK, true);
+            all[2] = LineRecord(LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, true);
+            all[3] = LineRecord(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, true);
+            all[4] = LineRecord(LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE, false);
+            all[5] = LineRecord(LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, false);
+            all[6] = LineRecord(LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS, false);
+        }
         return all;
     }
 
-    function v2Moment(address safe, ScriptDeclaration memory declared) internal view returns (uint256) {
-        return V2.applied(safe, declared.namespace, declared.id);
+    function v2Records() internal pure returns (V2Record[] memory) {
+        V2Record[] memory all = new V2Record[](3);
+        all[0] = V2Record(LibStoxMigrations.GOVERNANCE_TIMELOCK, NS, LibStoxMigrations.GOVERNANCE_TIMELOCK);
+        all[1] =
+            V2Record(LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, V2_RBAC_NAMESPACE, V2_EU_AUTHORISER_GRANT_AND_HANDOVER);
+        all[2] = V2Record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, NS, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
+        return all;
     }
 
-    function v5Moment(address safe, ScriptDeclaration memory declared) internal view returns (uint256) {
-        return LibMigrationRegistry.appliedV5(safe, declared.namespace, declared.id);
+    function ontoAt(LineRecord[] memory all, uint256 i) internal pure returns (bytes32) {
+        return i == 0 ? MIGRATION_HEAD_GENESIS : all[i - 1].id;
     }
 
-    function historyData(address safe, bytes32 namespace, bytes32 id, uint256 at, bytes32 onto)
+    function momentOf(BackfillMigrationRegistryV5Harness script, bytes32 id) internal view returns (uint256) {
+        return IStoxHistoryMigration(script.scriptOf(id)).executedAt(block.chainid);
+    }
+
+    function historyData(bytes32 id, uint256 at, bytes32 onto) internal pure returns (bytes memory) {
+        return abi.encodeCall(
+            IMigrationRegistryV5.applyMigrationHistoryV5, (ROOT, NS, id, at, LibMigrationRegistry.onto(ROOT, NS, onto), "")
+        );
+    }
+
+    function recordData(bytes32 id, bytes32 onto) internal pure returns (bytes memory) {
+        return abi.encodeCall(
+            IMigrationRegistryV5.applyMigrationV5, (ROOT, NS, id, LibMigrationRegistry.onto(ROOT, NS, onto), "")
+        );
+    }
+
+    /// @dev The bundle once V5 holds the line's first `held` records.
+    function expectedBundle(BackfillMigrationRegistryV5Harness script, uint256 held)
         internal
-        pure
-        returns (bytes memory)
+        view
+        returns (bytes[] memory)
     {
-        return abi.encodeCall(
-            IMigrationRegistryV5.applyMigrationHistoryV5,
-            (safe, namespace, id, at, LibMigrationRegistry.onto(safe, namespace, onto), "")
-        );
+        LineRecord[] memory all = line(block.chainid);
+        bytes[] memory expected = new bytes[](all.length - held + 1);
+        for (uint256 i = held; i < all.length; i++) {
+            expected[i - held] = all[i].history
+                ? historyData(all[i].id, momentOf(script, all[i].id), ontoAt(all, i))
+                : recordData(all[i].id, ontoAt(all, i));
+        }
+        expected[expected.length - 1] = recordData(OWN, all[all.length - 1].id);
+        return expected;
     }
 
-    function ownData(address safe) internal pure returns (bytes memory) {
-        return abi.encodeCall(
-            IMigrationRegistryV5.applyMigrationV5,
-            (
-                safe,
-                LibStoxMigrations.NAMESPACE,
-                LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
-                LibMigrationRegistry.onto(safe, LibStoxMigrations.NAMESPACE, LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
-                ""
-            )
-        );
+    function assertBundle(SafeTx[] memory txs, bytes[] memory expected) internal pure {
+        assertEq(txs.length, expected.length, "bundle length");
+        for (uint256 i = 0; i < txs.length; i++) {
+            assertEq(txs[i].to, V5, "to the V5 registry");
+            assertEq(txs[i].value, 0, "no value");
+            assertEq(uint8(txs[i].operation), uint8(Enum.Operation.Call), "call");
+            assertEq(txs[i].data, expected[i], "calldata");
+        }
     }
 
-    function holdOnV5(address safe, ScriptDeclaration memory declared, uint256 at) internal {
-        holdOnV5Onto(safe, declared.namespace, declared.id, at, declared.prerequisites[0].migration);
-    }
-
-    function holdOnV5Onto(address safe, bytes32 namespace, bytes32 migration, uint256 at, bytes32 onto) internal {
+    function holdAt(address safe, bytes32 id, uint256 at, bytes32 onto) internal {
         vm.prank(safe);
-        V5.applyMigrationHistoryV5(safe, namespace, migration, at, LibMigrationRegistry.onto(safe, namespace, onto), "");
+        IMigrationRegistryV5(V5).applyMigrationHistoryV5(ROOT, NS, id, at, LibMigrationRegistry.onto(ROOT, NS, onto), "");
     }
 
-    function assertReplayed(address safe) internal view {
-        ScriptDeclaration[] memory all = v2Records();
+    /// @dev V5 holds the line's first `held` records as the bundle writes them.
+    function holdPrefix(BackfillMigrationRegistryV5Harness script, address safe, uint256 held) internal {
+        LineRecord[] memory all = line(block.chainid);
+        for (uint256 i = 0; i < held; i++) {
+            if (all[i].history) holdAt(safe, all[i].id, momentOf(script, all[i].id), ontoAt(all, i));
+            else LibTestRootLine.write(vm, safe, all[i].id, ontoAt(all, i));
+        }
+    }
+
+    function assertLine(BackfillMigrationRegistryV5Harness script, address safe) internal view {
+        LineRecord[] memory all = line(block.chainid);
         for (uint256 i = 0; i < all.length; i++) {
-            ScriptDeclaration memory declared = all[i];
-            uint256 v2At = v2Moment(safe, declared);
-            assertTrue(v2At != 0, "V2 holds the record");
-            assertEq(v5Moment(safe, declared), v2At, "V5 moment is the V2 moment");
+            uint256 at = LibStoxMigrations.applied(all[i].id);
+            assertTrue(at != 0, "V5 holds the record");
+            if (all[i].history) assertEq(at, momentOf(script, all[i].id), "history at its script's moment");
+            assertEq(LibMigrationRegistry.appliedOntoV5(ROOT, NS, all[i].id), ontoAt(all, i), "onto the line");
+            assertEq(LibMigrationRegistry.appliedByV5(ROOT, NS, all[i].id), safe, "written by the Safe");
+        }
+        V2Record[] memory v2 = v2Records();
+        for (uint256 i = 0; i < v2.length; i++) {
             assertEq(
-                LibMigrationRegistry.appliedOntoV5(safe, declared.namespace, declared.id),
-                V2.appliedOnto(safe, declared.namespace, declared.id),
-                "V5 predecessor is the V2 predecessor"
-            );
-            assertEq(
-                LibMigrationRegistry.appliedByV5(safe, declared.namespace, declared.id), safe, "written by the Safe"
+                LibStoxMigrations.applied(v2[i].id),
+                V2.applied(safe, v2[i].v2Namespace, v2[i].v2Id),
+                "V5 moment is the V2 moment"
             );
         }
-        bytes32 own = LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
-        assertTrue(LibStoxMigrations.applied(safe, own) != 0, "own record");
-        assertEq(
-            LibMigrationRegistry.appliedOntoV5(safe, LibStoxMigrations.NAMESPACE, own),
-            LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
-            "own record onto the V2 deploy-line tail"
-        );
-        assertEq(LibMigrationRegistry.appliedByV5(safe, LibStoxMigrations.NAMESPACE, own), safe, "own record by Safe");
+        assertTrue(LibStoxMigrations.applied(OWN) != 0, "own record");
+        assertEq(LibMigrationRegistry.appliedOntoV5(ROOT, NS, OWN), all[all.length - 1].id, "own record last");
+        assertEq(LibMigrationRegistry.appliedByV5(ROOT, NS, OWN), safe, "own record by the Safe");
+    }
+
+    function spent() internal view returns (bool) {
+        if (LibStoxMigrations.applied(OWN) != 0) {
+            console2.log("SPENT: the V5 backfill has executed on this chain");
+            return true;
+        }
+        return false;
     }
 
     function assertBackfill(string memory network) internal {
@@ -129,38 +189,36 @@ contract BackfillMigrationRegistryV5Test is Test {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         BackfillMigrationRegistryV5Harness script = new BackfillMigrationRegistryV5Harness(network);
 
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5) != 0) {
-            console2.log(string.concat("EXECUTED [", network, "]: asserting the replayed state"));
-            assertReplayed(safe);
-            assertEq(script.callAuthorBundle().length, 0, "nothing left to replay");
+        if (spent()) {
+            assertLine(script, safe);
+            assertEq(script.callAuthorBundle().length, 0, "nothing left to write");
             script.callAssertPostState();
             return;
         }
 
-        console2.log(string.concat("PENDING [", network, "]: authoring, verifying and executing the bundle"));
+        assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS, "root line starts at genesis");
+        assertBundle(script.callAuthorBundle(), expectedBundle(script, 0));
+
         uint256 preRun = vm.snapshotState();
         script.run();
         vm.revertToState(preRun);
 
         string memory artifactPath = script.callArtifactPath();
+        string memory json = vm.readFile(artifactPath);
+        assertEq(vm.parseJsonString(json, ".meta.name"), "ST0x: backfill MigrationRegistry V5 root line");
         script.verify(artifactPath);
 
-        (, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(artifactPath));
+        (, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, json);
         assertEq(artifactSafe, safe, "artifact Safe");
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
-        assertReplayed(safe);
-        assertEq(
-            LibStoxMigrations.applied(safe, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5),
-            block.timestamp,
-            "own record moment"
-        );
-        assertEq(LibStoxMigrations.head(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, "deploy line head");
-        assertEq(
-            LibMigrationRegistry.headV5(safe, LibRbacMigration.STOX_RBAC_NAMESPACE),
-            LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER,
-            "rbac line head"
-        );
+        assertLine(script, safe);
+        LineRecord[] memory all = line(block.chainid);
+        for (uint256 i = 0; i < all.length; i++) {
+            if (!all[i].history) assertEq(LibStoxMigrations.applied(all[i].id), block.timestamp, "record-only, live");
+        }
+        assertEq(LibStoxMigrations.applied(OWN), block.timestamp, "own record live");
+        assertEq(LibStoxMigrations.head(), OWN, "root line head");
         assertEq(script.callAuthorBundle().length, 0, "re-authoring after execution is empty");
         script.callAssertPostState();
     }
@@ -185,138 +243,114 @@ contract BackfillMigrationRegistryV5Test is Test {
         assertBackfill(LibStoxDeployNetworks.BSC);
     }
 
+    function setUpFork(string memory network) internal returns (BackfillMigrationRegistryV5Harness, address) {
+        vm.createSelectFork(network);
+        return (new BackfillMigrationRegistryV5Harness(network), LibSafeInvariants.safeForChainId(block.chainid));
+    }
+
     function setUpBase() internal returns (BackfillMigrationRegistryV5Harness, address) {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        return (new BackfillMigrationRegistryV5Harness("refusal"), LibSafeInvariants.safeForChainId(block.chainid));
+        return setUpFork(LibRainDeploy.BASE);
     }
 
-    /// @notice The bundle and post-state tests need V5 before the backfill.
-    function spent(address safe) internal view returns (bool) {
-        if (LibStoxMigrations.applied(safe, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5) != 0) {
-            console2.log("SPENT: the V5 backfill has executed on this chain");
-            return true;
+    function assertBundleSkipsHeldRecords(string memory network) internal {
+        (BackfillMigrationRegistryV5Harness script, address safe) = setUpFork(network);
+        if (spent()) return;
+        uint256 count = line(block.chainid).length;
+        for (uint256 held = 0; held <= count; held++) {
+            uint256 snapshot = vm.snapshotState();
+            holdPrefix(script, safe, held);
+            assertBundle(script.callAuthorBundle(), expectedBundle(script, held));
+            vm.revertToState(snapshot);
         }
-        return false;
-    }
-
-    function testBundleIsTheV2RecordsInLineOrderThenOwnRecord() external {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        bytes32 ns = LibStoxMigrations.NAMESPACE;
-        bytes32 rbac = LibRbacMigration.STOX_RBAC_NAMESPACE;
-        bytes32 gov = LibStoxMigrations.GOVERNANCE_TIMELOCK;
-        bytes32 emergency = LibStoxMigrations.ORCHESTRATOR_EMERGENCY;
-        bytes32 eu = LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER;
-        bytes[] memory expected = new bytes[](4);
-        expected[0] = historyData(safe, ns, gov, V2.applied(safe, ns, gov), MIGRATION_HEAD_GENESIS);
-        expected[1] = historyData(safe, ns, emergency, V2.applied(safe, ns, emergency), gov);
-        expected[2] = historyData(safe, rbac, eu, V2.applied(safe, rbac, eu), MIGRATION_HEAD_GENESIS);
-        expected[3] = ownData(safe);
-
-        SafeTx[] memory txs = script.callAuthorBundle();
-        assertEq(txs.length, expected.length, "bundle length");
-        for (uint256 i = 0; i < txs.length; i++) {
-            assertEq(txs[i].to, address(V5), "to the V5 registry");
-            assertEq(txs[i].value, 0, "no value");
-            assertEq(uint8(txs[i].operation), uint8(Enum.Operation.Call), "call");
-            assertEq(txs[i].data, expected[i], "calldata");
-        }
-    }
-
-    function testBundleSkipsRecordsV5Holds() external {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        ScriptDeclaration memory gov = migrateGovernanceToTimelockDeclaration();
-        ScriptDeclaration memory eu = grantEuAuthoriserRolesDeclaration();
-        holdOnV5(safe, gov, v2Moment(safe, gov));
-        holdOnV5(safe, eu, v2Moment(safe, eu));
-
-        SafeTx[] memory txs = script.callAuthorBundle();
-        ScriptDeclaration memory emergency = grantOrchestratorEmergencyDeclaration();
-        assertEq(txs.length, 2, "only what V5 lacks");
-        assertEq(
-            txs[0].data,
-            historyData(safe, emergency.namespace, emergency.id, v2Moment(safe, emergency), gov.id),
-            "emergency replayed"
-        );
-        assertEq(txs[1].data, ownData(safe), "own record");
-
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
-        assertReplayed(safe);
-        script.callAssertPostState();
-    }
-
-    function testBundleIsOwnRecordOnceV5HoldsEveryV2Record() external {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        ScriptDeclaration[] memory all = v2Records();
-        for (uint256 i = 0; i < all.length; i++) {
-            holdOnV5(safe, all[i], v2Moment(safe, all[i]));
-        }
-        SafeTx[] memory txs = script.callAuthorBundle();
-        assertEq(txs.length, 1, "own record only");
-        assertEq(txs[0].data, ownData(safe), "own record");
-    }
-
-    function testSkippedRecordAtAnotherMomentFailsPostState() external {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        ScriptDeclaration memory gov = migrateGovernanceToTimelockDeclaration();
-        uint256 v2At = v2Moment(safe, gov);
-        holdOnV5(safe, gov, v2At - 1);
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
-        vm.expectRevert(abi.encodeWithSelector(BackfillV5RecordMismatch.selector, gov.id, v2At, v2At - 1));
-        script.callAssertPostState();
-    }
-
-    /// @dev V5 holds record `index` at its V2 moment, onto another record that
-    /// sits where its V2 predecessor should.
-    function assertSkippedRecordOntoAnotherPredecessorFailsPostState(uint256 index) internal {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        ScriptDeclaration[] memory all = v2Records();
-        ScriptDeclaration memory declared = all[index];
-        for (uint256 i = 0; i < index; i++) {
-            if (all[i].namespace == declared.namespace) holdOnV5(safe, all[i], v2Moment(safe, all[i]));
-        }
-        bytes32 other = keccak256("some other migration");
-        uint256 v2At = v2Moment(safe, declared);
-        holdOnV5Onto(safe, declared.namespace, other, v2At, declared.prerequisites[0].migration);
-        holdOnV5Onto(safe, declared.namespace, declared.id, v2At, other);
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
-        assertEq(v5Moment(safe, declared), v2At, "V5 moment is the V2 moment");
-        vm.expectRevert(abi.encodeWithSelector(BackfillV5OrderMismatch.selector, declared.id, other));
-        script.callAssertPostState();
-    }
-
-    function testSkippedGovernanceTimelockOntoAnotherPredecessorFailsPostState() external {
-        assertSkippedRecordOntoAnotherPredecessorFailsPostState(0);
-    }
-
-    function testSkippedOrchestratorEmergencyOntoAnotherPredecessorFailsPostState() external {
-        assertSkippedRecordOntoAnotherPredecessorFailsPostState(1);
-    }
-
-    function testSkippedEuAuthoriserGrantOntoAnotherPredecessorFailsPostState() external {
-        assertSkippedRecordOntoAnotherPredecessorFailsPostState(2);
-    }
-
-    function testOwnRecordOntoAnotherRecordFailsPostState() external {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        ScriptDeclaration[] memory all = v2Records();
-        for (uint256 i = 0; i < all.length; i++) {
-            holdOnV5(safe, all[i], v2Moment(safe, all[i]));
-        }
-        bytes32 own = LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
-        bytes32 other = keccak256("some other migration");
-        holdOnV5Onto(
-            safe, LibStoxMigrations.NAMESPACE, other, block.timestamp, LibStoxMigrations.ORCHESTRATOR_EMERGENCY
-        );
-        holdOnV5Onto(safe, LibStoxMigrations.NAMESPACE, own, block.timestamp, other);
+        holdPrefix(script, safe, count);
+        LibTestRootLine.write(vm, safe, OWN, line(block.chainid)[count - 1].id);
         assertEq(script.callAuthorBundle().length, 0, "V5 holds every record");
-        vm.expectRevert(abi.encodeWithSelector(BackfillV5OrderMismatch.selector, own, other));
         script.callAssertPostState();
+    }
+
+    function testBundleSkipsRecordsV5HoldsBase() external {
+        assertBundleSkipsHeldRecords(LibRainDeploy.BASE);
+    }
+
+    function testBundleSkipsRecordsV5HoldsEthereum() external {
+        assertBundleSkipsHeldRecords(LibStoxDeployNetworks.ETHEREUM);
+    }
+
+    function testDeclarationIsLiveOntoTheChainsLastBackfilledRecord() external {
+        BackfillMigrationRegistryV5Harness script = new BackfillMigrationRegistryV5Harness("declaration");
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < networks.length; i++) {
+            uint256 chainId = networks[i].chainId;
+            ScriptDeclaration memory declared = backfillMigrationRegistryV5Declaration(chainId);
+            assertEq(declared.id, OWN, "id is the script path");
+            assertFalse(declared.history, "recorded live");
+            assertEq(
+                declared.onto,
+                chainId == LibSafeInvariants.BASE_CHAIN_ID
+                    ? LibStoxMigrations.ORCHESTRATOR_EMERGENCY
+                    : LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
+                "onto the chain's last backfilled record"
+            );
+            LineRecord[] memory all = line(chainId);
+            assertEq(declared.onto, all[all.length - 1].id, "after the backfilled line");
+            ScriptDeclaration memory viaScript = script.declaration(chainId);
+            assertEq(viaScript.id, declared.id, "script declaration id");
+            assertEq(viaScript.onto, declared.onto, "script declaration onto");
+            assertEq(viaScript.history, declared.history, "script declaration history");
+        }
+    }
+
+    function testPreflightRefusesAHistoryMomentBeforeThePreviousRecord() external {
+        (BackfillMigrationRegistryV5Harness script,) = setUpBase();
+        uint256 thresholdAt = momentOf(script, LibStoxMigrations.MULTISIG_THRESHOLD);
+        vm.mockCall(
+            script.scriptOf(LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE),
+            abi.encodeCall(IStoxHistoryMigration.executedAt, (block.chainid)),
+            abi.encode(thresholdAt - 1)
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UnexpectedRegistryV2Order.selector,
+                LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE,
+                LibStoxMigrations.MULTISIG_THRESHOLD
+            )
+        );
+        script.callPreflight();
+    }
+
+    function testPreflightAcceptsAHistoryMomentEqualToThePreviousRecord() external {
+        (BackfillMigrationRegistryV5Harness script,) = setUpBase();
+        vm.mockCall(
+            script.scriptOf(LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE),
+            abi.encodeCall(IStoxHistoryMigration.executedAt, (block.chainid)),
+            abi.encode(momentOf(script, LibStoxMigrations.MULTISIG_THRESHOLD))
+        );
+        script.callPreflight();
+    }
+
+    function testPreflightRefusesARecordDeclaredOntoAnotherThanThePreviousRecord() external {
+        (BackfillMigrationRegistryV5Harness script,) = setUpBase();
+        vm.mockCall(
+            script.scriptOf(LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL),
+            abi.encodeCall(IStoxScript.declaration, (block.chainid)),
+            abi.encode(ScriptDeclaration({id: LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, onto: OTHER, history: true}))
+        );
+        vm.expectRevert(
+            abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, OTHER)
+        );
+        script.callPreflight();
+    }
+
+    function testPreflightRefusesALineEndingElsewhereThanOwnRecordIsDeclaredOnto() external {
+        (BackfillMigrationRegistryV5Harness script,) = setUpBase();
+        vm.mockCall(
+            script.scriptOf(LibStoxMigrations.ORCHESTRATOR_EMERGENCY),
+            abi.encodeCall(IStoxScript.declaration, (block.chainid)),
+            abi.encode(ScriptDeclaration({id: OTHER, onto: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, history: true}))
+        );
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, OWN, OTHER));
+        script.callPreflight();
     }
 
     function testRefusesUnpinnedRegistryV2Code() external {
@@ -328,84 +362,75 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function testRefusesUnexpectedV2DeployHead() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        bytes32 other = keccak256("some other migration");
-        vm.mockCall(
-            REGISTRY_V2,
-            abi.encodeCall(IMigrationRegistryV2.head, (safe, LibStoxMigrations.NAMESPACE)),
-            abi.encode(other)
-        );
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2Line.selector, LibStoxMigrations.NAMESPACE, other));
+        vm.mockCall(REGISTRY_V2, abi.encodeCall(IMigrationRegistryV2.head, (safe, NS)), abi.encode(OTHER));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2Line.selector, NS, OTHER));
         script.callPreflight();
     }
 
     function testRefusesUnexpectedV2RbacHead() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        bytes32 other = keccak256("some other migration");
         vm.mockCall(
-            REGISTRY_V2,
-            abi.encodeCall(IMigrationRegistryV2.head, (safe, LibRbacMigration.STOX_RBAC_NAMESPACE)),
-            abi.encode(other)
+            REGISTRY_V2, abi.encodeCall(IMigrationRegistryV2.head, (safe, V2_RBAC_NAMESPACE)), abi.encode(OTHER)
         );
-        vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedRegistryV2Line.selector, LibRbacMigration.STOX_RBAC_NAMESPACE, other)
-        );
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2Line.selector, V2_RBAC_NAMESPACE, OTHER));
         script.callPreflight();
     }
 
-    function assertRefusesV2Order(ScriptDeclaration memory declared) internal {
+    function assertRefusesV2Order(uint256 index) internal {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        bytes32 other = keccak256("some other migration");
+        V2Record memory record = v2Records()[index];
         vm.mockCall(
             REGISTRY_V2,
-            abi.encodeCall(IMigrationRegistryV2.appliedOnto, (safe, declared.namespace, declared.id)),
-            abi.encode(other)
+            abi.encodeCall(IMigrationRegistryV2.appliedOnto, (safe, record.v2Namespace, record.v2Id)),
+            abi.encode(OTHER)
         );
-        bytes memory refusal = abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, declared.id, other);
+        bytes memory refusal = abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, record.v2Id, OTHER);
         vm.expectRevert(refusal);
         script.callPreflight();
+        if (spent()) return;
         vm.expectRevert(refusal);
         script.callAuthorBundle();
     }
 
     function testRefusesGovernanceTimelockOutOfV2Order() external {
-        assertRefusesV2Order(migrateGovernanceToTimelockDeclaration());
-    }
-
-    function testRefusesOrchestratorEmergencyOutOfV2Order() external {
-        assertRefusesV2Order(grantOrchestratorEmergencyDeclaration());
+        assertRefusesV2Order(0);
     }
 
     function testRefusesEuAuthoriserGrantOutOfV2Order() external {
-        assertRefusesV2Order(grantEuAuthoriserRolesDeclaration());
+        assertRefusesV2Order(1);
     }
 
-    function testRefusesTheFirstRecordOutOfV2OrderInLineOrder() external {
+    function testRefusesOrchestratorEmergencyOutOfV2Order() external {
+        assertRefusesV2Order(2);
+    }
+
+    function assertRefusesV2MomentMismatch(uint256 index) internal {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        bytes32 other = keccak256("some other migration");
-        ScriptDeclaration[] memory all = v2Records();
-        for (uint256 i = 0; i < all.length; i++) {
-            vm.mockCall(
-                REGISTRY_V2,
-                abi.encodeCall(IMigrationRegistryV2.appliedOnto, (safe, all[i].namespace, all[i].id)),
-                abi.encode(other)
-            );
-        }
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, all[0].id, other));
+        V2Record memory record = v2Records()[index];
+        uint256 at = momentOf(script, record.id);
+        vm.mockCall(
+            REGISTRY_V2,
+            abi.encodeCall(IMigrationRegistryV2.applied, (safe, record.v2Namespace, record.v2Id)),
+            abi.encode(at + 1)
+        );
+        bytes memory refusal = abi.encodeWithSelector(HistoryMomentMismatch.selector, record.id, at, at + 1);
+        vm.expectRevert(refusal);
         script.callPreflight();
+        if (spent()) return;
+        vm.expectRevert(refusal);
+        script.callAuthorBundle();
     }
 
     function testRefusesGovernanceTimelockMomentMismatch() external {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        (uint256 pinned,) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
-        vm.mockCall(
-            REGISTRY_V2,
-            abi.encodeCall(
-                IMigrationRegistryV2.applied, (safe, LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK)
-            ),
-            abi.encode(pinned + 1)
-        );
-        vm.expectRevert(abi.encodeWithSelector(GovernanceTimelockMomentMismatch.selector, pinned, pinned + 1));
-        script.callPreflight();
+        assertRefusesV2MomentMismatch(0);
+    }
+
+    function testRefusesEuAuthoriserGrantMomentMismatch() external {
+        assertRefusesV2MomentMismatch(1);
+    }
+
+    function testRefusesOrchestratorEmergencyMomentMismatch() external {
+        assertRefusesV2MomentMismatch(2);
     }
 
     function testPreflightRefusesSafeOffPolicy() external {
@@ -436,20 +461,19 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function testVerifyRefusesTamperedArtifact() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
+        if (spent()) return;
         string memory json =
             LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, "tamper test", script.callAuthorBundle());
         string memory cleanPath =
             string.concat("out/20261030-backfill-migration-registry-v5-clean-", vm.toString(block.chainid), ".json");
         vm.writeFile(cleanPath, json);
         script.verify(cleanPath);
-        bytes32 rbac = LibRbacMigration.STOX_RBAC_NAMESPACE;
-        bytes32 eu = LibRbacMigration.EU_AUTHORISER_GRANT_AND_HANDOVER;
-        uint256 euAt = V2.applied(safe, rbac, eu);
+        bytes32 threshold = LibStoxMigrations.MULTISIG_THRESHOLD;
+        uint256 at = momentOf(script, threshold);
         string memory tampered = vm.replace(
             json,
-            vm.toString(historyData(safe, rbac, eu, euAt, MIGRATION_HEAD_GENESIS)),
-            vm.toString(historyData(safe, rbac, eu, euAt - 1, MIGRATION_HEAD_GENESIS))
+            vm.toString(historyData(threshold, at, MIGRATION_HEAD_GENESIS)),
+            vm.toString(historyData(threshold, at - 1, MIGRATION_HEAD_GENESIS))
         );
         assertTrue(keccak256(bytes(tampered)) != keccak256(bytes(json)), "tamper did not apply");
         string memory tamperedPath =
@@ -459,64 +483,69 @@ contract BackfillMigrationRegistryV5Test is Test {
         script.verify(tamperedPath);
     }
 
-    function testPostStateRefusesUnreplayedRecord() external {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                BackfillV5RecordMismatch.selector,
-                LibStoxMigrations.GOVERNANCE_TIMELOCK,
-                V2.applied(safe, LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK),
-                0
-            )
-        );
+    function testPostStateRefusesUnwrittenLine() external {
+        (BackfillMigrationRegistryV5Harness script,) = setUpBase();
+        if (spent()) return;
+        vm.expectRevert(abi.encodeWithSelector(BackfillV5RecordMissing.selector, LibStoxMigrations.MULTISIG_THRESHOLD));
         script.callAssertPostState();
     }
 
-    /// @dev Record `index` replayed one second before its V2 moment is refused.
-    function assertPostStateRefusesMisreplayed(uint256 index) internal {
+    function testPostStateRefusesHeldHistoryAtAnotherMoment() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        ScriptDeclaration memory declared = v2Records()[index];
-        SafeTx[] memory txs = script.callAuthorBundle();
-        uint256 v2At = v2Moment(safe, declared);
-        txs[index].data =
-            historyData(safe, declared.namespace, declared.id, v2At - 1, declared.prerequisites[0].migration);
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
-        vm.expectRevert(abi.encodeWithSelector(BackfillV5RecordMismatch.selector, declared.id, v2At, v2At - 1));
+        if (spent()) return;
+        LineRecord[] memory all = line(block.chainid);
+        holdPrefix(script, safe, 4);
+        bytes32 gov = LibStoxMigrations.GOVERNANCE_TIMELOCK;
+        uint256 at = momentOf(script, gov);
+        holdAt(safe, gov, at - 1, all[3].id);
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
+        vm.expectRevert(abi.encodeWithSelector(BackfillV5RecordMismatch.selector, gov, at, at - 1));
         script.callAssertPostState();
     }
 
-    function testPostStateRefusesMisreplayedGovernanceTimelock() external {
-        assertPostStateRefusesMisreplayed(0);
-    }
-
-    function testPostStateRefusesMisreplayedOrchestratorEmergency() external {
-        assertPostStateRefusesMisreplayed(1);
-    }
-
-    function testPostStateRefusesMisreplayedEuAuthoriserGrant() external {
-        assertPostStateRefusesMisreplayed(2);
+    function testPostStateRefusesHeldRecordOntoAnotherPredecessor() external {
+        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        LineRecord[] memory all = line(block.chainid);
+        holdPrefix(script, safe, 4);
+        bytes32 gov = LibStoxMigrations.GOVERNANCE_TIMELOCK;
+        uint256 at = momentOf(script, gov);
+        holdAt(safe, OTHER, at, all[3].id);
+        holdAt(safe, gov, at, OTHER);
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
+        assertEq(LibStoxMigrations.applied(gov), at, "V5 moment is the script's moment");
+        vm.expectRevert(abi.encodeWithSelector(BackfillV5OrderMismatch.selector, gov, OTHER));
+        script.callAssertPostState();
     }
 
     function testPostStateRefusesMissingOwnRecord() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
+        if (spent()) return;
         SafeTx[] memory txs = script.callAuthorBundle();
         SafeTx[] memory history = new SafeTx[](txs.length - 1);
         for (uint256 i = 0; i < history.length; i++) {
             history[i] = txs[i];
         }
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), history);
-        vm.expectRevert(
-            abi.encodeWithSelector(BackfillV5RecordMissing.selector, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5)
-        );
+        vm.expectRevert(abi.encodeWithSelector(BackfillV5RecordMissing.selector, OWN));
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesOwnRecordOntoAnotherRecord() external {
+        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
+        if (spent()) return;
+        uint256 count = line(block.chainid).length;
+        holdPrefix(script, safe, count);
+        LibTestRootLine.write(vm, safe, OTHER, line(block.chainid)[count - 1].id);
+        LibTestRootLine.write(vm, safe, OWN, OTHER);
+        assertEq(script.callAuthorBundle().length, 0, "V5 holds every record");
+        vm.expectRevert(abi.encodeWithSelector(BackfillV5OrderMismatch.selector, OWN, OTHER));
         script.callAssertPostState();
     }
 
     function testPostStateRefusesSafeOffPolicy() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
+        if (spent()) return;
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
         script.callAssertPostState();
         vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(1)));
@@ -526,41 +555,6 @@ contract BackfillMigrationRegistryV5Test is Test {
             )
         );
         script.callAssertPostState();
-    }
-
-    function testDeclaresTheRecordItsBundleWritesLive() external {
-        (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent(safe)) return;
-        ScriptDeclaration memory declared = script.declaration();
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        SafeTx[] memory txs = script.callAuthorBundle();
-        assertTrue(declared.migration, "a migration");
-        assertFalse(declared.history, "recorded live, not as history");
-        assertEq(
-            txs[txs.length - 1].data,
-            abi.encodeCall(
-                IMigrationRegistryV5.applyMigrationV5,
-                (
-                    LibStoxMigrations.writerFor(declared.writer, safe, timelock),
-                    declared.namespace,
-                    declared.id,
-                    LibStoxMigrations.prerequisitesFor(declared, safe, timelock),
-                    ""
-                )
-            ),
-            "the bundle's last write is the declared record"
-        );
-    }
-
-    function testArtifactNamesTheBundleForItsSigners() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        if (spent(LibSafeInvariants.safeForChainId(block.chainid))) return;
-        BackfillMigrationRegistryV5Harness script = new BackfillMigrationRegistryV5Harness("bundle-name");
-        script.run();
-        assertEq(
-            vm.parseJsonString(vm.readFile(script.callArtifactPath()), ".meta.name"),
-            "ST0x: backfill MigrationRegistry V5 from V2"
-        );
     }
 
     function testArtifactIsTheChainsJsonUnderOut() external {
