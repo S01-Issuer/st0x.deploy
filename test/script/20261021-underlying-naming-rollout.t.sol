@@ -25,6 +25,8 @@ import {
     UnderlyingNamingExecutorHoldsRole,
     UnderlyingNamingNotExecuted,
     ExecuteUnderlyingNamingRecorded,
+    ExecuteUnderlyingNamingUnexpectedMigrationLine,
+    ExecuteUnderlyingNamingRecordMismatch,
     executeUnderlyingNamingDeclaration
 } from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
@@ -941,26 +943,30 @@ contract UnderlyingNamingRolloutTest is Test {
     }
 
     /// @notice The execution record is one root-line record call, refused
-    /// until the rename batch has executed and once it is recorded; landing it
-    /// stamps the record at the block and heads the line with it.
+    /// until the rename batch has executed, off the rename record and once it
+    /// is recorded; landing it stamps the record at the block and heads the
+    /// line with it, and the post-state refuses it missing, stale or buried.
     function testExecutionRecordFollowsTheExecutedRename() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
-        if (LibStoxMigrations.applied(LibStoxMigrations.EXECUTE_UNDERLYING_NAMING) != 0) {
-            console2.log("SPENT: the execution record is on this chain's root line");
-            return;
-        }
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
         RecordExecuteUnderlyingNamingHarness record = new RecordExecuteUnderlyingNamingHarness("record");
-        if (!TimelockController(payable(timelock)).isOperationDone(renameId)) {
-            vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotExecuted.selector, renameId));
-            record.callPreflight();
-        }
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotExecuted.selector, renameId));
+        record.callPreflight();
         executeRollout(new ScheduleUnderlyingNamingRenameHarness("execution-record"));
 
         record.callPreflight();
-        vm.expectRevert("RecordExecuteUnderlyingNaming: record not at head");
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.expectRevert(abi.encodeWithSelector(ExecuteUnderlyingNamingRecordMismatch.selector, block.timestamp, 0));
         record.callAssertPostState();
+
+        uint256 snapshot = vm.snapshotState();
+        LibTestRootLine.write(vm, safe, FOREIGN_RECORD, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
+        vm.expectRevert(abi.encodeWithSelector(ExecuteUnderlyingNamingUnexpectedMigrationLine.selector, FOREIGN_RECORD));
+        record.callPreflight();
+        vm.revertToState(snapshot);
+
         SafeTx[] memory txs = record.callAuthorBundle();
         assertEq(txs.length, 1, "record only");
         assertRecordTx(txs, 0, executeUnderlyingNamingDeclaration());
@@ -976,5 +982,16 @@ contract UnderlyingNamingRolloutTest is Test {
             )
         );
         record.callPreflight();
+
+        // forge-lint: disable-next-line(block-timestamp)
+        uint256 recorded = block.timestamp;
+        vm.warp(recorded + 1);
+        vm.expectRevert(abi.encodeWithSelector(ExecuteUnderlyingNamingRecordMismatch.selector, recorded + 1, recorded));
+        record.callAssertPostState();
+        vm.warp(recorded);
+
+        LibTestRootLine.write(vm, safe, FOREIGN_RECORD, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
+        vm.expectRevert("RecordExecuteUnderlyingNaming: record not at head");
+        record.callAssertPostState();
     }
 }
