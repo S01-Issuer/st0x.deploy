@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.18/src/abstract/OffchainAssetReceiptVault.sol";
+import {
+    OffchainAssetReceiptVault,
+    OffchainAssetReceiptVaultConfigV2
+} from "rain-vats-0.2.18/src/abstract/OffchainAssetReceiptVault.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
@@ -11,6 +14,7 @@ import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {AuthorizerMissingCorporateActionAdmin, CorporateActionsFacetNotDeployed} from "../error/ErrCorporateAction.sol";
+import {StoxCorporateActionsFacet} from "./StoxCorporateActionsFacet.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -171,6 +175,47 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
 
         LibTotalSupply.onAccountMigrated(currentCursor, storedBalance, newCursor, newBalance);
+    }
+
+    /// @dev Runs rain-vats' `_initialize`, then delegatecalls the pinned
+    /// facet's `initializeAssetId` with this call's own `initialize(bytes)`
+    /// calldata, selector swapped. The facet requires an empty name and
+    /// symbol, decodes the asset id from the config metadata and stores it
+    /// once (see `StoxCorporateActionsFacet.initializeAssetId`). The logic
+    /// lives in the facet because the vault is close to the EIP-170 limit.
+    ///
+    /// rain-vats 0.2.18 reaches `_initialize` only from `initialize(bytes)`,
+    /// so `msg.data` here is always that calldata. If another entry ever calls
+    /// `_initialize`, this forwarding is wrong and MUST change with it.
+    ///
+    /// `initialize` reverts unless the delegatecall succeeds and returns
+    /// exactly one word. A delegatecall to an address with no code succeeds
+    /// with no return data, so a missing facet reverts the deploy (without
+    /// data) instead of producing a vault with no asset id. A pinned, audited
+    /// facet that returns one word is trusted to have stored the id; the
+    /// return value itself is not checked.
+    ///
+    /// The only non-static external call `initialize` makes before this hook
+    /// is the receipt deploy through the pinned factory and the authority's
+    /// receipt beacon, both trusted. If that call re-entered and set an id,
+    /// the facet's write-once check reverts this call, so the worst case is a
+    /// failed deploy, never a wrong id.
+    function _initialize(OffchainAssetReceiptVaultConfigV2 memory config) internal virtual override {
+        super._initialize(config);
+        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        bytes4 selector = StoxCorporateActionsFacet.initializeAssetId.selector;
+        assembly ("memory-safe") {
+            // Scratch space past the free memory pointer: execution continues
+            // after this block, so the low memory Solidity uses is kept intact.
+            let buffer := mload(0x40)
+            mstore(buffer, selector)
+            calldatacopy(add(buffer, 4), 4, sub(calldatasize(), 4))
+            let success := delegatecall(gas(), facet, buffer, calldatasize(), 0, 0)
+            if iszero(and(success, eq(returndatasize(), 0x20))) {
+                returndatacopy(buffer, 0, returndatasize())
+                revert(buffer, returndatasize())
+            }
+        }
     }
 
     /// @notice Routes calls with non-matching selectors to the corporate actions

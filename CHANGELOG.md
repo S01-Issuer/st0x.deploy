@@ -1,5 +1,62 @@
 # Changelog
 
+## Asset id and nameless V6 deploy (RAI-4373)
+
+### StoxReceiptVault
+
+- **`initialize` requires an empty name and symbol and an asset id.** The vault
+  overrides rain-vats' `_initialize`: after it, it delegatecalls the pinned
+  facet's `initializeAssetId` with its own `initialize(bytes)` calldata, and
+  reverts unless the call succeeds and returns one word. The facet reverts with
+  `NonEmptyInitialName` / `NonEmptyInitialSymbol` unless both are empty, decodes
+  the asset id from the config metadata (`LibAssetId.encodeMetadata`, tagged
+  `st0x.metadata.asset-id.1`, canonical encoding enforced), and stores it once
+  in a new ERC-7201 namespace `rain.storage.asset-id.1`. So a V6 token's address
+  depends only on its asset id, region, authority and beacon names. The owner
+  (the timelock) names the token later with `setUnderlying`.
+- **The hook is init-only.** It needs the OZ `_initializing` flag, which only a
+  fresh proxy's single `initialize` sets. Live tokens, initialized before the
+  hook, report `assetId() == ""` and can never set one. A facet with no code
+  makes `initialize` revert without data, so no token deploys without an id.
+- **Size.** The vault runtime is 24,531 bytes (45 spare), up 81 bytes; all the
+  logic lives in the facet, which is 12,899 bytes.
+
+### StoxCorporateActionsFacet
+
+- **`IStoxAssetIdV1`:** `assetId()` and the `AssetIdSet(sender, assetId)` event,
+  plus the init-only `initializeAssetId(bytes)`. Errors are in
+  `src/error/ErrAssetId.sol`. `assetId()` and `AssetIdSet` are not proof that a
+  token is genuine: only the pinned address is.
+
+### StoxWrappedTokenVault
+
+- **`assetId()` passes the asset's `assetId()` through**, or returns `""` when
+  the asset has none, so it never reverts. Runtime 6,729 bytes.
+
+### Token config and deploy
+
+- **`TokenConfig.assetId`**, fixed at listing time (the ISIN of the exact share
+  line where one exists). `LibProdTokenConfig.v6TokenConfigs()` is the rows with
+  a non-empty asset id; only those get a V6 token suite. Every production row
+  has `assetId: ""` for now, so the declaration has no production token suites
+  and `manual-sol-artifacts` offers no `stox-token-*` choice.
+- **V6 token targets are nameless.** `LibProdTokenTargets.tokenData` carries an
+  empty name and symbol and the asset id as metadata, and the salt is
+  `keccak256(assetId)`. Suite keys stay `stox-token-` + lowercase symbol; a
+  released row's symbol never changes, and the released keys are pinned.
+- **`Deploy.preDeployCheck` refuses a token suite unless the bound vault beacon
+  serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`**
+  (`BeaconImplementationMismatch`). A token's address commits to the beacon
+  name, not the implementation, so a token deployed through a beacon serving a
+  hook-less implementation would never get an asset id.
+- **Pins moved:** facet `0xCDCD340D90b9E1DC2d38c826DA2e5a477DaC44dB`, receipt
+  vault `0x2E2aB6F052a9754451124dfB3D470774D3106cbC`, wrapped token vault
+  `0x8405cb839951dECd3D0bbb620e809A3eE300616b`, receipt-vault beacon
+  `0x3eEa452aD4F6B4795c0Dc421831417704818b11C`, wrapped-token-vault beacon
+  `0x9804E0810Ae2776dC9a398838796438D94Db5e23`, orchestrator
+  `0xaCe2d80eACc9A402861231895Da7f9CB8Ceb8289`, and the token proxy runtime code
+  that embeds the vault beacon.
+
 ## Registry-config tokens (rain.vats 0.2.9)
 
 ### StoxReceiptVault

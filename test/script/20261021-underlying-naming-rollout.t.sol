@@ -39,6 +39,8 @@ import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingR
 
 import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
+import {IStoxAssetIdV1} from "../../src/interface/IStoxAssetIdV1.sol";
+import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
@@ -296,9 +298,24 @@ contract UnderlyingNamingRolloutTest is Test {
         execute.run();
         assertTrue(controller.isOperationDone(renameId), "rename executed");
         rename.callAssertRenamed(chainId);
+        assertLiveTokensHaveNoAssetId(chainId);
 
         vm.expectPartialRevert(NoUnderlyingNamingOperationReady.selector);
         execute.run();
+    }
+
+    /// @notice After the beacon batch the live vaults run the asset id
+    /// implementation, but were initialized before it, so a sample of them
+    /// and their wrappers reports no asset id: the init hook is inert for
+    /// live tokens.
+    function assertLiveTokensHaveNoAssetId(uint256 chainId) internal view {
+        TokenInstance[] memory live = LibUnderlyingNamingRollout.tokens(chainId);
+        uint256[3] memory sample = [uint256(0), live.length / 2, live.length - 1];
+        for (uint256 i = 0; i < sample.length; i++) {
+            TokenInstance memory token = live[sample[i]];
+            assertEq(IStoxAssetIdV1(token.receiptVault).assetId(), "", token.underlying);
+            assertEq(StoxWrappedTokenVault(token.wrappedTokenVault).assetId(), "", token.underlying);
+        }
     }
 
     /// @notice `run()` authors and proves the bundle on a snapshot, `verify`

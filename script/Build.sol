@@ -138,7 +138,10 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genTokenProxy() internal {
-        RegistryBeaconProxyTarget memory target = LibProdTokenTargets.tokenTargets()[0];
+        // The proxy runtime code depends on the registry, authority, beacon
+        // name and beacon only, not on a row's init data or salt, so it is
+        // built without a row: there may be none.
+        RegistryBeaconProxyTarget memory target = LibProdTokenTargets.proxyTarget("", bytes32(0));
         // The generated vault beacon constant is from the previous compile.
         target.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(

@@ -9,6 +9,7 @@ import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/
 import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.10/src/interface/ICloneableV2.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
+import {IStoxAssetIdV1} from "../interface/IStoxAssetIdV1.sol";
 
 /// @dev Error raised when a zero address is provided for the vault asset.
 error ZeroAsset();
@@ -34,7 +35,7 @@ error ZeroAsset();
 /// asset's own name when its `underlyingName()` is non-empty (e.g.
 /// "NVIDIA Corporation (ST0x)"), else "Wrapped " + that name. Any ERC-20
 /// asset can be wrapped.
-contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
+contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2, IStoxAssetIdV1 {
     /// @dev Emitted when the StoxWrappedTokenVault is initialized.
     /// @param sender The address that initiated the initialization.
     /// @param asset The address of the underlying asset for the vault.
@@ -89,6 +90,15 @@ contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
         string memory underlying = tryAssetString(IStoxUnderlyingV1.underlyingSymbol.selector);
         if (bytes(underlying).length > 0) return string.concat(underlying, "s");
         return string.concat("w", IERC20Metadata(asset()).symbol());
+    }
+
+    /// The asset's `IStoxAssetIdV1.assetId()`, e.g. "US67066G1040". When the
+    /// asset does not implement it, reverts or returns malformed data, returns
+    /// the empty string, so this never reverts. Like the asset's own getter,
+    /// it is not proof that the token is genuine; only the pinned address is.
+    /// @return The asset id, or "".
+    function assetId() external view override returns (string memory) {
+        return tryAssetString(IStoxAssetIdV1.assetId.selector);
     }
 
     /// @dev Calls a zero-argument `string`-returning getter on the asset and
