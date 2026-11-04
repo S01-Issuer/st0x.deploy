@@ -87,8 +87,9 @@ contract BackfillMigrationRegistryV5Test is Test {
     function v2Records() internal pure returns (V2Record[] memory) {
         V2Record[] memory all = new V2Record[](3);
         all[0] = V2Record(LibStoxMigrations.GOVERNANCE_TIMELOCK, NS, LibStoxMigrations.GOVERNANCE_TIMELOCK);
-        all[1] =
-            V2Record(LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, V2_RBAC_NAMESPACE, V2_EU_AUTHORISER_GRANT_AND_HANDOVER);
+        all[1] = V2Record(
+            LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, V2_RBAC_NAMESPACE, V2_EU_AUTHORISER_GRANT_AND_HANDOVER
+        );
         all[2] = V2Record(LibStoxMigrations.ORCHESTRATOR_EMERGENCY, NS, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
         return all;
     }
@@ -103,7 +104,8 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function historyData(bytes32 id, uint256 at, bytes32 onto) internal pure returns (bytes memory) {
         return abi.encodeCall(
-            IMigrationRegistryV5.applyMigrationHistoryV5, (ROOT, NS, id, at, LibMigrationRegistry.onto(ROOT, NS, onto), "")
+            IMigrationRegistryV5.applyMigrationHistoryV5,
+            (ROOT, NS, id, at, LibMigrationRegistry.onto(ROOT, NS, onto), "")
         );
     }
 
@@ -142,7 +144,8 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function holdAt(address safe, bytes32 id, uint256 at, bytes32 onto) internal {
         vm.prank(safe);
-        IMigrationRegistryV5(V5).applyMigrationHistoryV5(ROOT, NS, id, at, LibMigrationRegistry.onto(ROOT, NS, onto), "");
+        IMigrationRegistryV5(V5)
+            .applyMigrationHistoryV5(ROOT, NS, id, at, LibMigrationRegistry.onto(ROOT, NS, onto), "");
     }
 
     /// @dev V5 holds the line's first `held` records as the bundle writes them.
@@ -337,7 +340,9 @@ contract BackfillMigrationRegistryV5Test is Test {
             abi.encode(ScriptDeclaration({id: LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, onto: OTHER, history: true}))
         );
         vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, OTHER)
+            abi.encodeWithSelector(
+                UnexpectedRegistryV2Order.selector, LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, OTHER
+            )
         );
         script.callPreflight();
     }
