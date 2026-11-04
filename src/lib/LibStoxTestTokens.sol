@@ -63,7 +63,7 @@ library LibStoxTestTokens {
                 name: name,
                 symbol: symbol,
                 authority: LibStoxConfig.ROOT_AUTHORITY,
-                rbacName: LibStoxConfig.rbacName(region),
+                rbacName: region == Region.EU ? LibStoxConfig.RBAC_EU_NAME : LibStoxConfig.RBAC_US_NAME,
                 receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,
                 metadata: ""
             })

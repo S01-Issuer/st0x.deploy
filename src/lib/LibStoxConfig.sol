@@ -3,7 +3,6 @@
 pragma solidity ^0.8.25;
 
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
-import {Region} from "./LibProdTokenConfig.sol";
 
 /// @title LibStoxConfig
 /// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V5, all under the
@@ -21,21 +20,6 @@ library LibStoxConfig {
 
     /// @notice `abi.encode(address)`: the beacon production wrappers proxy.
     bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
-
-    /// @notice `abi.encode(OffchainAssetReceiptVaultRbacV1)`: the owner and
-    /// authorizer of US tokens.
-    bytes32 internal constant US_RBAC_NAME = keccak256("st0x.rbac.us.v1");
-
-    /// @notice `abi.encode(OffchainAssetReceiptVaultRbacV1)`: the owner and
-    /// authorizer of EU tokens.
-    bytes32 internal constant EU_RBAC_NAME = keccak256("st0x.rbac.eu.v1");
-
-    /// @notice The RBAC binding a region's tokens initialize from.
-    /// @param region The region.
-    /// @return The binding's name.
-    function rbacName(Region region) internal pure returns (bytes32) {
-        return region == Region.EU ? EU_RBAC_NAME : US_RBAC_NAME;
-    }
 
     /// @notice `abi.encode(OffchainAssetReceiptVaultRbacV1)`: the RBAC US
     /// production tokens initialize with.

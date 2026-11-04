@@ -29,7 +29,6 @@ on:
           # scripts exist, not *whether* they've run.
           - 20260813-execute-timelock-operations
           - 20261021-execute-underlying-naming
-          - 20261026-deploy-test-tokens
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
