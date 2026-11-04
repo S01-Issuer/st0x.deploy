@@ -43,6 +43,20 @@ error RenameNotPendingInsideDelay(bytes32 id);
 /// @param actual The value read.
 error RenamedMetadataMismatch(address token, string expected, string actual);
 
+/// @notice The root line is not at the record this migration is applied onto.
+/// @param head The line's head.
+error ScheduleRenameUnexpectedMigrationLine(bytes32 head);
+
+/// @notice After the bundle this migration's record is not stamped at the
+/// fork's block.
+/// @param expected The fork's block timestamp.
+/// @param actual The recorded moment.
+error ScheduleRenameRecordMismatch(uint256 expected, uint256 actual);
+
+/// @notice After the bundle the root line's head is not this migration.
+/// @param head The line's head.
+error ScheduleRenameLineHeadMismatch(bytes32 head);
+
 /// @notice This script's declaration: the Safe's record, after the beacon schedule.
 /// @return The declaration.
 function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclaration memory) {
@@ -57,9 +71,10 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch
 /// (rollout step 3 in `docs/TIMELOCK.md`): `setUnderlying(ticker,
 /// underlyingName)` on every production vault of the chain, ticker from
-/// `TokenConfig.underlying` and name from `TokenConfig.underlyingName`. One
-/// Safe call, `timelock.scheduleBatch(...)`, with the beacon batch as
-/// predecessor so the timelock refuses to execute the rename first.
+/// `TokenConfig.underlying` and name from `TokenConfig.underlyingName`. Two
+/// Safe calls: `timelock.scheduleBatch(...)`, with the beacon batch as
+/// predecessor so the timelock refuses to execute the rename first, then the
+/// Safe's root-line record.
 ///
 /// **The pre-flight refuses until
 /// `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set**, which
@@ -120,13 +135,18 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     /// @dev The release is frozen, the downstream services accept the new
     /// symbols, every row is well formed, the Safe and timelock are the pinned ones,
     /// the beacon batch is registered, the rename batch is not, every ticker
-    /// is bound to its vault, and the timelock owns every vault.
+    /// is bound to its vault, the timelock owns every vault, and the root
+    /// line is at this migration's `onto`.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         if (!downstreamReady()) revert DownstreamNotReadyForRename();
         LibUnderlyingNamingRollout.assertUnderlyingsWellFormed(block.chainid);
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
+        bytes32 head = LibStoxMigrations.head();
+        if (head != scheduleUnderlyingNamingRenameDeclaration().onto) {
+            revert ScheduleRenameUnexpectedMigrationLine(head);
+        }
         TimelockController controller = TimelockController(payable(timelock()));
 
         bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
@@ -142,22 +162,41 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    function authorBundle() internal view override returns (SafeTx[] memory txs) {
-        txs = new SafeTx[](1);
+    /// @dev The schedule, then the record.
+    function authorBundle() internal view override returns (SafeTx[] memory) {
+        SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
             data: LibUnderlyingNamingRollout.scheduleRenameCalldata(timelock(), block.chainid),
             operation: Enum.Operation.Call
         });
+        (address recordTo, bytes memory recordData) =
+            LibStoxMigrations.recordCall(scheduleUnderlyingNamingRenameDeclaration());
+        txs[1] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
+        return txs;
     }
 
     /// @inheritdoc SafeBundleScript
+    /// @dev Scheduled, pending and not ready inside the delay; the record is
+    /// this bundle's and heads the root line.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibUnderlyingNamingRollout.renameOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert RenameNotPendingInsideDelay(id);
+        }
+        // The registry stamps the block the record lands in, which on the
+        // fork is this block.
+        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
+        // forge-lint: disable-next-line(block-timestamp)
+        if (record != block.timestamp) {
+            // forge-lint: disable-next-line(block-timestamp)
+            revert ScheduleRenameRecordMismatch(block.timestamp, record);
+        }
+        bytes32 head = LibStoxMigrations.head();
+        if (head != scheduleUnderlyingNamingRenameDeclaration().id) {
+            revert ScheduleRenameLineHeadMismatch(head);
         }
     }
 
