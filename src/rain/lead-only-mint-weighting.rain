@@ -4,6 +4,7 @@
 #st0x-attest-subparser !St0xAttestSubParser address.
 
 #lead-signer !Lead signer.
+#lead-source !Lead price source.
 
 #max-time-spread !Max time spread in seconds.
 #min-price !Min lead price.
@@ -25,6 +26,11 @@ price-domain: hash(
 :ensure(
   binary-equal-to(lead-domain() price-domain)
   "Lead domain mismatch"
+),
+
+:ensure(
+  binary-equal-to(lead-source() lead-source)
+  "Lead source mismatch"
 ),
 
 vault-symbol: mint-symbol(),
