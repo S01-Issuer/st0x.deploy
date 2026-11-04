@@ -4,6 +4,9 @@
 #st0x-attest-subparser !St0xAttestSubParser address.
 
 #lead-signer !Lead signer.
+#lead-source !Lead price source.
+#pool-source-0 !Pool price source.
+#pool-source-1 !Pool price source.
 #operator-1 !Pool operator.
 #operator-2 !Pool operator.
 #operator-3 !Pool operator.
@@ -44,6 +47,18 @@ price-domain: hash(
 :ensure(
   binary-equal-to(attestor-domain<0>() attestor-domain<1>() price-domain)
   "Attestor domain mismatch"
+),
+
+:ensure(
+  binary-equal-to(lead-source() lead-source)
+  "Lead source mismatch"
+),
+:ensure(
+  binary-in<2>(
+    attested-source<0>() attested-source<1>()
+    pool-source-0 pool-source-1
+  )
+  "Pool source not allowlisted"
 ),
 
 :ensure(
