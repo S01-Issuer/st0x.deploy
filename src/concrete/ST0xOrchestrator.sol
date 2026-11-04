@@ -85,7 +85,7 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 ///
 /// **Custody.** `initialize` seats `DEFAULT_ADMIN_ROLE` and the three admin
 /// roles on the governance timelock bound in the `ConfigRegistry`
-/// (`LibStoxConfig.governanceTimelock`), so every grant, cap and
+/// (`LibStoxConfig.orchestratorInitialAdmin`), so every grant, cap and
 /// weighting change is scheduled and waits out the timelock delay. No
 /// operating role is held until the timelock grants it.
 ///
@@ -237,14 +237,14 @@ contract ST0xOrchestrator is
     /// `EMERGENCY_ADMIN_ROLE`, then delegates each operating role to its own
     /// admin. `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are granted
     /// separately. Reverts when the root authority has not bound
-    /// `LibStoxConfig.GOVERNANCE_TIMELOCK_NAME` as an `address`.
+    /// `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME` as an `address`.
     ///
     /// @dev The timelock is resolved from the `ConfigRegistry` rather than
     /// taken as an argument, so whoever creates the registry beacon proxy
     /// cannot seat an admin of its own. `data` is unused.
     /// @inheritdoc ICloneableV2
     function initialize(bytes calldata) external initializer returns (bytes32) {
-        address timelock = LibStoxConfig.governanceTimelock();
+        address timelock = LibStoxConfig.orchestratorInitialAdmin();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, timelock);

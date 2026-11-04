@@ -93,7 +93,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         // Real receipt + vault implementations behind the V1 beacons, with the
         // clone factory and ConfigRegistry.
         LibTestDeploy.deployAll(vm);
-        LibTestDeploy.bindGovernanceTimelock(vm, OWNER);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, OWNER);
 
         // Real corporate-actions facet at the deterministic address the
         // vault's fallback delegatecalls into.

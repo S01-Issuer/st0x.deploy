@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 
-error ZeroGovernanceTimelock();
+error ZeroOrchestratorInitialAdmin();
 
 /// @title LibStoxConfig
 /// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V5, all under the
@@ -35,18 +35,19 @@ library LibStoxConfig {
         return abi.decode(value, (address));
     }
 
-    /// @notice `abi.encode(address)`: the governance timelock.
-    bytes32 internal constant GOVERNANCE_TIMELOCK_NAME = keccak256("st0x.governance-timelock.v1");
+    /// @notice `abi.encode(address)`: the orchestrator's initial admin,
+    /// read once in its `initialize`.
+    bytes32 internal constant ORCHESTRATOR_INITIAL_ADMIN_NAME = keccak256("st0x.orchestrator-initial-admin.v1");
 
-    /// @notice The governance timelock bound under `GOVERNANCE_TIMELOCK_NAME`.
-    /// Reverts when the registry is absent or the binding is unset, not an
-    /// `address`, or zero.
-    function governanceTimelock() internal view returns (address) {
+    /// @notice The orchestrator's initial admin bound under
+    /// `ORCHESTRATOR_INITIAL_ADMIN_NAME`. Reverts when the registry is absent
+    /// or the binding is unset, not an `address`, or zero.
+    function orchestratorInitialAdmin() internal view returns (address) {
         // slither-disable-next-line unused-return
         (bytes memory value,) =
-            LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_TIMELOCK_NAME, keccak256("address"));
-        address timelock = abi.decode(value, (address));
-        if (timelock == address(0)) revert ZeroGovernanceTimelock();
-        return timelock;
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, ORCHESTRATOR_INITIAL_ADMIN_NAME, keccak256("address"));
+        address admin = abi.decode(value, (address));
+        if (admin == address(0)) revert ZeroOrchestratorInitialAdmin();
+        return admin;
     }
 }

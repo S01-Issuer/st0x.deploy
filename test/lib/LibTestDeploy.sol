@@ -87,9 +87,9 @@ library LibTestDeploy {
 
     /// The pinned ConfigRegistry, with the root authority binding the
     /// governance timelock to `timelock`.
-    function bindGovernanceTimelock(Vm vm, address timelock) internal {
+    function bindOrchestratorInitialAdmin(Vm vm, address timelock) internal {
         etchConfigRegistry(vm);
-        bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(timelock));
+        bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, "address", abi.encode(timelock));
     }
 
     /// The pinned clone factory.

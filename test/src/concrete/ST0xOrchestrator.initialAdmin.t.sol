@@ -6,13 +6,13 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
-import {GovernanceTimelockSeatTest} from "../lib/GovernanceTimelockSeatTest.sol";
+import {OrchestratorInitialAdminSeatTest} from "../lib/OrchestratorInitialAdminSeatTest.sol";
 
-/// @title ST0xOrchestratorGovernanceTimelockTest
+/// @title ST0xOrchestratorInitialAdminTest
 /// @notice `initialize` seats the bound governance timelock as
 /// `DEFAULT_ADMIN_ROLE` and all three admin roles, holds no operating role
 /// for it, and leaves the deploying account nothing.
-contract ST0xOrchestratorGovernanceTimelockTest is GovernanceTimelockSeatTest {
+contract ST0xOrchestratorInitialAdminTest is OrchestratorInitialAdminSeatTest {
     UpgradeableBeacon internal beacon;
 
     function setUp() external {
