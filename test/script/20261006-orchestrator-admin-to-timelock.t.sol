@@ -17,6 +17,7 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJ
 import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
+import {HandWmtMcDisToTimelockHarness} from "./HandWmtMcDisToTimelockHarness.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -28,18 +29,20 @@ import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network, at its pinned
 /// pre-backfill block. The bundle walks the line: before the V5 backfill the
-/// script refuses and the bundle cannot execute; with the backfill bundle
-/// executed on the fork `run()` executes the move through the Safe, proves it
-/// and writes the artifact, `verify` accepts that artifact, and the artifact
-/// executed by the owners leaves the state the invariants demand and makes a
-/// re-dispatch refuse.
+/// script refuses and the bundle cannot execute; with the backfill and
+/// handover bundles executed on the fork `run()` executes the move through
+/// the Safe, proves it and writes the artifact, `verify` accepts that
+/// artifact, and the artifact executed by the owners leaves the state the
+/// invariants demand and makes a re-dispatch refuse.
 contract OrchestratorAdminToTimelockTest is Test {
     ST0xOrchestrator internal constant ORCHESTRATOR =
         ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
 
-    function executeBackfill(address safe) internal {
+    function advanceLineToHandover(address safe) internal {
         BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("admin-move-prerequisite");
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), backfill.callAuthorBundle());
+        HandWmtMcDisToTimelockHarness handover = new HandWmtMcDisToTimelockHarness("admin-move-prerequisite");
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), handover.callAuthorBundle());
     }
 
     function assertBundle(string memory network) internal {
@@ -65,11 +68,11 @@ contract OrchestratorAdminToTimelockTest is Test {
                 LibMigrationRegistry.onto(
                     LibRegistryAuthority.ROOT_AUTHORITY,
                     LibStoxMigrations.NAMESPACE,
-                    LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
+                    LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK
                 ),
                 ""
             );
-        executeBackfill(safe);
+        advanceLineToHandover(safe);
 
         uint256 preRun = vm.snapshotState();
         uint256 runAt = block.timestamp;
@@ -141,7 +144,7 @@ contract OrchestratorAdminToTimelockTest is Test {
     function testVerifyRefusesTamperedArtifact() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        executeBackfill(safe);
+        advanceLineToHandover(safe);
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("tamper");
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         // Built in memory and written to its own paths, so this test never
