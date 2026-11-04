@@ -226,6 +226,8 @@ library LibTimelockInvariants {
         if (TIMELOCK_CANCELLER != address(0)) {
             cancellers[0] = TIMELOCK_CANCELLER;
         }
-        LibTimelockController.assertTimelockState(timelockCodehash(timelock), timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers);
+        LibTimelockController.assertTimelockState(
+            timelockCodehash(timelock), timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers
+        );
     }
 }

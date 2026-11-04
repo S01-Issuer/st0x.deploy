@@ -315,7 +315,9 @@ library LibBeaconInvariants {
     /// @return The proxy's runtime codehash.
     function registryBeaconProxyCodehash(address beacon) internal pure returns (bytes32) {
         return keccak256(
-            abi.encodePacked(REGISTRY_BEACON_PROXY_PREFIX, bytes32(uint256(uint160(beacon))), REGISTRY_BEACON_PROXY_SUFFIX)
+            abi.encodePacked(
+                REGISTRY_BEACON_PROXY_PREFIX, bytes32(uint256(uint160(beacon))), REGISTRY_BEACON_PROXY_SUFFIX
+            )
         );
     }
 
