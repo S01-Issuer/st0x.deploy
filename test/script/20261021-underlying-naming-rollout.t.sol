@@ -113,9 +113,7 @@ contract UnderlyingNamingRolloutTest is Test {
             adminMove.callPreflight();
             LibSafeFork.executeBundle(vm, safe, adminMove.callAuthorBundle());
         }
-        assertEq(
-            LibStoxMigrations.head(), scheduleUnderlyingNamingBeaconsDeclaration().onto, "line at the beacon onto"
-        );
+        assertEq(LibStoxMigrations.head(), scheduleUnderlyingNamingBeaconsDeclaration().onto, "line at the beacon onto");
     }
 
     /// @notice Executes `txs[0 .. count)` from the chain's Safe.
@@ -1040,7 +1038,9 @@ contract UnderlyingNamingRolloutTest is Test {
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
         record.callAssertPostState();
         vm.expectRevert(
-            abi.encodeWithSelector(ExecuteUnderlyingNamingRecorded.selector, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING)
+            abi.encodeWithSelector(
+                ExecuteUnderlyingNamingRecorded.selector, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING
+            )
         );
         record.callPreflight();
     }
