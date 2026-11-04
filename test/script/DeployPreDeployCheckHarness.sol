@@ -9,8 +9,7 @@ import {
 } from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {Deploy} from "../../script/Deploy.sol";
-import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
-import {LibStoxTestTokens} from "../../src/lib/LibStoxTestTokens.sol";
+import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 
 contract DeployPreDeployCheckHarness is Deploy {
     function governanceTimelockSuite() external view returns (DeploySuite memory) {
@@ -19,20 +18,6 @@ contract DeployPreDeployCheckHarness is Deploy {
 
     function declaredSuite(string memory name) external view returns (DeploySuite memory) {
         return suiteByName(declaration(), name);
-    }
-
-    /// The production tokens, then the test tokens.
-    function tokenConfigs() external pure returns (TokenConfig[] memory) {
-        TokenConfig[] memory production = LibProdTokenConfig.productionTokenConfigs();
-        TokenConfig[] memory test = LibStoxTestTokens.testTokenConfigs();
-        TokenConfig[] memory configs = new TokenConfig[](production.length + test.length);
-        for (uint256 i = 0; i < production.length; i++) {
-            configs[i] = production[i];
-        }
-        for (uint256 i = 0; i < test.length; i++) {
-            configs[production.length + i] = test[i];
-        }
-        return configs;
     }
 
     function beaconSuites() external view returns (DeploySuite[] memory) {

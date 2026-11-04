@@ -25,6 +25,7 @@ import {LibProdTokenTargets} from "../../src/lib/LibProdTokenTargets.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibStoxTestTokens} from "../../src/lib/LibStoxTestTokens.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
+import {LibTestTokenConfigs} from "../lib/LibTestTokenConfigs.sol";
 import {DeployPreDeployCheckHarness} from "./DeployPreDeployCheckHarness.sol";
 
 contract DeployTokenBindingsTest is Test {
@@ -79,7 +80,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseUnboundVaultBeacon() external {
-        TokenConfig[] memory configs = harness.tokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -98,7 +99,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseUnboundReceiptBeacon() external {
-        TokenConfig[] memory configs = harness.tokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         bindAddress(LibStoxConfig.VAULT_BEACON_NAME, LibProdTokenTargets.vaultBeacon());
@@ -118,7 +119,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseUnboundRegionRbac() external {
-        TokenConfig[] memory configs = harness.tokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         bindPinnedBeacons();
@@ -257,7 +258,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseOtherRegionAuthoriser() external {
-        TokenConfig[] memory configs = harness.tokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -291,7 +292,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensIgnoreOtherRegionRbac() external {
-        TokenConfig[] memory configs = harness.tokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -307,7 +308,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensAcceptPinnedBindings() external {
-        TokenConfig[] memory configs = harness.tokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
