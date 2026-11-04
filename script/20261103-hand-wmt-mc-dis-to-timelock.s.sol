@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
@@ -247,6 +246,5 @@ contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
             address owner = Ownable(vaults[i]).owner();
             if (owner != address(chainSafe)) revert ProofNotExecuted(vaults[i], owner);
         }
-        console2.log("Governance proven: direct transfer refused; schedule -> 48h -> execute hands the vaults back");
     }
 }
