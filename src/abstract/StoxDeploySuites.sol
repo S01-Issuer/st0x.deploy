@@ -26,6 +26,10 @@ import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
 } from "rain-factory-deploy-0.2.6/src/generated/0_1_15/CloneFactory.sol";
+import {
+    DEPLOYED_ADDRESS as CLONE_FACTORY_V5_ADDRESS,
+    RUNTIME_CODE as CLONE_FACTORY_V5_RUNTIME_CODE
+} from "rain-factory-deploy-0.2.6/src/generated/0_2_1/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
@@ -33,6 +37,7 @@ import {
 } from "rain-tofu-erc20-decimals-deploy-0.1.4/src/generated/0_1_0/TOFUTokenDecimals.sol";
 
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
+import {AUTHORISER_CLONE_SALT, LibAuthoriserClone} from "../lib/LibAuthoriserClone.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
 import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
@@ -52,6 +57,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant AUTHORIZER = "stox-offchain-asset-receipt-vault-authorizer";
     string constant PAYMENT_MINT_AUTHORIZER = "stox-offchain-asset-receipt-vault-payment-mint-authorizer";
     string constant ORCHESTRATOR = "stox-orchestrator";
+    string constant AUTHORISER = "stox-authoriser";
     string constant EU_AUTHORISER = "stox-eu-assets-authoriser";
     string constant UNIFIED_DEPLOYER = "stox-unified-deployer";
     string constant WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = "stox-wrapped-token-vault-beacon-set-deployer";
@@ -91,6 +97,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
+        LibCloneCandidates.addClones(declared, authoriserClones());
         return declared;
     }
 
@@ -219,6 +226,36 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             )
         );
         return candidates;
+    }
+
+    /// The authoriser: a clone of the candidate authoriser whose init data names
+    /// the registry binding for its initial admin, so its address is the same on
+    /// every network.
+    /// @return The clone.
+    function authoriserClones() internal pure returns (CloneDeploy[] memory) {
+        CloneDeploy[] memory clones = new CloneDeploy[](1);
+        clones[0] = CloneDeploy({
+            suite: AUTHORISER,
+            factory: CLONE_FACTORY_V5_ADDRESS,
+            implementation: V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CANDIDATE,
+            data: LibAuthoriserClone.cloneData(),
+            initDataPerNetwork: false,
+            initData: authoriserCloneData,
+            salt: AUTHORISER_CLONE_SALT,
+            dependencies: three(
+                CLONE_FACTORY_V5_ADDRESS,
+                CLONE_FACTORY_V5_RUNTIME_CODE,
+                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CANDIDATE,
+                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_CANDIDATE,
+                CONFIG_REGISTRY_ADDRESS,
+                CONFIG_REGISTRY_RUNTIME_CODE
+            )
+        });
+        return clones;
+    }
+
+    function authoriserCloneData(uint256) internal pure returns (bytes memory) {
+        return LibAuthoriserClone.cloneData();
     }
 
     /// The EU assets authoriser: a clone of the 0.1.1 authoriser whose init
