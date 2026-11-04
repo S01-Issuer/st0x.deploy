@@ -8,9 +8,6 @@ import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV
 
 import {WeightingEvalTest} from "test/src/rain/WeightingEvalTest.sol";
 
-/// @title MintWeightingEvalTest
-/// @notice `src/rain/mint-weighting.rain` evaluated directly over a grid: its
-/// stack, and each of its refusals.
 contract MintWeightingEvalTest is WeightingEvalTest {
     struct Attestation {
         uint256 key;
@@ -477,7 +474,6 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         accepted(attestations, decimal(AMOUNT * MAX_PRICE, 0));
     }
 
-    /// Fixing each failure in turn surfaces the next check's refusal.
     function testChecksRefuseInTheirOrder() external {
         Attestation[] memory attestations = new Attestation[](3);
         attestations[0] = attestationBy(UNLISTED_KEY);

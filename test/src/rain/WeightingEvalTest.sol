@@ -11,9 +11,6 @@ import {LibNamespace} from "rainlang-0.2.31/src/lib/ns/LibNamespace.sol";
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 
-/// @title WeightingEvalTest
-/// @notice A `src/rain` weighting composed, parsed and evaluated directly
-/// against grids from `LibSt0xAttestContext.build`, with no orchestrator.
 abstract contract WeightingEvalTest is St0xAttestSubParserTest {
     using LibDecimalFloat for Float;
 
@@ -88,7 +85,6 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         return string(ticker);
     }
 
-    /// Evals `context`: no writes, `stackLength` items, `value` atop the outputs derived from `vaultSymbol`.
     function evalAccepted(bytes32[][] memory context, uint256 stackLength, string memory vaultSymbol, Float value)
         internal
         view

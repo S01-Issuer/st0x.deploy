@@ -18,9 +18,6 @@ import {
 } from "src/lib/LibSt0xAttestContext.sol";
 import {WeightingEvalTest} from "test/src/rain/WeightingEvalTest.sol";
 
-/// @title LeadOnlyMintWeightingEvalTest
-/// @notice `src/rain/lead-only-mint-weighting.rain` evaluated directly over a
-/// grid: its stack, and each of its refusals.
 contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
     struct Attestation {
         uint256 key;
@@ -53,7 +50,6 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         );
     }
 
-    /// The spec's per-source lead domain.
     function leadDomain(bytes32 priceSource, bytes32 currency) internal pure returns (bytes32) {
         return eip712Domain(EIP712_DOMAIN_TYPEHASH, leadDomainName(priceSource, currency), "1");
     }
@@ -364,7 +360,6 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         refused(attestation, "Price not in USD");
     }
 
-    /// Fixing each failure in turn surfaces the next check's refusal.
     function testChecksRefuseInTheirOrder() external {
         Attestation memory attestation = lead();
         attestation.key = OPERATOR_KEY_0;
