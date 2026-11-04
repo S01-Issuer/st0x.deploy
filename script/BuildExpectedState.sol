@@ -131,6 +131,46 @@ contract BuildExpectedState is Script {
         revert(string.concat("no token config for ", underlying));
     }
 
+    function tokenMetadataJson(string memory row, uint256 i, string memory underlying) internal {
+        TokenConfig memory config = tokenConfig(underlying);
+        vm.serializeString(row, "underlying", underlying);
+        bool renames = LibUnderlyingNamingRollout.renamesRow(i);
+        vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
+        vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
+        vm.serializeString(row, "symbol", config.symbol);
+        vm.serializeUint(row, "decimals", LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
+        vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, false));
+        vm.serializeString(row, "wrappedTokenVaultRenamedName", LibTokenMetadata.wrappedName(config, renames));
+        vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, false));
+        vm.serializeString(row, "wrappedTokenVaultRenamedSymbol", LibTokenMetadata.wrappedSymbol(config, renames));
+        vm.serializeUint(row, "wrappedTokenVaultDecimals", LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
+    }
+
+    function tokenLegsJson(
+        string memory row,
+        TokenInstance memory token,
+        address[4] memory beacons,
+        bytes32[4] memory proxyCodehashes
+    ) internal {
+        vm.serializeAddress(row, "receiptVault", token.receiptVault);
+        vm.serializeAddress(row, "receipt", token.receipt);
+        vm.serializeAddress(row, "wrappedTokenVault", token.wrappedTokenVault);
+        vm.serializeAddress(row, "receiptVaultReceipt", token.receipt);
+        vm.serializeAddress(row, "wrappedTokenVaultAsset", token.receiptVault);
+        vm.serializeAddress(row, "receiptVaultBeacon", beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
+        vm.serializeAddress(row, "receiptBeacon", beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
+        vm.serializeAddress(
+            row, "wrappedTokenVaultBeacon", beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
+        );
+        vm.serializeBytes32(
+            row, "receiptVaultCodehash", proxyCodehashes[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]
+        );
+        vm.serializeBytes32(row, "receiptCodehash", proxyCodehashes[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
+        vm.serializeBytes32(
+            row, "wrappedTokenVaultCodehash", proxyCodehashes[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
+        );
+    }
+
     function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
@@ -139,35 +179,8 @@ contract BuildExpectedState is Script {
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
-            TokenConfig memory config = tokenConfig(tokens[i].underlying);
-            vm.serializeString(row, "underlying", tokens[i].underlying);
-            bool renames = LibUnderlyingNamingRollout.renamesRow(i);
-            vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
-            vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
-            vm.serializeString(row, "symbol", config.symbol);
-            vm.serializeUint(row, "decimals", LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
-            vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, false));
-            vm.serializeString(row, "wrappedTokenVaultRenamedName", LibTokenMetadata.wrappedName(config, renames));
-            vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, false));
-            vm.serializeString(row, "wrappedTokenVaultRenamedSymbol", LibTokenMetadata.wrappedSymbol(config, renames));
-            vm.serializeUint(row, "wrappedTokenVaultDecimals", LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
-            vm.serializeAddress(row, "receiptVault", tokens[i].receiptVault);
-            vm.serializeAddress(row, "receipt", tokens[i].receipt);
-            vm.serializeAddress(row, "wrappedTokenVault", tokens[i].wrappedTokenVault);
-            vm.serializeAddress(row, "receiptVaultReceipt", tokens[i].receipt);
-            vm.serializeAddress(row, "wrappedTokenVaultAsset", tokens[i].receiptVault);
-            vm.serializeAddress(row, "receiptVaultBeacon", beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
-            vm.serializeAddress(row, "receiptBeacon", beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
-            vm.serializeAddress(
-                row, "wrappedTokenVaultBeacon", beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
-            );
-            vm.serializeBytes32(
-                row, "receiptVaultCodehash", proxyCodehashes[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]
-            );
-            vm.serializeBytes32(row, "receiptCodehash", proxyCodehashes[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
-            vm.serializeBytes32(
-                row, "wrappedTokenVaultCodehash", proxyCodehashes[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
-            );
+            tokenMetadataJson(row, i, tokens[i].underlying);
+            tokenLegsJson(row, tokens[i], beacons, proxyCodehashes);
             vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
             rows[i] = vm.serializeAddress(
                 row, "authoriser", LibTokenInvariants.expectedAuthoriser(tokens[i].underlying, usAuthoriser, chainId)
