@@ -594,7 +594,8 @@ contract MigrateGovernanceToTimelockTest is Test {
     }
 
     function testDeclarationOnBaseIsHistoryOntoExecuteTimelockOperations() external {
-        ScriptDeclaration memory declared = new MigrateGovernanceToTimelock().declaration(LibSafeInvariants.BASE_CHAIN_ID);
+        ScriptDeclaration memory declared =
+            new MigrateGovernanceToTimelock().declaration(LibSafeInvariants.BASE_CHAIN_ID);
         assertEq(declared.id, LibStoxMigrations.GOVERNANCE_TIMELOCK);
         assertEq(declared.onto, LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS);
         assertTrue(declared.history);
