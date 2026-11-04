@@ -96,17 +96,6 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         }
     }
 
-    function assertDependsOnceOn(DeploySuite memory suite, DeploySuite memory dependency) internal pure {
-        uint256 matches = 0;
-        for (uint256 j = 0; j < suite.dependencies.length; j++) {
-            if (suite.dependencies[j].deployedAddress == dependency.storedDeployedAddress) {
-                matches++;
-                assertEq(keccak256(suite.dependencies[j].runtimeCode), dependency.storedBytecodeHash, suite.suite);
-            }
-        }
-        assertEq(matches, 1, suite.suite);
-    }
-
     function testEachTokenSuiteProxiesAndDependsOnTheReceiptVaultBeaconSuite() external view {
         DeployDeclaration memory declared = declaration();
         (DeploySuite memory beacon, bool found) = candidateOf(declared, RECEIPT_VAULT_BEACON);
@@ -118,17 +107,16 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
                 beacon.storedDeployedAddress,
                 suites[i].suite
             );
-            assertDependsOnceOn(suites[i], beacon);
-        }
-    }
-
-    function testEachTokenSuiteDependsOnTheReceiptBeaconSuite() external view {
-        DeployDeclaration memory declared = declaration();
-        (DeploySuite memory beacon, bool found) = candidateOf(declared, RECEIPT_BEACON);
-        assertTrue(found, RECEIPT_BEACON);
-        DeploySuite[] memory suites = declaredTokenSuites(declared);
-        for (uint256 i = 0; i < suites.length; i++) {
-            assertDependsOnceOn(suites[i], beacon);
+            uint256 matches = 0;
+            for (uint256 j = 0; j < suites[i].dependencies.length; j++) {
+                if (suites[i].dependencies[j].deployedAddress == beacon.storedDeployedAddress) {
+                    matches++;
+                    assertEq(
+                        keccak256(suites[i].dependencies[j].runtimeCode), beacon.storedBytecodeHash, suites[i].suite
+                    );
+                }
+            }
+            assertEq(matches, 1, suites[i].suite);
         }
     }
 
