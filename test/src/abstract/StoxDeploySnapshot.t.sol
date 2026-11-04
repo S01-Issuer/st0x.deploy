@@ -10,9 +10,9 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {
     /// The timelock candidate's constructor resolves the governance Safe and
-    /// a beacon candidate's its initial owner; values other than the build's
-    /// check the snapshot does not depend on them. The registry code goes again
-    /// so only a suite's declared dependency etches it back.
+    /// a beacon candidate's constructor its initial owner; values other than
+    /// the build's check the snapshot does not depend on them. The registry
+    /// code goes again so only a suite's declared dependency etches it back.
     function setUp() public {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
