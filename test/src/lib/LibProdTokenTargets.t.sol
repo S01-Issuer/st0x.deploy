@@ -99,16 +99,18 @@ contract LibProdTokenTargetsTest is Test {
         }
     }
 
-    function testDependenciesAreTheV8FactoryRegistryAndVaultBeaconAsDeployed() external {
-        (, address beacon) = LibTestTokenEnvironment.deployBeacons(vm, TIMELOCK);
+    function testDependenciesAreTheV8FactoryRegistryVaultBeaconAndReceiptBeaconAsDeployed() external {
+        (address receiptBeacon, address vaultBeacon) = LibTestTokenEnvironment.deployBeacons(vm, TIMELOCK);
         DeployDependency[] memory deps = LibProdTokenTargets.tokenDependencies();
-        assertEq(deps.length, 3, "dependencies");
+        assertEq(deps.length, 4, "dependencies");
         assertEq(deps[0].deployedAddress, CLONE_FACTORY_V8_ADDRESS, "factory address");
         assertEq(deps[0].runtimeCode, CLONE_FACTORY_V8_ADDRESS.code, "factory code");
         assertEq(deps[1].deployedAddress, CONFIG_REGISTRY_ADDRESS, "registry address");
         assertEq(deps[1].runtimeCode, CONFIG_REGISTRY_ADDRESS.code, "registry code");
-        assertEq(deps[2].deployedAddress, beacon, "beacon address");
-        assertEq(deps[2].runtimeCode, beacon.code, "beacon code");
+        assertEq(deps[2].deployedAddress, vaultBeacon, "vault beacon address");
+        assertEq(deps[2].runtimeCode, vaultBeacon.code, "vault beacon code");
+        assertEq(deps[3].deployedAddress, receiptBeacon, "receipt beacon address");
+        assertEq(deps[3].runtimeCode, receiptBeacon.code, "receipt beacon code");
     }
 
     function testEachRowsDeployStepLandsItsTokenAtItsAddress() external {
