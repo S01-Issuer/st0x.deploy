@@ -148,7 +148,7 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
 
     function entry(address script, uint256 chainId, bytes32 v2Namespace, bytes32 v2Id, bytes32 v2Onto)
         internal
-        view
+        pure
         returns (BackfillRecord memory)
     {
         return BackfillRecord({
