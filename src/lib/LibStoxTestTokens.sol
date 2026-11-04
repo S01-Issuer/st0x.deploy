@@ -39,9 +39,8 @@ library LibStoxTestTokens {
     }
 
     function tokenAddress(TokenConfig memory config) internal pure returns (address) {
-        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(
-            LibProdTokenTargets.tokenTarget(config)
-        );
+        return
+            LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(LibProdTokenTargets.tokenTarget(config));
     }
 
     function wrapperBeacon() internal pure returns (address) {
