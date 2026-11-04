@@ -300,4 +300,26 @@ contract LibBeaconInvariantsTest is Test {
             vm.revertToState(snapshot);
         }
     }
+
+    function testFuzzCreateAddressIsTheCreateAtThatNonce(address deployer, uint8 nonce) external pure {
+        nonce = uint8(bound(nonce, 1, 0x7f));
+        assertEq(LibBeaconInvariants.createAddress(deployer, nonce), vm.computeCreateAddress(deployer, nonce));
+    }
+
+    /// @notice The derived set is the set the chain resolves: off Base the
+    /// receipt and receipt-vault beacons are the ones the real set deployer's
+    /// constructor created; on Base it is the pinned set.
+    function testDerivedBeaconsAreTheResolvedBeaconsOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.beacons(vm, chainIds[i]);
+            address[4] memory derived = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainIds[i]);
+            address[4] memory resolved = LibBeaconInvariants.prodBeaconsForChainId(chainIds[i]);
+            for (uint256 j = 0; j < resolved.length; j++) {
+                assertEq(derived[j], resolved[j]);
+            }
+            vm.revertToState(snapshot);
+        }
+    }
 }
