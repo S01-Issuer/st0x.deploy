@@ -7,6 +7,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
 import {StoxGovernanceTimelock} from "../../../src/concrete/StoxGovernanceTimelock.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -18,7 +19,7 @@ contract StoxGovernanceTimelockTest is Test {
     function deployTimelock(address safe) internal returns (TimelockController) {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
+            vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
         );
         LibRainDeploy.etchZoltuFactory(vm);
         return TimelockController(payable(LibRainDeploy.deployZoltu(type(StoxGovernanceTimelock).creationCode)));
@@ -90,7 +91,7 @@ contract StoxGovernanceTimelockTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.GOVERNANCE_SAFE_NAME
             )
         );

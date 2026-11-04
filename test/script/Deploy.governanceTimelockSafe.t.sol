@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {GovernanceSafeMismatch} from "../../script/Deploy.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
@@ -23,7 +24,7 @@ contract DeployGovernanceTimelockSafeTest is Test {
 
     function bindGovernanceSafe(address safe) internal {
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
+            vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
         );
     }
 
@@ -48,7 +49,7 @@ contract DeployGovernanceTimelockSafeTest is Test {
             vm.expectRevert(
                 abi.encodeWithSelector(
                     IConfigRegistryV5.NameNotRegistered.selector,
-                    LibStoxConfig.ROOT_AUTHORITY,
+                    LibRegistryAuthority.ROOT_AUTHORITY,
                     LibStoxConfig.GOVERNANCE_SAFE_NAME
                 )
             );

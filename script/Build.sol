@@ -32,6 +32,7 @@ import {
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
 } from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.sol";
@@ -91,10 +92,14 @@ contract Build is Script, StoxDeploySuites {
     function run() external {
         // TimelockController has no immutables, so any bound Safe snapshots the same runtime code.
         vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
             .registerV5(
-                LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(address(1)), ""
+                LibRegistryAuthority.ROOT_AUTHORITY,
+                LibStoxConfig.GOVERNANCE_SAFE_NAME,
+                "address",
+                abi.encode(address(1)),
+                ""
             );
         buildSubParserPointers(address(new St0xAttestSubParser()));
         DeployCandidate[] memory candidates = candidateSuites();

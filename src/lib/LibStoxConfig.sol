@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
 /// @title LibStoxConfig
 /// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V3, all under the
@@ -25,7 +26,8 @@ library LibStoxConfig {
     /// @return The chain's governance Safe; reverts while unbound.
     function governanceSafe() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_SAFE_NAME, keccak256("address"));
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(LibRegistryAuthority.ROOT_AUTHORITY, GOVERNANCE_SAFE_NAME, keccak256("address"));
         return abi.decode(value, (address));
     }
 }
