@@ -84,8 +84,8 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// the admin roles.
 ///
 /// **Custody.** `initialize` seats `DEFAULT_ADMIN_ROLE` and the three admin
-/// roles on the governance timelock bound in the `ConfigRegistry`
-/// (`LibStoxConfig.governanceTimelock`), so every grant, cap and
+/// roles on the initial admin bound in the `ConfigRegistry`
+/// (`LibStoxConfig.orchestratorInitialAdmin`), so every grant, cap and
 /// weighting change is scheduled and waits out the timelock delay. No
 /// operating role is held until the timelock grants it.
 ///
@@ -232,22 +232,22 @@ contract ST0xOrchestrator is
         _disableInitializers();
     }
 
-    /// @notice Initialise the singleton. Grants the governance timelock
+    /// @notice Initialise the singleton. Grants the initial admin
     /// `DEFAULT_ADMIN_ROLE`, `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and
     /// `EMERGENCY_ADMIN_ROLE`, then delegates each operating role to its own
     /// admin. `MINT_ROLE`, `BURN_ROLE` and `EMERGENCY_ROLE` are granted
     /// separately. Reverts when the root authority has not bound
-    /// `LibStoxConfig.GOVERNANCE_TIMELOCK_NAME` as an `address`.
+    /// `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME` as an `address`.
     ///
-    /// @dev The timelock is resolved from the `ConfigRegistry` rather than
+    /// @dev The initial admin is resolved from the `ConfigRegistry` rather than
     /// taken as an argument, so whoever creates the registry beacon proxy
     /// cannot seat an admin of its own. `data` is unused.
     /// @inheritdoc ICloneableV2
     function initialize(bytes calldata) external initializer returns (bytes32) {
-        address timelock = LibStoxConfig.governanceTimelock();
+        address admin = LibStoxConfig.orchestratorInitialAdmin();
         __AccessControl_init();
         __EIP712_init("ST0xOrchestrator", "1");
-        _grantRole(DEFAULT_ADMIN_ROLE, timelock);
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
         // Each admin role administers its operating role and itself, as
         // `rain-vats`' `OffchainAssetReceiptVaultAuthorizerV1` and this repo's
@@ -261,15 +261,15 @@ contract ST0xOrchestrator is
         // admin role takes an upgrade to recover.
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
         _setRoleAdmin(MINT_ADMIN_ROLE, MINT_ADMIN_ROLE);
-        _grantRole(MINT_ADMIN_ROLE, timelock);
+        _grantRole(MINT_ADMIN_ROLE, admin);
 
         _setRoleAdmin(BURN_ROLE, BURN_ADMIN_ROLE);
         _setRoleAdmin(BURN_ADMIN_ROLE, BURN_ADMIN_ROLE);
-        _grantRole(BURN_ADMIN_ROLE, timelock);
+        _grantRole(BURN_ADMIN_ROLE, admin);
 
         _setRoleAdmin(EMERGENCY_ROLE, EMERGENCY_ADMIN_ROLE);
         _setRoleAdmin(EMERGENCY_ADMIN_ROLE, EMERGENCY_ADMIN_ROLE);
-        _grantRole(EMERGENCY_ADMIN_ROLE, timelock);
+        _grantRole(EMERGENCY_ADMIN_ROLE, admin);
 
         return ICLONEABLE_V2_SUCCESS;
     }

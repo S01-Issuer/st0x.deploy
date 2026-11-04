@@ -114,7 +114,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     MockMintRecipient internal capRecipient2;
 
     function setUp() public {
-        LibTestDeploy.bindGovernanceTimelock(vm, OWNER);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, OWNER);
         capRecipient = new MockMintRecipient(true);
         capRecipient2 = new MockMintRecipient(true);
         impl = new ST0xOrchestrator();

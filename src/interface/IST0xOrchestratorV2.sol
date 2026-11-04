@@ -81,8 +81,6 @@ interface IST0xOrchestratorV2 {
     /// @param evaluable The interpreter, store and bytecode now in force.
     event MintWeightingSet(address indexed sender, EvaluableV4 evaluable);
 
-    error ZeroOwner();
-
     error ZeroAmount();
     /// @notice `mint` was asked to send the shares to the minter itself. The
     /// sender and the recipient of a mint can never be the same address.

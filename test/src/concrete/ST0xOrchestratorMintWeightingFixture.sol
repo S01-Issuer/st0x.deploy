@@ -70,7 +70,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     function tokenSymbol() internal pure virtual returns (string memory);
 
     function setUp() public virtual {
-        LibTestDeploy.bindGovernanceTimelock(vm, OWNER);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, OWNER);
         recipient = new MockMintRecipient(true);
         _makeGuardPass();
         ST0xOrchestrator impl = new ST0xOrchestrator();
