@@ -12,8 +12,8 @@ import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 /// owner is the governance timelock bound in the `ConfigRegistry`, so the
 /// creation code is chain-invariant and the deploy key never owns the beacon.
 /// @dev Reverts until the root authority binds a nonzero
-/// `LibStoxConfig.GOVERNANCE_TIMELOCK_NAME`, and until the implementation has
+/// `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME`, and until the implementation has
 /// code.
 contract ST0xOrchestratorBeacon is
-    UpgradeableBeacon(LibProdDeployCurrent.ST0X_ORCHESTRATOR, LibStoxConfig.governanceTimelock())
+    UpgradeableBeacon(LibProdDeployCurrent.ST0X_ORCHESTRATOR, LibStoxConfig.orchestratorInitialAdmin())
 {}

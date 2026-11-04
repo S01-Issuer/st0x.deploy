@@ -162,7 +162,7 @@ contract LibProdDeployV4Test is Test {
     // --- ST0xOrchestratorBeacon (candidate; its implementation must have code). ---
 
     function testDeployAddressST0xOrchestratorBeacon() external {
-        LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, makeAddr("timelock"));
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
         address deployed = deployZoltuWithinEip170(type(ST0xOrchestratorBeacon).creationCode);
@@ -632,7 +632,7 @@ contract LibProdDeployV4Test is Test {
     /// The beacon's implementation must have code, so it is deployed (frozen,
     /// at its candidate address) first.
     function testFrozenRedeployST0xOrchestratorBeacon_CANDIDATE() external {
-        LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, makeAddr("timelock"));
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
         _assertFrozenRedeploy(

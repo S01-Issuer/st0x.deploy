@@ -11,10 +11,10 @@ import {ST0xOrchestratorBeacon} from "../../../src/concrete/ST0xOrchestratorBeac
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTestOrchestratorDeploy} from "../../lib/LibTestOrchestratorDeploy.sol";
-import {GovernanceTimelockSeatTest} from "../lib/GovernanceTimelockSeatTest.sol";
+import {OrchestratorInitialAdminSeatTest} from "../lib/OrchestratorInitialAdminSeatTest.sol";
 import {UpgradedImpl} from "./deploy/UpgradedImpl.sol";
 
-contract ST0xOrchestratorBeaconTest is GovernanceTimelockSeatTest {
+contract ST0xOrchestratorBeaconTest is OrchestratorInitialAdminSeatTest {
     address internal constant TIMELOCK = address(uint160(uint256(keccak256("TIMELOCK"))));
 
     function setUp() public {
@@ -39,14 +39,14 @@ contract ST0xOrchestratorBeaconTest is GovernanceTimelockSeatTest {
         external
     {
         vm.assume(timelock != address(0) && sender != timelock);
-        LibTestDeploy.bindGovernanceTimelock(vm, timelock);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, timelock);
         vm.prank(sender);
         address beacon = address(new ST0xOrchestratorBeacon());
         assertSeated(beacon, timelock);
     }
 
     function testBeaconUpgradeRedirectsSingleton() external {
-        LibTestDeploy.bindGovernanceTimelock(vm, TIMELOCK);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, TIMELOCK);
         address beacon = LibRainDeploy.deployZoltu(type(ST0xOrchestratorBeacon).creationCode);
         assertEq(beacon, LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2, "beacon address");
         address orchestrator = LibTestOrchestratorDeploy.deployInstance(vm, makeAddr("deployer"));
@@ -60,7 +60,7 @@ contract ST0xOrchestratorBeaconTest is GovernanceTimelockSeatTest {
 
     function testFuzzBeaconUpgradeUnauthorised(address notOwner) external {
         vm.assume(notOwner != TIMELOCK && notOwner != address(0));
-        LibTestDeploy.bindGovernanceTimelock(vm, TIMELOCK);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, TIMELOCK);
         UpgradeableBeacon beacon = UpgradeableBeacon(address(new ST0xOrchestratorBeacon()));
         UpgradedImpl newImpl = new UpgradedImpl();
         vm.prank(notOwner);

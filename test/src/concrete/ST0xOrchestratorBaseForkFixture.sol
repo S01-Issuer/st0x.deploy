@@ -85,7 +85,7 @@ abstract contract ST0xOrchestratorBaseForkFixture is ST0xOrchestratorMintWeighti
             "subparser address"
         );
 
-        LibTestDeploy.bindGovernanceTimelock(vm, OWNER);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, OWNER);
         recipient = new MockMintRecipient(true);
         _makeGuardPass();
         LibTestOrchestratorDeploy.deployBeacon();

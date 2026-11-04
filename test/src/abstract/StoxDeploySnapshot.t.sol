@@ -15,7 +15,7 @@ contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {
     /// `script/Build.sol`. The registry code goes again so only a suite's
     /// declared dependency etches it back.
     function setUp() external {
-        LibTestDeploy.bindGovernanceTimelock(vm, makeAddr("timelock"));
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, makeAddr("timelock"));
         LibTestDeploy.bind(
             vm,
             LibStoxConfig.ROOT_AUTHORITY,

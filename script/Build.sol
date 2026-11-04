@@ -102,7 +102,7 @@ contract Build is Script, StoxDeploySuites {
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
             .registerV5(
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME,
                 "address",
                 abi.encode(address(1)),
                 ""

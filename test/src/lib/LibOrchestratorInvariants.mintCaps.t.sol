@@ -59,7 +59,7 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         harness = new LibOrchestratorInvariantsHarness();
         timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        LibTestDeploy.bindGovernanceTimelock(vm, timelock);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, timelock);
         deployKey = LibProdDeployCurrent.BEACON_INITIAL_OWNER;
 
         LibRainDeploy.etchZoltuFactory(vm);
