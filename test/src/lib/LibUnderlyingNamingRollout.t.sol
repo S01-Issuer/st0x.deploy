@@ -15,6 +15,7 @@ import {NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInva
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {ScheduleUnderlyingNamingBeacons} from "../../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 import {ScheduleUnderlyingNamingRename} from "../../../script/20261021-schedule-underlying-naming-rename.s.sol";
+import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
 import {FrozenReleaseRenameHarness} from "../../script/FrozenReleaseRenameHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "../../script/ScheduleUnderlyingNamingRenameHarness.sol";
 
@@ -130,9 +131,18 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// With the release frozen but the downstream flag unset, the rename
     /// script refuses before it reads any chain state.
     function testRenameRefusesUntilDownstreamIsReady() external {
-        assertFalse(LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS);
-        FrozenReleaseRenameHarness rename = new FrozenReleaseRenameHarness();
+        DownstreamNotReadyRenameHarness rename = new DownstreamNotReadyRenameHarness();
         vm.expectRevert(DownstreamNotReadyForRename.selector);
+        rename.callPreflight();
+    }
+
+    /// The repo sets the downstream flag (RAI-4172), so once the release is
+    /// frozen the rename script passes the downstream gate and goes on to the
+    /// row check, which refuses here on a chain with no token table.
+    function testRenamePassesTheDownstreamGateAsTheRepoSetsIt() external {
+        assertTrue(LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS);
+        FrozenReleaseRenameHarness rename = new FrozenReleaseRenameHarness();
+        vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, block.chainid));
         rename.callPreflight();
     }
 
