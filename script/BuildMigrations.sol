@@ -179,15 +179,33 @@ contract BuildMigrations is Script {
         revert HistoryWithoutMoment(path, chainId);
     }
 
-    function chainJson(
-        string memory key,
+    function chainEntry(
+        string memory chainsKey,
         string memory path,
         ScriptDeclaration memory declared,
         address instance,
         uint256 chainId
     ) internal returns (string memory) {
+        string memory id = vm.toString(chainId);
+        string memory key = string.concat(chainsKey, ".", id);
         vm.serializeBytes32(key, "onto", declared.onto);
-        return vm.serializeUint(key, "executedAt", executedAt(path, declared, instance, chainId));
+        uint256 at = executedAt(path, declared, instance, chainId);
+        return vm.serializeString(chainsKey, id, vm.serializeUint(key, "executedAt", at));
+    }
+
+    function chainsJson(
+        string memory chainsKey,
+        string memory path,
+        ScriptDeclaration[][] memory declarations,
+        address[][] memory instances,
+        SupportedNetwork[] memory networks,
+        uint256 index
+    ) internal returns (string memory) {
+        string memory chains;
+        for (uint256 n = 0; n < networks.length; n++) {
+            chains = chainEntry(chainsKey, path, declarations[n][index], instances[n][index], networks[n].chainId);
+        }
+        return chains;
     }
 
     function migrationJson(
@@ -198,22 +216,8 @@ contract BuildMigrations is Script {
         SupportedNetwork[] memory networks
     ) internal returns (string memory) {
         string memory key = string.concat("migrations.", vm.toString(index));
-        string memory chainsKey = string.concat(key, ".chains");
-        string memory chains;
-        for (uint256 n = 0; n < networks.length; n++) {
-            string memory chainId = vm.toString(networks[n].chainId);
-            chains = vm.serializeString(
-                chainsKey,
-                chainId,
-                chainJson(
-                    string.concat(chainsKey, ".", chainId),
-                    path,
-                    declarations[n][index],
-                    instances[n][index],
-                    networks[n].chainId
-                )
-            );
-        }
+        string memory chains =
+            chainsJson(string.concat(key, ".chains"), path, declarations, instances, networks, index);
         vm.serializeBytes32(key, "id", declarations[0][index].id);
         vm.serializeString(key, "script", path);
         return vm.serializeString(key, "chains", chains);
