@@ -130,8 +130,9 @@ struct MigrationTargets {
 /// @param id The timelock operation id that failed to complete.
 error GovernanceLoopNotProven(bytes32 id);
 
-/// @notice This script's declaration: the Safe's first record in this repo's
-/// namespace, written later as history by the orchestrator EMERGENCY bundle.
+/// @notice This script's declaration: history on every chain; on Base, onto
+/// the rehearsal execute; elsewhere, onto the multisig threshold migration.
+/// @param chainId The chain id.
 /// @return The declaration.
 function migrateGovernanceToTimelockDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
