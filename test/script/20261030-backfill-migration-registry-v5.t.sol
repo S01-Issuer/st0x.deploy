@@ -19,6 +19,9 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJ
 import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
 
 import {
+    BackfillHistoryMomentBeforePrevious,
+    BackfillLineEndsElsewhere,
+    BackfillRecordNotOntoPrevious,
     BackfillV5OrderMismatch,
     BackfillV5RecordMismatch,
     BackfillV5RecordMissing,
@@ -298,9 +301,9 @@ contract BackfillMigrationRegistryV5Test is Test {
         );
         vm.expectRevert(
             abi.encodeWithSelector(
-                UnexpectedRegistryV2Order.selector,
+                BackfillHistoryMomentBeforePrevious.selector,
                 LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE,
-                LibStoxMigrations.MULTISIG_THRESHOLD
+                thresholdAt - 1
             )
         );
         script.callPreflight();
@@ -325,7 +328,7 @@ contract BackfillMigrationRegistryV5Test is Test {
         );
         vm.expectRevert(
             abi.encodeWithSelector(
-                UnexpectedRegistryV2Order.selector, LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, OTHER
+                BackfillRecordNotOntoPrevious.selector, LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL, OTHER
             )
         );
         script.callPreflight();
@@ -338,7 +341,7 @@ contract BackfillMigrationRegistryV5Test is Test {
             abi.encodeCall(IStoxScript.declaration, (block.chainid)),
             abi.encode(ScriptDeclaration({id: OTHER, onto: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, history: true}))
         );
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, OWN, OTHER));
+        vm.expectRevert(abi.encodeWithSelector(BackfillLineEndsElsewhere.selector, OWN, OTHER));
         script.callPreflight();
     }
 
