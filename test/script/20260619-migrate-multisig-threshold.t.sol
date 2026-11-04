@@ -6,7 +6,9 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {
     MigrateMultisigThreshold,
     VerifyMismatch,
-    VerifyExpectedSingleTx
+    VerifyExpectedSingleTx,
+    MultisigThresholdAlreadyApplied,
+    NoMultisigThresholdMigrationOnChain
 } from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
@@ -16,6 +18,10 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
 import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
@@ -176,5 +182,61 @@ contract MigrateMultisigThresholdTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "data"));
         script.verify(path);
+    }
+
+    function chains() internal pure returns (uint256[5] memory) {
+        return [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+    }
+
+    function testDeclarationIsHistoryOntoGenesis(uint256 chainId) external {
+        ScriptDeclaration memory declared = new MigrateMultisigThreshold().declaration(chainId);
+        assertEq(declared.id, LibStoxMigrations.MULTISIG_THRESHOLD);
+        assertEq(declared.onto, MIGRATION_HEAD_GENESIS);
+        assertTrue(declared.history);
+    }
+
+    function testExecutedAtRevertsOffItsChains(uint256 chainId) external {
+        uint256[5] memory known = chains();
+        for (uint256 i = 0; i < known.length; i++) {
+            vm.assume(chainId != known[i]);
+        }
+        MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
+        vm.expectRevert(abi.encodeWithSelector(NoMultisigThresholdMigrationOnChain.selector, chainId));
+        migration.executedAt(chainId);
+    }
+
+    function testHistoryAtExecutedAtOpensTheRootLine(uint256 index) external {
+        uint256 chainId = chains()[bound(index, 0, 4)];
+        MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
+        uint256 executedAt = migration.executedAt(chainId);
+        address writer = LibSafeInvariants.safeForChainId(chainId);
+        LibTestRootLine.etchRegistry(vm);
+        LibTestRootLine.approve(vm, writer);
+        vm.warp(executedAt + 1 days);
+
+        (address to, bytes memory data) = LibStoxMigrations.historyCall(migration.declaration(chainId), executedAt);
+        vm.prank(writer);
+        (bool ok,) = to.call(data);
+        assertTrue(ok);
+
+        assertEq(LibStoxMigrations.applied(LibStoxMigrations.MULTISIG_THRESHOLD), executedAt);
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.MULTISIG_THRESHOLD);
+    }
+
+    function testRunRefusesWhenAlreadyRecorded() external {
+        address writer = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        LibTestRootLine.etchRegistry(vm);
+        LibTestRootLine.approve(vm, writer);
+        LibTestRootLine.write(vm, writer, LibStoxMigrations.MULTISIG_THRESHOLD, MIGRATION_HEAD_GENESIS);
+
+        MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
+        vm.expectRevert(MultisigThresholdAlreadyApplied.selector);
+        migration.run();
     }
 }
