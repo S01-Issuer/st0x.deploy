@@ -22,6 +22,7 @@ import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigratio
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
+import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
@@ -36,11 +37,10 @@ contract MigrateMultisigThresholdTest is Test {
     /// @notice Live Safe handle.
     Safe internal safe;
 
-    /// @notice Selects the Base fork at chain head — deliberately
-    /// unpinned. Same precedent as
-    /// `StoxProdV2.t.sol::testProdDeployBaseV2`.
+    /// @notice Selects Base at its pinned pre-backfill block, where the
+    /// threshold migration is not yet recorded.
     function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         script = new MigrateMultisigThreshold();
         safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
     }

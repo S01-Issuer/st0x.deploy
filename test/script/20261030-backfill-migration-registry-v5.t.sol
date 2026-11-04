@@ -3,7 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
@@ -33,6 +32,7 @@ import {
 } from "../../script/20261030-backfill-migration-registry-v5.s.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
+import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -179,25 +179,10 @@ contract BackfillMigrationRegistryV5Test is Test {
         assertEq(LibMigrationRegistry.appliedByV5(ROOT, NS, OWN), safe, "own record by the Safe");
     }
 
-    function spent() internal view returns (bool) {
-        if (LibStoxMigrations.applied(OWN) != 0) {
-            console2.log("SPENT: the V5 backfill has executed on this chain");
-            return true;
-        }
-        return false;
-    }
-
     function assertBackfill(string memory network) internal {
-        vm.createSelectFork(network);
+        LibTestPreBackfillFork.select(vm, network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         BackfillMigrationRegistryV5Harness script = new BackfillMigrationRegistryV5Harness(network);
-
-        if (spent()) {
-            assertLine(script, safe);
-            assertEq(script.callAuthorBundle().length, 0, "nothing left to write");
-            script.callAssertPostState();
-            return;
-        }
 
         assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS, "root line starts at genesis");
         assertBundle(script.callAuthorBundle(), expectedBundle(script, 0));
@@ -247,7 +232,7 @@ contract BackfillMigrationRegistryV5Test is Test {
     }
 
     function setUpFork(string memory network) internal returns (BackfillMigrationRegistryV5Harness, address) {
-        vm.createSelectFork(network);
+        LibTestPreBackfillFork.select(vm, network);
         return (new BackfillMigrationRegistryV5Harness(network), LibSafeInvariants.safeForChainId(block.chainid));
     }
 
@@ -257,7 +242,6 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function assertBundleSkipsHeldRecords(string memory network) internal {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpFork(network);
-        if (spent()) return;
         uint256 count = line(block.chainid).length;
         for (uint256 held = 0; held <= count; held++) {
             uint256 snapshot = vm.snapshotState();
@@ -392,7 +376,6 @@ contract BackfillMigrationRegistryV5Test is Test {
         bytes memory refusal = abi.encodeWithSelector(UnexpectedRegistryV2Order.selector, record.v2Id, OTHER);
         vm.expectRevert(refusal);
         script.callPreflight();
-        if (spent()) return;
         vm.expectRevert(refusal);
         script.callAuthorBundle();
     }
@@ -421,7 +404,6 @@ contract BackfillMigrationRegistryV5Test is Test {
         bytes memory refusal = abi.encodeWithSelector(HistoryMomentMismatch.selector, record.id, at, at + 1);
         vm.expectRevert(refusal);
         script.callPreflight();
-        if (spent()) return;
         vm.expectRevert(refusal);
         script.callAuthorBundle();
     }
@@ -466,7 +448,6 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function testVerifyRefusesTamperedArtifact() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent()) return;
         string memory json =
             LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, "tamper test", script.callAuthorBundle());
         string memory cleanPath =
@@ -490,14 +471,12 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function testPostStateRefusesUnwrittenLine() external {
         (BackfillMigrationRegistryV5Harness script,) = setUpBase();
-        if (spent()) return;
         vm.expectRevert(abi.encodeWithSelector(BackfillV5RecordMissing.selector, LibStoxMigrations.MULTISIG_THRESHOLD));
         script.callAssertPostState();
     }
 
     function testPostStateRefusesHeldHistoryAtAnotherMoment() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent()) return;
         LineRecord[] memory all = line(block.chainid);
         holdPrefix(script, safe, 4);
         bytes32 gov = LibStoxMigrations.GOVERNANCE_TIMELOCK;
@@ -510,7 +489,6 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function testPostStateRefusesHeldRecordOntoAnotherPredecessor() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent()) return;
         LineRecord[] memory all = line(block.chainid);
         holdPrefix(script, safe, 4);
         bytes32 gov = LibStoxMigrations.GOVERNANCE_TIMELOCK;
@@ -525,7 +503,6 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function testPostStateRefusesMissingOwnRecord() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent()) return;
         SafeTx[] memory txs = script.callAuthorBundle();
         SafeTx[] memory history = new SafeTx[](txs.length - 1);
         for (uint256 i = 0; i < history.length; i++) {
@@ -538,7 +515,6 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function testPostStateRefusesOwnRecordOntoAnotherRecord() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent()) return;
         uint256 count = line(block.chainid).length;
         holdPrefix(script, safe, count);
         LibTestRootLine.write(vm, safe, OTHER, line(block.chainid)[count - 1].id);
@@ -550,7 +526,6 @@ contract BackfillMigrationRegistryV5Test is Test {
 
     function testPostStateRefusesSafeOffPolicy() external {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
-        if (spent()) return;
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
         script.callAssertPostState();
         vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(1)));

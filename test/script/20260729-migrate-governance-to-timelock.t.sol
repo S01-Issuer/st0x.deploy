@@ -24,6 +24,7 @@ import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigratio
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
+import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -41,7 +42,8 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @title MigrateGovernanceToTimelockTest
-/// @notice Live head fork coverage for the governance migration authoring.
+/// @notice Fork coverage for the governance migration authoring, at each
+/// chain's pinned pre-backfill block.
 /// The migration has executed on every chain, so each fork is first rewound
 /// to the pre-migration state with the timelock's own powers
 /// (`rewindMigration`): the script stays re-dispatchable for audit, and its
@@ -110,9 +112,10 @@ contract MigrateGovernanceToTimelockTest is Test {
         selectRewoundFork(LibRainDeploy.BASE);
     }
 
-    /// @notice Fork `network` at head and rewind the executed migration.
+    /// @notice Fork `network` at its pinned pre-backfill block, where the
+    /// migration is not yet recorded, and rewind the executed migration.
     function selectRewoundFork(string memory network) internal {
-        vm.createSelectFork(network);
+        LibTestPreBackfillFork.select(vm, network);
         rewindMigration();
     }
 
