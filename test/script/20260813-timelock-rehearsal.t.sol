@@ -135,9 +135,7 @@ contract TimelockRehearsalTest is Test {
     function testExecuteRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
         chainId = bound(chainId, 1, type(uint64).max / 2 - 36);
         vm.chainId(chainId);
-        vm.expectRevert(
-            abi.encodeWithSelector(ExecuteTimelockOperationsRecordedByBackfill.selector, chainId)
-        );
+        vm.expectRevert(abi.encodeWithSelector(ExecuteTimelockOperationsRecordedByBackfill.selector, chainId));
         executeScript.run();
     }
 

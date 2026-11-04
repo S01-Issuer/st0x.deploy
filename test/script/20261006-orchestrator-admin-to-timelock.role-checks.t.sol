@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 
@@ -32,7 +33,9 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         bytes32 emergency = ORCHESTRATOR.EMERGENCY_ROLE();
         vm.prank(address(safe));
         ORCHESTRATOR.grantRole(emergency, address(safe));
-        LibTestRootLine.write(vm, address(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, bytes32(0));
+        LibTestRootLine.write(
+            vm, address(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, MIGRATION_HEAD_GENESIS
+        );
         script = new OrchestratorAdminToTimelockHarness("local");
     }
 
@@ -63,7 +66,10 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
     }
 
     function testPreflightRefusesALineNotAtTheBackfill(bytes32 head) external {
-        vm.assume(head != LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5 && head != bytes32(0));
+        vm.assume(
+            head != LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5 && head != bytes32(0)
+                && head != MIGRATION_HEAD_GENESIS
+        );
         script.callPreflight();
         LibTestRootLine.write(vm, address(safe), head, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5);
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, head));
@@ -94,7 +100,8 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
 
     function testPostStateRefusesALineMovedPastTheMove(bytes32 next) external {
         vm.assume(
-            next != bytes32(0) && next != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
+            next != bytes32(0) && next != MIGRATION_HEAD_GENESIS
+                && next != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
                 && next != LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
         );
         executeMove();
