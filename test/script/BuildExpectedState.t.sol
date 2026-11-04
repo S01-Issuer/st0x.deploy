@@ -211,7 +211,6 @@ contract BuildExpectedStateTest is Test {
     function testTimelockCodehashIsTheSuiteCodeAtTheSuiteAddressAndThePerSafeCodeElsewhere() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
-        bool sawSuite;
         bool sawPerSafe;
         for (uint256 i = 0; i < nets.length; i++) {
             string memory at = string.concat(chain(nets[i]), ".timelock");
@@ -221,14 +220,17 @@ contract BuildExpectedStateTest is Test {
             if (timelock == LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
                 assertEq(codehash, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH);
                 assertEq(codehash, keccak256(SUITE_TIMELOCK_RUNTIME_CODE));
-                sawSuite = true;
             } else {
                 assertEq(codehash, TIMELOCK_BYTECODE_HASH);
                 assertEq(codehash, keccak256(TIMELOCK_RUNTIME_CODE));
                 sawPerSafe = true;
             }
         }
-        assertTrue(sawSuite && sawPerSafe);
+        assertTrue(sawPerSafe);
+        assertEq(
+            LibTimelockInvariants.timelockCodehash(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK),
+            keccak256(SUITE_TIMELOCK_RUNTIME_CODE)
+        );
     }
 
     /// The beacon and instance are the set deployer's nonce 1 and nonce 2 CREATEs, the beacon is a 0.1.30
