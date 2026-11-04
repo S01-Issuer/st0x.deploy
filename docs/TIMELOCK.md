@@ -150,43 +150,31 @@ chain whose timelock is the `stox-governance-timelock` suite.
 migration script's own tests rewind each fork to the pre-migration state with
 the timelock's powers, so the script stays re-dispatchable and proven.
 
-### Base: tWMT, tMC and tDIS
+### tWMT, tMC and tDIS
 
-tWMT, tMC and tDIS were deployed on Base after the migration executed there and
-were handed to the Safe. Their `owner()` is the only governance surface they do
-not share with the other 53 Base vaults: they proxy the same timelock-owned
-beacons, sit on the timelock-administered authorisers (tMC on the EU assets
-authoriser), and their receipts are managed by the vaults. On the other four
-chains every vault is already timelock-owned. The rename rollout's batch calls
-`setUnderlying` on every vault, so it needs these three on the timelock first.
+tWMT, tMC and tDIS are Base vaults owned by the Safe; every other vault the
+rename rollout covers is timelock-owned. The rename batch calls `setUnderlying`
+on every vault, so these three must be on the timelock first.
 
-`20261103-hand-wmt-mc-dis-to-timelock` hands them over in one Safe MultiSend of
-three `transferOwnership(timelock)` calls. The vault is single-step
-`OwnableUpgradeable`, so no accept step follows. The pre-flight refuses unless
-the chain is Base, over the rename's 56 rows the Safe owns exactly these three
-and the timelock owns every other vault the rename rollout covers and every
-beacon, the authoriser maps hold with no `_ADMIN` role on the Safe, and none of
-the three carries an owner freeze. It writes no registry record (see the
-script's NatSpec). To execute:
+`20261103-hand-wmt-mc-dis-to-timelock` sits on every chain's root line after
+the V5 backfill. On Base its bundle is three `transferOwnership(timelock)`
+calls plus the record; elsewhere it is the record alone. The pre-flight
+requires that, over the rename's rows, the Safe owns exactly these three on
+Base and none elsewhere. To execute, per chain:
 
-1. Before signing, cancel any timelock operation already scheduled against the
-   three vaults: once the timelock owns them, anyone can execute it. The
-   script's NatSpec has the subgraph query. Check that the index reads as
-   current, and cancel only pending ids: `cancel` reverts on anything else.
-2. Actions → `run-script` → `20261103-hand-wmt-mc-dis-to-timelock`, network
-   `base`, `run()`.
+1. On Base, before signing, cancel any pending timelock operation against the
+   three vaults: once the timelock owns them, anyone can execute it.
+2. Actions → `run-script` → `20261103-hand-wmt-mc-dis-to-timelock`, the
+   network, `run()`.
 3. One signer imports the CI artifact into the Safe Tx Builder and proposes it
    without executing.
-4. Before signing, each signer unzips the artifact into `out/` (`verify` can
-   only read files there) and runs
-   `forge script script/20261103-hand-wmt-mc-dis-to-timelock.s.sol --sig 'verify(string)' out/<artifact>.json --rpc-url base`.
-   The printed `SafeTxHash` must equal the one in the Safe UI; on a mismatch,
-   stop. Then sign to threshold and execute.
-5. Check that `owner()` of all three vaults is the timelock.
+4. Before signing, each signer unzips the artifact into `out/` and runs
+   `forge script script/20261103-hand-wmt-mc-dis-to-timelock.s.sol --sig 'verify(string)' out/<artifact>.json --rpc-url <network>`.
+   The printed `SafeTxHash` must equal the one in the Safe UI. Then sign to
+   threshold and execute.
 
-Rollback: the Safe schedules `transferOwnership(safe)` on the three through the
-timelock, and anyone executes it after 48h. The script's fork proof runs exactly
-this.
+Rollback on Base: the Safe schedules `transferOwnership(safe)` on the three
+through the timelock; anyone executes it after 48h.
 
 ## Rehearsing the timelock
 
@@ -435,8 +423,6 @@ as `admin`.
 - **New Base tokens** are deployed by the sft-ops CD pipeline, not by a script
   here. It must hand each new vault to `STOX_GOVERNANCE_TIMELOCK`
   (`transferOwnership`). `LibInvariants` does not check vault ownership: a vault
-  left on the Safe shows only on the rain-org-health dashboard. The ownership
-  checks in the rollout and handover fork tests cover the rename's fixed 56
-  rows, not vaults pinned later.
+  left on the Safe shows only on the rain-org-health dashboard.
 
 - **Dedicated canceller** — see the role model above.
