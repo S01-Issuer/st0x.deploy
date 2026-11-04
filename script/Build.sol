@@ -4,13 +4,17 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm, VmSafe} from "forge-std-1.17.0/src/Vm.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibRainDeploySnapshot} from "rain-deploy-0.1.30/src/lib/LibRainDeploySnapshot.sol";
 import {
     DeployCandidate,
     DeployDeclaration,
     DeploySuite
 } from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {
+    LibRainDeployRegistryBeaconProxy,
+    RegistryBeaconProxyTarget
+} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
 import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
@@ -130,9 +134,12 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genTokenProxy() internal {
+        RegistryBeaconProxyTarget memory target = LibProdTokenTargets.tokenTargets()[0];
+        // The generated vault beacon constant is from the previous compile.
+        target.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
             Vm(address(vm)),
-            LibProdTokenTargets.tokenTargets()[0],
+            target,
             V4.STOX_RECEIPT_VAULT_0_1_1,
             V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
         );
