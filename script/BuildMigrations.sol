@@ -4,9 +4,10 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibScriptDeclarations} from "../src/lib/LibScriptDeclarations.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
@@ -35,9 +36,10 @@ error HistoryWithoutMoment(string script, uint256 chainId);
 
 /// @title BuildMigrations
 /// @notice Reads every `script/*.s.sol`'s own declaration, reverts unless all
-/// of them are valid together, and writes `migrations.json`: every migration,
-/// and per deployment network the registry and each migration's writer,
-/// execution moment if recorded as history, and prerequisites.
+/// of them are valid together on every deployment network, and writes
+/// `migrations.json`: the root line's writer and namespace, per deployment
+/// network the registry, and every migration's id, script and, per network,
+/// the head it is applied onto and its execution moment if recorded as history.
 contract BuildMigrations is Script {
     string internal constant PATH = "migrations.json";
     string internal constant SCRIPTS = "script";
@@ -115,8 +117,11 @@ contract BuildMigrations is Script {
         return sorted(names);
     }
 
-    /// @dev The one contract in `name`'s artifacts that declares itself.
-    function declaring(string memory path, string memory name) internal returns (address, ScriptDeclaration memory) {
+    /// @dev The one contract in `name`'s artifacts that declares itself on `chainId`.
+    function declaring(string memory path, string memory name, uint256 chainId)
+        internal
+        returns (address, ScriptDeclaration memory)
+    {
         string memory built = string.concat("out/", name);
         if (!vm.exists(built)) revert ScriptNotBuilt(path);
         Vm.DirEntry[] memory artifacts = vm.readDir(built, 1);
@@ -128,7 +133,7 @@ contract BuildMigrations is Script {
             string memory contractId = string.concat(name, ":", stem(artifact, 5));
             if (vm.parseJsonBytes(vm.readFile(artifacts[index].path), ".bytecode.object").length == 0) continue;
             address instance = vm.deployCode(contractId);
-            try IStoxScript(instance).declaration() returns (ScriptDeclaration memory candidate) {
+            try IStoxScript(instance).declaration(chainId) returns (ScriptDeclaration memory candidate) {
                 if (found != address(0)) revert ManyDeclarations(path);
                 found = instance;
                 declared = candidate;
@@ -138,40 +143,28 @@ contract BuildMigrations is Script {
         return (found, declared);
     }
 
-    /// @notice Every script in `dir` with its declaration, in path order;
-    /// reverts on a script that does not declare itself, or on any rule
-    /// `LibScriptDeclarations` holds the declarations to.
+    /// @notice Every script in `dir` with its declaration on `chainId`, in
+    /// path order; reverts on a script that does not declare itself, or on
+    /// any rule `LibScriptDeclarations` holds one chain's declarations to.
     /// @param dir The directory.
-    /// @return paths Each script's path.
-    /// @return declarations Each script's declaration.
-    /// @return instances Each script's declaring contract, deployed.
-    function discover(string memory dir)
+    /// @param chainId The chain id.
+    /// @return Each script's path.
+    /// @return Each script's declaration on `chainId`.
+    /// @return Each script's declaring contract, deployed.
+    function discover(string memory dir, uint256 chainId)
         public
-        returns (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances)
+        returns (string[] memory, ScriptDeclaration[] memory, address[] memory)
     {
         string[] memory names = scriptNames(dir);
-        paths = new string[](names.length);
-        declarations = new ScriptDeclaration[](names.length);
-        instances = new address[](names.length);
+        string[] memory paths = new string[](names.length);
+        ScriptDeclaration[] memory declarations = new ScriptDeclaration[](names.length);
+        address[] memory instances = new address[](names.length);
         for (uint256 i = 0; i < names.length; i++) {
             paths[i] = string.concat(dir, "/", names[i]);
-            (instances[i], declarations[i]) = declaring(paths[i], names[i]);
+            (instances[i], declarations[i]) = declaring(paths[i], names[i], chainId);
         }
         LibScriptDeclarations.validate(paths, declarations);
-    }
-
-    function prerequisitesJson(string memory key, Prerequisite[] memory prerequisites)
-        internal
-        returns (string[] memory)
-    {
-        string[] memory rows = new string[](prerequisites.length);
-        for (uint256 i = 0; i < prerequisites.length; i++) {
-            string memory row = string.concat(key, ".", vm.toString(i));
-            vm.serializeAddress(row, "writer", prerequisites[i].writer);
-            vm.serializeBytes32(row, "namespace", prerequisites[i].namespace);
-            rows[i] = vm.serializeBytes32(row, "id", prerequisites[i].migration);
-        }
-        return rows;
+        return (paths, declarations, instances);
     }
 
     function executedAt(string memory path, ScriptDeclaration memory declared, address instance, uint256 chainId)
@@ -186,44 +179,46 @@ contract BuildMigrations is Script {
         revert HistoryWithoutMoment(path, chainId);
     }
 
-    function chainJson(
-        string memory key,
+    function chainEntry(
+        string memory chainsKey,
         string memory path,
         ScriptDeclaration memory declared,
         address instance,
         uint256 chainId
     ) internal returns (string memory) {
-        vm.serializeAddress(key, "writer", LibStoxMigrations.writerForChainId(declared.writer, chainId));
-        vm.serializeUint(key, "executedAt", executedAt(path, declared, instance, chainId));
-        return vm.serializeString(
-            key,
-            "prerequisites",
-            prerequisitesJson(
-                string.concat(key, ".prerequisites"), LibStoxMigrations.prerequisitesForChainId(declared, chainId)
-            )
-        );
+        string memory id = vm.toString(chainId);
+        string memory key = string.concat(chainsKey, ".", id);
+        vm.serializeBytes32(key, "onto", declared.onto);
+        uint256 at = executedAt(path, declared, instance, chainId);
+        return vm.serializeString(chainsKey, id, vm.serializeUint(key, "executedAt", at));
+    }
+
+    function chainsJson(
+        string memory chainsKey,
+        string memory path,
+        ScriptDeclaration[][] memory declarations,
+        address[][] memory instances,
+        SupportedNetwork[] memory networks,
+        uint256 index
+    ) internal returns (string memory) {
+        string memory chains;
+        for (uint256 n = 0; n < networks.length; n++) {
+            chains = chainEntry(chainsKey, path, declarations[n][index], instances[n][index], networks[n].chainId);
+        }
+        return chains;
     }
 
     function migrationJson(
         uint256 index,
         string memory path,
-        ScriptDeclaration memory declared,
-        address instance,
+        ScriptDeclaration[][] memory declarations,
+        address[][] memory instances,
         SupportedNetwork[] memory networks
     ) internal returns (string memory) {
         string memory key = string.concat("migrations.", vm.toString(index));
-        string memory chainsKey = string.concat(key, ".chains");
-        string memory chains;
-        for (uint256 i = 0; i < networks.length; i++) {
-            string memory chainId = vm.toString(networks[i].chainId);
-            chains = vm.serializeString(
-                chainsKey,
-                chainId,
-                chainJson(string.concat(chainsKey, ".", chainId), path, declared, instance, networks[i].chainId)
-            );
-        }
-        vm.serializeBytes32(key, "namespace", declared.namespace);
-        vm.serializeBytes32(key, "id", declared.id);
+        string memory chains =
+            chainsJson(string.concat(key, ".chains"), path, declarations, instances, networks, index);
+        vm.serializeBytes32(key, "id", declarations[0][index].id);
         vm.serializeString(key, "script", path);
         return vm.serializeString(key, "chains", chains);
     }
@@ -250,20 +245,21 @@ contract BuildMigrations is Script {
 
     /// @dev `migrations.json` for the scripts in `dir` on `networks`; reverts on no network.
     function renderFor(string memory dir, SupportedNetwork[] memory networks) internal returns (string memory) {
-        (string[] memory paths, ScriptDeclaration[] memory declarations, address[] memory instances) = discover(dir);
-        uint256 count = 0;
-        for (uint256 i = 0; i < declarations.length; i++) {
-            if (declarations[i].migration) count++;
+        if (networks.length == 0) revert NoDeploymentNetworks();
+        string[] memory paths;
+        ScriptDeclaration[][] memory declarations = new ScriptDeclaration[][](networks.length);
+        address[][] memory instances = new address[][](networks.length);
+        for (uint256 n = 0; n < networks.length; n++) {
+            (paths, declarations[n], instances[n]) = discover(dir, networks[n].chainId);
         }
-        string[] memory rows = new string[](count);
-        uint256 row = 0;
-        for (uint256 i = 0; i < declarations.length; i++) {
-            if (!declarations[i].migration) continue;
-            rows[row] = migrationJson(row, paths[i], declarations[i], instances[i], networks);
-            row++;
+        string[] memory rows = new string[](paths.length);
+        for (uint256 i = 0; i < paths.length; i++) {
+            rows[i] = migrationJson(i, paths[i], declarations, instances, networks);
         }
         vm.serializeUint("root", "version", 1);
         vm.serializeBytes32("root", "genesis", MIGRATION_HEAD_GENESIS);
+        vm.serializeAddress("root", "writer", LibRegistryAuthority.ROOT_AUTHORITY);
+        vm.serializeBytes32("root", "namespace", LibStoxMigrations.NAMESPACE);
         vm.serializeString("root", "networks", networksJson(networks));
         return vm.serializeString("root", "migrations", rows);
     }
