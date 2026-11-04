@@ -188,11 +188,13 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE,
                 V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
                 ORCHESTRATOR_PATH,
-                two(
+                three(
                     V4.STOX_RECEIPT_CANDIDATE,
                     V4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE,
                     V4.STOX_RECEIPT_VAULT_CANDIDATE,
-                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
+                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE
                 )
             )
         );
