@@ -32,4 +32,12 @@ contract LibAuthoriserInvariantsHarness {
     function callAssertExpectedEuGrants(address authoriser, address adminHolder, address minter) external view {
         LibAuthoriserInvariants.assertExpectedEuGrants(authoriser, adminHolder, minter);
     }
+
+    function callAssertAdminRolesHeld(address authoriser, address adminHolder) external view {
+        LibAuthoriserInvariants.assertAdminRolesHeld(authoriser, adminHolder);
+    }
+
+    function callAssertKeysHoldNoRoles(address authoriser) external view {
+        LibAuthoriserInvariants.assertKeysHoldNoRoles(authoriser);
+    }
 }

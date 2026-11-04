@@ -25,10 +25,22 @@ library LibStoxConfig {
     /// timelock's sole proposer and canceller.
     bytes32 internal constant GOVERNANCE_SAFE_NAME = keccak256("st0x.governance-safe.v1");
 
+    /// @notice `abi.encode(address)`: the initial admin of every V4 authoriser
+    /// clone, read once at its initialize.
+    bytes32 internal constant AUTHORISER_INITIAL_ADMIN_NAME = keccak256("st0x.authoriser-initial-admin.v1");
+
     /// @return The chain's governance Safe; reverts while unbound.
     function governanceSafe() internal view returns (address) {
         // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_SAFE_NAME, keccak256("address"));
+        return abi.decode(value, (address));
+    }
+
+    /// @return The bound authoriser initial admin; reverts while unbound.
+    function authoriserInitialAdmin() internal view returns (address) {
+        // slither-disable-next-line unused-return
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, AUTHORISER_INITIAL_ADMIN_NAME, keccak256("address"));
         return abi.decode(value, (address));
     }
 }
