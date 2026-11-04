@@ -124,6 +124,7 @@ contract BuildExpectedState is Script {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
         address[4] memory beacons = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
+        bytes32[4] memory proxyCodehashes = LibBeaconInvariants.prodTokenProxyCodehashesForChainId(chainId);
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
@@ -140,6 +141,13 @@ contract BuildExpectedState is Script {
             vm.serializeAddress(row, "receiptBeacon", beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
             vm.serializeAddress(
                 row, "wrappedTokenVaultBeacon", beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
+            );
+            vm.serializeBytes32(
+                row, "receiptVaultCodehash", proxyCodehashes[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]
+            );
+            vm.serializeBytes32(row, "receiptCodehash", proxyCodehashes[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
+            vm.serializeBytes32(
+                row, "wrappedTokenVaultCodehash", proxyCodehashes[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
             );
             vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
             rows[i] = vm.serializeAddress(
