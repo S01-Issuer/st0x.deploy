@@ -11,9 +11,6 @@
 #operator-5 !Pool operator.
 #operator-6 !Pool operator.
 
-#lead-domain-separator !Lead domain separator.
-#pool-domain-separator !Pool domain separator.
-
 #max-deviation !Max proportional price deviation.
 #max-time-spread !Max time spread in seconds.
 #min-price !Min lead price.
@@ -35,12 +32,17 @@ using-words-from st0x-attest-subparser
   "Attestor not allowlisted"
 ),
 
+price-domain: hash(
+  utf8-hash("EIP712Domain(string name," "string version)")
+  utf8-hash("prices")
+  utf8-hash("1")
+),
 :ensure(
-  binary-equal-to(lead-domain() lead-domain-separator)
+  binary-equal-to(lead-domain() price-domain)
   "Lead domain mismatch"
 ),
 :ensure(
-  binary-equal-to(attestor-domain<0>() attestor-domain<1>() pool-domain-separator)
+  binary-equal-to(attestor-domain<0>() attestor-domain<1>() price-domain)
   "Attestor domain mismatch"
 ),
 
