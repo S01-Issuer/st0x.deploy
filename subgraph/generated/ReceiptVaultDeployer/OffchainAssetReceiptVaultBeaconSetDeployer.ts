@@ -7,7 +7,7 @@ import {
   Entity,
   Bytes,
   Address,
-  BigInt
+  BigInt,
 } from "@graphprotocol/graph-ts";
 
 export class Deployment extends ethereum.Event {
@@ -40,7 +40,7 @@ export class OffchainAssetReceiptVaultBeaconSetDeployer extends ethereum.SmartCo
   static bind(address: Address): OffchainAssetReceiptVaultBeaconSetDeployer {
     return new OffchainAssetReceiptVaultBeaconSetDeployer(
       "OffchainAssetReceiptVaultBeaconSetDeployer",
-      address
+      address,
     );
   }
 
@@ -48,7 +48,7 @@ export class OffchainAssetReceiptVaultBeaconSetDeployer extends ethereum.SmartCo
     let result = super.call(
       "I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON",
       "I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON():(address)",
-      []
+      [],
     );
 
     return result[0].toAddress();
@@ -58,7 +58,7 @@ export class OffchainAssetReceiptVaultBeaconSetDeployer extends ethereum.SmartCo
     let result = super.tryCall(
       "I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON",
       "I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON():(address)",
-      []
+      [],
     );
     if (result.reverted) {
       return new ethereum.CallResult();
@@ -71,7 +71,7 @@ export class OffchainAssetReceiptVaultBeaconSetDeployer extends ethereum.SmartCo
     let result = super.call(
       "I_RECEIPT_BEACON",
       "I_RECEIPT_BEACON():(address)",
-      []
+      [],
     );
 
     return result[0].toAddress();
@@ -81,7 +81,7 @@ export class OffchainAssetReceiptVaultBeaconSetDeployer extends ethereum.SmartCo
     let result = super.tryCall(
       "I_RECEIPT_BEACON",
       "I_RECEIPT_BEACON():(address)",
-      []
+      [],
     );
     if (result.reverted) {
       return new ethereum.CallResult();
@@ -94,7 +94,7 @@ export class OffchainAssetReceiptVaultBeaconSetDeployer extends ethereum.SmartCo
     let result = super.call(
       "iOffchainAssetReceiptVaultBeacon",
       "iOffchainAssetReceiptVaultBeacon():(address)",
-      []
+      [],
     );
 
     return result[0].toAddress();
@@ -104,7 +104,7 @@ export class OffchainAssetReceiptVaultBeaconSetDeployer extends ethereum.SmartCo
     let result = super.tryCall(
       "iOffchainAssetReceiptVaultBeacon",
       "iOffchainAssetReceiptVaultBeacon():(address)",
-      []
+      [],
     );
     if (result.reverted) {
       return new ethereum.CallResult();
@@ -123,7 +123,7 @@ export class OffchainAssetReceiptVaultBeaconSetDeployer extends ethereum.SmartCo
     let result = super.tryCall(
       "iReceiptBeacon",
       "iReceiptBeacon():(address)",
-      []
+      [],
     );
     if (result.reverted) {
       return new ethereum.CallResult();

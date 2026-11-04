@@ -2189,6 +2189,40 @@ export class ConfigBinding extends Entity {
     this.set("boundAtBlock", Value.fromBigInt(value));
   }
 
+  get valueType(): string | null {
+    let value = this.get("valueType");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set valueType(value: string | null) {
+    if (!value) {
+      this.unset("valueType");
+    } else {
+      this.set("valueType", Value.fromString(<string>value));
+    }
+  }
+
+  get valueTypeHash(): Bytes | null {
+    let value = this.get("valueTypeHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set valueTypeHash(value: Bytes | null) {
+    if (!value) {
+      this.unset("valueTypeHash");
+    } else {
+      this.set("valueTypeHash", Value.fromBytes(<Bytes>value));
+    }
+  }
+
   get boundAtTimestamp(): BigInt {
     let value = this.get("boundAtTimestamp");
     if (!value || value.kind == ValueKind.NULL) {
@@ -2220,6 +2254,31 @@ export class ConfigBinding extends Entity {
       "ConfigBinding",
       this.get("id")!.toBytes().toHexString(),
       "registers",
+    );
+  }
+
+  get metaSubject(): Bytes | null {
+    let value = this.get("metaSubject");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set metaSubject(value: Bytes | null) {
+    if (!value) {
+      this.unset("metaSubject");
+    } else {
+      this.set("metaSubject", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get metas(): RegistryMetaLoader {
+    return new RegistryMetaLoader(
+      "ConfigBinding",
+      this.get("id")!.toBytes().toHexString(),
+      "metas",
     );
   }
 }
@@ -2304,6 +2363,48 @@ export class ConfigRegister extends Entity {
 
   set value(value: Bytes) {
     this.set("value", Value.fromBytes(value));
+  }
+
+  get valueType(): string | null {
+    let value = this.get("valueType");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set valueType(value: string | null) {
+    if (!value) {
+      this.unset("valueType");
+    } else {
+      this.set("valueType", Value.fromString(<string>value));
+    }
+  }
+
+  get valueTypeHash(): Bytes | null {
+    let value = this.get("valueTypeHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set valueTypeHash(value: Bytes | null) {
+    if (!value) {
+      this.unset("valueTypeHash");
+    } else {
+      this.set("valueTypeHash", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get metas(): RegistryMetaLoader {
+    return new RegistryMetaLoader(
+      "ConfigRegister",
+      this.get("id")!.toBytes().toHexString(),
+      "metas",
+    );
   }
 
   get blockNumber(): BigInt {
@@ -2614,6 +2715,323 @@ export class RegistryDelegateChange extends Entity {
 
   set registryDelegate(value: Bytes) {
     this.set("registryDelegate", Value.fromBytes(value));
+  }
+
+  get approved(): boolean {
+    let value = this.get("approved");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set approved(value: boolean) {
+    this.set("approved", Value.fromBoolean(value));
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get transactionHash(): Bytes {
+    let value = this.get("transactionHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionHash(value: Bytes) {
+    this.set("transactionHash", Value.fromBytes(value));
+  }
+
+  get transactionFrom(): Bytes {
+    let value = this.get("transactionFrom");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionFrom(value: Bytes) {
+    this.set("transactionFrom", Value.fromBytes(value));
+  }
+
+  get logIndex(): BigInt {
+    let value = this.get("logIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set logIndex(value: BigInt) {
+    this.set("logIndex", Value.fromBigInt(value));
+  }
+}
+
+export class RegistryUnscopedDelegate extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save RegistryUnscopedDelegate entity without an ID",
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type RegistryUnscopedDelegate must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("RegistryUnscopedDelegate", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): RegistryUnscopedDelegate | null {
+    return changetype<RegistryUnscopedDelegate | null>(
+      store.get_in_block("RegistryUnscopedDelegate", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): RegistryUnscopedDelegate | null {
+    return changetype<RegistryUnscopedDelegate | null>(
+      store.get("RegistryUnscopedDelegate", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get registry(): Bytes {
+    let value = this.get("registry");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set registry(value: Bytes) {
+    this.set("registry", Value.fromBytes(value));
+  }
+
+  get account(): Bytes {
+    let value = this.get("account");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set account(value: Bytes) {
+    this.set("account", Value.fromBytes(value));
+  }
+
+  get delegate(): Bytes {
+    let value = this.get("delegate");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set delegate(value: Bytes) {
+    this.set("delegate", Value.fromBytes(value));
+  }
+
+  get approved(): boolean {
+    let value = this.get("approved");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set approved(value: boolean) {
+    this.set("approved", Value.fromBoolean(value));
+  }
+
+  get approvedAtBlock(): BigInt | null {
+    let value = this.get("approvedAtBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set approvedAtBlock(value: BigInt | null) {
+    if (!value) {
+      this.unset("approvedAtBlock");
+    } else {
+      this.set("approvedAtBlock", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get approvedAtTimestamp(): BigInt | null {
+    let value = this.get("approvedAtTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set approvedAtTimestamp(value: BigInt | null) {
+    if (!value) {
+      this.unset("approvedAtTimestamp");
+    } else {
+      this.set("approvedAtTimestamp", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get revokedAtBlock(): BigInt | null {
+    let value = this.get("revokedAtBlock");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set revokedAtBlock(value: BigInt | null) {
+    if (!value) {
+      this.unset("revokedAtBlock");
+    } else {
+      this.set("revokedAtBlock", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get revokedAtTimestamp(): BigInt | null {
+    let value = this.get("revokedAtTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set revokedAtTimestamp(value: BigInt | null) {
+    if (!value) {
+      this.unset("revokedAtTimestamp");
+    } else {
+      this.set("revokedAtTimestamp", Value.fromBigInt(<BigInt>value));
+    }
+  }
+
+  get changes(): RegistryUnscopedDelegateChangeLoader {
+    return new RegistryUnscopedDelegateChangeLoader(
+      "RegistryUnscopedDelegate",
+      this.get("id")!.toBytes().toHexString(),
+      "changes",
+    );
+  }
+}
+
+export class RegistryUnscopedDelegateChange extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(
+      id != null,
+      "Cannot save RegistryUnscopedDelegateChange entity without an ID",
+    );
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type RegistryUnscopedDelegateChange must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set(
+        "RegistryUnscopedDelegateChange",
+        id.toBytes().toHexString(),
+        this,
+      );
+    }
+  }
+
+  static loadInBlock(id: Bytes): RegistryUnscopedDelegateChange | null {
+    return changetype<RegistryUnscopedDelegateChange | null>(
+      store.get_in_block("RegistryUnscopedDelegateChange", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): RegistryUnscopedDelegateChange | null {
+    return changetype<RegistryUnscopedDelegateChange | null>(
+      store.get("RegistryUnscopedDelegateChange", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get registryUnscopedDelegate(): Bytes {
+    let value = this.get("registryUnscopedDelegate");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set registryUnscopedDelegate(value: Bytes) {
+    this.set("registryUnscopedDelegate", Value.fromBytes(value));
   }
 
   get approved(): boolean {
@@ -3010,6 +3428,402 @@ export class MigrationRecord extends Entity {
   set logIndex(value: BigInt) {
     this.set("logIndex", Value.fromBigInt(value));
   }
+
+  get metaSubject(): Bytes | null {
+    let value = this.get("metaSubject");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set metaSubject(value: Bytes | null) {
+    if (!value) {
+      this.unset("metaSubject");
+    } else {
+      this.set("metaSubject", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get metas(): RegistryMetaLoader {
+    return new RegistryMetaLoader(
+      "MigrationRecord",
+      this.get("id")!.toBytes().toHexString(),
+      "metas",
+    );
+  }
+}
+
+export class RegistryMeta extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save RegistryMeta entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type RegistryMeta must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("RegistryMeta", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): RegistryMeta | null {
+    return changetype<RegistryMeta | null>(
+      store.get_in_block("RegistryMeta", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): RegistryMeta | null {
+    return changetype<RegistryMeta | null>(
+      store.get("RegistryMeta", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get registry(): Bytes {
+    let value = this.get("registry");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set registry(value: Bytes) {
+    this.set("registry", Value.fromBytes(value));
+  }
+
+  get sender(): Bytes {
+    let value = this.get("sender");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set sender(value: Bytes) {
+    this.set("sender", Value.fromBytes(value));
+  }
+
+  get subject(): Bytes {
+    let value = this.get("subject");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set subject(value: Bytes) {
+    this.set("subject", Value.fromBytes(value));
+  }
+
+  get meta(): Bytes {
+    let value = this.get("meta");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set meta(value: Bytes) {
+    this.set("meta", Value.fromBytes(value));
+  }
+
+  get configBinding(): Bytes | null {
+    let value = this.get("configBinding");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set configBinding(value: Bytes | null) {
+    if (!value) {
+      this.unset("configBinding");
+    } else {
+      this.set("configBinding", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get configRegister(): Bytes | null {
+    let value = this.get("configRegister");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set configRegister(value: Bytes | null) {
+    if (!value) {
+      this.unset("configRegister");
+    } else {
+      this.set("configRegister", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get migrationRecord(): Bytes | null {
+    let value = this.get("migrationRecord");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set migrationRecord(value: Bytes | null) {
+    if (!value) {
+      this.unset("migrationRecord");
+    } else {
+      this.set("migrationRecord", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get verified(): boolean {
+    let value = this.get("verified");
+    if (!value || value.kind == ValueKind.NULL) {
+      return false;
+    } else {
+      return value.toBoolean();
+    }
+  }
+
+  set verified(value: boolean) {
+    this.set("verified", Value.fromBoolean(value));
+  }
+
+  get nameString(): string | null {
+    let value = this.get("nameString");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set nameString(value: string | null) {
+    if (!value) {
+      this.unset("nameString");
+    } else {
+      this.set("nameString", Value.fromString(<string>value));
+    }
+  }
+
+  get namespaceString(): string | null {
+    let value = this.get("namespaceString");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set namespaceString(value: string | null) {
+    if (!value) {
+      this.unset("namespaceString");
+    } else {
+      this.set("namespaceString", Value.fromString(<string>value));
+    }
+  }
+
+  get migrationString(): string | null {
+    let value = this.get("migrationString");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toString();
+    }
+  }
+
+  set migrationString(value: string | null) {
+    if (!value) {
+      this.unset("migrationString");
+    } else {
+      this.set("migrationString", Value.fromString(<string>value));
+    }
+  }
+
+  get blockNumber(): BigInt {
+    let value = this.get("blockNumber");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockNumber(value: BigInt) {
+    this.set("blockNumber", Value.fromBigInt(value));
+  }
+
+  get blockTimestamp(): BigInt {
+    let value = this.get("blockTimestamp");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set blockTimestamp(value: BigInt) {
+    this.set("blockTimestamp", Value.fromBigInt(value));
+  }
+
+  get transactionHash(): Bytes {
+    let value = this.get("transactionHash");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionHash(value: Bytes) {
+    this.set("transactionHash", Value.fromBytes(value));
+  }
+
+  get transactionFrom(): Bytes {
+    let value = this.get("transactionFrom");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set transactionFrom(value: Bytes) {
+    this.set("transactionFrom", Value.fromBytes(value));
+  }
+
+  get logIndex(): BigInt {
+    let value = this.get("logIndex");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBigInt();
+    }
+  }
+
+  set logIndex(value: BigInt) {
+    this.set("logIndex", Value.fromBigInt(value));
+  }
+}
+
+export class RegistryMetaSubject extends Entity {
+  constructor(id: Bytes) {
+    super();
+    this.set("id", Value.fromBytes(id));
+  }
+
+  save(): void {
+    let id = this.get("id");
+    assert(id != null, "Cannot save RegistryMetaSubject entity without an ID");
+    if (id) {
+      assert(
+        id.kind == ValueKind.BYTES,
+        `Entities of type RegistryMetaSubject must have an ID of type Bytes but the id '${id.displayData()}' is of type ${id.displayKind()}`,
+      );
+      store.set("RegistryMetaSubject", id.toBytes().toHexString(), this);
+    }
+  }
+
+  static loadInBlock(id: Bytes): RegistryMetaSubject | null {
+    return changetype<RegistryMetaSubject | null>(
+      store.get_in_block("RegistryMetaSubject", id.toHexString()),
+    );
+  }
+
+  static load(id: Bytes): RegistryMetaSubject | null {
+    return changetype<RegistryMetaSubject | null>(
+      store.get("RegistryMetaSubject", id.toHexString()),
+    );
+  }
+
+  get id(): Bytes {
+    let value = this.get("id");
+    if (!value || value.kind == ValueKind.NULL) {
+      throw new Error("Cannot return null for a required field.");
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set id(value: Bytes) {
+    this.set("id", Value.fromBytes(value));
+  }
+
+  get configBinding(): Bytes | null {
+    let value = this.get("configBinding");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set configBinding(value: Bytes | null) {
+    if (!value) {
+      this.unset("configBinding");
+    } else {
+      this.set("configBinding", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get configRegister(): Bytes | null {
+    let value = this.get("configRegister");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set configRegister(value: Bytes | null) {
+    if (!value) {
+      this.unset("configRegister");
+    } else {
+      this.set("configRegister", Value.fromBytes(<Bytes>value));
+    }
+  }
+
+  get migrationRecord(): Bytes | null {
+    let value = this.get("migrationRecord");
+    if (!value || value.kind == ValueKind.NULL) {
+      return null;
+    } else {
+      return value.toBytes();
+    }
+  }
+
+  set migrationRecord(value: Bytes | null) {
+    if (!value) {
+      this.unset("migrationRecord");
+    } else {
+      this.set("migrationRecord", Value.fromBytes(<Bytes>value));
+    }
+  }
 }
 
 export class RoleLoader extends Entity {
@@ -3210,6 +4024,24 @@ export class ConfigRegisterLoader extends Entity {
   }
 }
 
+export class RegistryMetaLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): RegistryMeta[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<RegistryMeta[]>(value);
+  }
+}
+
 export class RegistryDelegateChangeLoader extends Entity {
   _entity: string;
   _field: string;
@@ -3225,6 +4057,24 @@ export class RegistryDelegateChangeLoader extends Entity {
   load(): RegistryDelegateChange[] {
     let value = store.loadRelated(this._entity, this._id, this._field);
     return changetype<RegistryDelegateChange[]>(value);
+  }
+}
+
+export class RegistryUnscopedDelegateChangeLoader extends Entity {
+  _entity: string;
+  _field: string;
+  _id: string;
+
+  constructor(entity: string, id: string, field: string) {
+    super();
+    this._entity = entity;
+    this._id = id;
+    this._field = field;
+  }
+
+  load(): RegistryUnscopedDelegateChange[] {
+    let value = store.loadRelated(this._entity, this._id, this._field);
+    return changetype<RegistryUnscopedDelegateChange[]>(value);
   }
 }
 

@@ -96,7 +96,7 @@ export function handleCloneFactoryV5NewBeaconProxy(
 }
 
 /**
- * `ICloneableFactoryV6.NewRegistryBeaconProxy`. The event carries the beacon the
+ * `ICloneableFactoryV6`/`V7` `NewRegistryBeaconProxy`. The event carries the beacon the
  * binding resolved to, which is the one the proxy keeps.
  */
 export function handleCloneFactoryV6NewRegistryBeaconProxy(

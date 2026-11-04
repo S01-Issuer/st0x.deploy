@@ -3,4 +3,5 @@ on: [push]
 jobs:
   subgraph-test:
     uses: rainlanguage/rainix/.github/workflows/rainix-subgraph-test.yaml@main
-    secrets: inherit
+    secrets:
+      CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}

@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
+import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 import {Region} from "./LibProdTokenConfig.sol";
 
 /// @title LibStoxConfig
@@ -34,5 +35,16 @@ library LibStoxConfig {
     /// @return The binding's name.
     function rbacName(Region region) internal pure returns (bytes32) {
         return region == Region.EU ? EU_RBAC_NAME : US_RBAC_NAME;
+    }
+
+    /// @notice `abi.encode(address)`: the chain's governance Safe, the
+    /// timelock's sole proposer and canceller.
+    bytes32 internal constant GOVERNANCE_SAFE_NAME = keccak256("st0x.governance-safe.v1");
+
+    /// @return The chain's governance Safe; reverts while unbound.
+    function governanceSafe() internal view returns (address) {
+        // slither-disable-next-line unused-return
+        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_SAFE_NAME, keccak256("address"));
+        return abi.decode(value, (address));
     }
 }
