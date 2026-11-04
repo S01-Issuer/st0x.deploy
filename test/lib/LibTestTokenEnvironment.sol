@@ -33,7 +33,7 @@ import {LibTestDeploy} from "./LibTestDeploy.sol";
 /// @title LibTestTokenEnvironment
 /// @notice What production tokens deploy into on the local EVM: the receipt
 /// and vault beacon suites serving the candidate implementations and owned by
-/// the bound governance timelock, the V8 clone factory and ConfigRegistry, and
+/// the bound beacon initial owner, the V8 clone factory and ConfigRegistry, and
 /// the root authority's beacon and RBAC bindings.
 library LibTestTokenEnvironment {
     function deployFactoryAndRegistry() internal {
@@ -42,14 +42,18 @@ library LibTestTokenEnvironment {
     }
 
     /// The candidate implementations, the V8 clone factory and ConfigRegistry,
-    /// `timelock` bound as the governance timelock, then the receipt and vault
-    /// beacon suites at their Zoltu addresses.
+    /// `beaconInitialOwner` bound as the beacon initial owner, then the receipt
+    /// and vault beacon suites at their Zoltu addresses.
     /// @return The receipt beacon and the vault beacon.
-    function deployBeacons(Vm vm, address timelock) internal returns (address, address) {
+    function deployBeacons(Vm vm, address beaconInitialOwner) internal returns (address, address) {
         LibTestDeploy.deployImplementations(vm);
         deployFactoryAndRegistry();
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(timelock)
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(beaconInitialOwner)
         );
         address receiptBeacon = LibRainDeploy.deployZoltu(V4.STOX_RECEIPT_BEACON_CREATION_CODE_CANDIDATE);
         require(receiptBeacon == V4.STOX_RECEIPT_BEACON_CANDIDATE, "receipt beacon");
@@ -81,11 +85,11 @@ library LibTestTokenEnvironment {
     }
 
     /// @return The US and EU authorizers, administered by `usOwner` and `euOwner`.
-    function deploy(Vm vm, address timelock, address usOwner, address euOwner)
+    function deploy(Vm vm, address beaconInitialOwner, address usOwner, address euOwner)
         internal
         returns (IAuthorizeV1, IAuthorizeV1)
     {
-        (address receiptBeacon, address vaultBeacon) = deployBeacons(vm, timelock);
+        (address receiptBeacon, address vaultBeacon) = deployBeacons(vm, beaconInitialOwner);
         LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
         IAuthorizeV1 usAuthorizer = newAuthorizer(usOwner);
         IAuthorizeV1 euAuthorizer = newAuthorizer(euOwner);

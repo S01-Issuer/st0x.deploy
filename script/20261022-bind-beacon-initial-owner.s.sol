@@ -19,52 +19,52 @@ import {migrateMultisigThresholdDeclaration} from "./20260619-migrate-multisig-t
 
 /// @notice The Safe's line is not at the migration this bind applies onto.
 /// @param head The line's head.
-error BindGovernanceTimelockUnexpectedLine(bytes32 head);
+error BindBeaconInitialOwnerUnexpectedLine(bytes32 head);
 
 /// @notice The root authority has not approved the Safe to bind the
-/// governance timelock.
+/// beacon initial owner.
 /// @param safe The Safe.
-error SafeNotGovernanceTimelockDelegate(address safe);
+error SafeNotBeaconInitialOwnerDelegate(address safe);
 
-/// @notice After the bundle, the governance timelock binding is not the
-/// timelock bound in this block.
+/// @notice After the bundle, the beacon initial owner binding is not the
+/// chain's governance timelock bound in this block.
 /// @param value The bound value.
 /// @param registeredAt When it was bound.
-error GovernanceTimelockBindingMismatch(bytes value, uint256 registeredAt);
+error BeaconInitialOwnerBindingMismatch(bytes value, uint256 registeredAt);
 
 /// @notice After the bundle, this script's record is not this block's.
 /// @param recordedAt The recorded moment.
-error BindGovernanceTimelockRecordMismatch(uint256 recordedAt);
+error BindBeaconInitialOwnerRecordMismatch(uint256 recordedAt);
 
 /// @notice This script's declaration.
 /// @return The declaration.
-function bindGovernanceTimelockDeclaration() pure returns (ScriptDeclaration memory) {
+function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration memory) {
     return LibStoxMigrations.safeMigrationOnto(
         LibStoxMigrations.NAMESPACE,
-        keccak256("script/20261022-bind-governance-timelock.s.sol"),
+        keccak256("script/20261022-bind-beacon-initial-owner.s.sol"),
         migrateMultisigThresholdDeclaration().id,
         false
     );
 }
 
-/// @title BindGovernanceTimelock
+/// @title BindBeaconInitialOwner
 /// @notice Authors the per-chain Safe bundle that binds
-/// `LibStoxConfig.GOVERNANCE_TIMELOCK_NAME` under the root authority to the chain's
+/// `LibStoxConfig.BEACON_INITIAL_OWNER_NAME` under the root authority to the chain's
 /// governance timelock, as the root's approved delegate, and records it.
-contract BindGovernanceTimelock is SafeBundleScript, IStoxScript {
+contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
-        return bindGovernanceTimelockDeclaration();
+        return bindBeaconInitialOwnerDeclaration();
     }
 
     /// @inheritdoc SafeBundleScript
     function bundleName() internal pure override returns (string memory) {
-        return "ST0x: bind the governance timelock";
+        return "ST0x: bind the beacon initial owner";
     }
 
     /// @inheritdoc SafeBundleScript
     function artifactPath() internal view virtual override returns (string memory) {
-        return string.concat("out/20261022-bind-governance-timelock-", vm.toString(block.chainid), ".json");
+        return string.concat("out/20261022-bind-beacon-initial-owner-", vm.toString(block.chainid), ".json");
     }
 
     /// @inheritdoc SafeBundleScript
@@ -79,12 +79,12 @@ contract BindGovernanceTimelock is SafeBundleScript, IStoxScript {
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.timelockForChainId(block.chainid), chainSafe);
 
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != bindGovernanceTimelockDeclaration().prerequisites[0].migration) {
-            revert BindGovernanceTimelockUnexpectedLine(head);
+        if (head != bindBeaconInitialOwnerDeclaration().prerequisites[0].migration) {
+            revert BindBeaconInitialOwnerUnexpectedLine(head);
         }
         if (!IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-                .approvedV5(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, chainSafe)) {
-            revert SafeNotGovernanceTimelockDelegate(chainSafe);
+                .approvedV5(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe)) {
+            revert SafeNotBeaconInitialOwnerDelegate(chainSafe);
         }
     }
 
@@ -100,7 +100,7 @@ contract BindGovernanceTimelock is SafeBundleScript, IStoxScript {
                 IConfigRegistryV5.registerV5,
                 (
                     LibStoxConfig.ROOT_AUTHORITY,
-                    LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                    LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
                     "address",
                     abi.encode(timelock),
                     ""
@@ -109,7 +109,7 @@ contract BindGovernanceTimelock is SafeBundleScript, IStoxScript {
             operation: Enum.Operation.Call
         });
         (address to, bytes memory data) =
-            LibStoxMigrations.recordCall(bindGovernanceTimelockDeclaration(), chainSafe, timelock);
+            LibStoxMigrations.recordCall(bindBeaconInitialOwnerDeclaration(), chainSafe, timelock);
         txs[1] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
         return txs;
     }
@@ -118,19 +118,19 @@ contract BindGovernanceTimelock is SafeBundleScript, IStoxScript {
     function assertPostState() internal view override {
         address chainSafe = address(safe());
         (bytes memory value, uint256 registeredAt) = LibConfigRegistry.resolve(
-            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, keccak256("address")
+            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, keccak256("address")
         );
         bytes memory expected = abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid));
         // forge-lint: disable-next-line(block-timestamp)
         if (keccak256(value) != keccak256(expected) || registeredAt != block.timestamp) {
-            revert GovernanceTimelockBindingMismatch(value, registeredAt);
+            revert BeaconInitialOwnerBindingMismatch(value, registeredAt);
         }
-        bytes32 id = bindGovernanceTimelockDeclaration().id;
+        bytes32 id = bindBeaconInitialOwnerDeclaration().id;
         uint256 recordedAt = LibStoxMigrations.applied(chainSafe, id);
         // forge-lint: disable-next-line(block-timestamp)
-        if (recordedAt != block.timestamp) revert BindGovernanceTimelockRecordMismatch(recordedAt);
+        if (recordedAt != block.timestamp) revert BindBeaconInitialOwnerRecordMismatch(recordedAt);
         bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != id) revert BindGovernanceTimelockUnexpectedLine(head);
+        if (head != id) revert BindBeaconInitialOwnerUnexpectedLine(head);
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 }

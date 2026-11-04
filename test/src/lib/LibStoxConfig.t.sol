@@ -18,45 +18,45 @@ contract LibStoxConfigTest is Test {
         LibTestDeploy.etchConfigRegistry(vm);
     }
 
-    function testFuzzGovernanceTimelockFollowsBinding(address first, address second) external {
+    function testFuzzBeaconInitialOwnerFollowsBinding(address first, address second) external {
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(first)
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(first)
         );
-        assertEq(harness.governanceTimelock(), first);
+        assertEq(harness.beaconInitialOwner(), first);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(second)
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(second)
         );
-        assertEq(harness.governanceTimelock(), second);
+        assertEq(harness.beaconInitialOwner(), second);
     }
 
-    function testGovernanceTimelockUnboundReverts() external {
+    function testBeaconInitialOwnerUnboundReverts() external {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
-        harness.governanceTimelock();
+        harness.beaconInitialOwner();
     }
 
-    function testFuzzGovernanceTimelockIgnoresOtherAuthority(address authority, address owner) external {
+    function testFuzzBeaconInitialOwnerIgnoresOtherAuthority(address authority, address owner) external {
         vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY);
         vm.prank(authority);
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV5(authority, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner), "");
+            .registerV5(authority, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner), "");
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
-        harness.governanceTimelock();
+        harness.beaconInitialOwner();
     }
 
-    function testFuzzGovernanceTimelockIgnoresOtherName(bytes32 name, address owner) external {
-        vm.assume(name != LibStoxConfig.GOVERNANCE_TIMELOCK_NAME);
+    function testFuzzBeaconInitialOwnerIgnoresOtherName(bytes32 name, address owner) external {
+        vm.assume(name != LibStoxConfig.BEACON_INITIAL_OWNER_NAME);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
             .registerV5(LibStoxConfig.ROOT_AUTHORITY, name, "address", abi.encode(owner), "");
@@ -64,9 +64,9 @@ contract LibStoxConfigTest is Test {
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
-        harness.governanceTimelock();
+        harness.beaconInitialOwner();
     }
 }

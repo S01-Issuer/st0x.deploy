@@ -15,8 +15,8 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// A registry-owned beacon suite lands at its pin, owned by the bound
-/// governance timelock and serving the current implementation, and refuses
-/// where the timelock is unbound.
+/// beacon initial owner and serving the current implementation, and refuses
+/// where the initial owner is unbound.
 abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     function suiteKey() internal pure virtual returns (string memory);
 
@@ -36,10 +36,10 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
         return deployLocally(declaration(), vm, beaconSuite());
     }
 
-    function bindTimelock(address timelock) internal {
+    function bindBeaconInitialOwner(address owner) internal {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(timelock)
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner)
         );
     }
 
@@ -59,7 +59,7 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
             uint256 preDeploy = vm.snapshotState();
             vm.chainId(chainIds[i]);
             address timelock = LibTimelockInvariants.timelockForChainId(chainIds[i]);
-            bindTimelock(timelock);
+            bindBeaconInitialOwner(timelock);
             assertDeployedAtThePin(this.deploySuite(), timelock);
             vm.revertToState(preDeploy);
         }
@@ -68,7 +68,7 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     function testFuzzBeaconSuiteAddressIsTheSameWhateverTheChainId(uint64 chainId, address owner) external {
         vm.assume(owner != address(0));
         vm.chainId(chainId);
-        bindTimelock(owner);
+        bindBeaconInitialOwner(owner);
         assertEq(deployedAddress(declaration(), beaconSuite(), chainId), pin(), "declared address");
         assertDeployedAtThePin(this.deploySuite(), owner);
     }
@@ -79,7 +79,7 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
         construct();
