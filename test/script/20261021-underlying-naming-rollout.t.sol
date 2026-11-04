@@ -57,7 +57,7 @@ import {
 import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
 import {IOwnable} from "../../src/interface/IOwnable.sol";
-import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
+import {LibTokenMetadata} from "../../src/lib/LibTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,
     TickerNotBoundToVault,
@@ -422,9 +422,9 @@ contract UnderlyingNamingRolloutTest is Test {
             TokenInstance memory token = chainTokens[tokenIndex];
             TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
             string memory vaultName = IERC20Metadata(token.receiptVault).name();
-            assertTrue(LibTestTokenMetadata.vaultRenamed(config, vaultName), token.underlying);
+            assertTrue(LibTokenMetadata.vaultRenamed(config, vaultName), token.underlying);
             assertTrue(
-                LibTestTokenMetadata.consistent(
+                LibTokenMetadata.consistent(
                     config,
                     vaultName,
                     IERC20Metadata(token.receiptVault).symbol(),

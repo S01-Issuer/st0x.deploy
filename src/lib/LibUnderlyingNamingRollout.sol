@@ -152,6 +152,24 @@ library LibUnderlyingNamingRollout {
         return table;
     }
 
+    /// @notice Whether the chain's rename batch has executed. No chain's has.
+    /// @param chainId The chain id.
+    /// @return Whether the chain is renamed.
+    function chainRenamed(uint256 chainId) internal pure returns (bool) {
+        (chainId);
+        return false;
+    }
+
+    /// @notice Whether the token at `tokenIndex` of the chain's production
+    /// table carries the renamed metadata: the chain is renamed and the row is
+    /// one of the leading `TOKEN_COUNT` the rename batch covers.
+    /// @param chainId The chain id.
+    /// @param tokenIndex The row's index in the chain's production table.
+    /// @return Whether the token is renamed.
+    function tokenRenamed(uint256 chainId, uint256 tokenIndex) internal pure returns (bool) {
+        return chainRenamed(chainId) && tokenIndex < TOKEN_COUNT;
+    }
+
     /// @notice The chain's in-use receipt-vault beacon.
     /// @param chainId The chain id.
     /// @return The beacon.
