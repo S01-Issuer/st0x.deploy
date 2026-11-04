@@ -36,8 +36,9 @@ contract DeployGovernanceTimelockSafeTest is Test {
     }
 
     function otherSuite(string memory key) internal view returns (DeploySuite memory) {
-        string[] memory checked =
-            harness.checkedSuiteNames(LibTestTokenConfigs.productionAndTestTokenConfigs(), LibStoxTestTokens.testTokenConfigs());
+        string[] memory checked = harness.checkedSuiteNames(
+            LibTestTokenConfigs.productionAndTestTokenConfigs(), LibStoxTestTokens.testTokenConfigs()
+        );
         for (uint256 i = 0; i < checked.length; i++) {
             vm.assume(keccak256(bytes(key)) != keccak256(bytes(checked[i])));
         }
