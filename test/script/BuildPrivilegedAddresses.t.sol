@@ -152,15 +152,20 @@ contract BuildPrivilegedAddressesTest is Test {
         assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
     }
 
-    /// `run()` is what the `git-clean` workflow regenerates the tracked file
-    /// with, so it must rewrite that file, not leave a stale one in place.
-    function testRunRewritesTheTrackedFile() external {
-        string memory path = string.concat(vm.projectRoot(), "/privileged-addresses.json");
-        uint256 modifiedBefore = vm.fsMetadata(path).modified;
-        vm.sleep(1100);
+    /// Denying the tracked file's write shows `run()` targets it without touching it.
+    /// forge-config: default.fs_permissions = [{ access = "read", path = "privileged-addresses.json" }]
+    function testRunWritesTheTrackedFile() external {
+        vm.expectRevert(
+            abi.encodeWithSignature(
+                "CheatcodeError(string)",
+                string.concat(
+                    "vm.writeJson: the path ",
+                    vm.projectRoot(),
+                    "/privileged-addresses.json is not allowed to be accessed for write operations"
+                )
+            )
+        );
         build.run();
-        assertGt(vm.fsMetadata(path).modified, modifiedBefore);
-        assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
     }
 
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {
