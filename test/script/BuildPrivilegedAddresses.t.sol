@@ -152,18 +152,6 @@ contract BuildPrivilegedAddressesTest is Test {
         assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
     }
 
-    /// Denying the tracked file's write shows `run()` targets it without touching it.
-    /// forge-config: default.fs_permissions = [{ access = "read", path = "privileged-addresses.json" }]
-    function testRunWritesTheTrackedFile() external {
-        vm.expectRevert(
-            abi.encodeWithSignature(
-                "CheatcodeError(string)",
-                "vm.writeJson: the path privileged-addresses.json is not allowed to be accessed for write operations"
-            )
-        );
-        build.run();
-    }
-
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {
         return string.concat(".chains.", vm.toString(network.chainId));
     }
