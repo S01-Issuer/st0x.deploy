@@ -2,80 +2,75 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
+import {DeployDependency} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {
-    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-    OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.9/src/interface/IOffchainAssetReceiptVaultV1.sol";
-
-import {Region} from "./LibProdTokenConfig.sol";
+    LibRainDeployRegistryBeaconProxy,
+    RegistryBeaconProxyTarget
+} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {
+    DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
+    RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
+} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
+} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
+import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
+import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
+import {Region, TokenConfig} from "./LibProdTokenConfig.sol";
+import {LibProdTokenTargets} from "./LibProdTokenTargets.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
 
-/// @notice The addresses of one region's test token.
-/// @param token The token: a registry beacon proxy over the bound vault beacon.
-/// @param receipt The token's receipt, which the token makes at `initialize`.
-/// @param wrapper The token's wrapper: a registry beacon proxy over the bound
-/// wrapper beacon.
-struct TestTokenAddresses {
-    address token;
-    address receipt;
-    address wrapper;
-}
-
 /// @title LibStoxTestTokens
-/// @notice One test token per region, built by the V6 clone factory from the
-/// root authority's bindings. Each address commits to the factory, the
-/// registry, the authority, a binding name and the init data, and not to the
-/// chain or the beacon, so the token, its receipt and its wrapper have the
-/// same address on every chain.
+/// @notice One test token per region, each a registry beacon proxy over the
+/// bound vault beacon, with a wrapper that is a registry beacon proxy over the
+/// bound wrapper beacon. Neither address commits to the chain or the beacon, so
+/// each lands at the same address on every chain.
 library LibStoxTestTokens {
-    /// @notice The US test token.
-    address internal constant US_TOKEN = address(0x6994c5189fAC8a4a1BA9fdd828EA6F15b44D4E7e);
-    /// @notice The US test token's receipt.
-    address internal constant US_RECEIPT = address(0x696230bd03b57250491D86124893D4b8152bCb72);
-    /// @notice The US test token's wrapper.
-    address internal constant US_WRAPPER = address(0x241911D3d01488D9592bcA5B432829cc9DBA8cc5);
-
-    /// @notice The EU test token.
-    address internal constant EU_TOKEN = address(0x2FE18C37d4aef03E8A9881717B452BfeD4311c5E);
-    /// @notice The EU test token's receipt.
-    address internal constant EU_RECEIPT = address(0x3C22F53DcbD0edD9ae10c092B62bca3f4C49eC3e);
-    /// @notice The EU test token's wrapper.
-    address internal constant EU_WRAPPER = address(0xf761A1Da20331329A8d7EE536938fe6C89DCFc18);
-
-    /// @notice A region's test token name and symbol.
-    /// @param region The region.
-    /// @return The token name.
-    /// @return The token symbol.
-    function nameAndSymbol(Region region) internal pure returns (string memory, string memory) {
-        return region == Region.EU ? ("EU Test ST0x", "tEUTEST") : ("US Test ST0x", "tUSTEST");
+    function testTokenConfigs() internal pure returns (TokenConfig[] memory) {
+        TokenConfig[] memory configs = new TokenConfig[](2);
+        configs[0] = TokenConfig({
+            underlying: "USTEST", name: "US Test ST0x", symbol: "tUSTEST", region: Region.US, underlyingName: ""
+        });
+        configs[1] = TokenConfig({
+            underlying: "EUTEST", name: "EU Test ST0x", symbol: "tEUTEST", region: Region.EU, underlyingName: ""
+        });
+        return configs;
     }
 
-    /// @notice The factory init data of a region's test token: the canonical
-    /// V3 config, reading the region's RBAC and the receipt beacon under the
-    /// root authority.
-    /// @param region The region.
-    /// @return The init data.
-    function vaultData(Region region) internal pure returns (bytes memory) {
-        (string memory name, string memory symbol) = nameAndSymbol(region);
-        return abi.encode(
-            OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-            OffchainAssetReceiptVaultConfigV3({
-                name: name,
-                symbol: symbol,
-                authority: LibStoxConfig.ROOT_AUTHORITY,
-                rbacName: region == Region.EU ? LibStoxConfig.RBAC_EU_NAME : LibStoxConfig.RBAC_US_NAME,
-                receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,
-                metadata: ""
-            })
+    function tokenAddress(TokenConfig memory config) internal pure returns (address) {
+        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(
+            LibProdTokenTargets.tokenTarget(config)
         );
     }
 
-    /// @notice A region's pinned test token addresses.
-    /// @param region The region.
-    /// @return The token, receipt and wrapper.
-    function addresses(Region region) internal pure returns (TestTokenAddresses memory) {
-        return region == Region.EU
-            ? TestTokenAddresses({token: EU_TOKEN, receipt: EU_RECEIPT, wrapper: EU_WRAPPER})
-            : TestTokenAddresses({token: US_TOKEN, receipt: US_RECEIPT, wrapper: US_WRAPPER});
+    function wrapperBeacon() internal pure returns (address) {
+        return V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE;
+    }
+
+    function wrapperTarget(TokenConfig memory config) internal pure returns (RegistryBeaconProxyTarget memory) {
+        return RegistryBeaconProxyTarget({
+            factory: CLONE_FACTORY_V8_ADDRESS,
+            registry: CONFIG_REGISTRY_ADDRESS,
+            authority: LibStoxConfig.ROOT_AUTHORITY,
+            beaconName: LibStoxConfig.WRAPPER_BEACON_NAME,
+            beacon: wrapperBeacon(),
+            data: abi.encode(tokenAddress(config)),
+            salt: keccak256(bytes(config.underlying))
+        });
+    }
+
+    function wrapperDependencies(TokenConfig memory config) internal pure returns (DeployDependency[] memory) {
+        DeployDependency[] memory dependencies = new DeployDependency[](4);
+        dependencies[0] =
+            DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
+        dependencies[1] =
+            DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
+        dependencies[2] = DeployDependency({
+            deployedAddress: wrapperBeacon(), runtimeCode: V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_CANDIDATE
+        });
+        dependencies[3] =
+            DeployDependency({deployedAddress: tokenAddress(config), runtimeCode: LibStoxTokenProxy.RUNTIME_CODE});
+        return dependencies;
     }
 }

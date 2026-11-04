@@ -24,19 +24,22 @@ library LibProdTokenTargets {
     function tokenTargets() internal pure returns (RegistryBeaconProxyTarget[] memory) {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         RegistryBeaconProxyTarget[] memory targets = new RegistryBeaconProxyTarget[](configs.length);
-        address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
-            targets[i] = RegistryBeaconProxyTarget({
-                factory: CLONE_FACTORY_V8_ADDRESS,
-                registry: CONFIG_REGISTRY_ADDRESS,
-                authority: LibStoxConfig.ROOT_AUTHORITY,
-                beaconName: LibStoxConfig.VAULT_BEACON_NAME,
-                beacon: beacon,
-                data: tokenData(configs[i]),
-                salt: keccak256(bytes(configs[i].underlying))
-            });
+            targets[i] = tokenTarget(configs[i]);
         }
         return targets;
+    }
+
+    function tokenTarget(TokenConfig memory config) internal pure returns (RegistryBeaconProxyTarget memory) {
+        return RegistryBeaconProxyTarget({
+            factory: CLONE_FACTORY_V8_ADDRESS,
+            registry: CONFIG_REGISTRY_ADDRESS,
+            authority: LibStoxConfig.ROOT_AUTHORITY,
+            beaconName: LibStoxConfig.VAULT_BEACON_NAME,
+            beacon: vaultBeacon(),
+            data: tokenData(config),
+            salt: keccak256(bytes(config.underlying))
+        });
     }
 
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {
