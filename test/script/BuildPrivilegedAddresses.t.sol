@@ -158,11 +158,7 @@ contract BuildPrivilegedAddressesTest is Test {
         vm.expectRevert(
             abi.encodeWithSignature(
                 "CheatcodeError(string)",
-                string.concat(
-                    "vm.writeJson: the path ",
-                    vm.projectRoot(),
-                    "/privileged-addresses.json is not allowed to be accessed for write operations"
-                )
+                "vm.writeJson: the path privileged-addresses.json is not allowed to be accessed for write operations"
             )
         );
         build.run();
