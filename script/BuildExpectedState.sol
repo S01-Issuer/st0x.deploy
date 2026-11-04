@@ -24,7 +24,8 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 /// @notice Writes `expected-state.json`, the live state the dashboard checks, per deployment network: beacons
 /// (address, codehash, implementation, owner; `address(0)` where `beaconSetDeployer` resolves it), the token-owner
 /// Safe lock-down, the timelock, the orchestrator, the V4 and EU authoriser clones, and each production token's
-/// receipt vault, receipt, wrapped token vault, name, symbol, owner and authoriser, and every released Zoltu suite
+/// receipt vault, receipt, wrapped token vault, `receiptVault.receipt()`, per-leg beacon (`address(0)` where
+/// `beaconSetDeployer` resolves it), name, symbol, owner and authoriser, and every released Zoltu suite
 /// declared on that network (key, address, codehash).
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
@@ -119,6 +120,7 @@ contract BuildExpectedState is Script {
     function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
+        address[4] memory beacons = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
@@ -129,6 +131,12 @@ contract BuildExpectedState is Script {
             vm.serializeAddress(row, "receiptVault", tokens[i].receiptVault);
             vm.serializeAddress(row, "receipt", tokens[i].receipt);
             vm.serializeAddress(row, "wrappedTokenVault", tokens[i].wrappedTokenVault);
+            vm.serializeAddress(row, "receiptVaultReceipt", tokens[i].receipt);
+            vm.serializeAddress(row, "receiptVaultBeacon", beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
+            vm.serializeAddress(row, "receiptBeacon", beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
+            vm.serializeAddress(
+                row, "wrappedTokenVaultBeacon", beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
+            );
             vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
             rows[i] = vm.serializeAddress(
                 row, "authoriser", LibTokenInvariants.expectedAuthoriser(tokens[i].underlying, usAuthoriser, chainId)
