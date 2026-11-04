@@ -17,9 +17,12 @@ import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockContr
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 
 import {
     DirectTransferNotRefused,
+    HandoverLineHeadMismatch,
+    HandoverRecordMismatch,
     HandoverUnexpectedMigrationLine,
     ProofNotExecuted,
     ProofReadyInsideDelay,
@@ -57,6 +60,8 @@ import {
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
 contract HandWmtMcDisToTimelockTest is Test {
+    bytes32 internal constant FOREIGN_RECORD = keccak256("test/script/20261103-hand-wmt-mc-dis-to-timelock.t.sol");
+
     function forkAtBackfill(string memory network, string memory tag) internal returns (HandWmtMcDisToTimelockHarness) {
         LibTestPreBackfillFork.select(vm, network);
         BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness(tag);
@@ -409,6 +414,48 @@ contract HandWmtMcDisToTimelockTest is Test {
         );
         script.callAssertPostState();
         return script;
+    }
+
+    function testRefusesLineAtGenesis() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        HandWmtMcDisToTimelockHarness script = new HandWmtMcDisToTimelockHarness("genesis");
+        vm.expectRevert(abi.encodeWithSelector(HandoverUnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
+        script.callPreflight();
+    }
+
+    function testPostStateRefusesTransfersWithoutTheRecord() external {
+        HandWmtMcDisToTimelockHarness script = forkBaseAtBackfill("post-no-record");
+        SafeTx[] memory txs = script.callAuthorBundle();
+        SafeTx[] memory transfers = new SafeTx[](txs.length - 1);
+        for (uint256 i = 0; i < transfers.length; i++) {
+            transfers[i] = txs[i];
+        }
+        LibSafeFork.executeBundle(vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), transfers);
+        this.externalAssertRolloutOwnership(LibTimelockInvariants.timelockForChainId(block.chainid));
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.expectRevert(abi.encodeWithSelector(HandoverRecordMismatch.selector, block.timestamp, 0));
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesARecordFromAnotherMoment() external {
+        HandWmtMcDisToTimelockHarness script = handedOverFork("post-stale-record");
+        // forge-lint: disable-next-line(block-timestamp)
+        uint256 recorded = block.timestamp;
+        vm.warp(recorded + 1);
+        vm.expectRevert(abi.encodeWithSelector(HandoverRecordMismatch.selector, recorded + 1, recorded));
+        script.callAssertPostState();
+    }
+
+    function testPostStateRefusesALineMovedPastTheRecord() external {
+        HandWmtMcDisToTimelockHarness script = handedOverFork("post-buried");
+        LibTestRootLine.write(
+            vm,
+            LibSafeInvariants.safeForChainId(block.chainid),
+            FOREIGN_RECORD,
+            LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK
+        );
+        vm.expectRevert(abi.encodeWithSelector(HandoverLineHeadMismatch.selector, FOREIGN_RECORD));
+        script.callAssertPostState();
     }
 
     function testPostStateRefusesAVaultBackOnTheSafe() external {
