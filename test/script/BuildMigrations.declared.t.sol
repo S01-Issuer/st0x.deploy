@@ -3,13 +3,12 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {MIGRATION_HEAD_GENESIS, Prerequisite} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistry.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title BuildMigrationsDeclaredTest
 /// @notice Every migration the scripts declare, read from `migrations.json`
@@ -25,10 +24,6 @@ contract BuildMigrationsDeclaredTest is Test {
         return string.concat(at, "[", vm.toString(i), "]");
     }
 
-    function count(string memory json, string memory at) internal view returns (uint256 n) {
-        while (vm.keyExistsJson(json, index(at, n))) n++;
-    }
-
     function row(uint256 i) internal pure returns (string memory) {
         return index(".migrations", i);
     }
@@ -37,126 +32,104 @@ contract BuildMigrationsDeclaredTest is Test {
         return string.concat(row(i), ".chains.", vm.toString(chainId));
     }
 
-    function namespaceOf(string memory json, uint256 i) internal pure returns (bytes32) {
-        return vm.parseJsonBytes32(json, string.concat(row(i), ".namespace"));
-    }
-
     function idOf(string memory json, uint256 i) internal pure returns (bytes32) {
         return vm.parseJsonBytes32(json, string.concat(row(i), ".id"));
     }
 
-    function writerOf(string memory json, uint256 i, uint256 chainId) internal pure returns (address) {
-        return vm.parseJsonAddress(json, string.concat(chain(i, chainId), ".writer"));
+    function ontoOf(string memory json, uint256 i, uint256 chainId) internal pure returns (bytes32) {
+        return vm.parseJsonBytes32(json, string.concat(chain(i, chainId), ".onto"));
     }
 
-    function prerequisitesOf(string memory json, uint256 i, uint256 chainId)
-        internal
-        view
-        returns (Prerequisite[] memory prerequisites)
-    {
-        string memory at = string.concat(chain(i, chainId), ".prerequisites");
-        prerequisites = new Prerequisite[](count(json, at));
-        for (uint256 j = 0; j < prerequisites.length; j++) {
-            string memory pre = index(at, j);
-            prerequisites[j] = Prerequisite({
-                writer: vm.parseJsonAddress(json, string.concat(pre, ".writer")),
-                namespace: vm.parseJsonBytes32(json, string.concat(pre, ".namespace")),
-                migration: vm.parseJsonBytes32(json, string.concat(pre, ".id"))
-            });
-        }
+    function executedAtOf(string memory json, uint256 i, uint256 chainId) internal pure returns (uint256) {
+        return vm.parseJsonUint(json, string.concat(chain(i, chainId), ".executedAt"));
     }
 
     function manifest() internal view returns (string memory json, uint256 rows) {
         json = vm.readFile(MANIFEST);
-        rows = count(json, ".migrations");
+        while (vm.keyExistsJson(json, row(rows))) rows++;
         assertGt(rows, 0);
     }
 
-    function testEveryMigrationHasANamespaceAndAnId() external view {
+    /// @dev Each chain's rows in line order, walked from genesis; fails unless
+    /// every row is on the one line.
+    function line(string memory json, uint256 rows, uint256 chainId) internal pure returns (uint256[] memory) {
+        uint256[] memory order = new uint256[](rows);
+        bool[] memory seen = new bool[](rows);
+        bytes32 head = MIGRATION_HEAD_GENESIS;
+        for (uint256 step = 0; step < rows; step++) {
+            uint256 found = type(uint256).max;
+            for (uint256 i = 0; i < rows; i++) {
+                if (ontoOf(json, i, chainId) != head) continue;
+                assertEq(found, type(uint256).max, chain(i, chainId));
+                found = i;
+            }
+            assertNotEq(found, type(uint256).max, string.concat(vm.toString(chainId), ": line ends early"));
+            assertFalse(seen[found], chain(found, chainId));
+            seen[found] = true;
+            order[step] = found;
+            head = idOf(json, found);
+        }
+        return order;
+    }
+
+    function testTheManifestIsTheRootLine() external view {
+        (string memory json,) = manifest();
+        assertEq(vm.parseJsonUint(json, ".version"), 1);
+        assertEq(vm.parseJsonBytes32(json, ".genesis"), MIGRATION_HEAD_GENESIS);
+        assertEq(vm.parseJsonAddress(json, ".writer"), LibRegistryAuthority.ROOT_AUTHORITY);
+        assertEq(vm.parseJsonBytes32(json, ".namespace"), LibStoxMigrations.NAMESPACE);
+    }
+
+    function testEveryRowIsAScriptKeyedByItsPath() external view {
         (string memory json, uint256 rows) = manifest();
         for (uint256 i = 0; i < rows; i++) {
-            assertNotEq(namespaceOf(json, i), bytes32(0), row(i));
-            assertNotEq(idOf(json, i), bytes32(0), row(i));
-            assertNotEq(idOf(json, i), MIGRATION_HEAD_GENESIS, row(i));
+            string memory script = vm.parseJsonString(json, string.concat(row(i), ".script"));
+            assertTrue(vm.exists(script), script);
+            assertEq(idOf(json, i), keccak256(bytes(script)), script);
         }
     }
 
-    function testEveryWriterIsOneRoleOnEveryChain() external view {
+    function testEveryRowIsDeclaredOnEveryDeploymentNetwork() external view {
         (string memory json, uint256 rows) = manifest();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < rows; i++) {
             assertEq(vm.parseJsonKeys(json, string.concat(row(i), ".chains")).length, nets.length, row(i));
-            bool timelock =
-                writerOf(json, i, nets[0].chainId) == LibTimelockInvariants.timelockForChainId(nets[0].chainId);
             for (uint256 n = 0; n < nets.length; n++) {
-                uint256 chainId = nets[n].chainId;
-                address expected = timelock
-                    ? LibTimelockInvariants.timelockForChainId(chainId)
-                    : LibSafeInvariants.safeForChainId(chainId);
-                assertEq(writerOf(json, i, chainId), expected, chain(i, chainId));
+                assertTrue(vm.keyExistsJson(json, chain(i, nets[n].chainId)), chain(i, nets[n].chainId));
             }
         }
     }
 
-    function declared(string memory json, uint256 rows, uint256 chainId, Prerequisite memory prerequisite)
-        internal
-        pure
-        returns (bool)
-    {
-        for (uint256 k = 0; k < rows; k++) {
-            if (
-                namespaceOf(json, k) == prerequisite.namespace && idOf(json, k) == prerequisite.migration
-                    && writerOf(json, k, chainId) == prerequisite.writer
-            ) return true;
-        }
-        return false;
-    }
-
-    function testEveryPrerequisiteIsGenesisOrADeclaredMigration() external view {
-        (string memory json, uint256 rows) = manifest();
-        SupportedNetwork[] memory nets = networks();
-        for (uint256 i = 0; i < rows; i++) {
-            for (uint256 n = 0; n < nets.length; n++) {
-                uint256 chainId = nets[n].chainId;
-                Prerequisite[] memory prerequisites = prerequisitesOf(json, i, chainId);
-                assertGt(prerequisites.length, 0, chain(i, chainId));
-                for (uint256 j = 0; j < prerequisites.length; j++) {
-                    if (j == 0 && prerequisites[0].migration == MIGRATION_HEAD_GENESIS) {
-                        assertEq(prerequisites[0].writer, writerOf(json, i, chainId), chain(i, chainId));
-                        assertEq(prerequisites[0].namespace, namespaceOf(json, i), chain(i, chainId));
-                        continue;
-                    }
-                    assertTrue(declared(json, rows, chainId, prerequisites[j]), chain(i, chainId));
-                }
-            }
-        }
-    }
-
-    function testEveryAppliedRecordIsItsDeclaration() external {
+    function testEachChainIsOneLineFromGenesis() external view {
         (string memory json, uint256 rows) = manifest();
         SupportedNetwork[] memory nets = networks();
         for (uint256 n = 0; n < nets.length; n++) {
-            vm.createSelectFork(nets[n].name);
-            for (uint256 i = 0; i < rows; i++) {
-                assertApplied(json, i, nets[n].chainId);
-            }
+            line(json, rows, nets[n].chainId);
         }
     }
 
-    function assertApplied(string memory json, uint256 i, uint256 chainId) internal view {
-        address writer = writerOf(json, i, chainId);
-        uint256 applied = LibMigrationRegistry.appliedV5(writer, namespaceOf(json, i), idOf(json, i));
-        if (applied == 0) return;
-        string memory at = chain(i, chainId);
-        uint256 executedAt = vm.parseJsonUint(json, string.concat(at, ".executedAt"));
-        if (executedAt != 0) assertEq(applied, executedAt, at);
-        Prerequisite[] memory expected = prerequisitesOf(json, i, chainId);
-        Prerequisite[] memory actual = LibMigrationRegistry.appliedAfterV5(writer, namespaceOf(json, i), idOf(json, i));
-        assertEq(actual.length, expected.length, at);
-        for (uint256 j = 0; j < expected.length; j++) {
-            assertEq(actual[j].writer, expected[j].writer, at);
-            assertEq(actual[j].namespace, expected[j].namespace, at);
-            assertEq(actual[j].migration, expected[j].migration, at);
+    /// @notice The registry refuses a history moment before its head's, and a
+    /// record written now is after every pinned moment, so on each chain's line
+    /// every history row precedes every record and the moments never fall.
+    function testHistoryPrecedesEveryRecordAndMomentsNeverFall() external view {
+        (string memory json, uint256 rows) = manifest();
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 n = 0; n < nets.length; n++) {
+            uint256 chainId = nets[n].chainId;
+            uint256[] memory order = line(json, rows, chainId);
+            bool recorded = false;
+            uint256 last = 0;
+            for (uint256 step = 0; step < order.length; step++) {
+                uint256 moment = executedAtOf(json, order[step], chainId);
+                string memory at = chain(order[step], chainId);
+                if (moment == 0) {
+                    recorded = true;
+                    continue;
+                }
+                assertFalse(recorded, at);
+                assertGe(moment, last, at);
+                last = moment;
+            }
         }
     }
 }
