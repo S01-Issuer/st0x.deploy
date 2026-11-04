@@ -3,14 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.16/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.16/src/interface/IReceiptV3.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.18/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.18/src/interface/IReceiptV3.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.16/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.5/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+} from "rain-vats-0.2.18/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.6/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";

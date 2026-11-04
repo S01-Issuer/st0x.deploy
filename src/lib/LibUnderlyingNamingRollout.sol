@@ -105,9 +105,24 @@ library LibUnderlyingNamingRollout {
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
     /// the st0x.registry token lists accept both `wt<TICKER>` and
     /// `<TICKER>s` in production. The rename cannot be undone, so the rename
-    /// script refuses until this flips, in a reviewed PR that links each
-    /// service's release.
-    bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = false;
+    /// script refuses unless this is set. Set on this evidence (RAI-4172):
+    /// - st0x.liquidity accepts both symbols since
+    ///   ST0x-Technology/st0x.liquidity#1973 (commit b70fe2950679), live in
+    ///   production as release v1.29.0 (RAI-4168).
+    /// - st0x.pricing and st0x-oracle-server never read an on-chain
+    ///   `symbol()`, so they need no change (RAI-4169 and RAI-4170 closed as
+    ///   not needed).
+    /// - The st0x.registry token lists keep `symbol` = `wt<TICKER>` and carry
+    ///   the additive `nextSymbol` / `nextName`
+    ///   (ST0x-Technology/st0x.registry#117).
+    /// The same PR moved the head-fork tests that pin the initialized names
+    /// (`testConfigMatchesLiveBase`, `testWrappedDerivationHoldsOnBase` and
+    /// the cross-chain parity pin `StoxCrossChainParityTest`) to accept the
+    /// renamed values too, so they stay green as each chain executes the
+    /// rename. The `wt*` symbol pins in `LibTokenInvariants.addresses.t.sol`
+    /// fork at a pinned pre-rename block; they accept `<TICKER>s` too, so a
+    /// later block bump does not break them on the symbol alone.
+    bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = true;
 
     /// @notice How many leading rows of each chain's production token table
     /// this rollout renames: every row today, on every chain. Fixed, so the

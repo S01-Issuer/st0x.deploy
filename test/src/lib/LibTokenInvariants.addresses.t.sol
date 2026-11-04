@@ -8,12 +8,12 @@ import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.16/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.16/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.18/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.18/src/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.16/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ICertifiableV1} from "rain-vats-0.2.16/src/interface/ICertifiableV1.sol";
+} from "rain-vats-0.2.18/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.18/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
@@ -25,6 +25,11 @@ import {IExtrospectV1} from "rain-extrospection-0.1.16/src/interface/IExtrospect
 import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.2/src/generated/0_1_0/Extrospect.sol";
 import {IBeacon} from "rain-extrospection-0.1.16/src/interface/IBeacon.sol";
 
+/// @notice A pinned wrapped symbol is not of the initialized `wt<TICKER>`
+/// form, so no renamed symbol can be derived from it.
+/// @param symbol The pinned symbol.
+error InvalidInitializedWrappedSymbol(string symbol);
+
 /// @title LibTokenInvariantsAddressesTest
 /// @notice Fork tests verifying production token instances on Base.
 contract LibTokenInvariantsAddressesTest is Test {
@@ -33,8 +38,46 @@ contract LibTokenInvariantsAddressesTest is Test {
         return address(uint160(uint256(vm.load(proxy, ERC1967_BEACON_SLOT))));
     }
 
+    /// The wrapped vault's symbol once the underlying-naming rename has set
+    /// the receipt vault's ticker: `"wtMSTR"` becomes `"MSTRs"`.
+    /// @param initialWrappedSymbol The initialized `"wt" + ticker` symbol.
+    /// @return renamed `ticker + "s"`.
+    function renamedWrappedSymbol(string memory initialWrappedSymbol) internal pure returns (string memory renamed) {
+        bytes memory initial = bytes(initialWrappedSymbol);
+        if (initial.length <= 2 || initial[0] != "w" || initial[1] != "t") {
+            revert InvalidInitializedWrappedSymbol(initialWrappedSymbol);
+        }
+        bytes memory ticker = new bytes(initial.length - 2);
+        for (uint256 i = 0; i < ticker.length; i++) {
+            ticker[i] = initial[i + 2];
+        }
+        renamed = string.concat(string(ticker), "s");
+    }
+
+    function externalRenamedWrappedSymbol(string memory initial) external pure returns (string memory) {
+        return renamedWrappedSymbol(initial);
+    }
+
+    /// The renamed wrapper symbol drops the `wt` prefix and appends `s`.
+    function testRenamedWrappedSymbolDerivation() external pure {
+        assertEq(renamedWrappedSymbol("wtMSTR"), "MSTRs");
+        assertEq(renamedWrappedSymbol("wtBRK.B"), "BRK.Bs");
+        assertEq(renamedWrappedSymbol("wtA"), "As");
+    }
+
+    /// A pinned symbol that is not `wt` + a non-empty ticker refuses.
+    function testRenamedWrappedSymbolRefusesInvalidInitialSymbols() external {
+        string[5] memory invalid = [string(""), "w", "wt", "xtNVDA", "wxNVDA"];
+        for (uint256 index = 0; index < invalid.length; index++) {
+            vm.expectRevert(abi.encodeWithSelector(InvalidInitializedWrappedSymbol.selector, invalid[index]));
+            this.externalRenamedWrappedSymbol(invalid[index]);
+        }
+    }
+
     /// Verify a token set (receipt, receipt vault, wrapped vault) is deployed,
     /// wired correctly, and behind the expected beacons on the current fork.
+    /// The wrapped vault's symbol is accepted as the initialized
+    /// `wt<TICKER>` or, once the underlying-naming rename has run, `<TICKER>s`.
     function checkTokenSet(
         address receipt,
         address receiptVault,
@@ -47,7 +90,10 @@ contract LibTokenInvariantsAddressesTest is Test {
         assertTrue(wrappedTokenVault.code.length > 0, "wrapped vault not deployed");
 
         assertEq(IERC20Metadata(receiptVault).symbol(), expectedReceiptVaultSymbol);
-        assertEq(IERC20Metadata(wrappedTokenVault).symbol(), expectedWrappedVaultSymbol);
+        string memory wrappedSymbol = IERC20Metadata(wrappedTokenVault).symbol();
+        if (keccak256(bytes(wrappedSymbol)) != keccak256(bytes(expectedWrappedVaultSymbol))) {
+            assertEq(wrappedSymbol, renamedWrappedSymbol(expectedWrappedVaultSymbol));
+        }
         assertEq(IERC4626(wrappedTokenVault).asset(), receiptVault, "wrapped vault asset mismatch");
         assertEq(address(IReceiptVaultV3(payable(receiptVault)).receipt()), receipt, "receipt address mismatch");
         // The receipt's manager controls mint/burn. If a prod receipt's

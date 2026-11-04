@@ -19,12 +19,12 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.16/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.16/src/interface/IReceiptV3.sol";
-import {IAuthorizableV1} from "rain-vats-0.2.16/src/interface/IAuthorizableV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
-import {ICertifiableV1} from "rain-vats-0.2.16/src/interface/ICertifiableV1.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.18/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.18/src/interface/IReceiptV3.sol";
+import {IAuthorizableV1} from "rain-vats-0.2.18/src/interface/IAuthorizableV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.18/src/interface/ICertifiableV1.sol";
 
 /// @dev A Base block after the governance-timelock migration, so the receipt
 /// vault beacon is owned by `PROD_BEACON_OWNER`.
