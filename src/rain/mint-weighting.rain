@@ -85,6 +85,14 @@ ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
 ),
 
 :ensure(
+  binary-equal-to(
+    lead-currency() attested-currency<0>() attested-currency<1>()
+    "USD"
+  )
+  "Price not in USD"
+),
+
+:ensure(
   agree(
     max-time-spread 0
     now() lead-time() attested-time<0>() attested-time<1>()
