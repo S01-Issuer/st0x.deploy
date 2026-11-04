@@ -627,8 +627,7 @@ contract UnderlyingNamingRolloutTest is Test {
             vm.revertToState(snapshot);
         }
 
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), beacons.callAuthorBundle());
+        executePrefix(beacons.callAuthorBundle(), 1);
         vm.expectRevert(
             abi.encodeWithSelector(
                 OperationAlreadyScheduled.selector,
@@ -641,12 +640,11 @@ contract UnderlyingNamingRolloutTest is Test {
     /// @notice The rename pre-flight refuses once the rename is registered.
     function testRenamePreflightRefusesARegisteredRename() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("refusals");
         prepareRename(rename);
         rename.callPreflight();
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
+        executePrefix(rename.callAuthorBundle(), 1);
         vm.expectRevert(
             abi.encodeWithSelector(
                 RenameAlreadyScheduled.selector, LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid)
