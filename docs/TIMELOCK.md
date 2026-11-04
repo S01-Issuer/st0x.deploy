@@ -261,7 +261,7 @@ sequence on a fork of each chain.
    `scheduleBatch` of `setUnderlying(ticker, underlyingName)` on every
    production vault, with the beacon batch as its predecessor, so the timelock
    refuses to execute it first. It covers a fixed number of leading rows of each
-   chain's token table (`TOKEN_COUNT`, every row today), so its id does not move
+   chain's token table (`TOKEN_COUNT`, tMSTR to tDIS), so its id does not move
    when a table grows; a token added later gets its own `setUnderlying`
    operation. `ticker` is `TokenConfig.underlying` (e.g. `NVDA`) and
    `underlyingName` is `TokenConfig.underlyingName`, the issuer's name without
