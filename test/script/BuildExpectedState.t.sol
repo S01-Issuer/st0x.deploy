@@ -364,29 +364,50 @@ contract BuildExpectedStateTest is Test {
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[c].chainId);
             string memory list = string.concat(chain(nets[c]), ".tokens");
             for (uint256 i = 0; i < tokens.length; i++) {
-                string memory row = index(list, i);
-                TokenConfig memory config = configOf(tokens[i].underlying);
-                bool renames = LibUnderlyingNamingRollout.renamesRow(i);
-                string memory name = field(json, row, "name");
-                string memory symbol = field(json, row, "symbol");
-                string memory wrappedName = field(json, row, "wrappedTokenVaultName");
-                string memory wrappedSymbol = field(json, row, "wrappedTokenVaultSymbol");
-                string memory renamedName = field(json, row, "renamedName");
-                string memory renamedWrappedName = field(json, row, "wrappedTokenVaultRenamedName");
-                string memory renamedWrappedSymbol = field(json, row, "wrappedTokenVaultRenamedSymbol");
-                assertEq(name, LibTokenMetadata.vaultName(config, false));
-                assertEq(wrappedName, LibTokenMetadata.wrappedName(config, false));
-                assertEq(wrappedSymbol, LibTokenMetadata.wrappedSymbol(config, false));
-                assertEq(renamedName, LibTokenMetadata.vaultName(config, renames));
-                assertEq(renamedWrappedName, LibTokenMetadata.wrappedName(config, renames));
-                assertEq(renamedWrappedSymbol, LibTokenMetadata.wrappedSymbol(config, renames));
-                assertTrue(LibTokenMetadata.consistent(config, name, symbol, wrappedName, wrappedSymbol));
-                assertTrue(
-                    LibTokenMetadata.consistent(config, renamedName, symbol, renamedWrappedName, renamedWrappedSymbol)
+                assertTokenMetadata(
+                    json, index(list, i), configOf(tokens[i].underlying), LibUnderlyingNamingRollout.renamesRow(i)
                 );
-                assertEq(LibTokenMetadata.vaultRenamed(config, renamedName), renames);
             }
         }
+    }
+
+    function assertTokenMetadata(string memory json, string memory row, TokenConfig memory config, bool renames)
+        internal
+        pure
+    {
+        string memory symbol = field(json, row, "symbol");
+        assertMetadataState(
+            config,
+            false,
+            field(json, row, "name"),
+            symbol,
+            field(json, row, "wrappedTokenVaultName"),
+            field(json, row, "wrappedTokenVaultSymbol")
+        );
+        string memory renamedName = field(json, row, "renamedName");
+        assertMetadataState(
+            config,
+            renames,
+            renamedName,
+            symbol,
+            field(json, row, "wrappedTokenVaultRenamedName"),
+            field(json, row, "wrappedTokenVaultRenamedSymbol")
+        );
+        assertEq(LibTokenMetadata.vaultRenamed(config, renamedName), renames);
+    }
+
+    function assertMetadataState(
+        TokenConfig memory config,
+        bool renamed,
+        string memory name,
+        string memory symbol,
+        string memory wrappedName,
+        string memory wrappedSymbol
+    ) internal pure {
+        assertEq(name, LibTokenMetadata.vaultName(config, renamed));
+        assertEq(wrappedName, LibTokenMetadata.wrappedName(config, renamed));
+        assertEq(wrappedSymbol, LibTokenMetadata.wrappedSymbol(config, renamed));
+        assertTrue(LibTokenMetadata.consistent(config, name, symbol, wrappedName, wrappedSymbol));
     }
 
     function testTokenDecimalsAreTheVaultAndWrapperDecimals() external {
@@ -488,7 +509,7 @@ contract BuildExpectedStateTest is Test {
         assertEq(checked, nets.length - 1);
     }
 
-    function assertOffBaseTokenLegCodehashes(string memory json, SupportedNetwork memory network) internal view {
+    function assertOffBaseTokenLegCodehashes(string memory json, SupportedNetwork memory network) internal pure {
         string memory at = chain(network);
         address setDeployer = vm.parseJsonAddress(json, string.concat(at, ".beaconSetDeployer"));
         assertNotEq(setDeployer, address(0));
