@@ -21,17 +21,18 @@ library LibStoxConfig {
     /// @notice `abi.encode(address)`: the beacon production wrappers proxy.
     bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
 
-    /// @notice `abi.encode(address)`: the governance timelock, the initial owner
-    /// of every beacon a current st0x deploy constructs.
-    bytes32 internal constant GOVERNANCE_TIMELOCK_NAME = keccak256("st0x.governance-timelock.v1");
+    /// @notice `abi.encode(address)`: the initial owner every st0x beacon is
+    /// constructed with, read once in its constructor; ownership moves on-chain
+    /// after.
+    bytes32 internal constant BEACON_INITIAL_OWNER_NAME = keccak256("st0x.beacon-initial-owner.v1");
 
-    /// @notice The bound governance timelock. Reverts `NameNotRegistered` where
+    /// @notice The bound beacon initial owner. Reverts `NameNotRegistered` where
     /// it is unbound.
-    /// @return The timelock.
-    function governanceTimelock() internal view returns (address) {
+    /// @return The beacon initial owner.
+    function beaconInitialOwner() internal view returns (address) {
         // slither-disable-next-line unused-return
         (bytes memory value,) =
-            LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_TIMELOCK_NAME, keccak256("address"));
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_INITIAL_OWNER_NAME, keccak256("address"));
         return abi.decode(value, (address));
     }
 }

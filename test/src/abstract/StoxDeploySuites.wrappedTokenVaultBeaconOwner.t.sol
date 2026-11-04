@@ -44,7 +44,7 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
             LibTestDeploy.bind(
                 vm,
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
                 "address",
                 abi.encode(timelock)
             );
@@ -59,7 +59,7 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
         vm.chainId(chainId);
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_TIMELOCK_NAME, "address", abi.encode(owner)
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner)
         );
         assertEq(
             deployedAddress(declaration(), beaconSuite(), chainId),
@@ -76,7 +76,7 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
         new StoxWrappedTokenVaultBeacon();

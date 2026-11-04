@@ -53,7 +53,7 @@ contract LibProdDeployV4Test is Test {
         LibTestDeploy.bind(
             vm,
             LibStoxConfig.ROOT_AUTHORITY,
-            LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
             "address",
             abi.encode(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK)
         );

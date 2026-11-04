@@ -86,13 +86,13 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function run() external {
-        // The generated code does not depend on the bound timelock value.
+        // The generated code does not depend on the bound beacon initial owner.
         vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
             .registerV5(
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_TIMELOCK_NAME,
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
                 "address",
                 abi.encode(address(1)),
                 ""

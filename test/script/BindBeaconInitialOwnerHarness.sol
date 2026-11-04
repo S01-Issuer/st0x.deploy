@@ -4,11 +4,11 @@ pragma solidity =0.8.25;
 
 import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
 
-import {BindGovernanceTimelock} from "../../script/20261022-bind-governance-timelock.s.sol";
+import {BindBeaconInitialOwner} from "../../script/20261022-bind-beacon-initial-owner.s.sol";
 
 /// @dev Exposes the script's hooks, with a per-instance artifact path because
 /// tests run in parallel.
-contract BindGovernanceTimelockHarness is BindGovernanceTimelock {
+contract BindBeaconInitialOwnerHarness is BindBeaconInitialOwner {
     string internal sArtifactTag;
 
     /// @param artifactTag Suffixes this instance's artifact path.
@@ -16,11 +16,11 @@ contract BindGovernanceTimelockHarness is BindGovernanceTimelock {
         sArtifactTag = artifactTag;
     }
 
-    /// @inheritdoc BindGovernanceTimelock
+    /// @inheritdoc BindBeaconInitialOwner
     function artifactPath() internal view override returns (string memory) {
         return
             string.concat(
-                "out/20261022-bind-governance-timelock-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
+                "out/20261022-bind-beacon-initial-owner-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
             );
     }
 
