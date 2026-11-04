@@ -111,9 +111,10 @@ library LibStoxMigrations {
     /// @return The registry.
     /// @return The calldata.
     function recordCall(ScriptDeclaration memory declared) internal view returns (address, bytes memory) {
-        return LibMigrationRegistry.applyMigrationV4Call(
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationV4Call(
             LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, prerequisitesFor(declared), ""
         );
+        return (registry, data);
     }
 
     /// @notice `recordCall` as history, at `appliedAt`.
@@ -126,9 +127,10 @@ library LibStoxMigrations {
         view
         returns (address, bytes memory)
     {
-        return LibMigrationRegistry.applyMigrationHistoryV4Call(
+        (address registry, bytes memory data) = LibMigrationRegistry.applyMigrationHistoryV4Call(
             LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, appliedAt, prerequisitesFor(declared), ""
         );
+        return (registry, data);
     }
 
     /// @notice The block timestamp of the Safe transaction that executed the
