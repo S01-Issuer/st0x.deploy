@@ -12,6 +12,7 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -104,7 +105,7 @@ contract BindAuthoriserInitialAdmin is SafeBundleScript, IStoxScript {
                     LibStoxConfig.ROOT_AUTHORITY,
                     LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME,
                     "address",
-                    abi.encode(timelock),
+                    abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK),
                     ""
                 )
             ),
@@ -122,7 +123,7 @@ contract BindAuthoriserInitialAdmin is SafeBundleScript, IStoxScript {
         (bytes memory value, uint256 registeredAt) = LibConfigRegistry.resolve(
             LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME, keccak256("address")
         );
-        bytes memory expected = abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid));
+        bytes memory expected = abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
         // forge-lint: disable-next-line(block-timestamp)
         if (keccak256(value) != keccak256(expected) || registeredAt != block.timestamp) {
             revert AuthoriserInitialAdminBindingMismatch(value, registeredAt);
