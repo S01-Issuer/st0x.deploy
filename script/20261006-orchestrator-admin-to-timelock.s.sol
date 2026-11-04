@@ -18,8 +18,8 @@ import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The root line is not at the orchestrator-emergency record, which
-/// this migration is applied onto.
+/// @notice The root line is not at the migration-registry-v5 backfill record,
+/// which this migration is applied onto.
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
 
@@ -92,9 +92,10 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// burning and emergency recovery are not delayed. A holder can still
 /// `renounceRole` itself immediately.
 ///
-/// The record is applied onto the EMERGENCY grant's, so the registry refuses it on a chain where that grant has not
-/// executed: the Safe must be granted `EMERGENCY_ROLE` while it can still do
-/// so directly.
+/// The record is applied onto the migration-registry-v5 backfill record, which
+/// follows the EMERGENCY grant's, so the registry refuses it on a chain where
+/// that grant has not executed: the Safe must be granted `EMERGENCY_ROLE` while
+/// it can still do so directly.
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a
