@@ -17,16 +17,13 @@ using-words-from st0x-attest-subparser
   "Lead attestation missing"
 ),
 
-eip712-domain-typehash: 0xb03948446334eb9b2196d5eb166f69b9d49403eb4a12f36de8d3f9f3cb8e15c3,
+price-domain: hash(
+  utf8-hash("EIP712Domain(string name," "string version)")
+  utf8-hash("prices")
+  utf8-hash("1")
+),
 :ensure(
-  binary-equal-to(
-    lead-domain()
-    hash(
-      eip712-domain-typehash
-      utf8-hash("proof-of-reserves.org/prices/" lead-source() "/" lead-currency())
-      utf8-hash("1")
-    )
-  )
+  binary-equal-to(lead-domain() price-domain)
   "Lead domain mismatch"
 ),
 
