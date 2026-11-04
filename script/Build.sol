@@ -138,10 +138,7 @@ contract Build is Script, StoxDeploySuites {
         // The generated vault beacon constant is from the previous compile.
         target.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
-            Vm(address(vm)),
-            target,
-            V4.STOX_RECEIPT_VAULT_0_1_1,
-            V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
+            Vm(address(vm)), target, V4.STOX_RECEIPT_VAULT_0_1_1, V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
         );
         writeGeneratedHeader(GEN_TOKEN_PROXY_PATH);
         vm.writeLine(GEN_TOKEN_PROXY_PATH, "");
