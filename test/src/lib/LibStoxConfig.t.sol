@@ -3,8 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.21/src/interface/IConfigRegistryV3.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibConfigRegistryDeploy.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
 
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibStoxConfigFork} from "../../../src/lib/LibStoxConfigFork.sol";
@@ -18,94 +19,59 @@ contract LibStoxConfigTest is Test {
         LibStoxConfigFork.etchConfigRegistry(vm);
     }
 
-    function testFuzzBeaconOwnerFollowsBinding(address first, address second) external {
-        LibStoxConfigFork.bindBeaconOwner(vm, first);
-        assertEq(harness.beaconOwner(), first);
-        LibStoxConfigFork.bindBeaconOwner(vm, second);
-        assertEq(harness.beaconOwner(), second);
-    }
-
-    function testBeaconOwnerUnboundReverts() external {
+    function expectUnbound() internal {
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
+                IConfigRegistryV5.NameNotRegistered.selector,
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME
             )
         );
-        harness.beaconOwner();
     }
 
-    function testFuzzBeaconOwnerIgnoresOtherAuthority(address authority, address owner) external {
+    function testAuthoriserInitialAdminName() external pure {
+        assertEq(LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME, keccak256("st0x.authoriser-initial-admin.v1"));
+    }
+
+    function testFuzzAuthoriserInitialAdminFollowsBinding(address first, address second) external {
+        LibStoxConfigFork.bindAuthoriserInitialAdmin(vm, first);
+        assertEq(harness.authoriserInitialAdmin(), first);
+        LibStoxConfigFork.bindAuthoriserInitialAdmin(vm, second);
+        assertEq(harness.authoriserInitialAdmin(), second);
+    }
+
+    function testAuthoriserInitialAdminUnboundReverts() external {
+        expectUnbound();
+        harness.authoriserInitialAdmin();
+    }
+
+    function testFuzzAuthoriserInitialAdminIgnoresOtherAuthority(address authority, address admin) external {
         vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY);
         vm.prank(authority);
-        IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV3(authority, LibStoxConfig.BEACON_OWNER, abi.encode(owner));
+        IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
+            .registerV5(authority, LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME, "address", abi.encode(admin), "");
+        expectUnbound();
+        harness.authoriserInitialAdmin();
+    }
+
+    function testFuzzAuthoriserInitialAdminIgnoresOtherName(bytes32 name, address admin) external {
+        vm.assume(name != LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME);
+        LibStoxConfigFork.bind(vm, name, "address", abi.encode(admin));
+        expectUnbound();
+        harness.authoriserInitialAdmin();
+    }
+
+    function testFuzzAuthoriserInitialAdminRefusesAnotherValueType(address admin) external {
+        LibStoxConfigFork.bind(vm, LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME, "uint256", abi.encode(admin));
         vm.expectRevert(
             abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
-            )
-        );
-        harness.beaconOwner();
-    }
-
-    function testFuzzBeaconOwnerIgnoresOtherName(bytes32 name, address owner) external {
-        vm.assume(name != LibStoxConfig.BEACON_OWNER);
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-        IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV3(LibStoxConfig.ROOT_AUTHORITY, name, abi.encode(owner));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER
-            )
-        );
-        harness.beaconOwner();
-    }
-
-    function testAuthoriserAdminName() external pure {
-        assertEq(LibStoxConfig.AUTHORISER_ADMIN, keccak256("st0x.authoriser-admin.v1"));
-    }
-
-    function testFuzzAuthoriserAdminFollowsBinding(address first, address second) external {
-        LibStoxConfigFork.bindAuthoriserAdmin(vm, first);
-        assertEq(harness.authoriserAdmin(), first);
-        LibStoxConfigFork.bindAuthoriserAdmin(vm, second);
-        assertEq(harness.authoriserAdmin(), second);
-    }
-
-    function testAuthoriserAdminUnboundReverts() external {
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector,
+                LibConfigRegistry.ValueTypeMismatch.selector,
                 LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.AUTHORISER_ADMIN
+                LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME,
+                keccak256("address"),
+                keccak256("uint256")
             )
         );
-        harness.authoriserAdmin();
-    }
-
-    function testFuzzAuthoriserAdminIgnoresTheBeaconOwner(address owner) external {
-        LibStoxConfigFork.bindBeaconOwner(vm, owner);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.AUTHORISER_ADMIN
-            )
-        );
-        harness.authoriserAdmin();
-    }
-
-    function testFuzzAuthoriserAdminIgnoresOtherAuthority(address authority, address admin) external {
-        vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY);
-        vm.prank(authority);
-        IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV3(authority, LibStoxConfig.AUTHORISER_ADMIN, abi.encode(admin));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IConfigRegistryV3.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.AUTHORISER_ADMIN
-            )
-        );
-        harness.authoriserAdmin();
+        harness.authoriserInitialAdmin();
     }
 }
