@@ -20,7 +20,7 @@ contract LibAuthoriserInvariantsAssertAdminRolesHeldTest is Test {
 
     function setUp() external {
         harness = new LibAuthoriserInvariantsHarness();
-        LibStoxConfigFork.bindAuthoriserAdmin(vm, ADMIN);
+        LibStoxConfigFork.bindAuthoriserInitialAdmin(vm, ADMIN);
         authoriser = StoxOffchainAssetReceiptVaultAuthorizerV1(
             Clones.clone(address(new StoxOffchainAssetReceiptVaultAuthorizerV1()))
         );

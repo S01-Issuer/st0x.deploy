@@ -23,7 +23,7 @@ contract LibAuthoriserInvariantsAssertKeysHoldNoRolesTest is Test {
     }
 
     function newAuthoriser(address admin) internal returns (StoxOffchainAssetReceiptVaultAuthorizerV1) {
-        LibStoxConfigFork.bindAuthoriserAdmin(vm, admin);
+        LibStoxConfigFork.bindAuthoriserInitialAdmin(vm, admin);
         StoxOffchainAssetReceiptVaultAuthorizerV1 authoriser = StoxOffchainAssetReceiptVaultAuthorizerV1(
             Clones.clone(address(new StoxOffchainAssetReceiptVaultAuthorizerV1()))
         );
