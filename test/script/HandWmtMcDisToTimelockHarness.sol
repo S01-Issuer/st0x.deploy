@@ -6,13 +6,10 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {HandWmtMcDisToTimelock} from "../../script/20261103-hand-wmt-mc-dis-to-timelock.s.sol";
 
-/// @dev Exposes the script's hooks so the tests can drive them directly, and
-/// gives each test its own artifact path: `run()` removes and rewrites the
-/// artifact, and tests run in parallel.
+/// @dev Per-instance artifact path because tests run in parallel.
 contract HandWmtMcDisToTimelockHarness is HandWmtMcDisToTimelock {
     string internal sArtifactTag;
 
-    /// @param artifactTag Suffixes this instance's artifact path.
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
     }
@@ -28,7 +25,7 @@ contract HandWmtMcDisToTimelockHarness is HandWmtMcDisToTimelock {
         preflight();
     }
 
-    function callAuthorBundle() external pure returns (SafeTx[] memory) {
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
         return authorBundle();
     }
 
@@ -36,7 +33,7 @@ contract HandWmtMcDisToTimelockHarness is HandWmtMcDisToTimelock {
         return artifactPath();
     }
 
-    function callHandoverVaults() external pure returns (address[] memory) {
+    function callHandoverVaults() external view returns (address[] memory) {
         return handoverVaults();
     }
 
@@ -50,10 +47,6 @@ contract HandWmtMcDisToTimelockHarness is HandWmtMcDisToTimelock {
 
     function callAssertReversible() external {
         assertReversible();
-    }
-
-    function callScriptArtifactPath() external view returns (string memory) {
-        return HandWmtMcDisToTimelock.artifactPath();
     }
 
     function callBundleName() external pure returns (string memory) {

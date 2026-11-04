@@ -22,8 +22,8 @@ import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title OrchestratorAdminToTimelockLocalTest
-/// @notice The move on a local Base whose root line is at the V5 backfill, so
-/// it runs whatever the live chains have recorded.
+/// @notice The move on a local Base whose root line is at the handover, so it
+/// runs whatever the live chains have recorded.
 contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
     OrchestratorAdminToTimelockHarness internal script;
 
@@ -36,6 +36,12 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         LibTestRootLine.write(
             vm, address(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, MIGRATION_HEAD_GENESIS
         );
+        LibTestRootLine.write(
+            vm,
+            address(safe),
+            LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK,
+            LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
+        );
         script = new OrchestratorAdminToTimelockHarness("local");
     }
 
@@ -43,10 +49,10 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         LibSafeFork.executeBundle(vm, safe, script.callAuthorBundle());
     }
 
-    function testDeclarationIsTheMoveOntoTheBackfill(uint256 chainId) external {
+    function testDeclarationIsTheMoveOntoTheHandover(uint256 chainId) external {
         ScriptDeclaration memory declared = new OrchestratorAdminToTimelock().declaration(chainId);
         assertEq(declared.id, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        assertEq(declared.onto, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5);
+        assertEq(declared.onto, LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK);
         assertFalse(declared.history);
     }
 
@@ -55,7 +61,7 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         (address recordTo, bytes memory recordData) = LibStoxMigrations.recordCall(
             ScriptDeclaration({
                 id: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
+                onto: LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK,
                 history: false
             })
         );
@@ -65,13 +71,14 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         assertEq(last.data, recordData);
     }
 
-    function testPreflightRefusesALineNotAtTheBackfill(bytes32 head) external {
+    function testPreflightRefusesALineNotAtTheHandover(bytes32 head) external {
         vm.assume(
-            head != LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5 && head != bytes32(0)
+            head != LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK
+                && head != LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5 && head != bytes32(0)
                 && head != MIGRATION_HEAD_GENESIS
         );
         script.callPreflight();
-        LibTestRootLine.write(vm, address(safe), head, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5);
+        LibTestRootLine.write(vm, address(safe), head, LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK);
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, head));
         script.callPreflight();
     }
@@ -102,6 +109,7 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         vm.assume(
             next != bytes32(0) && next != MIGRATION_HEAD_GENESIS
                 && next != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
+                && next != LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK
                 && next != LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
         );
         executeMove();
