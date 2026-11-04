@@ -11,7 +11,7 @@ import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 /// read from `ConfigRegistry`, enabling deterministic deployment via the Zoltu
 /// factory.
 /// @dev Constructor passes `LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT` as the
-/// beacon implementation and `LibStoxConfig.governanceTimelock()` as the initial
+/// beacon implementation and `LibStoxConfig.beaconInitialOwner()` as the initial
 /// owner. The owner can upgrade the implementation via `upgradeTo` or
 /// transfer ownership via `transferOwnership`.
 ///
@@ -23,5 +23,5 @@ import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 /// before this beacon is deployed, because the `UpgradeableBeacon` constructor
 /// validates that the implementation address has code.
 contract StoxWrappedTokenVaultBeacon is
-    UpgradeableBeacon(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT, LibStoxConfig.governanceTimelock())
+    UpgradeableBeacon(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT, LibStoxConfig.beaconInitialOwner())
 {}

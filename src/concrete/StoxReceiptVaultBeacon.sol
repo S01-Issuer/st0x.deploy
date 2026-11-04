@@ -11,5 +11,5 @@ import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 /// read from `ConfigRegistry`, enabling deterministic deployment via the Zoltu
 /// factory. The owner must never call `renounceOwnership`.
 contract StoxReceiptVaultBeacon is
-    UpgradeableBeacon(LibProdDeployCurrent.STOX_RECEIPT_VAULT, LibStoxConfig.governanceTimelock())
+    UpgradeableBeacon(LibProdDeployCurrent.STOX_RECEIPT_VAULT, LibStoxConfig.beaconInitialOwner())
 {}

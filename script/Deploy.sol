@@ -20,7 +20,7 @@ import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
 error GovernanceSafeMismatch(address bound, address expected);
-error GovernanceTimelockMismatch(address bound, address expected);
+error BeaconInitialOwnerMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
@@ -49,9 +49,9 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             name == keccak256(bytes(RECEIPT_BEACON)) || name == keccak256(bytes(RECEIPT_VAULT_BEACON))
                 || name == keccak256(bytes(WRAPPED_TOKEN_VAULT_BEACON))
         ) {
-            address bound = LibStoxConfig.governanceTimelock();
+            address bound = LibStoxConfig.beaconInitialOwner();
             if (bound != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
-                revert GovernanceTimelockMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+                revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
         } else {
             TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
