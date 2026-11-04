@@ -176,10 +176,15 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
             chainId,
             LibStoxMigrations.NAMESPACE,
             LibStoxMigrations.GOVERNANCE_TIMELOCK,
-            bytes32(0)
+            MIGRATION_HEAD_GENESIS
         );
-        all[k++] =
-            entry(EU_AUTHORISER_SCRIPT, chainId, V2_RBAC_NAMESPACE, V2_EU_AUTHORISER_GRANT_AND_HANDOVER, bytes32(0));
+        all[k++] = entry(
+            EU_AUTHORISER_SCRIPT,
+            chainId,
+            V2_RBAC_NAMESPACE,
+            V2_EU_AUTHORISER_GRANT_AND_HANDOVER,
+            MIGRATION_HEAD_GENESIS
+        );
         all[k++] = entry(
             ORCHESTRATOR_EMERGENCY_SCRIPT,
             chainId,
