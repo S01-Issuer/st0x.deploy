@@ -3,11 +3,12 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
-import {LibICloneableFactoryV5} from "rain-factory-0.2.4/src/lib/LibICloneableFactoryV5.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibICloneableFactoryV5} from "rain-factory-0.2.10/src/lib/LibICloneableFactoryV5.sol";
 import {
-    ConfigRegistryOffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.7-pr349/src/concrete/authorize/ConfigRegistryOffchainAssetReceiptVaultAuthorizerV1.sol";
+    OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG,
+    OffchainAssetReceiptVaultAuthorizerV1ConfigV2
+} from "rain-vats-0.2.19/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
@@ -24,10 +25,11 @@ import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 /// implementation.
 contract LibAuthoriserCloneTest is Test {
     function testInitDataNamesTheAdminBinding() external pure {
-        ConfigRegistryOffchainAssetReceiptVaultAuthorizerV1Config memory config =
-            abi.decode(LibAuthoriserClone.cloneData(), (ConfigRegistryOffchainAssetReceiptVaultAuthorizerV1Config));
+        (bytes32 tag, OffchainAssetReceiptVaultAuthorizerV1ConfigV2 memory config) =
+            abi.decode(LibAuthoriserClone.cloneData(), (bytes32, OffchainAssetReceiptVaultAuthorizerV1ConfigV2));
+        assertEq(tag, OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG);
         assertEq(config.authority, LibStoxConfig.ROOT_AUTHORITY);
-        assertEq(config.adminName, LibStoxConfig.AUTHORISER_ADMIN);
+        assertEq(config.initialAdminName, LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME);
     }
 
     function testPinsRederive() external pure {
