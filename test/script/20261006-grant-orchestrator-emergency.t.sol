@@ -42,9 +42,10 @@ contract GrantOrchestratorEmergencyTest is Test {
         script.executedAt(chainId);
     }
 
-    function testRunRefusesBecauseTheBackfillWritesTheRecord(uint64 chainId) external {
+    function testRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
+        chainId = bound(chainId, 1, type(uint64).max / 2 - 36);
         vm.chainId(chainId);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorEmergencyRecordedByBackfill.selector, uint256(chainId)));
+        vm.expectRevert(abi.encodeWithSelector(OrchestratorEmergencyRecordedByBackfill.selector, chainId));
         script.run();
     }
 
