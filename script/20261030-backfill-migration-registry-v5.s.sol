@@ -37,6 +37,23 @@ error UnexpectedRegistryV2Line(bytes32 namespace, bytes32 head);
 /// @param onto What V2 says it was applied onto.
 error UnexpectedRegistryV2Order(bytes32 migration, bytes32 onto);
 
+/// @notice A history record's moment is before the previous history record's.
+/// @param migration The record.
+/// @param moment The record's moment.
+error BackfillHistoryMomentBeforePrevious(bytes32 migration, uint256 moment);
+
+/// @notice A record is declared onto something other than the record before
+/// it.
+/// @param migration The record.
+/// @param onto What the record is declared onto.
+error BackfillRecordNotOntoPrevious(bytes32 migration, bytes32 onto);
+
+/// @notice The line ends elsewhere than this script's own record is declared
+/// onto.
+/// @param migration This script's own record.
+/// @param lineEnd The record the line ends at.
+error BackfillLineEndsElsewhere(bytes32 migration, bytes32 lineEnd);
+
 /// @notice A V2 record's moment differs from its script's `executedAt`.
 /// @param migration The record.
 /// @param executedAt The script's moment.
@@ -236,17 +253,17 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
         uint256 previousMoment = 0;
         for (uint256 i = 0; i < all.length; i++) {
             if (all[i].declared.onto != previous) {
-                revert UnexpectedRegistryV2Order(all[i].declared.id, all[i].declared.onto);
+                revert BackfillRecordNotOntoPrevious(all[i].declared.id, all[i].declared.onto);
             }
             if (all[i].declared.history) {
                 uint256 at = moment(chainSafe, all[i]);
-                if (at < previousMoment) revert UnexpectedRegistryV2Order(all[i].declared.id, previous);
+                if (at < previousMoment) revert BackfillHistoryMomentBeforePrevious(all[i].declared.id, at);
                 previousMoment = at;
             }
             previous = all[i].declared.id;
         }
         if (backfillMigrationRegistryV5Declaration(block.chainid).onto != previous) {
-            revert UnexpectedRegistryV2Order(LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, previous);
+            revert BackfillLineEndsElsewhere(LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, previous);
         }
     }
 
