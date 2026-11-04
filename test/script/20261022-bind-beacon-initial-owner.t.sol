@@ -139,7 +139,7 @@ contract BindBeaconInitialOwnerTest is Test {
         script = new BindBeaconInitialOwnerHarness(tag);
         safe = LibSafeInvariants.safeForChainId(block.chainid);
         deployTimelock(safe);
-        ready =LibStoxMigrations.applied(safe, bindBeaconInitialOwnerDeclaration().id) == 0;
+        ready = LibStoxMigrations.applied(safe, bindBeaconInitialOwnerDeclaration().id) == 0;
         if (!ready) console2.log("SPENT: the bind has executed on this chain");
     }
 

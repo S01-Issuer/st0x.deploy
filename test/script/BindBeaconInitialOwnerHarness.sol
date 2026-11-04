@@ -18,10 +18,9 @@ contract BindBeaconInitialOwnerHarness is BindBeaconInitialOwner {
 
     /// @inheritdoc BindBeaconInitialOwner
     function artifactPath() internal view override returns (string memory) {
-        return
-            string.concat(
-                "out/20261022-bind-beacon-initial-owner-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
-            );
+        return string.concat(
+            "out/20261022-bind-beacon-initial-owner-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
+        );
     }
 
     function callPreflight() external view {
