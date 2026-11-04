@@ -14,6 +14,7 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
@@ -25,13 +26,21 @@ import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../src/lib/LibProdDeployV2BaseOverrides.sol";
 
 /// @title BuildExpectedState
-/// @notice Writes `expected-state.json`, the live state the dashboard checks, per deployment network: beacons
-/// (address, codehash, implementation, owner; `address(0)` where `beaconSetDeployer` resolves it), the token-owner
-/// Safe lock-down, the timelock, the orchestrator, the V4 and EU authoriser clones, and each production token's
-/// receipt vault, receipt, wrapped token vault, `receiptVault.receipt()`, `wrappedTokenVault.asset()`, per-leg beacon (`address(0)` where
-/// `beaconSetDeployer` resolves it), name, symbol, owner and authoriser, and every released Zoltu suite
-/// declared on that network (key, address, codehash). Under `v2`, per network V2 was checked on, each
-/// `LibProdDeployV2` deployment (key, address, codehash) and its three beacons' implementation and owner.
+/// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
+/// `network`, `beaconSetDeployer`, `beacons` (beacon, codehash, implementation, owner; `address(0)` where
+/// `beaconSetDeployer` resolves it), the token-owner `safe` lock-down, the `timelock`, the `orchestrator`, the V4
+/// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
+/// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
+/// token's renamed metadata), and per production token under `tokens`: `underlying`, `name`, `renamedName`, `symbol`,
+/// `decimals`, `wrappedTokenVaultName`, `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
+/// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
+/// `receiptVaultReceipt` (`receiptVault.receipt()`), `wrappedTokenVaultAsset` (`wrappedTokenVault.asset()`), the
+/// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon` (`address(0)` where
+/// `beaconSetDeployer` resolves it), the per-leg proxy codehashes `receiptVaultCodehash`, `receiptCodehash`,
+/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`. Under `v2`, per network V2 was checked on: `network`,
+/// `deployments` (each `LibProdDeployV2` key, address, codehash), `beaconSetDeployer`, and `receiptBeacon`,
+/// `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon, implementation, owner; beacon `address(0)` where
+/// `beaconSetDeployer` resolves it).
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
@@ -132,12 +141,15 @@ contract BuildExpectedState is Script {
             string memory row = string.concat(key, ".token.", vm.toString(i));
             TokenConfig memory config = tokenConfig(tokens[i].underlying);
             vm.serializeString(row, "underlying", tokens[i].underlying);
-            bool renamed = LibUnderlyingNamingRollout.tokenRenamed(chainId, i);
-            vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, renamed));
+            bool renames = LibUnderlyingNamingRollout.renamesRow(i);
+            vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
+            vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
             vm.serializeString(row, "symbol", config.symbol);
             vm.serializeUint(row, "decimals", LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
-            vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, renamed));
-            vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, renamed));
+            vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, false));
+            vm.serializeString(row, "wrappedTokenVaultRenamedName", LibTokenMetadata.wrappedName(config, renames));
+            vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, false));
+            vm.serializeString(row, "wrappedTokenVaultRenamedSymbol", LibTokenMetadata.wrappedSymbol(config, renames));
             vm.serializeUint(row, "wrappedTokenVaultDecimals", LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
             vm.serializeAddress(row, "receiptVault", tokens[i].receiptVault);
             vm.serializeAddress(row, "receipt", tokens[i].receipt);
@@ -227,6 +239,7 @@ contract BuildExpectedState is Script {
             )
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
+        vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
         return vm.serializeString(key, "tokens", tokensJson(chainId, key));
     }
 

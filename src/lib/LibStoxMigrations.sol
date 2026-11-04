@@ -66,6 +66,9 @@ library LibStoxMigrations {
     bytes32 internal constant BACKFILL_MIGRATION_REGISTRY_V5 =
         keccak256("script/20261030-backfill-migration-registry-v5.s.sol");
 
+    /// @notice `script/20261021-execute-underlying-naming.s.sol`.
+    bytes32 internal constant EXECUTE_UNDERLYING_NAMING = keccak256("script/20261021-execute-underlying-naming.s.sol");
+
     /// @notice A migration `writer` records in `namespace`, applied onto
     /// `headMigration` in `writer`'s own line of that namespace.
     /// @param writer The account that records it, by role.
