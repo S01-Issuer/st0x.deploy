@@ -11,8 +11,6 @@ contract BuildWeightingBindings is Script {
     uint256 internal constant LEAD_KEY = 0x1EAD;
     uint256 internal constant OPERATOR_KEY_0 = 0x0A00;
     uint256 internal constant POOL_SIZE = 6;
-    bytes32 internal constant LEAD_DOMAIN = keccak256("st0x.test.lead-domain");
-    bytes32 internal constant POOL_DOMAIN = keccak256("st0x.test.pool-domain");
     string internal constant MAX_DEVIATION = "0.01";
     int256 internal constant MAX_TIME_SPREAD = 600;
     int256 internal constant MIN_PRICE = 100;
@@ -39,12 +37,7 @@ contract BuildWeightingBindings is Script {
             address op = i == POOL_SIZE - 1 && sixth != address(0) ? sixth : vm.addr(OPERATOR_KEY_0 + i);
             out = string.concat(out, line(string.concat("operator-", vm.toString(i + 1)), vm.toString(op)));
         }
-        return string.concat(
-            out,
-            line("lead-domain-separator", vm.toString(LEAD_DOMAIN)),
-            line("pool-domain-separator", vm.toString(POOL_DOMAIN)),
-            line("max-deviation", MAX_DEVIATION)
-        );
+        return string.concat(out, line("max-deviation", MAX_DEVIATION));
     }
 
     function run() external {
