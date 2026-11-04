@@ -102,7 +102,7 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function run() external {
-        // Generated code depends on neither the bound Safe nor the bound beacon initial owner.
+        // Generated code depends on neither the bound timelock initial proposer nor the bound beacon initial owner.
         vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)

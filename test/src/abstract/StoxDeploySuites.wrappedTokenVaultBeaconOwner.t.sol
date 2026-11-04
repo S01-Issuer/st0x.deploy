@@ -10,10 +10,10 @@ import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
+import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
-import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 
 contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySuites {
     function beaconSuite() internal view returns (DeploySuite memory) {
@@ -36,10 +36,10 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
     function testBeaconSuiteDeploysOwnedByEachNetworksBoundTimelock() external {
         uint256[] memory chainIds = suiteChainIds(beaconSuite());
         assertTrue(chainIds.length > 0, "networks");
+        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         for (uint256 i = 0; i < chainIds.length; i++) {
             uint256 preDeploy = vm.snapshotState();
             vm.chainId(chainIds[i]);
-            address timelock = LibTimelockInvariants.timelockForChainId(chainIds[i]);
             LibTestDeploy.etchConfigRegistry(vm);
             LibTestDeploy.bind(
                 vm,
