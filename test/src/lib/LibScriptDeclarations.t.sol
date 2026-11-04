@@ -37,25 +37,27 @@ contract LibScriptDeclarationsTest is Test {
     function one(string memory path, ScriptDeclaration memory declared)
         internal
         pure
-        returns (string[] memory paths, ScriptDeclaration[] memory declarations)
+        returns (string[] memory, ScriptDeclaration[] memory)
     {
-        paths = new string[](1);
+        string[] memory paths = new string[](1);
         paths[0] = path;
-        declarations = new ScriptDeclaration[](1);
+        ScriptDeclaration[] memory declarations = new ScriptDeclaration[](1);
         declarations[0] = declared;
+        return (paths, declarations);
     }
 
     function two(string memory a, ScriptDeclaration memory da, string memory b, ScriptDeclaration memory db)
         internal
         pure
-        returns (string[] memory paths, ScriptDeclaration[] memory declarations)
+        returns (string[] memory, ScriptDeclaration[] memory)
     {
-        paths = new string[](2);
+        string[] memory paths = new string[](2);
         paths[0] = a;
         paths[1] = b;
-        declarations = new ScriptDeclaration[](2);
+        ScriptDeclaration[] memory declarations = new ScriptDeclaration[](2);
         declarations[0] = da;
         declarations[1] = db;
+        return (paths, declarations);
     }
 
     function three(
@@ -65,15 +67,16 @@ contract LibScriptDeclarationsTest is Test {
         ScriptDeclaration memory db,
         string memory c,
         ScriptDeclaration memory dc
-    ) internal pure returns (string[] memory paths, ScriptDeclaration[] memory declarations) {
-        paths = new string[](3);
+    ) internal pure returns (string[] memory, ScriptDeclaration[] memory) {
+        string[] memory paths = new string[](3);
         paths[0] = a;
         paths[1] = b;
         paths[2] = c;
-        declarations = new ScriptDeclaration[](3);
+        ScriptDeclaration[] memory declarations = new ScriptDeclaration[](3);
         declarations[0] = da;
         declarations[1] = db;
         declarations[2] = dc;
+        return (paths, declarations);
     }
 
     function expectRevertOn(bytes memory reason, string[] memory paths, ScriptDeclaration[] memory declarations)
