@@ -16,7 +16,11 @@ contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {
     function setUp() external {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(address(0x5AFE))
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
+            "address",
+            abi.encode(address(0x5AFE))
         );
         vm.etch(CONFIG_REGISTRY_ADDRESS, hex"");
     }
