@@ -482,24 +482,28 @@ contract BuildExpectedStateTest is Test {
             if (id == LibSafeInvariants.BASE_CHAIN_ID) {
                 continue;
             }
-            string memory at = chain(nets[c]);
-            address setDeployer = vm.parseJsonAddress(json, string.concat(at, ".beaconSetDeployer"));
-            assertNotEq(setDeployer, address(0));
-            bytes32 receiptHash = registryBeaconProxyCodehash(vm.computeCreateAddress(setDeployer, 1));
-            bytes32 vaultHash = registryBeaconProxyCodehash(vm.computeCreateAddress(setDeployer, 2));
-            bytes32 wrapperHash =
-                registryBeaconProxyCodehash(beaconRow(json, at, LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX));
-            string memory list = string.concat(at, ".tokens");
-            uint256 n = LibTokenInvariants.productionTokensForChainId(id).length;
-            for (uint256 i = 0; i < n; i++) {
-                string memory row = index(list, i);
-                assertEq(vm.parseJsonBytes32(json, string.concat(row, ".receiptCodehash")), receiptHash);
-                assertEq(vm.parseJsonBytes32(json, string.concat(row, ".receiptVaultCodehash")), vaultHash);
-                assertEq(vm.parseJsonBytes32(json, string.concat(row, ".wrappedTokenVaultCodehash")), wrapperHash);
-            }
+            assertOffBaseTokenLegCodehashes(json, nets[c]);
             checked++;
         }
         assertEq(checked, nets.length - 1);
+    }
+
+    function assertOffBaseTokenLegCodehashes(string memory json, SupportedNetwork memory network) internal view {
+        string memory at = chain(network);
+        address setDeployer = vm.parseJsonAddress(json, string.concat(at, ".beaconSetDeployer"));
+        assertNotEq(setDeployer, address(0));
+        bytes32 receiptHash = registryBeaconProxyCodehash(vm.computeCreateAddress(setDeployer, 1));
+        bytes32 vaultHash = registryBeaconProxyCodehash(vm.computeCreateAddress(setDeployer, 2));
+        bytes32 wrapperHash =
+            registryBeaconProxyCodehash(beaconRow(json, at, LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX));
+        string memory list = string.concat(at, ".tokens");
+        uint256 n = LibTokenInvariants.productionTokensForChainId(network.chainId).length;
+        for (uint256 i = 0; i < n; i++) {
+            string memory row = index(list, i);
+            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".receiptCodehash")), receiptHash);
+            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".receiptVaultCodehash")), vaultHash);
+            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".wrappedTokenVaultCodehash")), wrapperHash);
+        }
     }
 
     /// The rename migration is the id of the script that executes the rename batch.
@@ -867,13 +871,13 @@ contract BuildExpectedStateTest is Test {
     }
 
     function v2Networks() internal pure returns (SupportedNetwork[] memory) {
-        string[] memory names = new string[](5);
-        names[0] = LibRainDeploy.ARBITRUM_ONE;
-        names[1] = LibRainDeploy.BASE;
-        names[2] = LibRainDeploy.BASE_SEPOLIA;
-        names[3] = LibRainDeploy.FLARE;
-        names[4] = LibRainDeploy.POLYGON;
-        return LibRainDeploy.declaredNetworkConfigs(names);
+        string[] memory networkNames = new string[](5);
+        networkNames[0] = LibRainDeploy.ARBITRUM_ONE;
+        networkNames[1] = LibRainDeploy.BASE;
+        networkNames[2] = LibRainDeploy.BASE_SEPOLIA;
+        networkNames[3] = LibRainDeploy.FLARE;
+        networkNames[4] = LibRainDeploy.POLYGON;
+        return LibRainDeploy.declaredNetworkConfigs(networkNames);
     }
 
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {
