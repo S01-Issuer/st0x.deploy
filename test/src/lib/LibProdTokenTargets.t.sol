@@ -5,20 +5,20 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {DeployDependency, LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
+import {DeployDependency, LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS
-} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyTarget
-} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
+} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.16/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";

@@ -182,6 +182,15 @@
   services and token lists accept `<TICKER>s`), and every row's ticker and
   underlying name to be well formed, so a quote or backslash never reaches the
   receipt's `uri()` JSON and a row cannot carry the ST0x suffix twice.
+- **Downstream is ready: `DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set.**
+  st0x.liquidity accepts both `wt<TICKER>` and `<TICKER>s` from release v1.29.0,
+  st0x.pricing and st0x-oracle-server never read an on-chain `symbol()`, and the
+  st0x.registry lists carry `nextSymbol` / `nextName`. The rename script still
+  refuses until `RELEASE_FROZEN` is set. The head-fork name pins
+  (`LibProdTokenConfigTest` and `StoxCrossChainParityTest`) accept each token in
+  its initialized or renamed state, so they stay green as each chain renames.
+  The `wt*` pins in `LibTokenInvariants.addresses.t.sol` fork at a pinned
+  pre-rename block and also accept `<TICKER>s`, for a later block bump.
 - **Orchestrator ordering, corrected.** The orchestrator's vault-logic lock
   reads the 0.1.30 beacon-set deployer's beacons, not the in-use token beacons,
   so the rule that the admin move precedes beacon upgrades names that set. A

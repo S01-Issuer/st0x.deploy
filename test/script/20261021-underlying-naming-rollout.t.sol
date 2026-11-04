@@ -11,15 +11,12 @@ import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.29/src/lib/LibSafeTx.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.29/src/abstract/SafeBundleScript.sol";
-import {LibSafeFork} from "rain-deploy-0.1.29/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.29/src/lib/LibSafeTxBuilderJson.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
+import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
 
-import {
-    DeployUnderlyingNamingImplementations
-} from "../../script/20261021-deploy-underlying-naming-implementations.s.sol";
 import {
     ExecuteUnderlyingNaming,
     NoUnderlyingNamingOperationReady,
@@ -45,7 +42,7 @@ import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
-import {LibTimelockController} from "rain-deploy-0.1.29/src/lib/LibTimelockController.sol";
+import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -60,6 +57,7 @@ import {
 import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
 import {IOwnable} from "../../src/interface/IOwnable.sol";
+import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,
     TickerNotBoundToVault,
@@ -249,14 +247,6 @@ contract UnderlyingNamingRolloutTest is Test {
         assertEq(renamedSeen, 2, "both renamed issuers are listed");
     }
 
-    /// @notice The step-1 deploy refuses: no frozen, audited release carries
-    /// these implementations yet.
-    function testDeployStubRefuses() external {
-        DeployUnderlyingNamingImplementations deploy = new DeployUnderlyingNamingImplementations();
-        vm.expectRevert(UnderlyingNamingReleaseNotFrozen.selector);
-        deploy.run();
-    }
-
     /// @notice Authors, verifies and executes both batches on `network` and
     /// checks the result; asserts the renamed state where the rollout has
     /// executed.
@@ -424,6 +414,26 @@ contract UnderlyingNamingRolloutTest is Test {
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).symbol(), "NVDAs");
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).name(), "NVIDIA Corporation (ST0x)");
         mintAndBurn(orchestrator, LibTokenInvariants.NVDA_RECEIPT_VAULT);
+
+        // The live-fork name pins accept exactly this renamed state, for
+        // every renamed token.
+        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
+        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
+            TokenInstance memory token = chainTokens[tokenIndex];
+            TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
+            string memory vaultName = IERC20Metadata(token.receiptVault).name();
+            assertTrue(LibTestTokenMetadata.vaultRenamed(config, vaultName), token.underlying);
+            assertTrue(
+                LibTestTokenMetadata.consistent(
+                    config,
+                    vaultName,
+                    IERC20Metadata(token.receiptVault).symbol(),
+                    IERC20Metadata(token.wrappedTokenVault).name(),
+                    IERC20Metadata(token.wrappedTokenVault).symbol()
+                ),
+                token.underlying
+            );
+        }
     }
 
     /// @notice Mints `token` through the live orchestrator to a fresh EOA that

@@ -3,14 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
+import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {
     LibRainDeployCloneMechanism,
     REGISTRY_BEACON_PROXY_MECHANISM
-} from "rain-factory-0.2.9/src/lib/LibRainDeployCloneMechanism.sol";
-import {RegistryBeaconProxyTarget} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVaultConfigV3} from "rain-vats-0.2.16/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-factory-0.2.10/src/lib/LibRainDeployCloneMechanism.sol";
+import {RegistryBeaconProxyTarget} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVaultConfigV3} from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";

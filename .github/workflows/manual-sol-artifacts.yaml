@@ -20,6 +20,7 @@ on:
           - stox-offchain-asset-receipt-vault-payment-mint-authorizer
           - stox-orchestrator
           - stox-attest-sub-parser
+          - stox-governance-timelock
           - stox-eu-assets-authoriser
           - stox-token-tmstr
           - stox-token-ttsla

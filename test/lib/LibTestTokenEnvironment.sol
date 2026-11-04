@@ -3,24 +3,24 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     CREATION_CODE as CONFIG_REGISTRY_CREATION_CODE
-} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     CREATION_CODE as CLONE_FACTORY_V8_CREATION_CODE
-} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.5/src/concrete/CloneFactory.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.16/src/interface/IAuthorizeV1.sol";
+} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.6/src/concrete/CloneFactory.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.16/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.18/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.16/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.18/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {StoxCorporateActionsFacet} from "../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
