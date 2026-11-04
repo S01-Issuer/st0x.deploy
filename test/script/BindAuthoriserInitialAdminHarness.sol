@@ -2,13 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
-import {BindAuthoriserAdmin} from "../../script/20261022-bind-authoriser-admin.s.sol";
+import {BindAuthoriserInitialAdmin} from "../../script/20261022-bind-authoriser-initial-admin.s.sol";
 
 /// @dev Exposes the script's hooks, with a per-instance artifact path because
 /// tests run in parallel.
-contract BindAuthoriserAdminHarness is BindAuthoriserAdmin {
+contract BindAuthoriserInitialAdminHarness is BindAuthoriserInitialAdmin {
     string internal sArtifactTag;
 
     /// @param artifactTag Suffixes this instance's artifact path.
@@ -16,10 +16,11 @@ contract BindAuthoriserAdminHarness is BindAuthoriserAdmin {
         sArtifactTag = artifactTag;
     }
 
-    /// @inheritdoc BindAuthoriserAdmin
+    /// @inheritdoc BindAuthoriserInitialAdmin
     function artifactPath() internal view override returns (string memory) {
-        return
-            string.concat("out/20261022-bind-authoriser-admin-", vm.toString(block.chainid), "-", sArtifactTag, ".json");
+        return string.concat(
+            "out/20261022-bind-authoriser-initial-admin-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
+        );
     }
 
     function callPreflight() external view {
