@@ -32,7 +32,8 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
 
     function isTokenSuite(DeploySuite memory suite) internal pure returns (bool) {
         return mechanismIdOf(suite) == REGISTRY_BEACON_PROXY_MECHANISM
-            && LibRainDeployCloneMechanism.registryBeaconProxyTarget(suite).beaconName == LibStoxConfig.VAULT_BEACON_NAME;
+            && LibRainDeployCloneMechanism.registryBeaconProxyTarget(suite).beaconName
+                == LibStoxConfig.VAULT_BEACON_NAME;
     }
 
     /// Released and candidate suites alike, so a token declared as a release is counted.

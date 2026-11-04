@@ -112,9 +112,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
         for (uint256 i = 0; i < tokens.length; i++) {
             DeploySuite memory token = suiteByName(declared, tokens[i].key);
             DeploySuite memory wrapper = suiteByName(declared, wrapperKey(tokens[i]));
-            assertEq(
-                dependencyCodeHash(wrapper, token.storedDeployedAddress), token.storedBytecodeHash, wrapper.suite
-            );
+            assertEq(dependencyCodeHash(wrapper, token.storedDeployedAddress), token.storedBytecodeHash, wrapper.suite);
             assertEq(
                 dependencyCodeHash(wrapper, beacon.storedDeployedAddress), beacon.storedBytecodeHash, wrapper.suite
             );
