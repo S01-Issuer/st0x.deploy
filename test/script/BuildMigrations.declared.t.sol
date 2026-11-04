@@ -44,10 +44,12 @@ contract BuildMigrationsDeclaredTest is Test {
         return vm.parseJsonUint(json, string.concat(chain(i, chainId), ".executedAt"));
     }
 
-    function manifest() internal view returns (string memory json, uint256 rows) {
-        json = vm.readFile(MANIFEST);
+    function manifest() internal view returns (string memory, uint256) {
+        string memory json = vm.readFile(MANIFEST);
+        uint256 rows = 0;
         while (vm.keyExistsJson(json, row(rows))) rows++;
         assertGt(rows, 0);
+        return (json, rows);
     }
 
     /// @dev Each chain's rows in line order, walked from genesis; fails unless
