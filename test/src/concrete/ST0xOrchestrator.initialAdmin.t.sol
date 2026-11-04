@@ -9,7 +9,7 @@ import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {OrchestratorInitialAdminSeatTest} from "../lib/OrchestratorInitialAdminSeatTest.sol";
 
 /// @title ST0xOrchestratorInitialAdminTest
-/// @notice `initialize` seats the bound governance timelock as
+/// @notice `initialize` seats the bound initial admin as
 /// `DEFAULT_ADMIN_ROLE` and all three admin roles, holds no operating role
 /// for it, and leaves the deploying account nothing.
 contract ST0xOrchestratorInitialAdminTest is OrchestratorInitialAdminSeatTest {
@@ -23,17 +23,17 @@ contract ST0xOrchestratorInitialAdminTest is OrchestratorInitialAdminSeatTest {
         return address(new BeaconProxy(address(beacon), abi.encodeCall(ST0xOrchestrator.initialize, (""))));
     }
 
-    function assertSeated(address seated, address timelock) internal view override {
+    function assertSeated(address seated, address admin) internal view override {
         ST0xOrchestrator o = ST0xOrchestrator(payable(seated));
         bytes32[4] memory adminRoles =
             [o.DEFAULT_ADMIN_ROLE(), o.MINT_ADMIN_ROLE(), o.BURN_ADMIN_ROLE(), o.EMERGENCY_ADMIN_ROLE()];
         for (uint256 i = 0; i < adminRoles.length; i++) {
-            assertTrue(o.hasRole(adminRoles[i], timelock), "timelock missing an admin role");
+            assertTrue(o.hasRole(adminRoles[i], admin), "initial admin missing an admin role");
             assertFalse(o.hasRole(adminRoles[i], address(this)), "deployer holds an admin role");
         }
         bytes32[3] memory operatingRoles = [o.MINT_ROLE(), o.BURN_ROLE(), o.EMERGENCY_ROLE()];
         for (uint256 i = 0; i < operatingRoles.length; i++) {
-            assertFalse(o.hasRole(operatingRoles[i], timelock), "timelock holds an operating role");
+            assertFalse(o.hasRole(operatingRoles[i], admin), "initial admin holds an operating role");
             assertFalse(o.hasRole(operatingRoles[i], address(this)), "deployer holds an operating role");
         }
     }

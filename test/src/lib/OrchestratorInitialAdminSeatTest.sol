@@ -11,16 +11,16 @@ import {LibStoxConfig, ZeroOrchestratorInitialAdmin} from "../../../src/lib/LibS
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// @title OrchestratorInitialAdminSeatTest
-/// @notice Whatever seats the governance timelock seats the one the root
+/// @notice Whatever seats the orchestrator initial admin seats the one the root
 /// authority binds in the ConfigRegistry, on any chain, and refuses every
 /// registry state that does not bind one.
 abstract contract OrchestratorInitialAdminSeatTest is Test {
-    /// Builds what seats the timelock, in a single call or creation.
+    /// Builds what seats the admin, in a single call or creation.
     function seat() internal virtual returns (address);
 
     /// Asserts `seated`, as `seat` returned it, gives governance to
-    /// `timelock` alone.
-    function assertSeated(address seated, address timelock) internal view virtual;
+    /// `admin` alone.
+    function assertSeated(address seated, address admin) internal view virtual;
 
     function testSeatRefusesAnAbsentRegistry() external {
         vm.expectRevert(
@@ -74,12 +74,12 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
         seat();
     }
 
-    function testFuzzSeatRefusesTheNameBoundUnderAnotherAuthority(address authority, address timelock) external {
+    function testFuzzSeatRefusesTheNameBoundUnderAnotherAuthority(address authority, address admin) external {
         vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY && authority != address(0));
         assumeNotForgeAddress(authority);
-        vm.assume(timelock != address(0));
+        vm.assume(admin != address(0));
         LibTestDeploy.etchConfigRegistry(vm);
-        LibTestDeploy.bind(vm, authority, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, "address", abi.encode(timelock));
+        LibTestDeploy.bind(vm, authority, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, "address", abi.encode(admin));
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
@@ -90,12 +90,12 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
         seat();
     }
 
-    function testFuzzSeatRefusesAValueTypeOtherThanAddress(string memory valueType, address timelock) external {
+    function testFuzzSeatRefusesAValueTypeOtherThanAddress(string memory valueType, address admin) external {
         vm.assume(bytes(valueType).length > 0 && keccak256(bytes(valueType)) != keccak256("address"));
-        vm.assume(timelock != address(0));
+        vm.assume(admin != address(0));
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, valueType, abi.encode(timelock)
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, valueType, abi.encode(admin)
         );
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -109,17 +109,17 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
         seat();
     }
 
-    function testSeatRefusesAZeroTimelock() external {
+    function testSeatRefusesAZeroAdmin() external {
         LibTestDeploy.bindOrchestratorInitialAdmin(vm, address(0));
         vm.expectRevert(abi.encodeWithSelector(ZeroOrchestratorInitialAdmin.selector));
         seat();
     }
 
-    function testFuzzSeatSeatsTheBoundTimelockOnAnyChain(uint256 chainId, address timelock) external {
+    function testFuzzSeatSeatsTheBoundAdminOnAnyChain(uint256 chainId, address admin) external {
         chainId = bound(chainId, 1, type(uint64).max - 1);
-        vm.assume(timelock != address(0) && timelock != address(this));
+        vm.assume(admin != address(0) && admin != address(this));
         vm.chainId(chainId);
-        LibTestDeploy.bindOrchestratorInitialAdmin(vm, timelock);
-        assertSeated(seat(), timelock);
+        LibTestDeploy.bindOrchestratorInitialAdmin(vm, admin);
+        assertSeated(seat(), admin);
     }
 }
