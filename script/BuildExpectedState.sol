@@ -19,7 +19,6 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
-import {BYTECODE_HASH as TIMELOCK_BYTECODE_HASH} from "rain-deploy-0.1.30/src/generated/0_1_18/TimelockController.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks, per deployment network: beacons
@@ -91,8 +90,9 @@ contract BuildExpectedState is Script {
     /// Roles are not emitted: ideal-roles.json carries them keyed by timelock address.
     function timelockJson(uint256 chainId, string memory key) internal returns (string memory) {
         string memory at = string.concat(key, ".timelock");
-        vm.serializeAddress(at, "address", LibTimelockInvariants.timelockForChainId(chainId));
-        vm.serializeBytes32(at, "codehash", TIMELOCK_BYTECODE_HASH);
+        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
+        vm.serializeAddress(at, "address", timelock);
+        vm.serializeBytes32(at, "codehash", LibTimelockInvariants.timelockCodehash(timelock));
         return vm.serializeUint(at, "minDelay", LibTimelockInvariants.TIMELOCK_MIN_DELAY);
     }
 

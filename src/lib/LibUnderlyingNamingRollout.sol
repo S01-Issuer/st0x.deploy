@@ -115,11 +115,7 @@ library LibUnderlyingNamingRollout {
     /// - The st0x.registry token lists keep `symbol` = `wt<TICKER>` and carry
     ///   the additive `nextSymbol` / `nextName`
     ///   (ST0x-Technology/st0x.registry#117).
-    /// The same PR moved the head-fork tests that pin the initialized names
-    /// (`testConfigMatchesLiveBase`, `testWrappedDerivationHoldsOnBase` and
-    /// the cross-chain parity pin `StoxCrossChainParityTest`) to accept the
-    /// renamed values too, so they stay green as each chain executes the
-    /// rename. The `wt*` symbol pins in `LibTokenInvariants.addresses.t.sol`
+    /// The `wt*` symbol pins in `LibTokenInvariants.addresses.t.sol`
     /// fork at a pinned pre-rename block; they accept `<TICKER>s` too, so a
     /// later block bump does not break them on the symbol alone.
     bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = true;
