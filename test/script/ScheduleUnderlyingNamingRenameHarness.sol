@@ -47,6 +47,10 @@ contract ScheduleUnderlyingNamingRenameHarness is ScheduleUnderlyingNamingRename
         return artifactPath();
     }
 
+    function callAssertPostState() external view {
+        assertPostState();
+    }
+
     function callAssertRenamed(uint256 chainId) external view {
         assertRenamed(chainId);
     }
