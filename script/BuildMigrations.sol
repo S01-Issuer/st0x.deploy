@@ -216,8 +216,7 @@ contract BuildMigrations is Script {
         SupportedNetwork[] memory networks
     ) internal returns (string memory) {
         string memory key = string.concat("migrations.", vm.toString(index));
-        string memory chains =
-            chainsJson(string.concat(key, ".chains"), path, declarations, instances, networks, index);
+        string memory chains = chainsJson(string.concat(key, ".chains"), path, declarations, instances, networks, index);
         vm.serializeBytes32(key, "id", declarations[0][index].id);
         vm.serializeString(key, "script", path);
         return vm.serializeString(key, "chains", chains);

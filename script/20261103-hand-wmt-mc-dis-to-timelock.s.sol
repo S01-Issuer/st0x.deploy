@@ -174,8 +174,7 @@ contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
                 operation: Enum.Operation.Call
             });
         }
-        (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(handWmtMcDisToTimelockDeclaration());
+        (address recordTo, bytes memory recordData) = LibStoxMigrations.recordCall(handWmtMcDisToTimelockDeclaration());
         txs[vaults.length] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
