@@ -40,4 +40,8 @@ contract ScheduleUnderlyingNamingBeaconsHarness is ScheduleUnderlyingNamingBeaco
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
     }
+
+    function callAssertPostState() external view {
+        assertPostState();
+    }
 }
