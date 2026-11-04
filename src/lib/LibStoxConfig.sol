@@ -6,7 +6,7 @@ import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.so
 import {Region} from "./LibProdTokenConfig.sol";
 
 /// @title LibStoxConfig
-/// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V3, all under the
+/// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V5, all under the
 /// root authority: the same account on every chain, so a consumer's creation
 /// code is chain-invariant while each chain binds its own value.
 library LibStoxConfig {
@@ -35,6 +35,29 @@ library LibStoxConfig {
     /// @return The binding's name.
     function rbacName(Region region) internal pure returns (bytes32) {
         return region == Region.EU ? EU_RBAC_NAME : US_RBAC_NAME;
+    }
+
+    /// @notice `abi.encode(OffchainAssetReceiptVaultRbacV1)`: the RBAC US
+    /// production tokens initialize with.
+    bytes32 internal constant RBAC_US_NAME = keccak256("st0x.rbac.us.v1");
+
+    /// @notice `abi.encode(OffchainAssetReceiptVaultRbacV1)`: the RBAC EU
+    /// production tokens initialize with.
+    bytes32 internal constant RBAC_EU_NAME = keccak256("st0x.rbac.eu.v1");
+
+    /// @notice `abi.encode(address)`: the initial owner every st0x beacon is
+    /// constructed with, read once in its constructor; ownership moves on-chain
+    /// after.
+    bytes32 internal constant BEACON_INITIAL_OWNER_NAME = keccak256("st0x.beacon-initial-owner.v1");
+
+    /// @notice The bound beacon initial owner. Reverts `NameNotRegistered` where
+    /// it is unbound.
+    /// @return The beacon initial owner.
+    function beaconInitialOwner() internal view returns (address) {
+        // slither-disable-next-line unused-return
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_INITIAL_OWNER_NAME, keccak256("address"));
+        return abi.decode(value, (address));
     }
 
     /// @notice `abi.encode(address)`: the chain's governance Safe, the
