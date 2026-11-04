@@ -1,31 +1,13 @@
 # SPDX-License-Identifier: LicenseRef-DCL-1.0
 # SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 ---
-/* A mint weighting that needs only the lead attestation, kept under test.
- * What `ST0xOrchestrator.setMintWeighting` installs is governance's; this file
- * is not it.
- *
- * One expression: it checks the lead attestation that came with a mint and
- * prices the mint, or reverts. Pool attestations, if present, are not read.
- * Every attestation word is from the `St0xAttestSubParser`; everything else is
- * standard Rainlang. The elided bindings below are per-deployment
- * configuration, bound at compose time with
- * `rain dotrain compose -e weighting -b <name>=<value>`. Nothing is per token:
- * one composed expression serves every vault, deriving the ticker from the
- * symbol of the vault being minted.
- *
- * Only the entrypoint `weighting` is composed. The mint amount is in whole
- * tokens and the output is `mint-amount * lead-price`, the value the mint-cap
- * buckets are charged with.
- */
+#st0x-attest-subparser !St0xAttestSubParser address.
 
-#st0x-attest-subparser !The St0xAttestSubParser on this chain, the source of the attestation words.
+#lead-signer !Lead signer.
 
-#lead-signer !The mandatory lead signer, S01 as issuer.
-
-#max-time-spread !How far apart the lead's attested time and the chain clock may be, in seconds.
-#min-price !Absolute floor on the attested price.
-#max-price !Absolute ceiling on the attested price.
+#max-time-spread !Max time spread in seconds.
+#min-price !Min lead price.
+#max-price !Max lead price.
 
 #weighting
 using-words-from st0x-attest-subparser
