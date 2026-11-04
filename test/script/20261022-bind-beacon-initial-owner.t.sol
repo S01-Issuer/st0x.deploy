@@ -73,7 +73,7 @@ contract BindBeaconInitialOwnerTest is Test {
         if (LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK.code.length != 0) return;
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         CONFIG_REGISTRY.registerV5(
-            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe), ""
+            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME, "address", abi.encode(safe), ""
         );
         assertEq(
             LibRainDeploy.etchAndDeployZoltu(vm, type(StoxGovernanceTimelock).creationCode),
