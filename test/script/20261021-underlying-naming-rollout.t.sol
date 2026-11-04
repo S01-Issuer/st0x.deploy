@@ -534,8 +534,14 @@ contract UnderlyingNamingRolloutTest is Test {
     /// authored: the beacon batch registered and every vault owned by the
     /// timelock.
     function prepareRename(ScheduleUnderlyingNamingRenameHarness rename) internal {
-        plantImplementations();
         advanceRootLineToBeaconSchedule();
+        landBeaconScheduleAndHandOver(rename);
+    }
+
+    /// @notice From the line at the beacon onto: plants the implementations,
+    /// lands the beacon bundle and hands every vault to the timelock.
+    function landBeaconScheduleAndHandOver(ScheduleUnderlyingNamingRenameHarness rename) internal {
+        plantImplementations();
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("prepare");
         LibSafeFork.executeBundle(
             vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), beacons.callAuthorBundle()
@@ -885,7 +891,7 @@ contract UnderlyingNamingRolloutTest is Test {
             )
         );
         rename.callPreflight();
-        prepareRename(rename);
+        landBeaconScheduleAndHandOver(rename);
         rename.callPreflight();
 
         uint256 snapshot = vm.snapshotState();
