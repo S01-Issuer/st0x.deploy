@@ -60,6 +60,13 @@ ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
   "Times disagree"
 ),
 
+lead-time-key: hash("lead-time" ticker),
+:ensure(
+  greater-than-or-equal-to(lead-time() get(lead-time-key))
+  "Lead time went backwards"
+),
+:set(lead-time-key lead-time()),
+
 :ensure(
   less-than-or-equal-to(min-price lead-price() max-price)
   "Price outside bounds"
