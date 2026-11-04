@@ -16,15 +16,23 @@ contract BuildWeightingBindings is Script {
     int256 internal constant MIN_PRICE = 100;
     int256 internal constant MAX_PRICE = 1000;
     int256 internal constant MIN_PRICE_VARIANT = 1;
+    string internal constant LEAD_SOURCE = "alpaca";
+    string internal constant POOL_SOURCE_0 = "yahoo";
+    string internal constant POOL_SOURCE_1 = "alpaca";
 
     function line(string memory k, string memory v) internal pure returns (string memory) {
         return string.concat(k, "=", v, "\n");
+    }
+
+    function quoted(string memory s) internal pure returns (string memory) {
+        return string.concat("\"", s, "\"");
     }
 
     function common(address lead, int256 minPrice) internal pure returns (string memory) {
         return string.concat(
             line("st0x-attest-subparser", vm.toString(LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE)),
             line("lead-signer", vm.toString(lead)),
+            line("lead-source", quoted(LEAD_SOURCE)),
             line("max-time-spread", vm.toString(MAX_TIME_SPREAD)),
             line("min-price", vm.toString(minPrice)),
             line("max-price", vm.toString(MAX_PRICE))
@@ -37,7 +45,12 @@ contract BuildWeightingBindings is Script {
             address op = i == POOL_SIZE - 1 && sixth != address(0) ? sixth : vm.addr(OPERATOR_KEY_0 + i);
             out = string.concat(out, line(string.concat("operator-", vm.toString(i + 1)), vm.toString(op)));
         }
-        return string.concat(out, line("max-deviation", MAX_DEVIATION));
+        return string.concat(
+            out,
+            line("pool-source-0", quoted(POOL_SOURCE_0)),
+            line("pool-source-1", quoted(POOL_SOURCE_1)),
+            line("max-deviation", MAX_DEVIATION)
+        );
     }
 
     function run() external {
