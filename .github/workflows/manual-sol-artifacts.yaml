@@ -19,6 +19,7 @@ on:
           - stox-orchestrator
           - stox-attest-sub-parser
           - stox-governance-timelock
+          - stox-authoriser
           - stox-eu-assets-authoriser
           - stox-corporate-actions-facet@0_1_1
           - stox-receipt@0_1_1
