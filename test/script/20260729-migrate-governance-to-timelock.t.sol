@@ -14,9 +14,16 @@ import {
     MigrateGovernanceToTimelock,
     UnexpectedVaultOwner,
     UnexpectedBeaconOwner,
-    NothingToMigrate
+    NothingToMigrate,
+    GovernanceTimelockAlreadyApplied
 } from "../../script/20260729-migrate-governance-to-timelock.s.sol";
 import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
+import {ExecuteTimelockOperations} from "../../script/20260813-execute-timelock-operations.s.sol";
+import {MigrateMultisigThreshold} from "../../script/20260619-migrate-multisig-threshold.s.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
+import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -574,5 +581,76 @@ contract MigrateGovernanceToTimelockTest is Test {
             abi.encodeCall(TimelockController.execute, (target, 0, data, bytes32(0), salt))
         );
         assertTrue(controller.isOperationDone(id), "leg must complete after the delay");
+    }
+
+    function chains() internal pure returns (uint256[5] memory) {
+        return [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+    }
+
+    function testDeclarationOnBaseIsHistoryOntoExecuteTimelockOperations() external {
+        ScriptDeclaration memory declared = new MigrateGovernanceToTimelock().declaration(LibSafeInvariants.BASE_CHAIN_ID);
+        assertEq(declared.id, LibStoxMigrations.GOVERNANCE_TIMELOCK);
+        assertEq(declared.onto, LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS);
+        assertTrue(declared.history);
+    }
+
+    function testDeclarationOffBaseIsHistoryOntoMultisigThreshold(uint256 chainId) external {
+        vm.assume(chainId != LibSafeInvariants.BASE_CHAIN_ID);
+        ScriptDeclaration memory declared = new MigrateGovernanceToTimelock().declaration(chainId);
+        assertEq(declared.id, LibStoxMigrations.GOVERNANCE_TIMELOCK);
+        assertEq(declared.onto, LibStoxMigrations.MULTISIG_THRESHOLD);
+        assertTrue(declared.history);
+    }
+
+    function testExecutedAtRevertsOffItsChains(uint256 chainId) external {
+        uint256[5] memory known = chains();
+        for (uint256 i = 0; i < known.length; i++) {
+            vm.assume(chainId != known[i]);
+        }
+        MigrateGovernanceToTimelock migration = new MigrateGovernanceToTimelock();
+        vm.expectRevert(abi.encodeWithSelector(NoGovernanceTimelockMigrationOnChain.selector, chainId));
+        migration.executedAt(chainId);
+    }
+
+    function testHistoryAtExecutedAtLandsOnItsPredecessorRecord(uint256 index) external {
+        uint256 chainId = chains()[bound(index, 0, 4)];
+        MigrateGovernanceToTimelock migration = new MigrateGovernanceToTimelock();
+        ScriptDeclaration memory declared = migration.declaration(chainId);
+        uint256 executedAt = migration.executedAt(chainId);
+        uint256 predecessorAt = chainId == LibSafeInvariants.BASE_CHAIN_ID
+            ? new ExecuteTimelockOperations().executedAt(chainId)
+            : new MigrateMultisigThreshold().executedAt(chainId);
+        address writer = LibSafeInvariants.safeForChainId(chainId);
+        LibTestRootLine.etchRegistry(vm);
+        LibTestRootLine.approve(vm, writer);
+
+        vm.warp(predecessorAt);
+        LibTestRootLine.write(vm, writer, declared.onto, MIGRATION_HEAD_GENESIS);
+        vm.warp(executedAt + 1 days);
+
+        (address to, bytes memory data) = LibStoxMigrations.historyCall(declared, executedAt);
+        vm.prank(writer);
+        (bool ok,) = to.call(data);
+        assertTrue(ok);
+
+        assertEq(LibStoxMigrations.applied(LibStoxMigrations.GOVERNANCE_TIMELOCK), executedAt);
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.GOVERNANCE_TIMELOCK);
+    }
+
+    function testRunRefusesWhenAlreadyRecorded() external {
+        address writer = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        LibTestRootLine.etchRegistry(vm);
+        LibTestRootLine.approve(vm, writer);
+        LibTestRootLine.write(vm, writer, LibStoxMigrations.GOVERNANCE_TIMELOCK, MIGRATION_HEAD_GENESIS);
+
+        MigrateGovernanceToTimelock migration = new MigrateGovernanceToTimelock();
+        vm.expectRevert(GovernanceTimelockAlreadyApplied.selector);
+        migration.run();
     }
 }
