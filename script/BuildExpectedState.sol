@@ -24,7 +24,7 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 /// @notice Writes `expected-state.json`, the live state the dashboard checks, per deployment network: beacons
 /// (address, codehash, implementation, owner; `address(0)` where `beaconSetDeployer` resolves it), the token-owner
 /// Safe lock-down, the timelock, the orchestrator, the V4 and EU authoriser clones, and each production token's
-/// receipt vault, receipt, wrapped token vault, `receiptVault.receipt()`, per-leg beacon (`address(0)` where
+/// receipt vault, receipt, wrapped token vault, `receiptVault.receipt()`, `wrappedTokenVault.asset()`, per-leg beacon (`address(0)` where
 /// `beaconSetDeployer` resolves it), name, symbol, owner and authoriser, and every released Zoltu suite
 /// declared on that network (key, address, codehash).
 contract BuildExpectedState is Script {
@@ -132,6 +132,7 @@ contract BuildExpectedState is Script {
             vm.serializeAddress(row, "receipt", tokens[i].receipt);
             vm.serializeAddress(row, "wrappedTokenVault", tokens[i].wrappedTokenVault);
             vm.serializeAddress(row, "receiptVaultReceipt", tokens[i].receipt);
+            vm.serializeAddress(row, "wrappedTokenVaultAsset", tokens[i].receiptVault);
             vm.serializeAddress(row, "receiptVaultBeacon", beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
             vm.serializeAddress(row, "receiptBeacon", beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
             vm.serializeAddress(
