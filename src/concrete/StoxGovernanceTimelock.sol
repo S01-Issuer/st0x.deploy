@@ -8,7 +8,7 @@ import {LibTimelockInvariants} from "../lib/LibTimelockInvariants.sol";
 
 /// @title StoxGovernanceTimelock
 /// @notice The st0x governance `TimelockController`, Zoltu-deployed. Its
-/// proposer is the governance Safe bound in the `ConfigRegistry`, so the
+/// proposer is the initial proposer bound in the `ConfigRegistry`, so the
 /// creation code is chain-invariant.
 contract StoxGovernanceTimelock is
     TimelockController(
@@ -23,7 +23,7 @@ contract StoxGovernanceTimelock is
 library LibStoxGovernanceTimelockArgs {
     function safeArray() internal view returns (address[] memory) {
         address[] memory safes = new address[](1);
-        safes[0] = LibStoxConfig.governanceSafe();
+        safes[0] = LibStoxConfig.timelockInitialProposer();
         return safes;
     }
 
