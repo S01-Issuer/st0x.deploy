@@ -59,10 +59,10 @@ error BackfillV5OrderMismatch(bytes32 migration, bytes32 onto);
 /// @param migration The missing record.
 error BackfillV5RecordMissing(bytes32 migration);
 
-/// @notice The frozen V2 rbac line the EU grant was recorded on.
+/// @dev The frozen V2 rbac line the EU grant was recorded on.
 bytes32 constant V2_RBAC_NAMESPACE = keccak256("st0x.rbac");
 
-/// @notice The EU grant's V2 id on `V2_RBAC_NAMESPACE`.
+/// @dev The EU grant's V2 id on `V2_RBAC_NAMESPACE`.
 bytes32 constant V2_EU_AUTHORISER_GRANT_AND_HANDOVER = keccak256("st0x.rbac.eu-assets-authoriser.grant-and-handover");
 
 /// @notice This script's declaration: last record of the chain's block, after

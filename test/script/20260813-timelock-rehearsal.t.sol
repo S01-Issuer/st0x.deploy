@@ -118,22 +118,25 @@ contract TimelockRehearsalTest is Test {
         assertNotHistoryOffBase(executeScript, ExecuteTimelockOperationsNotHistory.selector, chainId);
     }
 
-    function testScheduleRunRefusesBecauseTheBackfillWritesTheRecord(uint64 chainId) external {
+    function testScheduleRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
+        chainId = bound(chainId, 1, type(uint64).max / 2 - 36);
         vm.chainId(chainId);
-        vm.expectRevert(abi.encodeWithSelector(RehearsalScheduleRecordedByBackfill.selector, uint256(chainId)));
+        vm.expectRevert(abi.encodeWithSelector(RehearsalScheduleRecordedByBackfill.selector, chainId));
         scheduleScript.run();
     }
 
-    function testCancelRunRefusesBecauseTheBackfillWritesTheRecord(uint64 chainId) external {
+    function testCancelRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
+        chainId = bound(chainId, 1, type(uint64).max / 2 - 36);
         vm.chainId(chainId);
-        vm.expectRevert(abi.encodeWithSelector(RehearsalCancelRecordedByBackfill.selector, uint256(chainId)));
+        vm.expectRevert(abi.encodeWithSelector(RehearsalCancelRecordedByBackfill.selector, chainId));
         cancelScript.run();
     }
 
-    function testExecuteRunRefusesBecauseTheBackfillWritesTheRecord(uint64 chainId) external {
+    function testExecuteRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
+        chainId = bound(chainId, 1, type(uint64).max / 2 - 36);
         vm.chainId(chainId);
         vm.expectRevert(
-            abi.encodeWithSelector(ExecuteTimelockOperationsRecordedByBackfill.selector, uint256(chainId))
+            abi.encodeWithSelector(ExecuteTimelockOperationsRecordedByBackfill.selector, chainId)
         );
         executeScript.run();
     }
