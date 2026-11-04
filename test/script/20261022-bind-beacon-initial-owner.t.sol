@@ -29,6 +29,8 @@ import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate
 import {BindBeaconInitialOwnerHarness} from "./BindBeaconInitialOwnerHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
+import {StoxGovernanceTimelock} from "../../src/concrete/StoxGovernanceTimelock.sol";
+import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -40,8 +42,8 @@ bytes32 constant LATER = keccak256("later");
 
 /// @title BindBeaconInitialOwnerTest
 /// @notice The bind on every deployment network at head, with every
-/// predecessor on the Safe's line and the root's approval of the Safe written
-/// on the fork where the chain lacks them.
+/// predecessor on the Safe's line, the root's approval of the Safe and the
+/// governance timelock written on the fork where the chain lacks them.
 contract BindBeaconInitialOwnerTest is Test {
     IConfigRegistryV5 internal constant CONFIG_REGISTRY =
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
@@ -66,6 +68,20 @@ contract BindBeaconInitialOwnerTest is Test {
         }
     }
 
+    /// @dev The governance timelock, proposed by the Safe, where the chain lacks it.
+    function deployTimelock(address safe) internal {
+        if (LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK.code.length != 0) return;
+        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        CONFIG_REGISTRY.registerV5(
+            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe), ""
+        );
+        assertEq(
+            LibRainDeploy.etchAndDeployZoltu(vm, type(StoxGovernanceTimelock).creationCode),
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            "timelock address"
+        );
+    }
+
     /// @dev The root approves the Safe where the chain lacks the approval.
     function approveSafe(address safe) internal {
         if (!CONFIG_REGISTRY.approvedV5(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, safe)) {
@@ -78,8 +94,9 @@ contract BindBeaconInitialOwnerTest is Test {
         vm.createSelectFork(network);
         BindBeaconInitialOwnerHarness script = new BindBeaconInitialOwnerHarness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         bytes32 id = bindBeaconInitialOwnerDeclaration().id;
+        deployTimelock(safe);
 
         if (LibStoxMigrations.applied(safe, id) != 0) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the binding"));
@@ -121,7 +138,8 @@ contract BindBeaconInitialOwnerTest is Test {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
         script = new BindBeaconInitialOwnerHarness(tag);
         safe = LibSafeInvariants.safeForChainId(block.chainid);
-        ready = LibStoxMigrations.applied(safe, bindBeaconInitialOwnerDeclaration().id) == 0;
+        deployTimelock(safe);
+        ready =LibStoxMigrations.applied(safe, bindBeaconInitialOwnerDeclaration().id) == 0;
         if (!ready) console2.log("SPENT: the bind has executed on this chain");
     }
 
@@ -200,7 +218,7 @@ contract BindBeaconInitialOwnerTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 BeaconInitialOwnerBindingMismatch.selector,
-                abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)),
+                abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK),
                 boundAt
             )
         );
@@ -217,7 +235,7 @@ contract BindBeaconInitialOwnerTest is Test {
             LibStoxConfig.ROOT_AUTHORITY,
             LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
             "address",
-            abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)),
+            abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK),
             ""
         );
         vm.expectRevert(abi.encodeWithSelector(BindBeaconInitialOwnerRecordMismatch.selector, recordedAt));
@@ -307,7 +325,7 @@ contract BindBeaconInitialOwnerTest is Test {
         if (!ready) return;
         advanceLine(safe, "timelock-state");
         approveSafe(safe);
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         vm.mockCall(timelock, abi.encodeCall(ITimelockControllerState.getMinDelay, ()), abi.encode(uint256(1)));
         vm.expectRevert(
             abi.encodeWithSelector(
@@ -351,7 +369,7 @@ contract BindBeaconInitialOwnerTest is Test {
         assertEq(txs.length, 2, "bundle length");
         assertEq(txs[0].to, address(CONFIG_REGISTRY), "bind target");
         (address to, bytes memory data) = LibStoxMigrations.recordCall(
-            bindBeaconInitialOwnerDeclaration(), safe, LibTimelockInvariants.timelockForChainId(block.chainid)
+            bindBeaconInitialOwnerDeclaration(), safe, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
         );
         assertEq(txs[1].to, to, "record target");
         assertEq(txs[1].data, data, "record call");
