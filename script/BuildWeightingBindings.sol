@@ -5,8 +5,6 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 
-/// @title BuildWeightingBindings
-/// @notice Writes one `test/composed/<set>.bind` (`k=v` per line) per binding set the weighting eval tests compose.
 contract BuildWeightingBindings is Script {
     string internal constant DIR = "test/composed/";
 
