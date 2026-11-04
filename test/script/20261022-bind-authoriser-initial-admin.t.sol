@@ -6,27 +6,26 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
-import {LibSafe} from "rain-deploy-0.1.21/src/lib/LibSafe.sol";
-import {IConfigRegistryV3} from "rain-deploy-0.1.21/src/interface/IConfigRegistryV3.sol";
-import {IMigrationRegistryV3} from "rain-deploy-0.1.21/src/interface/IMigrationRegistryV3.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibConfigRegistryDeploy.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.21/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.21/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.21/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.21/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {IMigrationRegistryV5} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
-    AuthoriserAdminBindingMismatch,
-    BindAuthoriserAdminRecordMismatch,
-    BindAuthoriserAdminUnexpectedLine,
-    SafeNotAuthoriserAdminDelegate,
-    bindAuthoriserAdminDeclaration
-} from "../../script/20261022-bind-authoriser-admin.s.sol";
-import {bindBeaconOwnerDeclaration} from "../../script/20261022-bind-beacon-owner.s.sol";
+    AuthoriserInitialAdminBindingMismatch,
+    BindAuthoriserInitialAdminRecordMismatch,
+    BindAuthoriserInitialAdminUnexpectedLine,
+    SafeNotAuthoriserInitialAdminDelegate,
+    bindAuthoriserInitialAdminDeclaration
+} from "../../script/20261022-bind-authoriser-initial-admin.s.sol";
 import {migrateMultisigThresholdDeclaration} from "../../script/20260619-migrate-multisig-threshold.s.sol";
-import {BindAuthoriserAdminHarness} from "./BindAuthoriserAdminHarness.sol";
-import {BindBeaconOwnerHarness} from "./BindBeaconOwnerHarness.sol";
+import {BindAuthoriserInitialAdminHarness} from "./BindAuthoriserInitialAdminHarness.sol";
+import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {GrantOrchestratorEmergencyHarness} from "./GrantOrchestratorEmergencyHarness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -38,20 +37,25 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 /// @dev A Safe line write past the bind.
 bytes32 constant LATER = keccak256("later");
 
-/// @title BindAuthoriserAdminTest
+/// @title BindAuthoriserInitialAdminTest
 /// @notice The bind on every deployment network at head, with every
 /// predecessor on the Safe's line and the root's approval of the Safe written
 /// on the fork where the chain lacks them.
-contract BindAuthoriserAdminTest is Test {
-    IConfigRegistryV3 internal constant CONFIG_REGISTRY =
-        IConfigRegistryV3(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
+contract BindAuthoriserInitialAdminTest is Test {
+    IConfigRegistryV5 internal constant CONFIG_REGISTRY =
+        IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
 
-    /// @dev Applies every predecessor before the beacon owner bind that the
+    /// @dev Applies every predecessor before the threshold migration that the
     /// chain lacks.
-    function advanceToMultisigThreshold(address safe, string memory tag) internal {
+    function advanceToOrchestratorAdminMove(address safe, string memory tag) internal {
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY) == 0) {
             LibSafeFork.executeBundle(
-                vm, Safe(payable(safe)), new GrantOrchestratorEmergencyHarness(tag).callAuthorBundle()
+                vm, Safe(payable(safe)), new GrantOrchestratorEmergencyHarness().callAuthorBundle()
+            );
+        }
+        if (LibStoxMigrations.applied(safe, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5) == 0) {
+            LibSafeFork.executeBundle(
+                vm, Safe(payable(safe)), new BackfillMigrationRegistryV5Harness(tag).callAuthorBundle()
             );
         }
         if (LibStoxMigrations.applied(safe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) == 0) {
@@ -59,45 +63,44 @@ contract BindAuthoriserAdminTest is Test {
                 vm, Safe(payable(safe)), new OrchestratorAdminToTimelockHarness(tag).callAuthorBundle()
             );
         }
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        if (LibStoxMigrations.applied(safe, migrateMultisigThresholdDeclaration().id) == 0) {
-            (address to, bytes memory data) =
-                LibStoxMigrations.recordCall(migrateMultisigThresholdDeclaration(), safe, timelock);
-            LibSafeFork.simulateCall(vm, Safe(payable(safe)), to, data);
-        }
     }
 
     /// @dev Applies every predecessor on the Safe's line that the chain lacks.
     function advanceLine(address safe, string memory tag) internal {
-        advanceToMultisigThreshold(safe, tag);
-        if (LibStoxMigrations.applied(safe, bindBeaconOwnerDeclaration().id) == 0) {
-            if (!CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, safe)) {
-                vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-                CONFIG_REGISTRY.approveV3(LibStoxConfig.BEACON_OWNER, safe);
-            }
-            LibSafeFork.executeBundle(vm, Safe(payable(safe)), new BindBeaconOwnerHarness(tag).callAuthorBundle());
+        advanceToOrchestratorAdminMove(safe, tag);
+        if (LibStoxMigrations.applied(safe, migrateMultisigThresholdDeclaration().id) == 0) {
+            (address to, bytes memory data) = LibStoxMigrations.recordCall(
+                migrateMultisigThresholdDeclaration(), safe, LibTimelockInvariants.timelockForChainId(block.chainid)
+            );
+            LibSafeFork.simulateCall(vm, Safe(payable(safe)), to, data);
         }
+    }
+
+    function approved(address safe) internal view returns (bool) {
+        return CONFIG_REGISTRY.approvedV5(
+            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME, safe
+        );
     }
 
     /// @dev The root approves the Safe where the chain lacks the approval.
     function approveSafe(address safe) internal {
-        if (!CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_ADMIN, safe)) {
+        if (!approved(safe)) {
             vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-            CONFIG_REGISTRY.approveV3(LibStoxConfig.AUTHORISER_ADMIN, safe);
+            CONFIG_REGISTRY.approveV5(LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME, safe);
         }
     }
 
     function assertBundle(string memory network) internal {
         vm.createSelectFork(network);
-        BindAuthoriserAdminHarness script = new BindAuthoriserAdminHarness(network);
+        BindAuthoriserInitialAdminHarness script = new BindAuthoriserInitialAdminHarness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        bytes32 id = bindAuthoriserAdminDeclaration().id;
+        bytes32 id = bindAuthoriserInitialAdminDeclaration().id;
 
         if (LibStoxMigrations.applied(safe, id) != 0) {
             console2.log(string.concat("EXECUTED [", network, "]: asserting the binding"));
-            assertEq(LibStoxConfig.authoriserAdmin(), timelock, "bound admin");
-            vm.expectPartialRevert(BindAuthoriserAdminUnexpectedLine.selector);
+            assertEq(LibStoxConfig.authoriserInitialAdmin(), timelock, "bound admin");
+            vm.expectPartialRevert(BindAuthoriserInitialAdminUnexpectedLine.selector);
             script.callPreflight();
             return;
         }
@@ -117,11 +120,11 @@ contract BindAuthoriserAdminTest is Test {
         assertEq(artifactSafe, safe, "artifact Safe");
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
-        assertEq(LibStoxConfig.authoriserAdmin(), timelock, "bound admin");
+        assertEq(LibStoxConfig.authoriserInitialAdmin(), timelock, "bound admin");
         assertEq(LibStoxMigrations.applied(safe, id), block.timestamp, "record moment");
         assertEq(LibStoxMigrations.head(safe), id, "line head");
 
-        vm.expectRevert(abi.encodeWithSelector(BindAuthoriserAdminUnexpectedLine.selector, id));
+        vm.expectRevert(abi.encodeWithSelector(BindAuthoriserInitialAdminUnexpectedLine.selector, id));
         script.callPreflight();
     }
 
@@ -129,18 +132,18 @@ contract BindAuthoriserAdminTest is Test {
     /// executed on chain.
     function readyOnFork(string memory tag)
         internal
-        returns (BindAuthoriserAdminHarness script, address safe, bool ready)
+        returns (BindAuthoriserInitialAdminHarness script, address safe, bool ready)
     {
         vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        script = new BindAuthoriserAdminHarness(tag);
+        script = new BindAuthoriserInitialAdminHarness(tag);
         safe = LibSafeInvariants.safeForChainId(block.chainid);
-        ready = LibStoxMigrations.applied(safe, bindAuthoriserAdminDeclaration().id) == 0;
+        ready = LibStoxMigrations.applied(safe, bindAuthoriserInitialAdminDeclaration().id) == 0;
         if (!ready) console2.log("SPENT: the bind has executed on this chain");
     }
 
     function executedOnFork(string memory tag)
         internal
-        returns (BindAuthoriserAdminHarness script, address safe, bool ready)
+        returns (BindAuthoriserInitialAdminHarness script, address safe, bool ready)
     {
         (script, safe, ready) = readyOnFork(tag);
         if (!ready) return (script, safe, ready);
@@ -151,78 +154,72 @@ contract BindAuthoriserAdminTest is Test {
     }
 
     function testPreflightRefusesAnUnapprovedSafe() external {
-        (BindAuthoriserAdminHarness script, address safe, bool ready) = readyOnFork("unapproved");
+        (BindAuthoriserInitialAdminHarness script, address safe, bool ready) = readyOnFork("unapproved");
         if (!ready) return;
         advanceLine(safe, "unapproved");
-        if (CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_ADMIN, safe)) {
+        if (approved(safe)) {
             vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-            CONFIG_REGISTRY.revokeV3(LibStoxConfig.AUTHORISER_ADMIN, safe);
+            CONFIG_REGISTRY.revokeV5(LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME, safe);
         }
-        vm.expectRevert(abi.encodeWithSelector(SafeNotAuthoriserAdminDelegate.selector, safe));
+        vm.expectRevert(abi.encodeWithSelector(SafeNotAuthoriserInitialAdminDelegate.selector, safe));
         script.callPreflight();
     }
 
-    /// The beacon owner approval does not stand in for the admin's.
-    function testPreflightRefusesASafeApprovedOnlyForTheBeaconOwner() external {
-        (BindAuthoriserAdminHarness script, address safe, bool ready) = readyOnFork("beacon-approval");
+    function testPreflightRefusesALineBeforeTheThresholdMigration() external {
+        (BindAuthoriserInitialAdminHarness script, address safe, bool ready) = readyOnFork("early");
         if (!ready) return;
-        advanceLine(safe, "beacon-approval");
-        if (CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_ADMIN, safe)) {
-            vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-            CONFIG_REGISTRY.revokeV3(LibStoxConfig.AUTHORISER_ADMIN, safe);
-        }
-        assertTrue(CONFIG_REGISTRY.approvedV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_OWNER, safe));
-        vm.expectRevert(abi.encodeWithSelector(SafeNotAuthoriserAdminDelegate.selector, safe));
-        script.callPreflight();
-    }
-
-    function testPreflightRefusesALineBeforeTheBeaconOwnerBind() external {
-        (BindAuthoriserAdminHarness script, address safe, bool ready) = readyOnFork("early");
-        if (!ready) return;
-        if (LibStoxMigrations.applied(safe, bindBeaconOwnerDeclaration().id) != 0) return;
-        advanceToMultisigThreshold(safe, "early");
+        if (LibStoxMigrations.applied(safe, migrateMultisigThresholdDeclaration().id) != 0) return;
+        advanceToOrchestratorAdminMove(safe, "early");
         approveSafe(safe);
         vm.expectRevert(
-            abi.encodeWithSelector(BindAuthoriserAdminUnexpectedLine.selector, migrateMultisigThresholdDeclaration().id)
+            abi.encodeWithSelector(
+                BindAuthoriserInitialAdminUnexpectedLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
+            )
         );
         script.callPreflight();
     }
 
-    function testPreflightRefusesALinePastTheBeaconOwnerBind() external {
-        (BindAuthoriserAdminHarness script, address safe, bool ready) = readyOnFork("past");
+    function testPreflightRefusesALinePastTheThresholdMigration() external {
+        (BindAuthoriserInitialAdminHarness script, address safe, bool ready) = readyOnFork("past");
         if (!ready) return;
         advanceLine(safe, "past");
         approveSafe(safe);
         vm.prank(safe);
-        IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
-            .applyMigrationV3(
-                safe, LibStoxMigrations.NAMESPACE, LATER, LibStoxMigrations.onto(safe, bindBeaconOwnerDeclaration().id)
+        IMigrationRegistryV5(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+            .applyMigrationV5(
+                safe,
+                LibStoxMigrations.NAMESPACE,
+                LATER,
+                LibStoxMigrations.onto(safe, migrateMultisigThresholdDeclaration().id),
+                ""
             );
-        vm.expectRevert(abi.encodeWithSelector(BindAuthoriserAdminUnexpectedLine.selector, LATER));
+        vm.expectRevert(abi.encodeWithSelector(BindAuthoriserInitialAdminUnexpectedLine.selector, LATER));
         script.callPreflight();
     }
 
     function testPostStateRefusesAnotherAdmin() external {
         address other = address(0xBEEF);
-        (BindAuthoriserAdminHarness script,, bool ready) = executedOnFork("other-admin");
+        (BindAuthoriserInitialAdminHarness script,, bool ready) = executedOnFork("other-admin");
         if (!ready) return;
         vm.warp(block.timestamp + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-        CONFIG_REGISTRY.registerV3(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_ADMIN, abi.encode(other));
+        CONFIG_REGISTRY.registerV5(
+            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME, "address", abi.encode(other), ""
+        );
         vm.expectRevert(
-            abi.encodeWithSelector(AuthoriserAdminBindingMismatch.selector, abi.encode(other), block.timestamp)
+            abi.encodeWithSelector(AuthoriserInitialAdminBindingMismatch.selector, abi.encode(other), block.timestamp)
         );
         script.callAssertPostState();
     }
 
     function testPostStateRefusesABindingFromAnotherBlock() external {
-        (BindAuthoriserAdminHarness script,, bool ready) = executedOnFork("binding-block");
+        (BindAuthoriserInitialAdminHarness script,, bool ready) = executedOnFork("binding-block");
         if (!ready) return;
         uint256 boundAt = block.timestamp;
         vm.warp(boundAt + 1);
         vm.expectRevert(
             abi.encodeWithSelector(
-                AuthoriserAdminBindingMismatch.selector,
+                AuthoriserInitialAdminBindingMismatch.selector,
                 abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)),
                 boundAt
             )
@@ -231,37 +228,40 @@ contract BindAuthoriserAdminTest is Test {
     }
 
     function testPostStateRefusesARecordFromAnotherBlock() external {
-        (BindAuthoriserAdminHarness script,, bool ready) = executedOnFork("record-block");
+        (BindAuthoriserInitialAdminHarness script,, bool ready) = executedOnFork("record-block");
         if (!ready) return;
         uint256 recordedAt = block.timestamp;
         vm.warp(recordedAt + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
-        CONFIG_REGISTRY.registerV3(
+        CONFIG_REGISTRY.registerV5(
             LibStoxConfig.ROOT_AUTHORITY,
-            LibStoxConfig.AUTHORISER_ADMIN,
-            abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid))
+            LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME,
+            "address",
+            abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)),
+            ""
         );
-        vm.expectRevert(abi.encodeWithSelector(BindAuthoriserAdminRecordMismatch.selector, recordedAt));
+        vm.expectRevert(abi.encodeWithSelector(BindAuthoriserInitialAdminRecordMismatch.selector, recordedAt));
         script.callAssertPostState();
     }
 
     function testPostStateRefusesALineThatDoesNotEndAtTheRecord() external {
-        (BindAuthoriserAdminHarness script, address safe, bool ready) = executedOnFork("line");
+        (BindAuthoriserInitialAdminHarness script, address safe, bool ready) = executedOnFork("line");
         if (!ready) return;
         vm.prank(safe);
-        IMigrationRegistryV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
-            .applyMigrationV3(
+        IMigrationRegistryV5(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+            .applyMigrationV5(
                 safe,
                 LibStoxMigrations.NAMESPACE,
                 LATER,
-                LibStoxMigrations.onto(safe, bindAuthoriserAdminDeclaration().id)
+                LibStoxMigrations.onto(safe, bindAuthoriserInitialAdminDeclaration().id),
+                ""
             );
-        vm.expectRevert(abi.encodeWithSelector(BindAuthoriserAdminUnexpectedLine.selector, LATER));
+        vm.expectRevert(abi.encodeWithSelector(BindAuthoriserInitialAdminUnexpectedLine.selector, LATER));
         script.callAssertPostState();
     }
 
     function testPostStateRefusesADriftedSafe() external {
-        (BindAuthoriserAdminHarness script, address safe, bool ready) = executedOnFork("drifted");
+        (BindAuthoriserInitialAdminHarness script, address safe, bool ready) = executedOnFork("drifted");
         if (!ready) return;
         vm.mockCall(safe, abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(4)));
         vm.expectRevert(
