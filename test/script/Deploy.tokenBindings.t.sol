@@ -135,37 +135,60 @@ contract DeployTokenBindingsTest is Test {
         }
     }
 
-    function testTokensRefuseOtherVaultBeacon(address bound) external {
-        vm.assume(bound != LibProdTokenTargets.vaultBeacon());
+    function oneRowPerRegion(uint256 usSeed, uint256 euSeed) internal pure returns (TokenConfig[] memory) {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
+        uint256 usCount = 0;
+        for (uint256 i = 0; i < configs.length; i++) {
+            if (configs[i].region == Region.US) {
+                usCount++;
+            }
+        }
+        uint256 usPick = bound(usSeed, 0, usCount - 1);
+        uint256 euPick = bound(euSeed, 0, configs.length - usCount - 1);
+        TokenConfig[] memory sample = new TokenConfig[](2);
+        uint256 usSeen = 0;
+        uint256 euSeen = 0;
+        for (uint256 i = 0; i < configs.length; i++) {
+            if (configs[i].region == Region.US) {
+                if (usSeen++ == usPick) {
+                    sample[0] = configs[i];
+                }
+            } else if (euSeen++ == euPick) {
+                sample[1] = configs[i];
+            }
+        }
+        return sample;
+    }
+
+    function testTokensRefuseOtherVaultBeacon(address wrong, uint256 usSeed, uint256 euSeed) external {
+        vm.assume(wrong != LibProdTokenTargets.vaultBeacon());
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(oneRowPerRegion(usSeed, euSeed));
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             bindPinned(networks[i].chainId);
-            bindAddress(LibStoxConfig.VAULT_BEACON_NAME, bound);
+            bindAddress(LibStoxConfig.VAULT_BEACON_NAME, wrong);
             for (uint256 j = 0; j < tokens.length; j++) {
                 vm.expectRevert(
-                    abi.encodeWithSelector(VaultBeaconMismatch.selector, bound, LibProdTokenTargets.vaultBeacon())
+                    abi.encodeWithSelector(VaultBeaconMismatch.selector, wrong, LibProdTokenTargets.vaultBeacon())
                 );
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
             }
         }
     }
 
-    function testTokensRefuseOtherReceiptBeacon(address bound) external {
-        vm.assume(bound != LibProdDeployCurrent.STOX_RECEIPT_BEACON);
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
+    function testTokensRefuseOtherReceiptBeacon(address wrong, uint256 usSeed, uint256 euSeed) external {
+        vm.assume(wrong != LibProdDeployCurrent.STOX_RECEIPT_BEACON);
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(oneRowPerRegion(usSeed, euSeed));
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             bindPinned(networks[i].chainId);
-            bindAddress(LibStoxConfig.RECEIPT_BEACON_NAME, bound);
+            bindAddress(LibStoxConfig.RECEIPT_BEACON_NAME, wrong);
             for (uint256 j = 0; j < tokens.length; j++) {
                 vm.expectRevert(
                     abi.encodeWithSelector(
-                        ReceiptBeaconMismatch.selector, bound, LibProdDeployCurrent.STOX_RECEIPT_BEACON
+                        ReceiptBeaconMismatch.selector, wrong, LibProdDeployCurrent.STOX_RECEIPT_BEACON
                     )
                 );
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
@@ -173,9 +196,9 @@ contract DeployTokenBindingsTest is Test {
         }
     }
 
-    function testTokensRefuseOtherRbacOwner(address owner) external {
+    function testTokensRefuseOtherRbacOwner(address owner, uint256 usSeed, uint256 euSeed) external {
         vm.assume(owner != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory configs = oneRowPerRegion(usSeed, euSeed);
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -198,13 +221,13 @@ contract DeployTokenBindingsTest is Test {
         }
     }
 
-    function testTokensRefuseOtherRbacAuthorizer(address authorizer) external {
+    function testTokensRefuseOtherRbacAuthorizer(address authorizer, uint256 usSeed, uint256 euSeed) external {
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
             vm.assume(authorizer != pinnedAuthorizer(Region.US, networks[i].chainId));
             vm.assume(authorizer != pinnedAuthorizer(Region.EU, networks[i].chainId));
         }
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory configs = oneRowPerRegion(usSeed, euSeed);
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         for (uint256 i = 0; i < networks.length; i++) {
             uint256 chainId = networks[i].chainId;

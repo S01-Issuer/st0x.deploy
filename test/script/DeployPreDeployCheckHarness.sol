@@ -2,7 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
+import {
+    DeployDeclaration,
+    DeploySuite,
+    UnknownDeploymentSuite
+} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {Deploy} from "../../script/Deploy.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
@@ -23,9 +27,15 @@ contract DeployPreDeployCheckHarness is Deploy {
 
     function declaredTokenSuites(TokenConfig[] memory configs) external view returns (DeploySuite[] memory) {
         DeployDeclaration memory declared = declaration();
+        DeploySuite[] memory all = allSuites(declared);
         DeploySuite[] memory suites = new DeploySuite[](configs.length);
         for (uint256 i = 0; i < configs.length; i++) {
-            suites[i] = suiteByName(declared, tokenSuiteName(configs[i]));
+            string memory name = tokenSuiteName(configs[i]);
+            uint256 index = suiteIndex(all, name);
+            if (index == all.length) {
+                revert UnknownDeploymentSuite(name, suiteNames(declared));
+            }
+            suites[i] = all[index];
         }
         return suites;
     }
