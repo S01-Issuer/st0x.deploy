@@ -11,6 +11,7 @@ import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegis
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
@@ -26,8 +27,8 @@ error BindBeaconInitialOwnerUnexpectedLine(bytes32 head);
 /// @param safe The Safe.
 error SafeNotBeaconInitialOwnerDelegate(address safe);
 
-/// @notice After the bundle, the beacon initial owner binding is not the
-/// chain's governance timelock bound in this block.
+/// @notice After the bundle, the beacon initial owner binding is not
+/// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` bound in this block.
 /// @param value The bound value.
 /// @param registeredAt When it was bound.
 error BeaconInitialOwnerBindingMismatch(bytes value, uint256 registeredAt);
@@ -49,8 +50,9 @@ function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration mem
 
 /// @title BindBeaconInitialOwner
 /// @notice Authors the per-chain Safe bundle that binds
-/// `LibStoxConfig.BEACON_INITIAL_OWNER_NAME` under the root authority to the chain's
-/// governance timelock, as the root's approved delegate, and records it.
+/// `LibStoxConfig.BEACON_INITIAL_OWNER_NAME` under the root authority to
+/// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, as the root's approved
+/// delegate, and records it.
 contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration() external pure returns (ScriptDeclaration memory) {
@@ -76,7 +78,7 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
     function preflight() internal view override {
         LibConfigRegistry.checkCodeHash();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
-        LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.timelockForChainId(block.chainid), chainSafe);
+        LibTimelockInvariants.assertTimelockState(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, chainSafe);
 
         bytes32 head = LibStoxMigrations.head(chainSafe);
         if (head != bindBeaconInitialOwnerDeclaration().prerequisites[0].migration) {
@@ -91,7 +93,7 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
         address chainSafe = address(safe());
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
             to: LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS,
@@ -120,7 +122,7 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
         (bytes memory value, uint256 registeredAt) = LibConfigRegistry.resolve(
             LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, keccak256("address")
         );
-        bytes memory expected = abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid));
+        bytes memory expected = abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
         // forge-lint: disable-next-line(block-timestamp)
         if (keccak256(value) != keccak256(expected) || registeredAt != block.timestamp) {
             revert BeaconInitialOwnerBindingMismatch(value, registeredAt);
