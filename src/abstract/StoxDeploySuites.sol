@@ -168,7 +168,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_CANDIDATE,
                 V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_CANDIDATE,
                 WRAPPED_TOKEN_VAULT_BEACON_PATH,
-                one(V4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE, V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_CANDIDATE)
+                two(
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    V4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE,
+                    V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_CANDIDATE
+                )
             )
         );
         candidates[5] = anchored(

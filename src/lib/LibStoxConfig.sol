@@ -5,7 +5,7 @@ pragma solidity ^0.8.25;
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 
 /// @title LibStoxConfig
-/// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V3, all under the
+/// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V5, all under the
 /// root authority: the same account on every chain, so a consumer's creation
 /// code is chain-invariant while each chain binds its own value.
 library LibStoxConfig {
@@ -29,8 +29,8 @@ library LibStoxConfig {
     /// production tokens initialize with.
     bytes32 internal constant RBAC_EU_NAME = keccak256("st0x.rbac.eu.v1");
 
-    /// @notice `abi.encode(address)`: the governance timelock that owns
-    /// production tokens.
+    /// @notice `abi.encode(address)`: the governance timelock, the initial owner
+    /// of every beacon a current st0x deploy constructs.
     bytes32 internal constant GOVERNANCE_TIMELOCK_NAME = keccak256("st0x.governance-timelock.v1");
 
     /// @notice The bound governance timelock. Reverts `NameNotRegistered` where

@@ -501,7 +501,6 @@ contract Build is Script, StoxDeploySuites {
         vm.writeLine(GEN_CURRENT_PATH, "");
         vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
         vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
-        vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
         vm.writeLine(
             GEN_CURRENT_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"
