@@ -36,14 +36,15 @@ library LibStoxConfig {
         return abi.decode(value, (address));
     }
 
-    /// @notice `abi.encode(address)`: the chain's governance Safe, the
-    /// timelock's sole proposer and canceller.
-    bytes32 internal constant GOVERNANCE_SAFE_NAME = keccak256("st0x.governance-safe.v1");
+    /// @notice `abi.encode(address)`: the timelock's initial proposer and
+    /// canceller, read once at its construction.
+    bytes32 internal constant TIMELOCK_INITIAL_PROPOSER_NAME = keccak256("st0x.timelock-initial-proposer.v1");
 
-    /// @return The chain's governance Safe; reverts while unbound.
-    function governanceSafe() internal view returns (address) {
+    /// @return The timelock's initial proposer; reverts while unbound.
+    function timelockInitialProposer() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_SAFE_NAME, keccak256("address"));
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, TIMELOCK_INITIAL_PROPOSER_NAME, keccak256("address"));
         return abi.decode(value, (address));
     }
 }

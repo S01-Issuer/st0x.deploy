@@ -44,10 +44,10 @@ contract LibTimelockInvariantsTest is Test {
         return LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(SAFE));
     }
 
-    function bindGovernanceSafe(address safe) internal {
+    function bindTimelockInitialProposer(address safe) internal {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME, "address", abi.encode(safe)
         );
     }
 
@@ -188,7 +188,7 @@ contract LibTimelockInvariantsTest is Test {
     /// @notice The suite timelock at its Zoltu address passes on any chain.
     function testAssertTimelockStatePassesForTheSuiteTimelock(uint64 chainId) external {
         vm.chainId(chainId);
-        bindGovernanceSafe(SAFE);
+        bindTimelockInitialProposer(SAFE);
         LibRainDeploy.etchZoltuFactory(vm);
         address timelock = LibRainDeploy.deployZoltu(type(StoxGovernanceTimelock).creationCode);
         assertEq(timelock, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, "suite address");
@@ -218,7 +218,7 @@ contract LibTimelockInvariantsTest is Test {
     /// fails on its codehash alone.
     function testAssertRejectsSuiteTimelockAtAPerSafeAddress() external {
         address perSafe = LibTimelockInvariants.expectedTimelockAddress(SAFE);
-        bindGovernanceSafe(SAFE);
+        bindTimelockInitialProposer(SAFE);
         deployCodeAt(perSafe, type(StoxGovernanceTimelock).creationCode);
         LibTimelockController.assertTimelockState(
             LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH,
@@ -273,7 +273,7 @@ contract LibTimelockInvariantsTest is Test {
             vm.chainId(chainIds[i]);
             address safe = LibSafeInvariants.safeForChainId(chainIds[i]);
             address pin = LibTimelockInvariants.timelockForChainId(chainIds[i]);
-            bindGovernanceSafe(safe);
+            bindTimelockInitialProposer(safe);
             deployCodeAt(pin, type(StoxGovernanceTimelock).creationCode);
             LibTimelockController.assertTimelockState(
                 LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH,

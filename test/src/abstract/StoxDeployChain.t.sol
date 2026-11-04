@@ -16,7 +16,11 @@ contract StoxDeployChainTest is StoxDeploySuites, RainDeployVerifyChain {
     function setUp() public {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(address(0x5AFE))
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
+            "address",
+            abi.encode(address(0x5AFE))
         );
         LibTestDeploy.bind(
             vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(address(1))
