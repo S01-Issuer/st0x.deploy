@@ -317,7 +317,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -328,7 +328,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -339,7 +339,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -350,7 +350,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
             }
@@ -361,7 +361,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
+              "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -379,7 +379,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -390,7 +390,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -401,7 +401,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -412,7 +412,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
             }
@@ -423,7 +423,7 @@
           "executedAt": 0,
           "prerequisites": [
             {
-              "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
+              "id": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0",
               "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
               "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
             }
@@ -431,93 +431,31 @@
           "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
         }
       },
-      "id": "0xeb23b04d9d1c9d2f8b255f0019d0fd7a9a31e4ac1b20c4ad0fb071ea9fccea98",
+      "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
       "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-      "script": "script/20261022-bind-authoriser-admin.s.sol"
-    },
-    {
-      "chains": {
-        "1": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-            }
-          ],
-          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-        },
-        "4663": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-            }
-          ],
-          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-        },
-        "56": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-            }
-          ],
-          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-        },
-        "8453": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
-            }
-          ],
-          "writer": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611"
-        },
-        "999": {
-          "executedAt": 0,
-          "prerequisites": [
-            {
-              "id": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543",
-              "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-              "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-            }
-          ],
-          "writer": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329"
-        }
-      },
-      "id": "0x2bf222a36eb792bdab5f891e6790131e47f355b449c678a606016ab7d4e7bf34",
-      "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
-      "script": "script/20261022-bind-beacon-owner.s.sol"
+      "script": "script/20261030-backfill-migration-registry-v5.s.sol"
     }
   ],
   "networks": {
     "1": {
       "network": "ethereum",
-      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "4663": {
       "network": "robinhood",
-      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "56": {
       "network": "bsc",
-      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "8453": {
       "network": "base",
-      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "999": {
       "network": "hyperevm",
-      "registry": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0"
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
     }
   },
   "version": 1

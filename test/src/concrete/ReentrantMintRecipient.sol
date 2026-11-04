@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
-import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
+import {IST0xOrchestratorV2, MintAuthV1, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
 
 /// @dev Malicious callback recipient: on the first `authorizeMint` it
 /// reenters `orchestrator.mint` for itself with a fresh nonce (empty
@@ -13,7 +13,7 @@ import {IST0xOrchestratorV1, MintAuthV1, Digest} from "../../../src/interface/IS
 /// `ReentrancyGuardReentrantCall`. Requires `MINT_ROLE` for the nested call
 /// to reach the guard.
 contract ReentrantMintRecipient is IMintRecipient {
-    IST0xOrchestratorV1 internal immutable ORCHESTRATOR;
+    IST0xOrchestratorV2 internal immutable ORCHESTRATOR;
     address internal immutable TOKEN;
     uint256 internal immutable REENTER_AMOUNT;
     bytes32 internal immutable REENTER_NONCE;
@@ -23,7 +23,7 @@ contract ReentrantMintRecipient is IMintRecipient {
     // A test double storing the collaborator it is handed. Rejecting zero here
     // would only stop the suite exercising the zero case.
     // forge-lint: disable-next-line(missing-zero-check)
-    constructor(IST0xOrchestratorV1 orchestrator, address token, uint256 reenterAmount, bytes32 reenterNonce) {
+    constructor(IST0xOrchestratorV2 orchestrator, address token, uint256 reenterAmount, bytes32 reenterNonce) {
         ORCHESTRATOR = orchestrator;
         TOKEN = token;
         REENTER_AMOUNT = reenterAmount;

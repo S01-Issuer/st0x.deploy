@@ -4,15 +4,13 @@ pragma solidity =0.8.25;
 
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
-import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 
 /// @title StoxWrappedTokenVaultBeacon
-/// @notice An UpgradeableBeacon with a hardcoded implementation and its owner
-/// read from `ConfigRegistry`, enabling deterministic deployment via the Zoltu
-/// factory.
+/// @notice An UpgradeableBeacon with hardcoded owner and implementation,
+/// enabling deterministic deployment via the Zoltu factory.
 /// @dev Constructor passes `LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT` as the
-/// beacon implementation and `LibStoxConfig.beaconOwner()` as the initial
-/// owner. The owner can upgrade the implementation via `upgradeTo` or
+/// beacon implementation and `LibProdDeployCurrent.BEACON_INITIAL_OWNER` as the
+/// initial owner. The owner can upgrade the implementation via `upgradeTo` or
 /// transfer ownership via `transferOwnership`.
 ///
 /// WARNING: The inherited `renounceOwnership()` from OpenZeppelin `Ownable`
@@ -26,5 +24,5 @@ import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 /// before this beacon is deployed, because the `UpgradeableBeacon` constructor
 /// validates that the implementation address has code.
 contract StoxWrappedTokenVaultBeacon is
-    UpgradeableBeacon(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT, LibStoxConfig.beaconOwner())
+    UpgradeableBeacon(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT, LibProdDeployCurrent.BEACON_INITIAL_OWNER)
 {}

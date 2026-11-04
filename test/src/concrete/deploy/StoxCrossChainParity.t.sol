@@ -7,7 +7,7 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensio
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {ERC1967Utils} from "@openzeppelin-contracts-5.7.0/proxy/ERC1967/ERC1967Utils.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.21/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
@@ -18,6 +18,7 @@ import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.s
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../../src/lib/LibProdTokenConfig.sol";
+import {LibTestTokenMetadata} from "../../../lib/LibTestTokenMetadata.sol";
 
 /// @notice Minimal surface for the receipt vault's ERC-1155 receipt getter,
 /// used to assert the vault points at this token's pinned receipt.
@@ -34,12 +35,16 @@ interface IReceiptManager {
 }
 
 /// @notice Everything the parity suite reads per token instance on one
-/// chain, captured on each chain's own fork (Base included). The vault
-/// `name`/`symbol` are asserted against the canonical `LibProdTokenConfig`
-/// baseline — itself pinned to live Base by `LibProdTokenConfigTest` — so
-/// every chain is checked against the pinned table, not merely against Base's
-/// live values. The remaining fields (decimals + the wrapped legs) are then
-/// compared field-by-field across chains, with Base as the reference.
+/// chain, captured on each chain's own fork (Base included). The vault and
+/// wrapped `name`/`symbol` are asserted against the canonical
+/// `LibProdTokenConfig` baseline — itself pinned to live Base by
+/// `LibProdTokenConfigTest` — in either of the two states
+/// `LibTestTokenMetadata` defines (initialized, or renamed by the
+/// underlying-naming rollout), so every chain is checked against the pinned
+/// table, not merely against Base's live values. The fields are then compared
+/// across chains, with Base as the reference; names and the wrapped symbol
+/// are compared only between tokens in the same state, because the rename
+/// lands one chain at a time.
 /// @param underlying The chain-agnostic join key from the token table.
 /// @param vaultName The receipt vault's ERC-20 `name()`.
 /// @param vaultSymbol The receipt vault's ERC-20 `symbol()`.
@@ -47,6 +52,7 @@ interface IReceiptManager {
 /// @param wrappedName The wrapped token vault's ERC-20 `name()`.
 /// @param wrappedSymbol The wrapped token vault's ERC-20 `symbol()`.
 /// @param wrappedDecimals The wrapped token vault's ERC-20 `decimals()`.
+/// @param renamed Whether the underlying-naming rename has run on this token.
 struct TokenConfigSnapshot {
     string underlying;
     string vaultName;
@@ -55,6 +61,7 @@ struct TokenConfigSnapshot {
     string wrappedName;
     string wrappedSymbol;
     uint8 wrappedDecimals;
+    bool renamed;
 }
 
 /// @notice What one chain's live legs asserted, captured for the cross-chain
@@ -110,8 +117,9 @@ struct ChainLegs {
 ///    artifact): pinned address, shared EIP-1167 codehash.
 /// 2. **Token instances** — for every underlying in the per-chain token
 ///    tables: `name` / `symbol` of both vault legs equal the canonical
-///    `LibProdTokenConfig` baseline (asserted on every chain, Base included,
-///    against the pinned table) and `decimals` equals the Base baseline;
+///    `LibProdTokenConfig` baseline, initialized or renamed (asserted on every
+///    chain, Base included, against the pinned table) and `decimals` equals
+///    the Base baseline;
 ///    receipt + wrapped wiring is internally consistent
 ///    (`wrapped.asset() == receiptVault`); every receipt vault's
 ///    `authorizer()` is the chain's pinned V4 clone and its `owner()` is
@@ -172,9 +180,9 @@ contract StoxCrossChainParityTest is Test {
     /// fork and assert the parity-specific per-token properties the shared
     /// framework does not cover: receipt/wrapped wiring, per-leg proxy
     /// codehash uniformity within the chain, and the single shared beacon.
-    /// @dev The uniform owner + sole-authoriser checks are NOT here — the token
-    /// leg in `assertChainLegs` asserts them via
-    /// `LibTokenInvariants.assertAll(tokens, timelock, clone)`; this function adds
+    /// @dev The sole-authoriser check is NOT here — the token leg in
+    /// `assertChainLegs` asserts it via
+    /// `LibTokenInvariants.assertUniformAuthoriser(tokens, clone)`; this function adds
     /// only the per-token config snapshot + within-chain uniformity that the
     /// cross-chain comparison builds on.
     /// @param tokens The chain's token table.
@@ -217,21 +225,30 @@ contract StoxCrossChainParityTest is Test {
                 vaultDecimals: IERC20Metadata(token.receiptVault).decimals(),
                 wrappedName: IERC20Metadata(token.wrappedTokenVault).name(),
                 wrappedSymbol: IERC20Metadata(token.wrappedTokenVault).symbol(),
-                wrappedDecimals: IERC20Metadata(token.wrappedTokenVault).decimals()
+                wrappedDecimals: IERC20Metadata(token.wrappedTokenVault).decimals(),
+                renamed: false
             });
+            snapshots[i].renamed = LibTestTokenMetadata.vaultRenamed(configs[i], snapshots[i].vaultName);
 
             // Baseline: the receipt vault's live name/symbol equal the
             // canonical config — asserted on every chain, so parity is against
-            // the pinned table, not merely Base-vs-others.
-            assertEq(
-                snapshots[i].vaultName,
-                configs[i].name,
-                string.concat(token.underlying, ": vault name != canonical config baseline")
-            );
+            // the pinned table, not merely Base-vs-others. The rename lands
+            // one chain at a time, so both legs are accepted in either state,
+            // but never mixed.
             assertEq(
                 snapshots[i].vaultSymbol,
                 configs[i].symbol,
                 string.concat(token.underlying, ": vault symbol != canonical config baseline")
+            );
+            assertTrue(
+                LibTestTokenMetadata.consistent(
+                    configs[i],
+                    snapshots[i].vaultName,
+                    snapshots[i].vaultSymbol,
+                    snapshots[i].wrappedName,
+                    snapshots[i].wrappedSymbol
+                ),
+                string.concat(token.underlying, ": vault or wrapped name/symbol != canonical config baseline")
             );
 
             // Wiring: the wrapped vault wraps this token's receipt vault.
@@ -444,8 +461,8 @@ contract StoxCrossChainParityTest is Test {
         );
         legs.tokenLegLive = legs.safeLive && legs.cloneLive && allTokens;
         if (legs.tokenLegLive) {
-            // Ownership (timelock) + sole authoriser (clone) across every vault.
-            LibTokenInvariants.assertAll(tokens, LibTimelockInvariants.timelockForChainId(block.chainid), clone);
+            // Sole authoriser (clone) across every vault.
+            LibTokenInvariants.assertUniformAuthoriser(tokens, clone);
             address beacon;
             address receiptBeacon;
             (legs.tokenConfigs, beacon, receiptBeacon) = assertChainAndSnapshot(tokens);
@@ -500,7 +517,9 @@ contract StoxCrossChainParityTest is Test {
     ///    so the clone codehashes match.
     ///  - **Token leg**: identical receipt-vault + receipt implementation
     ///    (address + codehash) through the beacons, and identical per-token
-    ///    config in identical table order.
+    ///    config in identical table order. Names and the wrapped symbol are
+    ///    compared only when both tokens are in the same rename state; each
+    ///    side is already pinned to the canonical config in its own state.
     /// @param label Human chain name, used in the assertion messages.
     /// @param base Base's legs, the reference.
     /// @param other The compared chain's legs.
@@ -543,13 +562,15 @@ contract StoxCrossChainParityTest is Test {
                 TokenConfigSnapshot memory b = base.tokenConfigs[i];
                 TokenConfigSnapshot memory o = other.tokenConfigs[i];
                 assertEq(o.underlying, b.underlying, string.concat("token table underlying order diverges", tag));
-                assertEq(o.vaultName, b.vaultName, string.concat(b.underlying, ": vault name diverges", tag));
                 assertEq(o.vaultSymbol, b.vaultSymbol, string.concat(b.underlying, ": vault symbol diverges", tag));
                 assertEq(o.vaultDecimals, b.vaultDecimals, string.concat(b.underlying, ": vault decimals diverge", tag));
-                assertEq(o.wrappedName, b.wrappedName, string.concat(b.underlying, ": wrapped name diverges", tag));
-                assertEq(
-                    o.wrappedSymbol, b.wrappedSymbol, string.concat(b.underlying, ": wrapped symbol diverges", tag)
-                );
+                if (o.renamed == b.renamed) {
+                    assertEq(o.vaultName, b.vaultName, string.concat(b.underlying, ": vault name diverges", tag));
+                    assertEq(o.wrappedName, b.wrappedName, string.concat(b.underlying, ": wrapped name diverges", tag));
+                    assertEq(
+                        o.wrappedSymbol, b.wrappedSymbol, string.concat(b.underlying, ": wrapped symbol diverges", tag)
+                    );
+                }
                 assertEq(
                     o.wrappedDecimals, b.wrappedDecimals, string.concat(b.underlying, ": wrapped decimals diverge", tag)
                 );

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Float} from "rain-math-float-0.3.10/src/lib/LibDecimalFloat.sol";
+import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {
     ICorporateActionsV1,
     ACTION_TYPE_INIT_V1,
@@ -50,8 +50,8 @@ import {LibRebaseMath} from "./LibRebaseMath.sol";
 /// implementation serving inconsistent answers across `nextOfType` /
 /// `getActionParameters` iterations — such an implementation could
 /// inflate, zero, or arbitrarily drift balances on first-touch. The
-/// receipt assumes the beacon owner only installs audited vault
-/// implementations behind
+/// receipt assumes the beacon owner (`BEACON_INITIAL_OWNER =
+/// rainlang.eth`) only installs audited vault implementations behind
 /// every receipt's manager pointer. Beacon upgrade authority is the
 /// trust root; if that key is compromised, every downstream balance
 /// derived from this walk is compromised.

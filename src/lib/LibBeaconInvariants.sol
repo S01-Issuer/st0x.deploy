@@ -125,15 +125,14 @@ library LibBeaconInvariants {
     bytes32 internal constant UPGRADEABLE_BEACON_CODEHASH =
         0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630;
 
-    /// @notice Runtime codehash of OZ `UpgradeableBeacon` as compiled by the
-    /// CURRENT tree — OpenZeppelin 5.6.1 at `optimizer_runs = 2000`. This is
-    /// the beacon `ST0xOrchestratorBeaconSetDeployer`'s constructor builds,
-    /// so it is what the orchestrator beacon must be asserted against.
-    /// @dev Re-derived by `testOrchestratorBeaconCodehashPin`, which compiles
-    /// a beacon and compares. That test is the whole guarantee: without it
-    /// this constant silently rots the next time OZ or the optimizer moves,
-    /// which is exactly how the V1 pin came to be asserted against a beacon
-    /// that could never match it.
+    /// @notice Runtime codehash of the OZ `UpgradeableBeacon` the 0.1.30
+    /// `ST0xOrchestratorBeaconSetDeployer` constructor builds — OpenZeppelin
+    /// 5.6.1 at `optimizer_runs = 2000` — so it is what the orchestrator
+    /// beacon must be asserted against.
+    /// @dev Re-derived by `testOrchestratorBeaconCodehashPin` from the frozen
+    /// 0.1.30 deployer's creation code. Without it this constant could be
+    /// asserted against a beacon that never matches it, which is how the V1
+    /// pin went wrong.
     bytes32 internal constant UPGRADEABLE_BEACON_CODEHASH_0_1_30 =
         0x448cd06335de9e79ecdc51aa7c6647926860a1976f407de6f79f363b85ccaf2b;
 

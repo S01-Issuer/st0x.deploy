@@ -8,8 +8,8 @@ between the token-owner Safe and the privileged surfaces of the ST0x deployment.
 After the migration executes, the timelock is:
 
 - the `owner()` of **every production receipt vault** — so `transferOwnership`,
-  `setAuthorizer`, and every `onlyOwner` surface (including owner freezes) is
-  delay-gated;
+  `setAuthorizer`, `setUnderlying`, and every `onlyOwner` surface (including
+  owner freezes) is delay-gated;
 - the `owner()` of the chain's **four in-use upgrade beacons** (receipt, receipt
   vault, wrapped token vault, orchestrator) — so `upgradeTo` is delay-gated; and
 - the **sole holder of the authoriser's seven `_ADMIN` roles** (`DEPOSIT_ADMIN`,
@@ -60,10 +60,9 @@ timelock). That keeps the audited contract set untouched.
 - **Min delay: 48 hours** (`LibTimelockInvariants.TIMELOCK_MIN_DELAY`). Changing
   it is a timelocked `updateDelay` operation and must update the pin in the same
   operational window.
-- **The CI deploy key holds nothing, ever.** The deploy passes
-  `admin = address(0)`, so the constructor grants the deployer no role — there
-  is no configuration window and nothing to revoke. The deploy script's
-  post-state proves it.
+- **The deployer holds nothing, ever.** The constructor passes
+  `admin = address(0)`, so it grants the deployer no role — there is no
+  configuration window and nothing to revoke.
 - **No open roles.** OZ treats a zero-address grantee as "role open to
   everyone"; `assertTimelockState` rejects that on every lifecycle role.
 - **Dedicated canceller.** The OZ constructor grants cancellership to proposers,
@@ -78,10 +77,15 @@ timelock). That keeps the audited contract set untouched.
 ## Addresses
 
 The timelock is deployed via the **Zoltu deterministic factory**: its address is
-a pure function of its creation code (OZ creation bytecode + constructor args).
-The chain's Safe is a constructor arg, so each chain gets a distinct,
-precomputable address —
-`LibTimelockInvariants.expectedTimelockAddress(chain's Safe)`.
+a pure function of its creation code. `StoxGovernanceTimelock` (the
+`stox-governance-timelock` suite) reads the chain's Safe from the
+`ConfigRegistry` under `GOVERNANCE_SAFE_NAME` (`st0x.governance-safe.v1`), so
+its creation code, and its address, is the same on every chain.
+
+The five live timelocks take the chain's Safe as a constructor arg, so each sits
+at a distinct address —
+`LibTimelockInvariants.expectedTimelockAddress(chain's Safe)`. Their pins stay
+until governance moves to the suite timelock.
 
 Constants (in `src/lib/LibTimelockInvariants.sol`) that future scripts and
 invariants target:
@@ -99,22 +103,24 @@ Every pin is written with its chain arm, derived from the frozen creation
 bytecode and that chain's Safe pin before any deploy —
 `testPinsMatchDerivedAddresses` asserts each equality unconditionally, so a
 wrong or zeroed pin cannot survive CI. A zero pin is never a legitimate phase:
-every consumer (the deploy pre-flight, the migration authoring,
-`assertTimelockState`) refuses it as a reverted or never-hydrated arm rather
-than proceeding against a wrong address. All five timelocks are live at their
-pins.
+every consumer (the migration authoring, `assertTimelockState`) refuses it as a
+reverted or never-hydrated arm rather than proceeding against a wrong address.
+All five timelocks are live at their pins.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
-1. **Chain arm + pin** — a governed chain's `LibTimelockInvariants` arm is added
-   WITH its pin, derived from the frozen creation bytecode and the chain's Safe
-   pin (`expectedTimelockAddress`). The deploy refuses a zero pin, so the arm
-   always precedes the broadcast.
-2. **Deploy** — Actions → `manual-broadcast` →
-   `20260729-deploy-governance-timelock`. One dispatch covers every governed
-   chain: the script iterates `networks()`, skips-with-assert any chain already
-   carrying its timelock, and the CI deploy key broadcasts the rest — each
-   landing at its derived address, fully configured by its constructor.
+The five chains run the per-Safe timelocks at their `LibTimelockInvariants` pins
+(see Addresses), so steps 1-2 do not apply to them. Steps 1-2 are the path for a
+chain whose timelock is the `stox-governance-timelock` suite.
+
+1. **Bind the Safe** — bind the chain's governance Safe under
+   `GOVERNANCE_SAFE_NAME` in the `ConfigRegistry`. The constructor's typed
+   resolve reverts on an unset name, so the bind always precedes the deploy.
+2. **Deploy** — Actions → `manual-sol-artifacts` → `stox-governance-timelock`.
+   The Zoltu suite lands at one address on every network; that chain's
+   `timelockForChainId` arm then returns
+   `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, and `assertTimelockState`
+   requires `STOX_GOVERNANCE_TIMELOCK_CODEHASH` there.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
    `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
@@ -212,6 +218,89 @@ targeting those surfaces must target the timelock instead, and
 `LibTimelockInvariants.timelockForChainId(block.chainid)` is the only sanctioned
 way to resolve it.
 
+**Upgrading the receipt vault.** The vault delegatecalls the corporate-actions
+facet at `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`, a constant built
+into its bytecode. A vault implementation whose facet is not deployed keeps its
+ERC-20 metadata, but every facet call, `setUnderlying` included, reverts with
+`CorporateActionsFacetNotDeployed`. The underlying-naming rollout runs in this
+order on every chain; `LibUnderlyingNamingRollout` reconstructs both timelock
+operations, and `20261021-underlying-naming-rollout.t.sol` runs the whole
+sequence on a fork of each chain.
+
+1. Deploy the three implementations at their Zoltu addresses (permissionless):
+   the facet, the receipt-vault implementation and the wrapped-token-vault
+   implementation named in `LibUnderlyingNamingRollout`, by dispatching the
+   `stox-corporate-actions-facet`, `stox-receipt-vault` and
+   `stox-wrapped-token-vault` suites through `manual-sol-artifacts`. The beacon
+   script's pre-flight checks each codehash against its pin before scheduling.
+   The PR that freezes the release (`RELEASE_FROZEN`) also pins each chain's
+   beacon and rename operation ids as literals, and declares both schedule
+   scripts as timelock-written migrations that record themselves as the last
+   call of each batch.
+2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
+   one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
+   beacon, then its in-use receipt-vault beacon
+   (`LibBeaconInvariants.prodBeaconsForChainId`), then calls
+   `completedActionCount()` on one production vault. That last call reverts if
+   the facet has no code, so the batch cannot land without it. `upgradeTo`
+   likewise rejects an implementation with no code. A reverted `executeBatch`
+   rolls back and leaves the operation Ready with its delay spent: deploy what
+   is missing and execute the same batch again. A new delay is needed only if
+   the operation is cancelled or its arguments change. The wrapper keeps its
+   current name and symbol while the vault has no underlying set. The
+   orchestrator's vault-logic lock reads the 0.1.30 beacon-set deployer's
+   beacons, not the in-use ones, so it does not cover this upgrade: minting and
+   burning keep running across it (the Base fork test mints and burns through
+   the live orchestrator after the batch), and the orchestrator steps under
+   Orchestrator roles do not have to precede it. It also means the lock does not
+   watch the logic production tokens run; pointing it at the in-use beacons is a
+   separate orchestrator change.
+3. Schedule the rename batch (`20261021-schedule-underlying-naming-rename`): one
+   `scheduleBatch` of `setUnderlying(ticker, underlyingName)` on every
+   production vault, with the beacon batch as its predecessor, so the timelock
+   refuses to execute it first. It covers a fixed number of leading rows of each
+   chain's token table (`TOKEN_COUNT`, every row today), so its id does not move
+   when a table grows; a token added later gets its own `setUnderlying`
+   operation. `ticker` is `TokenConfig.underlying` (e.g. `NVDA`) and
+   `underlyingName` is `TokenConfig.underlyingName`, the issuer's name without
+   any ST0x suffix (e.g. `NVIDIA Corporation`), never `TokenConfig.symbol` /
+   `TokenConfig.name`, which hold the initialized ERC-20 values. Its pre-flight
+   requires every vault's live symbol to be `"t" + ticker` and the timelock to
+   own every vault. Both tokens rename at this step, together: the wrapper goes
+   from `wt<TICKER>` to `<TICKER>s`. **Precondition:** do not schedule this step
+   until st0x.liquidity, st0x.pricing and st0x-oracle-server accept both
+   `wt<TICKER>` and `<TICKER>s` in production, and the st0x.registry token lists
+   carry the new symbols and names. Services that match the `wt` prefix would
+   otherwise reject every renamed token. The script enforces this: it refuses
+   unless `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set.
+   RAI-4172 set it: st0x.liquidity accepts both symbols from release v1.29.0,
+   st0x.pricing and st0x-oracle-server never read an on-chain `symbol()`, and
+   the registry lists keep `symbol` as `wt<TICKER>` and carry the new values as
+   `nextSymbol` / `nextName`. The flag's NatSpec links the evidence. It also
+   refuses a row whose ticker is not 1 to 16 of `A-Z`, `0-9` and `.`, or whose
+   name is empty, has a `"`, `\` or control byte, or already ends in the ST0x
+   suffix. A rename cannot be reverted to the initialized metadata:
+   `setUnderlying` overwrites the stored ERC-20 name and symbol and rejects
+   empty values. The Safe can still `cancel` the operation during its delay.
+
+After the beacon batch, the in-use receipt-vault beacon serves a vault that
+initializes only from the ConfigRegistry (rain-vats 0.2.12, config V3). The
+deployers that make a `BeaconProxy` on that beacon with a V2 config (the 0.1.1
+unified deployer behind `20260807-deploy-missing-tokens`, and Base's V1
+beacon-set path) then revert `UnknownConfigVersion`. New listings must move to
+the V6 factory path of the registry release before step 2 runs on a chain.
+
+The beacon batch leaves the chain's receipt beacon on its current
+implementation. The current-source orchestrator's vault-logic check requires
+that beacon to serve `LibProdDeployCurrent.STOX_RECEIPT`, so upgrading the
+orchestrator to it needs a receipt-beacon upgrade first, or every token halts
+mint and burn. The live 0.1.30 orchestrator does not check the in-use beacons.
+
+Execute each matured batch with `20261021-execute-underlying-naming` from the CI
+deploy key, one operation per dispatch. On HyperEVM the rename batch needs more
+gas than a small block holds, so enable big blocks for the deploy key
+(`manual-hyperevm-big-blocks`) before executing it there.
+
 ## Invariants
 
 - `LibTimelockInvariants.assertTimelockState(timelock, safe)` — rain-deploy's
@@ -242,6 +331,10 @@ records imply:
 2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
    the Safe to the timelock, recorded onto the grant, so the registry refuses it
    on a chain where step 1 has not executed.
+
+Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
+are read from V5, so `20261030-backfill-migration-registry-v5` carries them over
+as history, per chain, before step 2 can run.
 
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a
@@ -283,11 +376,13 @@ cannot take one back once granted, so `migrate` must be called with the timelock
 as `admin`.
 
 - **Step 2 must execute on every chain before that upgrade, or any upgrade of
-  the orchestrator, receipt-vault or receipt beacon, is scheduled.** If one
-  lands first, step 2 refuses there (its pre-flight pins the 0.1.30
-  implementation, the vault logic it was built against and the current role
-  admins), the Safe keeps `DEFAULT_ADMIN_ROLE`, and it can call `migrate(safe)`
-  directly, handing itself the self-administered `*_ADMIN` roles.
+  the orchestrator beacon or of the receipt-vault or receipt beacon of the
+  0.1.30 beacon-set deployer (the set the orchestrator's vault-logic lock
+  reads), is scheduled.** If one lands first, step 2 refuses there (its
+  pre-flight pins the 0.1.30 implementation, the vault logic it was built
+  against and the current role admins), the Safe keeps `DEFAULT_ADMIN_ROLE`, and
+  it can call `migrate(safe)` directly, handing itself the self-administered
+  `*_ADMIN` roles.
 - With step 2 executed, the beacon upgrade and `migrate(timelock)` are both
   timelock operations and go in one `scheduleBatch`. In that implementation
   `MINT_ADMIN` also sets the mint caps and the mint weighting, and `mint`

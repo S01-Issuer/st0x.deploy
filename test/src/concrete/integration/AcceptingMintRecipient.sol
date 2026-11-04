@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
-import {Digest} from "../../../../src/interface/IST0xOrchestratorV1.sol";
+import {Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 
 /// @dev Contract recipient that authorises any mint via the `IMintRecipient`
 /// callback (accepts unconditionally). Holds the shares it is minted.

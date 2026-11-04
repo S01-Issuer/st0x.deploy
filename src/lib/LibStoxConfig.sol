@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibConfigRegistry} from "rain-deploy-0.1.21/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 
 /// @title LibStoxConfig
 /// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V3, all under the
@@ -12,31 +12,35 @@ library LibStoxConfig {
     /// @notice The authority every st0x binding is read under.
     address internal constant ROOT_AUTHORITY = address(0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c);
 
-    /// @notice `abi.encode(address)`: the initial owner of every beacon a
-    /// current st0x deploy constructs.
-    bytes32 internal constant BEACON_OWNER = keccak256("st0x.beacon-owner.v1");
+    /// @notice `abi.encode(address)`: the beacon production tokens proxy.
+    bytes32 internal constant VAULT_BEACON_NAME = keccak256("st0x.vault-beacon.v1");
+
+    /// @notice `abi.encode(address)`: the beacon production receipts proxy.
+    bytes32 internal constant RECEIPT_BEACON_NAME = keccak256("st0x.receipt-beacon.v1");
+
+    /// @notice `abi.encode(address)`: the beacon production wrappers proxy.
+    bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
+
+    /// @notice `abi.encode(address)`: the chain's governance Safe, the
+    /// timelock's sole proposer and canceller.
+    bytes32 internal constant GOVERNANCE_SAFE_NAME = keccak256("st0x.governance-safe.v1");
 
     /// @notice `abi.encode(address)`: the initial admin of every V4 authoriser
-    /// clone, the holder of its `_ADMIN` roles.
-    bytes32 internal constant AUTHORISER_ADMIN = keccak256("st0x.authoriser-admin.v1");
+    /// clone, read once at its initialize.
+    bytes32 internal constant AUTHORISER_INITIAL_ADMIN_NAME = keccak256("st0x.authoriser-initial-admin.v1");
 
-    /// @notice The bound beacon owner. Reverts `NameNotRegistered` where it is
-    /// unbound.
-    /// @return The owner.
-    function beaconOwner() internal view returns (address) {
-        // The binding's moment is irrelevant to the owner.
+    /// @return The chain's governance Safe; reverts while unbound.
+    function governanceSafe() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_OWNER);
+        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, GOVERNANCE_SAFE_NAME, keccak256("address"));
         return abi.decode(value, (address));
     }
 
-    /// @notice The bound authoriser admin. Reverts `NameNotRegistered` where
-    /// it is unbound.
-    /// @return The admin.
-    function authoriserAdmin() internal view returns (address) {
-        // The binding's moment is irrelevant to the admin.
+    /// @return The bound authoriser initial admin; reverts while unbound.
+    function authoriserInitialAdmin() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) = LibConfigRegistry.resolve(ROOT_AUTHORITY, AUTHORISER_ADMIN);
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, AUTHORISER_INITIAL_ADMIN_NAME, keccak256("address"));
         return abi.decode(value, (address));
     }
 }

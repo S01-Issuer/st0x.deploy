@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
-import {Digest} from "../../../src/interface/IST0xOrchestratorV1.sol";
+import {Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
 
 /// @dev Callback recipient mock. Returns the `authorizeMint` selector when
 /// `accept`, else a wrong value.
