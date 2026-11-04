@@ -26,8 +26,6 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
 
-error HandoverNotOnBase(uint256 chainId);
-
 error HandoverVaultNotOnSafe(address vault, address owner);
 
 error VaultNotOnTimelock(address vault, address owner);
@@ -57,14 +55,14 @@ error ProofNotExecuted(address vault, address owner);
 function handWmtMcDisToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.HAND_WMT_MC_DIS_TO_TIMELOCK,
-        onto: LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
+        onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
         history: false
     });
 }
 
 /// @title HandWmtMcDisToTimelock
-/// @notice Base Safe bundle: `transferOwnership(timelock)` on tWMT, tMC and
-/// tDIS, then this migration's root-line record.
+/// @notice Per-chain Safe bundle: on Base, `transferOwnership(timelock)` on
+/// tWMT, tMC and tDIS; on every chain, this migration's root-line record.
 contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
     bytes32 internal constant PROOF_SALT = keccak256("st0x.hand-wmt-mc-dis-to-timelock.proof");
 
@@ -75,7 +73,7 @@ contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function bundleName() internal pure override returns (string memory) {
-        return "ST0x Base: hand tWMT, tMC and tDIS vault ownership to the governance timelock";
+        return "ST0x: hand tWMT, tMC and tDIS vault ownership to the governance timelock";
     }
 
     /// @inheritdoc SafeBundleScript
@@ -84,15 +82,16 @@ contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    function safe() internal pure override returns (Safe) {
-        return Safe(payable(LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID)));
+    function safe() internal view override returns (Safe) {
+        return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
     }
 
-    function timelock() internal pure returns (address) {
-        return LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID);
+    function timelock() internal view returns (address) {
+        return LibTimelockInvariants.timelockForChainId(block.chainid);
     }
 
-    function handoverVaults() internal pure returns (address[] memory) {
+    function handoverVaults() internal view returns (address[] memory) {
+        if (block.chainid != LibSafeInvariants.BASE_CHAIN_ID) return new address[](0);
         address[] memory vaults = new address[](3);
         vaults[0] = LibTokenInvariants.WMT_RECEIPT_VAULT;
         vaults[1] = LibTokenInvariants.MC_RECEIPT_VAULT;
@@ -100,7 +99,7 @@ contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
         return vaults;
     }
 
-    function isHandoverVault(address vault) internal pure returns (bool) {
+    function isHandoverVault(address vault) internal view returns (bool) {
         address[] memory vaults = handoverVaults();
         for (uint256 i = 0; i < vaults.length; i++) {
             if (vaults[i] == vault) return true;
@@ -110,7 +109,6 @@ contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function preflight() internal view override {
-        if (block.chainid != LibSafeInvariants.BASE_CHAIN_ID) revert HandoverNotOnBase(block.chainid);
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(block.chainid);
         address authoriser = LibAuthoriserInvariants.authoriserForChainId(block.chainid);
         LibInvariants.assertProductionState(tokens, authoriser);
@@ -130,7 +128,6 @@ contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         address vaultBeacon = beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX];
         address receiptBeacon = beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX];
-        // A vault pinned after the rollout rows, still on the Safe, is not this bundle's to move.
         tokens = LibUnderlyingNamingRollout.tokens(block.chainid);
         for (uint256 i = 0; i < tokens.length; i++) {
             address vault = tokens[i].receiptVault;
@@ -199,6 +196,7 @@ contract HandWmtMcDisToTimelock is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function assertReversible() internal override {
+        if (handoverVaults().length == 0) return;
         // `run()` writes the artifact from the post-bundle state, not 48h later.
         uint256 postBundle = vm.snapshotState();
         proveGovernance();
