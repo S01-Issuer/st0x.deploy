@@ -6,6 +6,14 @@ import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV5.sol";
 
+import {
+    CONTEXT_ATTESTATION_ROWS,
+    CONTEXT_ATTESTATION_ROW_SYMBOL,
+    CONTEXT_ATTESTATION_ROW_PRICE,
+    CONTEXT_ATTESTATION_ROW_TIME,
+    CONTEXT_ATTESTATION_ROW_SOURCE,
+    CONTEXT_ATTESTATION_ROW_CURRENCY
+} from "src/lib/LibSt0xAttestContext.sol";
 import {WeightingEvalTest} from "test/src/rain/WeightingEvalTest.sol";
 
 contract MintWeightingEvalTest is WeightingEvalTest {
@@ -15,9 +23,11 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         bytes32 attestedSymbol;
         Float price;
         Float time;
+        bytes32 priceSource;
+        bytes32 currency;
     }
 
-    uint256 internal constant STACK_LENGTH = 5;
+    bytes32 internal constant OTHER_DOMAIN = keccak256("st0x.test.other-domain");
 
     uint256 internal constant UNLISTED_KEY = OPERATOR_KEY_0 + POOL_SIZE;
 
@@ -31,7 +41,13 @@ contract MintWeightingEvalTest is WeightingEvalTest {
 
     function attestationBy(uint256 key) internal pure returns (Attestation memory) {
         return Attestation({
-            key: key, domain: domainOf(key), attestedSymbol: symbol(TICKER), price: decimal(PRICE, 0), time: at(0)
+            key: key,
+            domain: priceDomain(),
+            attestedSymbol: symbol(TICKER),
+            price: decimal(PRICE, 0),
+            time: at(0),
+            priceSource: symbol(key == LEAD_KEY ? LEAD_SOURCE : POOL_SOURCE_0),
+            currency: symbol("USD")
         });
     }
 
@@ -54,13 +70,13 @@ contract MintWeightingEvalTest is WeightingEvalTest {
     function signAll(Attestation[] memory attestations) internal pure returns (SignedContextV2[] memory) {
         SignedContextV2[] memory signed = new SignedContextV2[](attestations.length);
         for (uint256 i = 0; i < attestations.length; i++) {
-            signed[i] = attestUnder(
-                attestations[i].key,
-                attestations[i].domain,
-                attestations[i].attestedSymbol,
-                Float.unwrap(attestations[i].price),
-                Float.unwrap(attestations[i].time)
-            );
+            bytes32[] memory context = new bytes32[](CONTEXT_ATTESTATION_ROWS);
+            context[CONTEXT_ATTESTATION_ROW_SYMBOL] = attestations[i].attestedSymbol;
+            context[CONTEXT_ATTESTATION_ROW_PRICE] = Float.unwrap(attestations[i].price);
+            context[CONTEXT_ATTESTATION_ROW_TIME] = Float.unwrap(attestations[i].time);
+            context[CONTEXT_ATTESTATION_ROW_SOURCE] = attestations[i].priceSource;
+            context[CONTEXT_ATTESTATION_ROW_CURRENCY] = attestations[i].currency;
+            signed[i] = signUnder(attestations[i].key, attestations[i].domain, context);
         }
         return signed;
     }
@@ -69,7 +85,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         internal
         view
     {
-        evalAccepted(grid(vaultSymbol, amount, signed), STACK_LENGTH, vaultSymbol, value);
+        evalAccepted(grid(vaultSymbol, amount, signed), vaultSymbol, value);
     }
 
     function accepted(Attestation[] memory attestations, Float value) internal view {
@@ -135,7 +151,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         for (uint256 i = 3; i < others.length; i++) {
             others[i] = attestationBy(OPERATOR_KEY_0 + 2);
         }
-        others[3].domain = LEAD_DOMAIN;
+        others[3].domain = OTHER_DOMAIN;
         others[4].attestedSymbol = symbol(OTHER_TICKER);
         others[5].time = at(-10 * MAX_TIME_SPREAD);
         others[6].price = decimal(2 * PRICE, 0);
@@ -237,35 +253,28 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         for (uint256 seat = 1; seat < 3; seat++) {
             Attestation[] memory attestations = quorum();
             attestations[seat] = attestationBy(LEAD_KEY);
-            attestations[seat].domain = POOL_DOMAIN;
             refused(attestations, "Same operator twice");
         }
     }
 
     function testLeadUnderAnyOtherDomainIsRefused(bytes32 other) external {
-        vm.assume(other != LEAD_DOMAIN);
-        bytes32[2] memory domains = [POOL_DOMAIN, other];
-        for (uint256 i = 0; i < domains.length; i++) {
-            Attestation[] memory attestations = quorum();
-            attestations[0].domain = domains[i];
-            refused(attestations, "Lead domain mismatch");
-        }
+        vm.assume(other != priceDomain());
+        Attestation[] memory attestations = quorum();
+        attestations[0].domain = other;
+        refused(attestations, "Lead domain mismatch");
     }
 
     function testAttestorUnderAnyOtherDomainInEitherSeatIsRefused(bytes32 other) external {
-        vm.assume(other != POOL_DOMAIN);
-        bytes32[2] memory domains = [LEAD_DOMAIN, other];
-        for (uint256 i = 0; i < domains.length; i++) {
-            for (uint256 seat = 1; seat < 3; seat++) {
-                Attestation[] memory attestations = quorum();
-                attestations[seat].domain = domains[i];
-                refused(attestations, "Attestor domain mismatch");
-            }
-            Attestation[] memory both = quorum();
-            both[1].domain = domains[i];
-            both[2].domain = domains[i];
-            refused(both, "Attestor domain mismatch");
+        vm.assume(other != priceDomain());
+        for (uint256 seat = 1; seat < 3; seat++) {
+            Attestation[] memory attestations = quorum();
+            attestations[seat].domain = other;
+            refused(attestations, "Attestor domain mismatch");
         }
+        Attestation[] memory both = quorum();
+        both[1].domain = other;
+        both[2].domain = other;
+        refused(both, "Attestor domain mismatch");
     }
 
     function testATickerOfAnyLengthIsAccepted() external view {
@@ -479,9 +488,10 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         attestations[0] = attestationBy(UNLISTED_KEY);
         attestations[1] = attestationBy(UNLISTED_KEY + 1);
         attestations[2] = attestationBy(UNLISTED_KEY + 2);
-        attestations[1].domain = LEAD_DOMAIN;
-        attestations[2].domain = LEAD_DOMAIN;
         for (uint256 i = 0; i < attestations.length; i++) {
+            attestations[i].domain = OTHER_DOMAIN;
+            attestations[i].priceSource = symbol("euronext");
+            attestations[i].currency = symbol("EUR");
             attestations[i].attestedSymbol = symbol(OTHER_TICKER);
             attestations[i].price = decimal(MAX_PRICE + 1, 0);
         }
@@ -495,10 +505,15 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         attestations[1].key = OPERATOR_KEY_0;
         attestations[2].key = OPERATOR_KEY_0;
         refused(vaultSymbol, signAll(attestations), ensureError("Lead domain mismatch"));
-        attestations[0].domain = LEAD_DOMAIN;
+        attestations[0].domain = priceDomain();
         refused(vaultSymbol, signAll(attestations), ensureError("Attestor domain mismatch"));
-        attestations[1].domain = POOL_DOMAIN;
-        attestations[2].domain = POOL_DOMAIN;
+        attestations[1].domain = priceDomain();
+        attestations[2].domain = priceDomain();
+        refused(vaultSymbol, signAll(attestations), ensureError("Lead source mismatch"));
+        attestations[0].priceSource = symbol(LEAD_SOURCE);
+        refused(vaultSymbol, signAll(attestations), ensureError("Pool source not allowlisted"));
+        attestations[1].priceSource = symbol(POOL_SOURCE_0);
+        attestations[2].priceSource = symbol(POOL_SOURCE_1);
         refused(vaultSymbol, signAll(attestations), ensureError("Same operator twice"));
         attestations[2].key = OPERATOR_KEY_0 + 1;
         refused(vaultSymbol, signAll(attestations), ensureError("Vault symbol has no t prefix"));
@@ -506,6 +521,10 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         refused(vaultSymbol, signAll(attestations), ensureError("Attestation for another token"));
         for (uint256 i = 0; i < attestations.length; i++) {
             attestations[i].attestedSymbol = symbol(TICKER);
+        }
+        refused(vaultSymbol, signAll(attestations), ensureError("Price not in USD"));
+        for (uint256 i = 0; i < attestations.length; i++) {
+            attestations[i].currency = symbol("USD");
         }
         refused(vaultSymbol, signAll(attestations), ensureError("Times disagree"));
         attestations[2].time = at(0);

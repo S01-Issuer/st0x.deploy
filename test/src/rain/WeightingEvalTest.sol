@@ -8,7 +8,11 @@ import {EvalV4, SourceIndexV2, StackItem} from "rainlang-0.2.31/src/interface/II
 import {StateNamespace} from "rainlang-0.2.31/src/interface/IInterpreterStoreV3.sol";
 import {LibNamespace} from "rainlang-0.2.31/src/lib/ns/LibNamespace.sol";
 
-import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
+import {
+    LibSt0xAttestContext,
+    CONTEXT_LEAD_COLUMN,
+    CONTEXT_ATTESTATION_ROW_TIME
+} from "src/lib/LibSt0xAttestContext.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 
 abstract contract WeightingEvalTest is St0xAttestSubParserTest {
@@ -85,19 +89,28 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         return string(ticker);
     }
 
-    function evalAccepted(bytes32[][] memory context, uint256 stackLength, string memory vaultSymbol, Float value)
+    function leadTimeKey(string memory ticker) internal pure returns (bytes32) {
+        return keccak256(abi.encode(symbol("lead-time"), symbol(ticker)));
+    }
+
+    function evalAccepted(bytes32[][] memory context, string memory vaultSymbol, Float value)
         internal
         view
         returns (StackItem[] memory)
     {
         (StackItem[] memory stack, bytes32[] memory writes) = eval(context);
-        assertEq(writes.length, 0, "writes");
-        assertEq(stack.length, stackLength, "stack length");
+        bytes32 key = leadTimeKey(tickerOf(vaultSymbol));
+        assertEq(writes.length, 2, "writes");
+        assertEq(writes[0], key, "lead-time-key write");
+        assertEq(writes[1], context[CONTEXT_LEAD_COLUMN][CONTEXT_ATTESTATION_ROW_TIME], "lead-time write");
+        assertEq(stack.length, 7, "stack length");
         assertTrue(Float.wrap(StackItem.unwrap(stack[0])).eq(value), "value");
-        assertEq(StackItem.unwrap(stack[1]), symbol(tickerOf(vaultSymbol)), "ticker");
-        assertEq(StackItem.unwrap(stack[2]), bytes32(uint256(uint8(bytes(vaultSymbol)[0]))), "symbol-first");
-        assertEq(StackItem.unwrap(stack[3]), bytes32(uint256(1) << (8 * bytes(vaultSymbol).length)), "symbol-scale");
-        assertEq(StackItem.unwrap(stack[4]), symbol(vaultSymbol), "vault-symbol");
+        assertEq(StackItem.unwrap(stack[1]), key, "lead-time-key");
+        assertEq(StackItem.unwrap(stack[2]), symbol(tickerOf(vaultSymbol)), "ticker");
+        assertEq(StackItem.unwrap(stack[3]), bytes32(uint256(uint8(bytes(vaultSymbol)[0]))), "symbol-first");
+        assertEq(StackItem.unwrap(stack[4]), bytes32(uint256(1) << (8 * bytes(vaultSymbol).length)), "symbol-scale");
+        assertEq(StackItem.unwrap(stack[5]), symbol(vaultSymbol), "vault-symbol");
+        assertEq(StackItem.unwrap(stack[6]), priceDomain(), "price-domain");
         return stack;
     }
 }

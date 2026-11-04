@@ -5,8 +5,7 @@ pragma solidity =0.8.25;
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV5.sol";
-import {StackItem} from "rainlang-0.2.31/src/interface/IInterpreterV4.sol";
-import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
+import {MessageHashUtils} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MessageHashUtils.sol";
 
 import {
     CONTEXT_ATTESTATION_ROWS,
@@ -29,42 +28,21 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         bytes32 currency;
     }
 
-    uint256 internal constant STACK_LENGTH = 6;
-
-    bytes32 internal constant EIP712_DOMAIN_TYPEHASH = keccak256("EIP712Domain(string name,string version)");
+    bytes32 internal constant OTHER_DOMAIN = keccak256("st0x.test.other-domain");
 
     function bindingSet() internal pure override returns (string memory) {
         return "lead-only-mint-weighting";
     }
 
-    function eip712Domain(bytes32 typehash, string memory name, string memory version) internal pure returns (bytes32) {
-        return keccak256(abi.encode(typehash, keccak256(bytes(name)), keccak256(bytes(version))));
-    }
-
-    function leadDomainName(bytes32 priceSource, bytes32 currency) internal pure returns (string memory) {
-        return string.concat(
-            "proof-of-reserves.org/prices/",
-            LibIntOrAString.toStringV3(IntOrAString.wrap(uint256(priceSource))),
-            "/",
-            LibIntOrAString.toStringV3(IntOrAString.wrap(uint256(currency)))
-        );
-    }
-
-    function leadDomain(bytes32 priceSource, bytes32 currency) internal pure returns (bytes32) {
-        return eip712Domain(EIP712_DOMAIN_TYPEHASH, leadDomainName(priceSource, currency), "1");
-    }
-
     function lead() internal pure returns (Attestation memory) {
-        bytes32 priceSource = symbol("alpaca");
-        bytes32 currency = symbol("USD");
         return Attestation({
             key: LEAD_KEY,
-            domain: leadDomain(priceSource, currency),
+            domain: priceDomain(),
             attestedSymbol: symbol(TICKER),
             price: decimal(PRICE, 0),
             time: at(0),
-            priceSource: priceSource,
-            currency: currency
+            priceSource: symbol(LEAD_SOURCE),
+            currency: symbol("USD")
         });
     }
 
@@ -92,8 +70,7 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         internal
         view
     {
-        StackItem[] memory stack = evalAccepted(grid(vaultSymbol, amount, signed), STACK_LENGTH, vaultSymbol, value);
-        assertEq(StackItem.unwrap(stack[5]), EIP712_DOMAIN_TYPEHASH, "eip712-domain-typehash");
+        evalAccepted(grid(vaultSymbol, amount, signed), vaultSymbol, value);
     }
 
     function accepted(Attestation memory attestation, Float value) internal view {
@@ -206,7 +183,7 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
             others[i] = lead();
         }
         others[0].key = OPERATOR_KEY_0;
-        others[1].domain = POOL_DOMAIN;
+        others[1].domain = OTHER_DOMAIN;
         others[2].attestedSymbol = symbol(OTHER_TICKER);
         others[3].currency = symbol("EUR");
         others[4].time = at(-10 * MAX_TIME_SPREAD);
@@ -260,21 +237,15 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
     }
 
     function testLeadUnderANeighbouringDomainIsRefused() external {
-        bytes32 alpaca = symbol("alpaca");
-        bytes32 usd = symbol("USD");
-        bytes32[6] memory domains = [
-            POOL_DOMAIN,
-            LEAD_DOMAIN,
-            leadDomain(symbol("yahoo"), usd),
-            leadDomain(alpaca, symbol("EUR")),
-            eip712Domain(EIP712_DOMAIN_TYPEHASH, leadDomainName(alpaca, usd), "2"),
-            keccak256(
-                abi.encode(
-                    keccak256("EIP712Domain(string name,string version,uint256 chainId)"),
-                    keccak256(bytes(leadDomainName(alpaca, usd))),
-                    keccak256("1"),
-                    block.chainid
-                )
+        bytes32[7] memory domains = [
+            MessageHashUtils.toDomainSeparator(bytes1(0x03), "price", "1", 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x03), "prices", "2", 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x01), "prices", "", 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x07), "prices", "1", 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x07), "prices", "1", block.chainid, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(bytes1(0x0b), "prices", "1", 0, address(0), bytes32(0)),
+            MessageHashUtils.toDomainSeparator(
+                bytes1(0x03), "proof-of-reserves.org/prices/alpaca/USD", "1", 0, address(0), bytes32(0)
             )
         ];
         for (uint256 i = 0; i < domains.length; i++) {
@@ -284,11 +255,11 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         }
     }
 
-    function testAnySourceIsAcceptedUnderItsOwnDomain(bytes32 priceSource) external view {
+    function testAnySourceButTheLeadSourceIsRefused(bytes32 priceSource) external {
+        vm.assume(priceSource != symbol(LEAD_SOURCE));
         Attestation memory attestation = lead();
         attestation.priceSource = priceSource;
-        attestation.domain = leadDomain(priceSource, attestation.currency);
-        accepted(attestation, decimal(AMOUNT * PRICE, 0));
+        refused(attestation, "Lead source mismatch");
     }
 
     function testATickerOfAnyLengthIsAccepted() external view {
@@ -347,7 +318,6 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         for (uint256 i = 0; i < currencies.length; i++) {
             Attestation memory attestation = lead();
             attestation.currency = currencies[i];
-            attestation.domain = leadDomain(attestation.priceSource, currencies[i]);
             refused(attestation, "Price not in USD");
         }
     }
@@ -356,14 +326,14 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         vm.assume(currency != symbol("USD"));
         Attestation memory attestation = lead();
         attestation.currency = currency;
-        attestation.domain = leadDomain(attestation.priceSource, currency);
         refused(attestation, "Price not in USD");
     }
 
     function testChecksRefuseInTheirOrder() external {
         Attestation memory attestation = lead();
         attestation.key = OPERATOR_KEY_0;
-        attestation.domain = POOL_DOMAIN;
+        attestation.domain = OTHER_DOMAIN;
+        attestation.priceSource = symbol("yahoo");
         attestation.attestedSymbol = symbol(OTHER_TICKER);
         attestation.currency = symbol("EUR");
         attestation.time = at(-MAX_TIME_SPREAD - 1);
@@ -373,14 +343,15 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         refused(vaultSymbol, only(attestation), ensureError("Lead attestation missing"));
         attestation.key = LEAD_KEY;
         refused(vaultSymbol, only(attestation), ensureError("Lead domain mismatch"));
-        attestation.domain = leadDomain(attestation.priceSource, attestation.currency);
+        attestation.domain = priceDomain();
+        refused(vaultSymbol, only(attestation), ensureError("Lead source mismatch"));
+        attestation.priceSource = symbol(LEAD_SOURCE);
         refused(vaultSymbol, only(attestation), ensureError("Vault symbol has no t prefix"));
         vaultSymbol = VAULT_SYMBOL;
         refused(vaultSymbol, only(attestation), ensureError("Attestation for another token"));
         attestation.attestedSymbol = symbol(TICKER);
         refused(vaultSymbol, only(attestation), ensureError("Price not in USD"));
         attestation.currency = symbol("USD");
-        attestation.domain = leadDomain(attestation.priceSource, attestation.currency);
         refused(vaultSymbol, only(attestation), ensureError("Times disagree"));
         attestation.time = at(0);
         refused(vaultSymbol, only(attestation), ensureError("Price outside bounds"));
