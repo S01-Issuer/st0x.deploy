@@ -8,24 +8,24 @@ import {
     DeployDependency,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.29/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployDeclaration} from "rain-deploy-0.1.29/src/lib/LibRainDeployDeclaration.sol";
-import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.29/src/lib/LibRainDeployZoltuMechanism.sol";
-import {CloneDeploy} from "rain-factory-0.2.9/src/lib/LibRainDeployClone.sol";
-import {LibCloneCandidates} from "rain-factory-0.2.9/src/lib/LibCloneCandidates.sol";
-import {LibRainDeployCloneMechanism} from "rain-factory-0.2.9/src/lib/LibRainDeployCloneMechanism.sol";
+} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.30/src/lib/LibRainDeployDeclaration.sol";
+import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.30/src/lib/LibRainDeployZoltuMechanism.sol";
+import {CloneDeploy} from "rain-factory-0.2.10/src/lib/LibRainDeployClone.sol";
+import {LibCloneCandidates} from "rain-factory-0.2.10/src/lib/LibCloneCandidates.sol";
+import {LibRainDeployCloneMechanism} from "rain-factory-0.2.10/src/lib/LibRainDeployCloneMechanism.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.29/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.5/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.6/src/generated/0_1_15/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
@@ -61,6 +61,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON = "stox-orchestrator-beacon";
     string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
+    string constant GOVERNANCE_TIMELOCK = "stox-governance-timelock";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
     string constant RECEIPT_PATH = "src/concrete/StoxReceipt.sol:StoxReceipt";
@@ -82,6 +83,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer";
     string constant ORCHESTRATOR_BEACON_PATH = "src/concrete/ST0xOrchestratorBeacon.sol:ST0xOrchestratorBeacon";
     string constant ATTEST_SUB_PARSER_PATH = "src/concrete/St0xAttestSubParser.sol:St0xAttestSubParser";
+    string constant GOVERNANCE_TIMELOCK_PATH = "src/concrete/StoxGovernanceTimelock.sol:StoxGovernanceTimelock";
 
     /// @inheritdoc RainDeploySuitesBase
     function declaration() internal view virtual override returns (DeployDeclaration memory) {
@@ -97,7 +99,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     }
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
-        DeployCandidate[] memory candidates = new DeployCandidate[](10);
+        DeployCandidate[] memory candidates = new DeployCandidate[](11);
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -227,6 +229,17 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 new DeployDependency[](0)
             )
         );
+        candidates[10] = anchored(
+            zoltu(
+                GOVERNANCE_TIMELOCK,
+                V4.STOX_GOVERNANCE_TIMELOCK_CREATION_CODE_CANDIDATE,
+                V4.STOX_GOVERNANCE_TIMELOCK_CANDIDATE,
+                V4.STOX_GOVERNANCE_TIMELOCK_CODEHASH_CANDIDATE,
+                V4.STOX_GOVERNANCE_TIMELOCK_RUNTIME_CODE_CANDIDATE,
+                GOVERNANCE_TIMELOCK_PATH,
+                one(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE)
+            )
+        );
         return candidates;
     }
 
@@ -271,7 +284,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             artifactPath: artifactPath,
             dependencies: dependencies,
             mechanismData: LibRainDeployZoltuMechanism.mechanismData(),
-            networks: new string[](0)
+            networks: new string[](0),
+            describedByMeta: ""
         });
     }
 

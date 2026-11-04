@@ -3,14 +3,14 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyTarget
-} from "rain-factory-0.2.9/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.5/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
 
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibProdOrchestratorTarget} from "../../src/lib/LibProdOrchestratorTarget.sol";

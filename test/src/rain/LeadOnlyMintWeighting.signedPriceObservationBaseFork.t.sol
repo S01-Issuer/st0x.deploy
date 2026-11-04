@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
 
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestDotrain, DotrainBinding} from "test/lib/LibTestDotrain.sol";

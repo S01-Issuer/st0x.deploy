@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibConfigRegistry} from "rain-deploy-0.1.29/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 
 error ZeroGovernanceTimelock();
 
@@ -25,6 +25,18 @@ library LibStoxConfig {
 
     /// @notice `abi.encode(address)`: the orchestrator's beacon.
     bytes32 internal constant ORCHESTRATOR_BEACON_NAME = keccak256("st0x.orchestrator-beacon.v2");
+
+    /// @notice `abi.encode(address)`: the timelock's initial proposer and
+    /// canceller, read once at its construction.
+    bytes32 internal constant TIMELOCK_INITIAL_PROPOSER_NAME = keccak256("st0x.timelock-initial-proposer.v1");
+
+    /// @return The timelock's initial proposer; reverts while unbound.
+    function timelockInitialProposer() internal view returns (address) {
+        // slither-disable-next-line unused-return
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, TIMELOCK_INITIAL_PROPOSER_NAME, keccak256("address"));
+        return abi.decode(value, (address));
+    }
 
     /// @notice `abi.encode(address)`: the governance timelock.
     bytes32 internal constant GOVERNANCE_TIMELOCK_NAME = keccak256("st0x.governance-timelock.v1");

@@ -7,7 +7,7 @@ import {LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.so
 
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV2} from "rainlang-0.2.31/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
 
 /// @title BurnAfterForwardSplitTest
 /// @notice Workflow: a 3:1 forward split rebases the recipient's shares and
