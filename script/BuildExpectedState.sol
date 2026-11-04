@@ -19,6 +19,8 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
+import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
+import {LibProdDeployV2BaseOverrides} from "../src/lib/LibProdDeployV2BaseOverrides.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks, per deployment network: beacons
@@ -26,7 +28,8 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 /// Safe lock-down, the timelock, the orchestrator, the V4 and EU authoriser clones, and each production token's
 /// receipt vault, receipt, wrapped token vault, `receiptVault.receipt()`, `wrappedTokenVault.asset()`, per-leg beacon (`address(0)` where
 /// `beaconSetDeployer` resolves it), name, symbol, owner and authoriser, and every released Zoltu suite
-/// declared on that network (key, address, codehash).
+/// declared on that network (key, address, codehash). Under `v2`, per network V2 was checked on, each
+/// `LibProdDeployV2` deployment (key, address, codehash) and its three beacons' implementation and owner.
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
@@ -212,6 +215,137 @@ contract BuildExpectedState is Script {
         return vm.serializeString(key, "tokens", tokensJson(chainId, key));
     }
 
+    function v2Networks() internal pure returns (string[] memory) {
+        string[] memory names = new string[](5);
+        names[0] = LibRainDeploy.ARBITRUM_ONE;
+        names[1] = LibRainDeploy.BASE;
+        names[2] = LibRainDeploy.BASE_SEPOLIA;
+        names[3] = LibRainDeploy.FLARE;
+        names[4] = LibRainDeploy.POLYGON;
+        return names;
+    }
+
+    function v2DeploymentJson(string memory key, uint256 i, string memory name, address deployed, bytes32 codehash)
+        internal
+        returns (string memory)
+    {
+        string memory row = string.concat(key, ".deployment.", vm.toString(i));
+        vm.serializeString(row, "key", name);
+        vm.serializeAddress(row, "address", deployed);
+        return vm.serializeBytes32(row, "codehash", codehash);
+    }
+
+    function v2DeploymentsJson(string memory key) internal returns (string[] memory) {
+        string[] memory rows = new string[](9);
+        rows[0] = v2DeploymentJson(
+            key, 0, "StoxReceipt", LibProdDeployV2.STOX_RECEIPT, LibProdDeployV2.STOX_RECEIPT_CODEHASH
+        );
+        rows[1] = v2DeploymentJson(
+            key, 1, "StoxReceiptVault", LibProdDeployV2.STOX_RECEIPT_VAULT, LibProdDeployV2.STOX_RECEIPT_VAULT_CODEHASH
+        );
+        rows[2] = v2DeploymentJson(
+            key,
+            2,
+            "StoxWrappedTokenVault",
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_CODEHASH
+        );
+        rows[3] = v2DeploymentJson(
+            key,
+            3,
+            "StoxUnifiedDeployer",
+            LibProdDeployV2.STOX_UNIFIED_DEPLOYER,
+            LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH
+        );
+        rows[4] = v2DeploymentJson(
+            key,
+            4,
+            "StoxWrappedTokenVaultBeacon",
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH
+        );
+        rows[5] = v2DeploymentJson(
+            key,
+            5,
+            "StoxOffchainAssetReceiptVaultBeaconSetDeployer",
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH
+        );
+        rows[6] = v2DeploymentJson(
+            key,
+            6,
+            "StoxWrappedTokenVaultBeaconSetDeployer",
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH
+        );
+        rows[7] = v2DeploymentJson(
+            key,
+            7,
+            "StoxOffchainAssetReceiptVaultAuthorizerV1",
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH
+        );
+        rows[8] = v2DeploymentJson(
+            key,
+            8,
+            "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1",
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
+        );
+        return rows;
+    }
+
+    function v2BeaconJson(string memory at, address beacon, address implementation, address owner)
+        internal
+        returns (string memory)
+    {
+        vm.serializeAddress(at, "beacon", beacon);
+        vm.serializeAddress(at, "implementation", implementation);
+        return vm.serializeAddress(at, "owner", owner);
+    }
+
+    /// Receipt and receipt-vault beacons are `address(0)`: the set deployer's `I_RECEIPT_BEACON()` /
+    /// `I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()` resolve them. Base's are `LibProdDeployV2BaseOverrides`.
+    function v2Json(SupportedNetwork memory network) internal returns (string memory) {
+        string memory key = string.concat("v2.", vm.toString(network.chainId));
+        bool isBase = network.chainId == LibSafeInvariants.BASE_CHAIN_ID;
+        vm.serializeString(key, "network", network.name);
+        vm.serializeString(key, "deployments", v2DeploymentsJson(key));
+        vm.serializeAddress(
+            key, "beaconSetDeployer", LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+        );
+        vm.serializeString(
+            key,
+            "receiptBeacon",
+            v2BeaconJson(
+                string.concat(key, ".receiptBeacon"),
+                address(0),
+                isBase ? LibProdDeployV2BaseOverrides.RECEIPT_BEACON_IMPLEMENTATION : LibProdDeployV2.STOX_RECEIPT,
+                isBase ? LibProdDeployV2BaseOverrides.RECEIPT_BEACON_OWNER : LibProdDeployV2.BEACON_INITIAL_OWNER
+            )
+        );
+        vm.serializeString(
+            key,
+            "receiptVaultBeacon",
+            v2BeaconJson(
+                string.concat(key, ".receiptVaultBeacon"),
+                address(0),
+                isBase ? LibProdDeployV2BaseOverrides.VAULT_BEACON_IMPLEMENTATION : LibProdDeployV2.STOX_RECEIPT_VAULT,
+                isBase ? LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER : LibProdDeployV2.BEACON_INITIAL_OWNER
+            )
+        );
+        return vm.serializeString(
+            key,
+            "wrappedTokenVaultBeacon",
+            v2BeaconJson(
+                string.concat(key, ".wrappedTokenVaultBeacon"),
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON,
+                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT,
+                LibProdDeployV2.BEACON_INITIAL_OWNER
+            )
+        );
+    }
+
     function render() public returns (string memory) {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
@@ -219,7 +353,13 @@ contract BuildExpectedState is Script {
         for (uint256 i = 0; i < networks.length; i++) {
             chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i]));
         }
+        SupportedNetwork[] memory v2 = LibRainDeploy.declaredNetworkConfigs(v2Networks());
+        string memory v2Chains;
+        for (uint256 i = 0; i < v2.length; i++) {
+            v2Chains = vm.serializeString("v2", vm.toString(v2[i].chainId), v2Json(v2[i]));
+        }
         vm.serializeUint("root", "version", 1);
+        vm.serializeString("root", "v2", v2Chains);
         return vm.serializeString("root", "chains", chains);
     }
 
