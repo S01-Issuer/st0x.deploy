@@ -8,8 +8,8 @@ import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {GovernanceSafeMismatch} from "../../script/Deploy.sol";
-import {LibProdTokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
+import {LibStoxTestTokens} from "../../src/lib/LibStoxTestTokens.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {DeployPreDeployCheckHarness} from "./DeployPreDeployCheckHarness.sol";
@@ -35,7 +35,8 @@ contract DeployGovernanceTimelockSafeTest is Test {
     }
 
     function otherSuite(string memory key) internal view returns (DeploySuite memory) {
-        string[] memory checked = harness.checkedSuiteNames(LibProdTokenConfig.productionTokenConfigs());
+        string[] memory checked =
+            harness.checkedSuiteNames(harness.tokenConfigs(), LibStoxTestTokens.testTokenConfigs());
         for (uint256 i = 0; i < checked.length; i++) {
             vm.assume(keccak256(bytes(key)) != keccak256(bytes(checked[i])));
         }

@@ -9,11 +9,30 @@ import {
 } from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {Deploy} from "../../script/Deploy.sol";
-import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibStoxTestTokens} from "../../src/lib/LibStoxTestTokens.sol";
 
 contract DeployPreDeployCheckHarness is Deploy {
     function governanceTimelockSuite() external view returns (DeploySuite memory) {
         return suiteByName(declaration(), GOVERNANCE_TIMELOCK);
+    }
+
+    function declaredSuite(string memory name) external view returns (DeploySuite memory) {
+        return suiteByName(declaration(), name);
+    }
+
+    /// The production tokens, then the test tokens.
+    function tokenConfigs() external pure returns (TokenConfig[] memory) {
+        TokenConfig[] memory production = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory test = LibStoxTestTokens.testTokenConfigs();
+        TokenConfig[] memory configs = new TokenConfig[](production.length + test.length);
+        for (uint256 i = 0; i < production.length; i++) {
+            configs[i] = production[i];
+        }
+        for (uint256 i = 0; i < test.length; i++) {
+            configs[production.length + i] = test[i];
+        }
+        return configs;
     }
 
     function beaconSuites() external view returns (DeploySuite[] memory) {
@@ -40,14 +59,21 @@ contract DeployPreDeployCheckHarness is Deploy {
         return suites;
     }
 
-    function checkedSuiteNames(TokenConfig[] memory configs) external pure returns (string[] memory) {
-        string[] memory names = new string[](4 + configs.length);
+    function checkedSuiteNames(TokenConfig[] memory configs, TokenConfig[] memory wrapped)
+        external
+        pure
+        returns (string[] memory)
+    {
+        string[] memory names = new string[](4 + configs.length + wrapped.length);
         names[0] = GOVERNANCE_TIMELOCK;
         names[1] = RECEIPT_BEACON;
         names[2] = RECEIPT_VAULT_BEACON;
         names[3] = WRAPPED_TOKEN_VAULT_BEACON;
         for (uint256 i = 0; i < configs.length; i++) {
             names[4 + i] = tokenSuiteName(configs[i]);
+        }
+        for (uint256 i = 0; i < wrapped.length; i++) {
+            names[4 + configs.length + i] = string.concat(tokenSuiteName(wrapped[i]), WRAPPER_SUFFIX);
         }
         return names;
     }
