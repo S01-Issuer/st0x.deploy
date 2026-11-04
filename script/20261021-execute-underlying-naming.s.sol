@@ -115,6 +115,16 @@ error UnderlyingNamingNotExecuted(bytes32 renameId);
 /// @param id The migration id.
 error ExecuteUnderlyingNamingRecorded(bytes32 id);
 
+/// @notice The root line is not at the record this migration is applied onto.
+/// @param head The line's head.
+error ExecuteUnderlyingNamingUnexpectedMigrationLine(bytes32 head);
+
+/// @notice After the bundle this migration's record is not stamped at the
+/// fork's block.
+/// @param expected The fork's block timestamp.
+/// @param actual The recorded moment.
+error ExecuteUnderlyingNamingRecordMismatch(uint256 expected, uint256 actual);
+
 /// @title RecordExecuteUnderlyingNaming
 /// @notice The record-only Safe bundle that writes `ExecuteUnderlyingNaming`'s
 /// record on the root line once the rename batch has executed, outside any
@@ -145,17 +155,28 @@ contract RecordExecuteUnderlyingNaming is SafeBundleScript {
         }
         bytes32 id = LibStoxMigrations.EXECUTE_UNDERLYING_NAMING;
         if (LibStoxMigrations.applied(id) != 0) revert ExecuteUnderlyingNamingRecorded(id);
+        bytes32 head = LibStoxMigrations.head();
+        if (head != executeUnderlyingNamingDeclaration().onto) {
+            revert ExecuteUnderlyingNamingUnexpectedMigrationLine(head);
+        }
     }
 
     /// @inheritdoc SafeBundleScript
-    function authorBundle() internal view override returns (SafeTx[] memory txs) {
+    function authorBundle() internal view override returns (SafeTx[] memory) {
         (address registry, bytes memory data) = LibStoxMigrations.recordCall(executeUnderlyingNamingDeclaration());
-        txs = new SafeTx[](1);
+        SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = SafeTx({to: registry, value: 0, data: data, operation: Enum.Operation.Call});
+        return txs;
     }
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
+        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
+        // forge-lint: disable-next-line(block-timestamp)
+        if (record != block.timestamp) {
+            // forge-lint: disable-next-line(block-timestamp)
+            revert ExecuteUnderlyingNamingRecordMismatch(block.timestamp, record);
+        }
         require(
             LibStoxMigrations.head() == LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
             "RecordExecuteUnderlyingNaming: record not at head"
