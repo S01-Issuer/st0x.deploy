@@ -132,7 +132,9 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The release is frozen, the downstream services accept the new
+    /// @dev The root line is at this migration's `onto`, or its own record
+    /// heads it and the batch is being rescheduled after a cancel. The release
+    /// is frozen, the downstream services accept the new
     /// symbols, every row is well formed, the Safe and timelock are the pinned ones,
     /// the beacon batch is registered, the rename batch is not, every ticker
     /// is bound to its vault, the timelock owns every vault, and the root
@@ -144,7 +146,7 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
         bytes32 head = LibStoxMigrations.head();
-        if (head != scheduleUnderlyingNamingRenameDeclaration().onto) {
+        if (head != scheduleUnderlyingNamingRenameDeclaration().onto && !rescheduling()) {
             revert ScheduleRenameUnexpectedMigrationLine(head);
         }
         TimelockController controller = TimelockController(payable(timelock()));
@@ -161,20 +163,32 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
         LibTokenInvariants.assertUniformOwnership(chainTokens, timelock());
     }
 
+    /// @notice Whether this dispatch reschedules a cancelled rename batch:
+    /// this migration's record already heads the line. The pre-flight still
+    /// requires the batch not to be registered.
+    /// @return True when the bundle must schedule without a second record.
+    function rescheduling() internal view returns (bool) {
+        return LibStoxMigrations.head() == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME;
+    }
+
     /// @inheritdoc SafeBundleScript
-    /// @dev The schedule, then the record.
-    function authorBundle() internal view override returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](2);
+    /// @dev The schedule, then the record. When rescheduling a cancelled
+    /// batch the record already heads the line, so the bundle is the schedule
+    /// alone.
+    function authorBundle() internal view override returns (SafeTx[] memory txs) {
+        bool reschedule = rescheduling();
+        txs = new SafeTx[](reschedule ? 1 : 2);
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
             data: LibUnderlyingNamingRollout.scheduleRenameCalldata(timelock(), block.chainid),
             operation: Enum.Operation.Call
         });
-        (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(scheduleUnderlyingNamingRenameDeclaration());
-        txs[1] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
-        return txs;
+        if (!reschedule) {
+            (address recordTo, bytes memory recordData) =
+                LibStoxMigrations.recordCall(scheduleUnderlyingNamingRenameDeclaration());
+            txs[1] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
+        }
     }
 
     /// @inheritdoc SafeBundleScript
@@ -189,8 +203,9 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
         // The registry stamps the block the record lands in, which on the
         // fork is this block.
         uint256 record = LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
+        // A rescheduling bundle writes no record, so the record predates it.
         // forge-lint: disable-next-line(block-timestamp)
-        if (record != block.timestamp) {
+        if (record == 0 || record > block.timestamp) {
             // forge-lint: disable-next-line(block-timestamp)
             revert ScheduleRenameRecordMismatch(block.timestamp, record);
         }
