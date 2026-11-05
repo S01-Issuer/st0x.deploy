@@ -6,10 +6,10 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
@@ -53,6 +53,7 @@ import {
 } from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
+import {HandSafeOwnedBaseVaultsToTimelockHarness} from "./HandSafeOwnedBaseVaultsToTimelockHarness.sol";
 import {RecordExecuteUnderlyingNamingHarness} from "./RecordExecuteUnderlyingNamingHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
@@ -78,12 +79,11 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {
     LibTokenInvariants,
     TokenInstance,
-    ReceiptVaultOwnerMismatch,
-    NoTokenTableForChain
+    NoTokenTableForChain,
+    ReceiptVaultOwnerMismatch
 } from "../../src/lib/LibTokenInvariants.sol";
 import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
-import {IOwnable} from "../../src/interface/IOwnable.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,
@@ -106,7 +106,8 @@ contract UnderlyingNamingRolloutTest is Test {
     bytes32 internal constant FOREIGN_RECORD = keccak256("test/script/20261021-underlying-naming-rollout.t.sol");
 
     /// @notice Lands, as the Safe would, the root-line records before the
-    /// beacon schedule: the V5 backfill, then the orchestrator admin move.
+    /// beacon schedule: the V5 backfill, the orchestrator admin move, then the
+    /// Safe-owned Base vault handover.
     function advanceRootLineToBeaconSchedule() internal {
         Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
         BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("underlying-naming");
@@ -115,6 +116,10 @@ contract UnderlyingNamingRolloutTest is Test {
         OrchestratorAdminToTimelockHarness adminMove = new OrchestratorAdminToTimelockHarness("underlying-naming");
         adminMove.callPreflight();
         LibSafeFork.executeBundle(vm, safe, adminMove.callAuthorBundle());
+        HandSafeOwnedBaseVaultsToTimelockHarness handover =
+            new HandSafeOwnedBaseVaultsToTimelockHarness("underlying-naming");
+        handover.callPreflight();
+        LibSafeFork.executeBundle(vm, safe, handover.callAuthorBundle());
         assertEq(LibStoxMigrations.head(), scheduleUnderlyingNamingBeaconsDeclaration().onto, "line at the beacon onto");
     }
 
@@ -330,14 +335,14 @@ contract UnderlyingNamingRolloutTest is Test {
         beacons.callPreflight();
         vm.expectRevert(
             abi.encodeWithSelector(
-                ScheduleRenameUnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
+                ScheduleRenameUnexpectedMigrationLine.selector,
+                LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
             )
         );
         rename.callPreflight();
         plantImplementations();
         authorVerifyExecute(address(beacons), beacons.callArtifactPath());
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS, "beacon record");
-        completeOwnershipHandover(chainId, rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME, "rename record");
 
@@ -393,29 +398,6 @@ contract UnderlyingNamingRolloutTest is Test {
         console2.log("Safe bundle execution gas (upper bound, includes signing):", gasBefore - gasleft());
     }
 
-    /// @notice Every production vault must be owned by the timelock before
-    /// the rename batch can be authored. Where one is not, the rename
-    /// pre-flight refuses, and the pending ownership handover is applied on the
-    /// fork so the rest of the rollout can be exercised.
-    function completeOwnershipHandover(uint256 chainId, ScheduleUnderlyingNamingRenameHarness rename) internal {
-        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
-        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
-        bool refused = false;
-        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            address owner = IOwnable(chainTokens[tokenIndex].receiptVault).owner();
-            if (owner == timelock) continue;
-            if (!refused) {
-                vm.expectPartialRevert(ReceiptVaultOwnerMismatch.selector);
-                rename.callPreflight();
-                refused = true;
-            }
-            console2.log("PREREQUISITE: vault not owned by the timelock, handed over on the fork");
-            console2.log(chainTokens[tokenIndex].receiptVault);
-            vm.prank(owner);
-            OwnableUpgradeable(chainTokens[tokenIndex].receiptVault).transferOwnership(timelock);
-        }
-    }
-
     /// @notice Logs the gas the rename batch's `executeBatch` alone takes, on a
     /// snapshot: what the executing key must fit in one block.
     function logRenameExecutionGas(TimelockController controller, uint256 chainId, bytes32 beaconId) internal {
@@ -464,7 +446,6 @@ contract UnderlyingNamingRolloutTest is Test {
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("nvda");
         authorVerifyExecute(address(beacons), beacons.callArtifactPath());
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("nvda");
-        completeOwnershipHandover(chainId, rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
@@ -554,20 +535,19 @@ contract UnderlyingNamingRolloutTest is Test {
     /// @notice Brings the forked chain to the point where the rename can be
     /// authored: the beacon batch registered and every vault owned by the
     /// timelock.
-    function prepareRename(ScheduleUnderlyingNamingRenameHarness rename) internal {
+    function prepareRename(ScheduleUnderlyingNamingRenameHarness) internal {
         advanceRootLineToBeaconSchedule();
-        landBeaconScheduleAndHandOver(rename);
+        landBeaconSchedule();
     }
 
-    /// @notice From the line at the beacon onto: plants the implementations,
-    /// lands the beacon bundle and hands every vault to the timelock.
-    function landBeaconScheduleAndHandOver(ScheduleUnderlyingNamingRenameHarness rename) internal {
+    /// @notice From the line at the beacon onto: plants the implementations
+    /// and lands the beacon bundle.
+    function landBeaconSchedule() internal {
         plantImplementations();
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("prepare");
         LibSafeFork.executeBundle(
             vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), beacons.callAuthorBundle()
         );
-        completeOwnershipHandover(block.chainid, rename);
     }
 
     /// @notice Until the release is frozen, both schedule scripts refuse in
@@ -654,6 +634,21 @@ contract UnderlyingNamingRolloutTest is Test {
             )
         );
         beacons.callPreflight();
+    }
+
+    /// @notice The rename pre-flight refuses a production vault the timelock
+    /// does not own, since its `setUnderlying` would revert the whole batch.
+    function testRenamePreflightRefusesAVaultOffTheTimelock() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("owner");
+        prepareRename(rename);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address vault = LibUnderlyingNamingRollout.tokens(block.chainid)[0].receiptVault;
+        vm.prank(timelock);
+        Ownable(vault).transferOwnership(safe);
+        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, vault, timelock, safe));
+        rename.callPreflight();
     }
 
     /// @notice The rename pre-flight refuses once the rename is registered.
@@ -833,7 +828,7 @@ contract UnderlyingNamingRolloutTest is Test {
             vm,
             LibSafeInvariants.safeForChainId(block.chainid),
             FOREIGN_RECORD,
-            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
+            LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
         );
         vm.expectRevert(abi.encodeWithSelector(ScheduleBeaconsUnexpectedMigrationLine.selector, FOREIGN_RECORD));
         beacons.callPreflight();
@@ -906,11 +901,12 @@ contract UnderlyingNamingRolloutTest is Test {
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("line");
         vm.expectRevert(
             abi.encodeWithSelector(
-                ScheduleRenameUnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
+                ScheduleRenameUnexpectedMigrationLine.selector,
+                LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
             )
         );
         rename.callPreflight();
-        landBeaconScheduleAndHandOver(rename);
+        landBeaconSchedule();
         rename.callPreflight();
 
         uint256 snapshot = vm.snapshotState();

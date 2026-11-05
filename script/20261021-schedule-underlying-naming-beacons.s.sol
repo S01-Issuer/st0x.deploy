@@ -59,12 +59,13 @@ error ScheduleBeaconsRecordMismatch(uint256 expected, uint256 actual);
 /// @param head The line's head.
 error ScheduleBeaconsLineHeadMismatch(bytes32 head);
 
-/// @notice This script's declaration: the Safe's record, after orchestrator-admin-to-timelock.
+/// @notice This script's declaration: the Safe's record, after the
+/// Safe-owned Base vault handover.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        onto: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
         history: false
     });
 }
