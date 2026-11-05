@@ -29,6 +29,7 @@ on:
           - 20261030-backfill-migration-registry-v5
           - 20261021-schedule-underlying-naming-beacons
           - 20261021-schedule-underlying-naming-rename
+          - 20261103-hand-safe-owned-base-vaults-to-timelock
           - records/20261021-record-execute-underlying-naming
       network:
         description: 'Network to author against (default: base)'

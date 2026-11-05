@@ -239,23 +239,23 @@
       "chains": {
         "1": {
           "executedAt": 0,
-          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+          "onto": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad"
         },
         "4663": {
           "executedAt": 0,
-          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+          "onto": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad"
         },
         "56": {
           "executedAt": 0,
-          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+          "onto": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad"
         },
         "8453": {
           "executedAt": 0,
-          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+          "onto": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad"
         },
         "999": {
           "executedAt": 0,
-          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+          "onto": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad"
         }
       },
       "id": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
@@ -312,6 +312,32 @@
       },
       "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
       "script": "script/20261030-backfill-migration-registry-v5.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+        }
+      },
+      "id": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad",
+      "script": "script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol"
     }
   ],
   "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
