@@ -356,21 +356,37 @@ with an empty name and symbol. Its owner is the RBAC owner of its region, which
 `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` (not the per-Safe timelocks that
 own the live tokens). That timelock names it later with
 `setUnderlying(ticker, underlyingName)`, so the first `setUnderlying` of each V6
-token is an operation on that timelock with the 48h delay. No script authors
-that operation yet, and the naming-rollout scripts cover only the live rows: a
-schedule and execute script with the `MalformedUnderlying` shape checks must
-exist before the first V6 row ships. Rollout rule: do not publish a V6 token to
-the st0x.registry, activate it in the bots, or trade it until its first
-`setUnderlying` has executed and its `name()` and `symbol()` read back as
-expected. Until then the vault reports `""` / `""` and the wrapper `"Wrapped "`
-/ `"w"`, which the liquidity parser does not accept. A token's address commits
-to the vault beacon name, not to the implementation the beacon serves, so
-`VAULT_BEACON_NAME` must only ever resolve to a beacon that serves an
-implementation with the asset id hook and the `assetId()` getter.
-`Deploy.preDeployCheck` refuses a token suite unless the bound vault beacon
-serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll a V6 vault beacon
-back to an implementation without the hook: the asset ids are public, so any
-undeployed pinned row could then be deployed with no asset id, forever.
+token is an operation on that timelock with the 48h delay. One batch names the
+first 59 V6 tokens of a chain (`LibV6FirstRename.ROW_COUNT`), after the live
+rename on that chain. Its operation id is frozen (`OPERATION_ID`) and is never
+regenerated: a row added later gets its own dated script. Per chain:
+
+1. Deploy every V6 token suite (`manual-sol-artifacts`, `stox-token-*`).
+2. `run-script` `20261105-schedule-v6-first-rename`: the Safe signs
+   `scheduleBatch` and the root-line record. The pre-flight refuses unless every
+   V6 token is deployed at its pinned address, reports its row's `assetId()`, is
+   owned by the governance timelock, and has no name or symbol yet. If the Safe
+   cancels the batch in its delay, dispatch the script again: with the record
+   already at the head it authors the schedule alone.
+3. After 48h, `manual-broadcast` `20261105-execute-v6-first-rename` executes the
+   batch from the CI key and checks every token's name, symbol and asset id. On
+   HyperEVM, enable big blocks for the deploy key (`manual-hyperevm-big-blocks`)
+   first.
+4. `run-script` `records/20261105-record-execute-v6-first-rename`: the Safe
+   signs the execution's record.
+
+Rollout rule: do not publish a V6 token to the st0x.registry, activate it in the
+bots, or trade it until its first `setUnderlying` has executed and its `name()`
+and `symbol()` read back as expected. Until then the vault reports `""` / `""`
+and the wrapper `"Wrapped "` / `"w"`, which the liquidity parser does not
+accept. A token's address commits to the vault beacon name, not to the
+implementation the beacon serves, so `VAULT_BEACON_NAME` must only ever resolve
+to a beacon that serves an implementation with the asset id hook and the
+`assetId()` getter. `Deploy.preDeployCheck` refuses a token suite unless the
+bound vault beacon serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll
+a V6 vault beacon back to an implementation without the hook: the asset ids are
+public, so any undeployed pinned row could then be deployed with no asset id,
+forever.
 
 Execute each matured batch with `20261021-execute-underlying-naming` from the CI
 deploy key, one operation per dispatch. On HyperEVM the rename batch needs more

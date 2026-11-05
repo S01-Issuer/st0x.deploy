@@ -31,6 +31,8 @@ on:
           - 20261021-schedule-underlying-naming-rename
           - 20261103-hand-safe-owned-base-vaults-to-timelock
           - records/20261021-record-execute-underlying-naming
+          - 20261105-schedule-v6-first-rename
+          - records/20261105-record-execute-v6-first-rename
       network:
         description: 'Network to author against (default: base)'
         required: true

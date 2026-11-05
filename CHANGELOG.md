@@ -66,6 +66,16 @@
   `0xaCe2d80eACc9A402861231895Da7f9CB8Ceb8289`, and the token and wrapper proxy
   runtime code that embeds the beacons.
 
+### First rename of the V6 tokens
+
+- **`20261105-schedule-v6-first-rename`, `20261105-execute-v6-first-rename` and
+  `records/20261105-record-execute-v6-first-rename`** name every V6 token of a
+  chain in one batch on `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`
+  (`LibV6FirstRename`). They sit on the root line after the live tokens' rename.
+  The pre-flight binds each `setUnderlying` to its row by `assetId()`, the way
+  `TickerNotBoundToVault` does for the live tokens. A cancelled batch is
+  rescheduled by dispatching the schedule script again.
+
 ## Registry-config tokens (rain.vats 0.2.9)
 
 ### StoxReceiptVault

@@ -338,6 +338,58 @@
       },
       "id": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad",
       "script": "script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xef561e2b0ada099ad477a97c12a3cc98192fa2dabe85b9836f9afc6f3ada80be"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xef561e2b0ada099ad477a97c12a3cc98192fa2dabe85b9836f9afc6f3ada80be"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xef561e2b0ada099ad477a97c12a3cc98192fa2dabe85b9836f9afc6f3ada80be"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xef561e2b0ada099ad477a97c12a3cc98192fa2dabe85b9836f9afc6f3ada80be"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xef561e2b0ada099ad477a97c12a3cc98192fa2dabe85b9836f9afc6f3ada80be"
+        }
+      },
+      "id": "0xfe029002ace2ab51843557a7554d069afc4f608f96d31658e4df31be83a52d1a",
+      "script": "script/20261105-execute-v6-first-rename.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        }
+      },
+      "id": "0xef561e2b0ada099ad477a97c12a3cc98192fa2dabe85b9836f9afc6f3ada80be",
+      "script": "script/20261105-schedule-v6-first-rename.s.sol"
     }
   ],
   "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
