@@ -21,7 +21,11 @@ import {
     ScheduleUnderlyingNamingBeacons,
     ImplementationNotDeployed,
     BeaconAlreadyUpgraded,
-    OperationAlreadyScheduled
+    OperationAlreadyScheduled,
+    BeaconUpgradeMovedMetadata,
+    UpgradedVaultHasAssetId,
+    UpgradedVaultMissingAssetIdHook,
+    scheduleUnderlyingNamingBeaconsDeclaration
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 import {
     ScheduleUnderlyingNamingRename,
@@ -38,8 +42,8 @@ import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxM
 import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
 import {IStoxAssetIdV1} from "../../src/interface/IStoxAssetIdV1.sol";
-import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxCorporateActionsFacet} from "../../src/concrete/StoxCorporateActionsFacet.sol";
+import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
 import {AssetIdNotInitializing} from "../../src/error/ErrAssetId.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
@@ -56,7 +60,7 @@ import {
     NoTokenTableForChain,
     ReceiptVaultOwnerMismatch
 } from "../../src/lib/LibTokenInvariants.sol";
-import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
+import {BeaconImplementationMismatch, BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
@@ -538,6 +542,92 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         Ownable(vault).transferOwnership(safe);
         vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, vault, timelock, safe));
         rename.callPreflight();
+    }
+
+    /// @notice The beacon pre-flight refuses a beacon that serves anything but
+    /// its pinned from-implementation, so a batch is never scheduled over an
+    /// upgrade it does not know about.
+    function testBeaconPreflightRefusesAnUnknownFromImplementation() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        plantImplementations();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("from-impl");
+        beacons.callPreflight();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address[2] memory beaconAddresses = [
+            LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid),
+            LibUnderlyingNamingRollout.wrappedTokenVaultBeacon(block.chainid)
+        ];
+        address[2] memory froms = [
+            LibUnderlyingNamingRollout.RECEIPT_VAULT_FROM_IMPLEMENTATION,
+            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION
+        ];
+        // Any deployed implementation that is neither side of the batch.
+        address other = LibUnderlyingNamingRollout.FACET;
+        for (uint256 beaconIndex = 0; beaconIndex < beaconAddresses.length; beaconIndex++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.prank(timelock);
+            UpgradeableBeacon(beaconAddresses[beaconIndex]).upgradeTo(other);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    BeaconImplementationMismatch.selector, beaconAddresses[beaconIndex], froms[beaconIndex], other
+                )
+            );
+            beacons.callPreflight();
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice The beacon batch's execution proof refuses a live vault that
+    /// reports an asset id, one whose `initializeAssetId` does not refuse with
+    /// `AssetIdNotInitializing`, and a wrapper whose name moved across the
+    /// upgrade.
+    function testBeaconProofRefusesEachBrokenUpgrade() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        landBeaconSchedule();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("proof-refusals");
+        TokenInstance memory first = LibUnderlyingNamingRollout.tokens(block.chainid)[0];
+        address vault = first.receiptVault;
+
+        uint256 snapshot = vm.snapshotState();
+        vm.mockCall(vault, abi.encodeWithSelector(IStoxAssetIdV1.assetId.selector), abi.encode("US0000000000"));
+        vm.expectRevert(abi.encodeWithSelector(UpgradedVaultHasAssetId.selector, vault, "US0000000000"));
+        beacons.callProveExecution();
+        vm.revertToState(snapshot);
+        vm.clearMockedCalls();
+
+        bytes memory initialized = abi.encode(bytes32(0));
+        vm.mockCall(vault, abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))), initialized);
+        vm.expectRevert(abi.encodeWithSelector(UpgradedVaultMissingAssetIdHook.selector, vault, initialized));
+        beacons.callProveExecution();
+        vm.revertToState(snapshot);
+        vm.clearMockedCalls();
+
+        bytes memory otherError = abi.encodeWithSignature("Error(string)", "no hook");
+        vm.mockCallRevert(vault, abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))), otherError);
+        vm.expectRevert(abi.encodeWithSelector(UpgradedVaultMissingAssetIdHook.selector, vault, otherError));
+        beacons.callProveExecution();
+        vm.revertToState(snapshot);
+        vm.clearMockedCalls();
+
+        // A value read before the batch and another after it: the first wrapper's name, the last vault's symbol.
+        bytes[] memory moved = new bytes[](2);
+        moved[0] = abi.encode("Before");
+        moved[1] = abi.encode("After");
+        vm.mockCalls(first.wrappedTokenVault, abi.encodeWithSignature("name()"), moved);
+        vm.expectRevert(
+            abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, first.wrappedTokenVault, "Before", "After")
+        );
+        beacons.callProveExecution();
+        vm.revertToState(snapshot);
+        vm.clearMockedCalls();
+
+        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
+        address lastVault = chainTokens[chainTokens.length - 1].receiptVault;
+        vm.mockCalls(lastVault, abi.encodeWithSignature("symbol()"), moved);
+        vm.expectRevert(abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, lastVault, "Before", "After"));
+        beacons.callProveExecution();
     }
 
     /// @notice The rename pre-flight refuses once the rename is registered.

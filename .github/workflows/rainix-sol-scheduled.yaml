@@ -2,9 +2,9 @@
 # cross-chain parity pin). Push-triggered CI only catches drift
 # that arrives WITH a code change; state drift introduced directly on-chain
 # between pushes — a role grant, a beacon upgrade, an authoriser swap — is
-# invisible to it. This schedule closes that gap: the prod-state pins and
-# the parity suite run against live chain state daily regardless of repo
-# activity.
+# invisible to it. This schedule re-runs the head-fork prod-state pins daily
+# regardless of repo activity; the parity suite and the beacon ownership
+# tests fork pinned blocks, so they do not watch live state.
 name: rainix-sol-scheduled
 on:
   schedule:

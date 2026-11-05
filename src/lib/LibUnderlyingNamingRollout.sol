@@ -9,6 +9,7 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensio
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
+import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -92,14 +93,16 @@ library LibUnderlyingNamingRollout {
     /// @notice Its runtime codehash.
     bytes32 internal constant WRAPPED_TOKEN_VAULT_CODEHASH = LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_CODEHASH;
 
-    /// @notice Whether the implementation constants above alias a frozen,
-    /// audited release. They alias the current-source candidate pins, so the
-    /// step-1 deploy and both schedule scripts refuse. The PR that sets this
-    /// also: re-points the six implementation constants and the step-1 deploy
-    /// at the release; pins each chain's `beaconOperationId` and
-    /// `renameOperationId` as literals, so a later row edit cannot move a
-    /// scheduled batch. Each schedule script's Safe bundle ends in its root-line
-    /// record; no record rides in a timelock batch.
+    /// @notice The receipt-vault implementation every in-use receipt-vault beacon serves before the beacon batch (the
+    /// 0.1.30 vault); the beacon pre-flight refuses any other.
+    address internal constant RECEIPT_VAULT_FROM_IMPLEMENTATION = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
+
+    /// @notice The wrapped-token-vault implementation every in-use wrapper beacon serves before the beacon batch (the
+    /// 0.1.1 wrapper); the beacon pre-flight refuses any other.
+    address internal constant WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1;
+
+    /// @notice Whether the implementation constants above alias a frozen, audited release; while false both schedule
+    /// scripts refuse. The target implementation constants alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
@@ -115,13 +118,6 @@ library LibUnderlyingNamingRollout {
     /// - The st0x.registry token lists keep `symbol` = `wt<TICKER>` and carry
     ///   the additive `nextSymbol` / `nextName`
     ///   (ST0x-Technology/st0x.registry#117).
-    /// The same PR moved the head-fork tests that pin the initialized names
-    /// (`testConfigMatchesLiveBase`, `testWrappedDerivationHoldsOnBase` and
-    /// the cross-chain parity pin `StoxCrossChainParityTest`) to accept the
-    /// renamed values too, so they stay green as each chain executes the
-    /// rename. The `wt*` symbol pins in `LibTokenInvariants.addresses.t.sol`
-    /// fork at a pinned pre-rename block; they accept `<TICKER>s` too, so a
-    /// later block bump does not break them on the symbol alone.
     bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = true;
 
     /// @notice How many leading rows of each chain's production token table

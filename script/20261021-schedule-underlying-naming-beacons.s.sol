@@ -10,7 +10,12 @@ import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum
 import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
+import {AssetIdNotInitializing} from "../src/error/ErrAssetId.sol";
+import {IStoxAssetIdV1} from "../src/interface/IStoxAssetIdV1.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
+import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibUnderlyingNamingRollout, UnderlyingNamingReleaseNotFrozen} from "../src/lib/LibUnderlyingNamingRollout.sol";
@@ -44,6 +49,24 @@ error OperationNotPendingInsideDelay(bytes32 id);
 /// @param expected The target implementation.
 /// @param actual The beacon's implementation.
 error BeaconNotUpgraded(address beacon, address expected, address actual);
+
+/// @notice The beacon batch changed a vault's or wrapper's name or symbol.
+/// @param token The vault or wrapper.
+/// @param before The value before the batch.
+/// @param afterUpgrade The value after it.
+error BeaconUpgradeMovedMetadata(address token, string before, string afterUpgrade);
+
+/// @notice A live vault behind the upgraded beacon reports an asset id.
+/// @param vault The vault.
+/// @param assetId The id it reports.
+error UpgradedVaultHasAssetId(address vault, string assetId);
+
+/// @notice A live vault behind the upgraded beacon does not refuse
+/// `initializeAssetId` with `AssetIdNotInitializing`, so the new
+/// implementation does not carry the asset id hook.
+/// @param vault The vault.
+/// @param result What the call returned.
+error UpgradedVaultMissingAssetIdHook(address vault, bytes result);
 
 /// @notice This script's declaration: the Safe's record, after the Safe-owned Base vault handover.
 /// @return The declaration.
@@ -119,8 +142,9 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     /// @inheritdoc SafeBundleScript
     /// @dev The release is frozen, the Safe and timelock are the pinned ones,
     /// the timelock owns the in-use beacons, the three implementations carry their pinned code, the
-    /// beacons have not moved, the operation is not registered, and the root
-    /// line is at this migration's `onto`.
+    /// beacons have not moved and still serve their pinned from-implementations,
+    /// the operation is not registered, and the root line is at this
+    /// migration's `onto`.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
@@ -145,6 +169,22 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
         if (IBeacon(wrapperBeacon).implementation() == LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION) {
             revert BeaconAlreadyUpgraded(wrapperBeacon);
         }
+        // Each beacon must still serve the implementation this batch moves it
+        // from, so a batch is never scheduled over an upgrade it does not know
+        // about.
+        bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(block.chainid);
+        LibBeaconInvariants.assertBeaconInvariants(
+            vaultBeacon,
+            timelock(),
+            LibUnderlyingNamingRollout.RECEIPT_VAULT_FROM_IMPLEMENTATION,
+            codehashes[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]
+        );
+        LibBeaconInvariants.assertBeaconInvariants(
+            wrapperBeacon,
+            timelock(),
+            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION,
+            codehashes[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
+        );
 
         bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
         if (TimelockController(payable(timelock())).isOperation(id)) revert OperationAlreadyScheduled(id);
@@ -185,8 +225,16 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
         vm.revertToState(postBundle);
     }
 
-    /// @notice The execution proof `assertReversible` runs.
+    /// @notice The execution proof `assertReversible` runs. It records every
+    /// production vault's and wrapper's `name()` and `symbol()` before the
+    /// batch and requires them unchanged after it: the beacon batch must not
+    /// rename anything, that is the rename batch's job. It also proves the
+    /// new vault implementation carries the asset id hook: a live vault reports
+    /// `assetId() == ""`, and its init-only `initializeAssetId` refuses with
+    /// `AssetIdNotInitializing`.
     function proveExecution() internal {
+        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
+        string[] memory before = metadata(chainTokens);
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
             LibUnderlyingNamingRollout.beaconBatch(block.chainid);
         // forge-lint: disable-next-line(block-timestamp)
@@ -203,7 +251,53 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
             LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid),
             LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION
         );
-        console2.log("Execution proven: both beacons upgraded by a roleless executor after 48h");
+        string[] memory afterUpgrade = metadata(chainTokens);
+        for (uint256 i = 0; i < before.length; i++) {
+            if (keccak256(bytes(before[i])) != keccak256(bytes(afterUpgrade[i]))) {
+                revert BeaconUpgradeMovedMetadata(metadataToken(chainTokens, i), before[i], afterUpgrade[i]);
+            }
+        }
+        assertAssetIdHook(chainTokens[0].receiptVault);
+        console2.log(
+            "Execution proven: both beacons upgraded by a roleless executor after 48h, no name or symbol moved"
+        );
+    }
+
+    /// @notice Every vault's and wrapper's name and symbol, in a fixed order:
+    /// vault name, vault symbol, wrapper name, wrapper symbol, per token.
+    /// @param chainTokens The chain's tokens.
+    /// @return The values read.
+    function metadata(TokenInstance[] memory chainTokens) internal view returns (string[] memory) {
+        string[] memory values = new string[](chainTokens.length * 4);
+        for (uint256 i = 0; i < chainTokens.length; i++) {
+            values[i * 4] = IERC20Metadata(chainTokens[i].receiptVault).name();
+            values[i * 4 + 1] = IERC20Metadata(chainTokens[i].receiptVault).symbol();
+            values[i * 4 + 2] = IERC20Metadata(chainTokens[i].wrappedTokenVault).name();
+            values[i * 4 + 3] = IERC20Metadata(chainTokens[i].wrappedTokenVault).symbol();
+        }
+        return values;
+    }
+
+    /// @notice The token `metadata` read at `index`.
+    /// @param chainTokens The chain's tokens.
+    /// @param index The index into `metadata`.
+    /// @return The vault or wrapper read there.
+    function metadataToken(TokenInstance[] memory chainTokens, uint256 index) internal pure returns (address) {
+        TokenInstance memory token = chainTokens[index / 4];
+        return index % 4 < 2 ? token.receiptVault : token.wrappedTokenVault;
+    }
+
+    /// @notice Reverts unless `vault` serves the asset id getter with an empty
+    /// id and refuses `initializeAssetId` with `AssetIdNotInitializing`.
+    /// @param vault A live vault behind the upgraded beacon.
+    function assertAssetIdHook(address vault) internal {
+        string memory assetId = IStoxAssetIdV1(vault).assetId();
+        if (bytes(assetId).length != 0) revert UpgradedVaultHasAssetId(vault, assetId);
+        (bool success, bytes memory result) =
+            vault.call(abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))));
+        if (success || keccak256(result) != keccak256(abi.encodeWithSelector(AssetIdNotInitializing.selector))) {
+            revert UpgradedVaultMissingAssetIdHook(vault, result);
+        }
     }
 
     /// @notice Reverts unless `beacon` points at `expected`.

@@ -125,7 +125,8 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
-/// `20261006-grant-orchestrator-emergency` has executed there.
+/// `20261022-bind-beacon-initial-owner` has landed there: the pre-flight
+/// refuses unless that record heads the root line.
 contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {

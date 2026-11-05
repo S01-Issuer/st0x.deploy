@@ -7,6 +7,7 @@ import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvari
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
+import {LibTestPreBackfillFork} from "../../lib/LibTestPreBackfillFork.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
@@ -384,17 +385,17 @@ contract LibTokenInvariantsAddressesTest is Test {
         );
     }
 
-    /// A V1 beacon with the implementation it served at the pinned block and
-    /// the one it serves at Base HEAD.
+    /// A V1 beacon with the implementation it served at the pinned V1-era block
+    /// and the one it serves at `LibTestPreBackfillFork`'s Base block, after the fleet upgrade.
     struct ProdV1Beacon {
         string name;
         address beacon;
         address implementationAtPinnedBlock;
-        address implementationAtBaseHead;
+        address implementationAfterFleetUpgrade;
     }
 
-    /// The receipt and receipt-vault beacons serve 0.1.30 at HEAD after the
-    /// fleet upgrade; the wrapped token vault beacon still serves 0.1.1.
+    /// The receipt and receipt-vault beacons serve 0.1.30 after the fleet
+    /// upgrade; the wrapped token vault beacon serves 0.1.1.
     function prodV1Beacons() internal pure returns (ProdV1Beacon[] memory) {
         ProdV1Beacon[] memory beacons = new ProdV1Beacon[](3);
         beacons[0] = ProdV1Beacon(
@@ -448,16 +449,15 @@ contract LibTokenInvariantsAddressesTest is Test {
         }
     }
 
-    /// LIVE: an unreviewed `upgradeTo` on any in-use beacon fails here and
-    /// nowhere else in this file.
-    function testProdV1BeaconImplementationsAtBaseHead() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+    /// At `LibTestPreBackfillFork`'s Base block each in-use beacon serves its implementation after the fleet upgrade.
+    function testProdV1BeaconImplementationsAfterTheFleetUpgrade() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         ProdV1Beacon[] memory beacons = prodV1Beacons();
         for (uint256 i = 0; i < beacons.length; i++) {
             assertEq(
                 IBeacon(beacons[i].beacon).implementation(),
-                beacons[i].implementationAtBaseHead,
-                string.concat(beacons[i].name, ".implementation() at Base HEAD is not the pinned live impl")
+                beacons[i].implementationAfterFleetUpgrade,
+                string.concat(beacons[i].name, ".implementation() after the fleet upgrade")
             );
         }
     }
