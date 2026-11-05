@@ -201,22 +201,46 @@ contract LibProdTokenConfigAssetIdTest is Test, StoxDeploySuites {
         }
     }
 
-    /// Every asset id is 1 to 32 characters of A-Z and 0-9, and an ISIN-shaped one carries a valid check digit.
+    /// Every asset id is 1 to 32 characters of A-Z and 0-9. An `ST0X` id is `ST0X` followed by at least one more
+    /// character and is never 12 characters, so it can never look like an ISIN (`ST` is a real ISIN country prefix);
+    /// every other id is an ISIN with a valid check digit.
     function testAssetIdsAreWellFormed() external pure {
         TokenConfig[] memory configs =
             LibProdTokenConfig.withAssetId(LibTestTokenConfigs.productionAndTestTokenConfigs());
         assertGt(configs.length, 0, "rows");
         for (uint256 i = 0; i < configs.length; i++) {
-            bytes memory id = bytes(configs[i].assetId);
-            assertGt(id.length, 0, configs[i].underlying);
-            assertLe(id.length, 32, configs[i].underlying);
-            for (uint256 c = 0; c < id.length; c++) {
-                assertTrue(isUpperAlnum(id[c]), configs[i].underlying);
-            }
-            if (isIsinShaped(id)) {
-                assertTrue(isinCheckDigitHolds(id), configs[i].underlying);
-            }
+            assertTrue(assetIdWellFormed(bytes(configs[i].assetId)), configs[i].underlying);
         }
+    }
+
+    /// The well-formed rule on fixed ids, so each arm is exercised whatever the table holds.
+    function testAssetIdWellFormedRule() external pure {
+        assertTrue(assetIdWellFormed(bytes("US67066G1040")), "ISIN");
+        assertTrue(assetIdWellFormed(bytes("ST0XTESTUS")), "10-character ST0X id");
+        assertTrue(assetIdWellFormed(bytes("ST0XA")), "short ST0X id");
+        assertFalse(assetIdWellFormed(bytes("ST0X")), "bare ST0X");
+        assertFalse(assetIdWellFormed(bytes("ST0XABCDEFG1")), "12-character ST0X id");
+        assertFalse(assetIdWellFormed(bytes("STOXABCDEFG1")), "letter O is not an ST0X id, and the ISIN check fails");
+        assertFalse(assetIdWellFormed(bytes("US67066G1041")), "bad check digit");
+        assertFalse(assetIdWellFormed(bytes("ABC")), "neither");
+        assertFalse(assetIdWellFormed(bytes("0")), "passes the check digit but is not ISIN-shaped");
+        assertFalse(assetIdWellFormed(bytes("")), "empty");
+        assertFalse(assetIdWellFormed(bytes("st0xabc")), "lowercase");
+        assertFalse(assetIdWellFormed(bytes("ST0XAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")), "33 characters");
+    }
+
+    function assetIdWellFormed(bytes memory id) internal pure returns (bool) {
+        if (id.length == 0 || id.length > 32) return false;
+        for (uint256 c = 0; c < id.length; c++) {
+            if (!isUpperAlnum(id[c])) return false;
+        }
+        if (isSt0xId(id)) return id.length > 4 && id.length != 12;
+        return isIsinShaped(id) && isinCheckDigitHolds(id);
+    }
+
+    /// Whether `id` starts with `ST0X`, the prefix of an id for an asset with no ISIN.
+    function isSt0xId(bytes memory id) internal pure returns (bool) {
+        return id.length >= 4 && id[0] == "S" && id[1] == "T" && id[2] == "0" && id[3] == "X";
     }
 
     /// No (asset id, region) pair repeats. Rows without an asset id are not V6 rows and are left out.

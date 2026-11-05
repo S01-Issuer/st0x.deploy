@@ -287,8 +287,9 @@ sequence on a fork of each chain.
    `stox-wrapped-token-vault` suites through `manual-sol-artifacts`. The beacon
    script's pre-flight checks each codehash against its pin before scheduling.
    The PR that freezes the release (`RELEASE_FROZEN`) also pins each chain's
-   beacon and rename operation ids as literals. Each schedule script's Safe
-   bundle ends in its root-line record; no record rides in a timelock batch.
+   beacon and rename operation ids as literals. Each schedule script's first
+   Safe bundle ends in its root-line record (a reschedule after a cancel is the
+   schedule alone); no record rides in a timelock batch.
 2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
    one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
    beacon, then its in-use receipt-vault beacon
@@ -303,7 +304,12 @@ sequence on a fork of each chain.
    the root line, so it authors the schedule alone and the line does not move.
    If both batches were cancelled, reschedule the beacon batch first, then the
    rename. To halt the rollout, cancel both: a rename left pending becomes
-   executable again as soon as a rescheduled beacon batch executes. The wrapper
+   executable again as soon as a rescheduled beacon batch executes. If only the
+   beacon batch was cancelled, the pending rename waits for the rescheduled
+   beacon batch, its predecessor, and the execute script waits for it too.
+   Reschedule only an unchanged batch. The freeze PR must pin each chain's
+   operation ids and make both pre-flights require the derived id to equal the
+   pinned one, so an edited row or constant cannot derive a new one. The wrapper
    keeps its current name and symbol while the vault has no underlying set. The
    orchestrator's vault-logic lock reads the 0.1.30 beacon-set deployer's
    beacons, not the in-use ones, so it does not cover this upgrade: minting and
@@ -530,3 +536,9 @@ as `admin`.
   left on the Safe shows only on the rain-org-health dashboard.
 
 - **Dedicated canceller** — see the role model above.
+
+- **Retiring the service signer's direct `DEPOSIT` and `WITHDRAW`** on the
+  authoriser is still open. `20260831-retire-direct-signer-roles` could not do
+  it once the vault `_ADMIN`s moved to the timelock, and #548 deleted it. The
+  two revokes need a new dated script that schedules them on the timelock (48h,
+  then execute).

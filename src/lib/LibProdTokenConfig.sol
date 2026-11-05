@@ -38,7 +38,9 @@ pragma solidity ^0.8.25;
 /// without " ST0x"; it differs where the issuer has since been renamed
 /// (MSTR, RKLB).
 /// @param assetId The identifier of the asset, fixed at listing time: the
-/// ISIN of the exact share line the token tracks and hedges where one exists.
+/// ISIN of the exact share line the token tracks and hedges where one exists,
+/// otherwise `ST0X` followed by `A-Z` and `0-9`, never 12 characters long, so
+/// it can never look like an ISIN.
 /// It never follows later ISIN changes. It is unique per (`assetId`,
 /// `region`). A row gets a V6 token suite if and only if its `assetId` is
 /// non-empty (`LibProdTokenConfig.v6TokenConfigs`). After deploy, the token's
@@ -588,8 +590,7 @@ library LibProdTokenConfig {
     }
 
     /// @notice The production rows that get a V6 token suite: those with a
-    /// non-empty `assetId`, in table order. Empty until production asset ids
-    /// are chosen.
+    /// non-empty `assetId`, in table order.
     /// @return The rows.
     function v6TokenConfigs() internal pure returns (TokenConfig[] memory) {
         return withAssetId(productionTokenConfigs());

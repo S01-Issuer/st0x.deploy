@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
+import {LibTestRenameBeacons} from "../../../lib/LibTestRenameBeacons.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
@@ -158,9 +159,15 @@ contract StoxProdV4Test is Test {
 
         // The wrapped-token-vault beacon points at the 0.1.1 vault
         // implementation — constructor wiring of the deploy artifact.
+        // On the bootstrap chains it is the in-use wrapper beacon, which the
+        // rename's beacon batch moves per chain, so it accepts either side.
         assertEq(
             IBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).implementation(),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
+            oarvBeaconsAreInUse
+                ? LibTestRenameBeacons.wrappedTokenVaultImplementation(
+                    LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1
+                )
+                : LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
             "V4 beacon implementation mismatch"
         );
 
@@ -186,7 +193,7 @@ contract StoxProdV4Test is Test {
             );
             assertEq(
                 vaultBeacon.implementation(),
-                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
+                LibTestRenameBeacons.receiptVaultImplementation(address(vaultBeacon)),
                 "V4 OARV vault beacon implementation mismatch"
             );
         } else {

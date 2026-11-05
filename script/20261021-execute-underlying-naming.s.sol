@@ -87,7 +87,10 @@ contract ExecuteUnderlyingNaming is Script, IStoxScript {
             if (!controller.isOperationDone(beaconId)) revert UnderlyingNamingOperationNotDone(beaconId);
             return;
         }
-        if (controller.isOperationReady(renameId)) {
+        // The rename names the beacon batch as its predecessor. After a beacon
+        // batch is cancelled and rescheduled, the rename can be ready first;
+        // executing it then reverts in the timelock, so wait for the beacons.
+        if (controller.isOperationReady(renameId) && controller.isOperationDone(beaconId)) {
             (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
                 LibUnderlyingNamingRollout.renameBatch(block.chainid);
             console2.log("Executing the rename batch:", vm.toString(renameId));

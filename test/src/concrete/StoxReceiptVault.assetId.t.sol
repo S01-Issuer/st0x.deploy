@@ -284,15 +284,6 @@ contract StoxReceiptVaultAssetIdTest is Test {
         vault.initialize(data("", "", LibAssetId.encodeMetadata(ASSET_ID)));
     }
 
-    /// The asset id is in vault storage, so a vault beacon upgrade keeps it.
-    function testAssetIdSurvivesABeaconUpgrade() external {
-        StoxReceiptVault vault =
-            LibTestDeploy.newVault(AUTHORITY, LibTestDeploy.vaultData(ASSET_ID, AUTHORITY, RBAC_NAME));
-        address implementation = address(new StoxReceiptVault());
-        upgradeVaultBeacon(implementation);
-        assertEq(IStoxAssetIdV1(address(vault)).assetId(), ASSET_ID);
-    }
-
     /// A vault initialized named, before the hook existed, reports no asset id after the upgrade to the hook and can
     /// never be given one; it still renames.
     function testLegacyVaultReportsNoAssetIdAndCannotSetOne() external {

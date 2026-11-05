@@ -41,7 +41,7 @@ contract StoxDeploySuitesV6TokensBaseForkTest is V6ReleaseBaseFork {
         bytes32 id = timelock.hashOperationBatch(targets, values, payloads, bytes32(0), SALT);
         vm.prank(LibSafeInvariants.safeForChainId(block.chainid));
         timelock.scheduleBatch(targets, values, payloads, bytes32(0), SALT, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY - 1);
+        vm.warp(vm.getBlockTimestamp() + LibTimelockInvariants.TIMELOCK_MIN_DELAY - 1);
         vm.expectRevert(
             abi.encodeWithSelector(
                 TimelockController.TimelockUnexpectedOperationState.selector,
@@ -50,7 +50,7 @@ contract StoxDeploySuitesV6TokensBaseForkTest is V6ReleaseBaseFork {
             )
         );
         timelock.executeBatch(targets, values, payloads, bytes32(0), SALT);
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(DEPLOYER);
         timelock.executeBatch(targets, values, payloads, bytes32(0), SALT);
         assertTrue(timelock.isOperationDone(id), "done");
