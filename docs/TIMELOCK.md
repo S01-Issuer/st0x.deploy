@@ -434,20 +434,24 @@ id, region, authority and beacon names, not to its name or symbol. It deploys
 with an empty name and symbol. Its owner is the RBAC owner of its region, which
 `Deploy.preDeployCheck` requires to be the Zoltu-deployed
 `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` (not the per-Safe timelocks that
-own the live tokens). Anyone names it from a signed listing (`nameListing`,
-below); after that only that timelock renames it, with `setUnderlying` and the
-48h delay. Rollout rule: do not publish a V6 token to the st0x.registry,
-activate it in the bots, give it mint traffic, or trade it until it is named and
-its `name()` and `symbol()` read back as expected. Until then the vault reports
-`""` / `""` and the wrapper `"Wrapped "` / `"w"`, which the liquidity parser
-does not accept. A token's address commits to the vault beacon name, not to the
-implementation the beacon serves, so `VAULT_BEACON_NAME` must only ever resolve
-to a beacon that serves an implementation with the asset id hook and the
-`assetId()` getter. `Deploy.preDeployCheck` refuses a token suite unless the
-bound vault beacon serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll
-a V6 vault beacon back to an implementation without the hook: the asset ids are
-public, so any undeployed pinned row could then be deployed with no asset id,
-forever.
+own the live tokens). For every beacon and token suite it also requires that
+timelock to be in its pinned state on the chain
+(`LibTimelockInvariants.assertTimelockState` with the chain's Safe as proposer:
+code, codehash, 48h delay and roles), since anyone can deploy it with another
+proposer bound at construction. Anyone names it from a signed listing
+(`nameListing`, below); after that only that timelock renames it, with
+`setUnderlying` and the 48h delay. Rollout rule: do not publish a V6 token to
+the st0x.registry, activate it in the bots, give it mint traffic, or trade it
+until it is named and its `name()` and `symbol()` read back as expected. Until
+then the vault reports `""` / `""` and the wrapper `"Wrapped "` / `"w"`, which
+the liquidity parser does not accept. A token's address commits to the vault
+beacon name, not to the implementation the beacon serves, so `VAULT_BEACON_NAME`
+must only ever resolve to a beacon that serves an implementation with the asset
+id hook and the `assetId()` getter. `Deploy.preDeployCheck` refuses a token
+suite unless the bound vault beacon serves
+`LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll a V6 vault beacon back to
+an implementation without the hook: the asset ids are public, so any undeployed
+pinned row could then be deployed with no asset id, forever.
 
 **Naming V6 tokens from a signed listing.** `nameListing` on a V6 token takes
 its asset id, ticker and underlying name, a proof, a root and a signature, and

@@ -20,6 +20,7 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenCo
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {BeaconImplementationMismatch} from "../src/lib/LibBeaconInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
@@ -35,8 +36,9 @@ error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 /// @notice `RainDeployBroadcast` over `StoxDeploySuites`: broadcasts the suite
 /// `DEPLOYMENT_SUITE` names to every network this repo deploys to. Before each
 /// network it refuses unless every registry binding the suite's construction or
-/// initialisation resolves is bound to this repo's pin for that chain; an
-/// unbound name reverts in the registry.
+/// initialisation resolves is bound to this repo's pin for that chain (an
+/// unbound name reverts in the registry), and, for beacon and token suites,
+/// unless the governance timelock that owns them is in its pinned state.
 contract Deploy is StoxDeploySuites, RainDeployBroadcast {
     function preDeployCheck(DeployDeclaration memory, DeploySuite memory suite, SupportedNetwork memory)
         internal
@@ -52,12 +54,13 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             }
         } else if (
             name == keccak256(bytes(RECEIPT_BEACON)) || name == keccak256(bytes(RECEIPT_VAULT_BEACON))
-                || name == keccak256(bytes(WRAPPED_TOKEN_VAULT_BEACON))
+                || name == keccak256(bytes(WRAPPED_TOKEN_VAULT_BEACON)) || name == keccak256(bytes(ORCHESTRATOR_BEACON))
         ) {
             address bound = LibStoxConfig.beaconInitialOwner();
             if (bound != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
+            checkGovernanceTimelock();
         } else {
             checkTokenSuites(name, tokenConfigs());
             checkTokenSuites(name, LibProdTokenConfig.testTokenConfigs());
@@ -116,6 +119,15 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         if (address(rbac.authorizer) != expectedAuthorizer) {
             revert RbacAuthorizerMismatch(rbacName, address(rbac.authorizer), expectedAuthorizer);
         }
+        checkGovernanceTimelock();
+    }
+
+    /// @notice Reverts unless the governance timelock that owns the beacons and token RBACs has its pinned code,
+    /// delay and roles, with the chain's pinned Safe address as proposer; the Safe's own policy is not checked here.
+    function checkGovernanceTimelock() internal view {
+        LibTimelockInvariants.assertTimelockState(
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, LibSafeInvariants.safeForChainId(block.chainid)
+        );
     }
 
     function boundAddress(bytes32 name) internal view returns (address) {
