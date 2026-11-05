@@ -19,6 +19,12 @@ on:
           # rule: its successor is
           # `manual-sol-artifacts.yaml` suite `stox-eu-assets-authoriser`, and
           # its run id is pinned beside `STOX_EU_AUTHORISER_CLONE`.
+          # `20260807-deploy-missing-tokens` was removed too: its successors
+          # are the `stox-token-*` suites in `manual-sol-artifacts.yaml`.
+          #
+          # An entry may also leave when its script is history-only: its
+          # `run()` refuses and the V5 backfill writes its root-line record.
+          # `20260813-execute-timelock-operations` left under that rule.
           #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # broadcast script under `script/`. Convention:

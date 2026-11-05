@@ -7,6 +7,7 @@ import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
+import {LibTestRenameBeacons} from "../../lib/LibTestRenameBeacons.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
@@ -594,26 +595,28 @@ contract LibTokenInvariantsAddressesTest is Test {
     }
 
     /// The LIVE counterpart of the frozen receipt-vault-beacon snapshot: at
-    /// Base HEAD the in-use receipt-vault beacon serves the 0.1.30 vault.
+    /// Base HEAD the in-use receipt-vault beacon serves the 0.1.30 vault, or
+    /// the rename's vault once Base runs the rename's beacon batch.
     function testProdReceiptVaultBeaconImplementationAddressAtBaseHead() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         assertEq(
             IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
-            "live STOX_RECEIPT_VAULT_BEACON_V1.implementation() is not the 0.1.30 receipt vault"
+            LibTestRenameBeacons.receiptVaultImplementation(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1),
+            "live STOX_RECEIPT_VAULT_BEACON_V1.implementation() is neither the 0.1.30 nor the rename receipt vault"
         );
     }
 
     /// The LIVE counterpart of the frozen wrapped-vault-beacon snapshot. The
     /// wrapped token vault did NOT ride the fleet upgrade, so at Base HEAD
-    /// this beacon still serves the audited 0.1.1 implementation — pinned
-    /// explicitly so a future upgrade has to be a deliberate edit here.
+    /// this beacon still serves the audited 0.1.1 implementation, or the
+    /// rename's wrapper once Base runs the rename's beacon batch. Both are
+    /// pinned, so any other upgrade has to be a deliberate edit here.
     function testProdWrappedTokenVaultBeaconImplementationAddressAtBaseHead() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         assertEq(
             IBeacon(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
-            "live STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.implementation() is not the 0.1.1 wrapped token vault"
+            LibTestRenameBeacons.wrappedTokenVaultImplementation(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1),
+            "live STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.implementation() is neither the 0.1.1 nor the rename wrapped token vault"
         );
     }
 

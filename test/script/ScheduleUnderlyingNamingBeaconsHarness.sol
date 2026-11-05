@@ -44,4 +44,8 @@ contract ScheduleUnderlyingNamingBeaconsHarness is ScheduleUnderlyingNamingBeaco
     function callAssertPostState() external view {
         assertPostState();
     }
+
+    function callProveExecution() external {
+        proveExecution();
+    }
 }
