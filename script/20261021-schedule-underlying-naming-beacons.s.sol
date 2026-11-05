@@ -18,9 +18,13 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {LibUnderlyingNamingRollout, UnderlyingNamingReleaseNotFrozen} from "../src/lib/LibUnderlyingNamingRollout.sol";
+import {
+    LibUnderlyingNamingRollout,
+    UnderlyingNamingBatchMoved,
+    UnderlyingNamingReleaseNotFrozen
+} from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, LineHeadMismatch, RecordMismatch} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice An implementation the beacon batch points a beacon at does not
 /// carry its pinned code on this chain. Deploy it first (rollout step 1).
@@ -140,16 +144,17 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The release is frozen, the Safe and timelock are the pinned ones,
+    /// @dev The root line is at this migration's `onto`, or the batch is being
+    /// rescheduled after a cancel (see `rescheduling`). The release is frozen,
+    /// the Safe and timelock are the pinned ones,
     /// the timelock owns the in-use beacons, the three implementations carry their pinned code, the
     /// beacons have not moved and still serve their pinned from-implementations,
-    /// the operation is not registered, and the root line is at this
-    /// migration's `onto`.
+    /// the operation is not registered, and its derived id is the pinned one.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), chainSafe);
+        if (!rescheduling()) LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), chainSafe);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
         assertDeployed(LibUnderlyingNamingRollout.FACET, LibUnderlyingNamingRollout.FACET_CODEHASH);
@@ -187,33 +192,62 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
         );
 
         bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
+        (bytes32 pinned,) = LibUnderlyingNamingRollout.pinnedOperationIds(block.chainid);
+        if (id != pinned) revert UnderlyingNamingBatchMoved(pinned, id);
         if (TimelockController(payable(timelock())).isOperation(id)) revert OperationAlreadyScheduled(id);
     }
 
+    /// @notice Whether this dispatch reschedules a cancelled beacon batch:
+    /// this migration's record is on the line, and the head is that record or
+    /// the rename schedule's (the Safe cancelled both batches in their delay).
+    /// The pre-flight still requires the batch not to be registered.
+    /// @return True when the bundle must schedule without a second record.
+    function rescheduling() internal view returns (bool) {
+        bytes32 head = LibStoxMigrations.head();
+        return LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS) != 0
+            && (head == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
+                || head == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
+    }
+
     /// @inheritdoc SafeBundleScript
-    /// @dev The schedule, then the record.
+    /// @dev The schedule, then the record. When rescheduling a cancelled
+    /// batch the record is already on the line, so the bundle is the schedule
+    /// alone.
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](2);
+        bool reschedule = rescheduling();
+        SafeTx[] memory txs = new SafeTx[](reschedule ? 1 : 2);
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
             data: LibUnderlyingNamingRollout.scheduleBeaconCalldata(block.chainid),
             operation: Enum.Operation.Call
         });
-        txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingBeaconsDeclaration());
+        if (!reschedule) txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingBeaconsDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Scheduled, pending and not ready inside the delay; the record is
-    /// this bundle's and heads the root line.
+    /// @dev Scheduled, pending and not ready inside the delay; this migration's record is on the root line, written by
+    /// this bundle or, on a reschedule, before it.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert OperationNotPendingInsideDelay(id);
         }
-        LibStoxMigrations.assertRecorded(scheduleUnderlyingNamingBeaconsDeclaration());
+        // A rescheduling bundle writes no record, so the record predates it.
+        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
+        // forge-lint: disable-next-line(block-timestamp)
+        if (record == 0 || record > block.timestamp) {
+            // forge-lint: disable-next-line(block-timestamp)
+            revert RecordMismatch(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS, block.timestamp, record);
+        }
+        bytes32 lineHead = LibStoxMigrations.head();
+        // forge-lint: disable-next-line(block-timestamp)
+        bool fresh = record == block.timestamp;
+        if (fresh ? lineHead != scheduleUnderlyingNamingBeaconsDeclaration().id : !rescheduling()) {
+            revert LineHeadMismatch(lineHead);
+        }
     }
 
     /// @inheritdoc SafeBundleScript

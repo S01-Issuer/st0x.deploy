@@ -88,8 +88,14 @@ abstract contract RootLineRecordScriptTest is Test {
         executeBundlePrefix(sScript.callAuthorBundle().length);
     }
 
+    /// @dev What the pre-flight raises with its own record at the head; empty when it passes there (a reschedule).
     function ownRecordPreflightRefusal() internal pure virtual returns (bytes memory) {
         return abi.encodeWithSelector(UnexpectedMigrationLine.selector, declaredId());
+    }
+
+    /// @dev Whether the post-state accepts its record from an earlier block, the state a reschedule leaves.
+    function acceptsAnEarlierRecord() internal pure virtual returns (bool) {
+        return false;
     }
 
     function assumeUnrecorded(bytes32 record) internal view {
@@ -119,7 +125,7 @@ abstract contract RootLineRecordScriptTest is Test {
     function assertPreflightRefusesTheLineMovedTo(bytes32 next, bytes memory refusal) internal {
         sScript.callPreflight();
         LibTestRootLine.write(vm, safeAddress(), next, declaredOnto());
-        vm.expectRevert(refusal);
+        if (refusal.length != 0) vm.expectRevert(refusal);
         sScript.callPreflight();
     }
 
@@ -173,7 +179,9 @@ abstract contract RootLineRecordScriptTest is Test {
         uint256 recorded = block.timestamp;
         vm.warp(recorded + later);
         restampAtThisMoment();
-        vm.expectRevert(abi.encodeWithSelector(RecordMismatch.selector, declaredId(), recorded + later, recorded));
+        if (!acceptsAnEarlierRecord()) {
+            vm.expectRevert(abi.encodeWithSelector(RecordMismatch.selector, declaredId(), recorded + later, recorded));
+        }
         sScript.callAssertPostState();
     }
 

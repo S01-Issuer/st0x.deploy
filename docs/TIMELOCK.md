@@ -321,9 +321,12 @@ sequence on a fork of each chain.
    `stox-corporate-actions-facet`, `stox-receipt-vault` and
    `stox-wrapped-token-vault` suites through `manual-sol-artifacts`. The beacon
    script's pre-flight checks each codehash against its pin before scheduling.
-   The PR that freezes the release (`RELEASE_FROZEN`) also pins each chain's
-   beacon and rename operation ids as literals. Each schedule script's Safe
-   bundle ends in its root-line record; no record rides in a timelock batch.
+   Each chain's beacon and rename operation ids are pinned
+   (`LibUnderlyingNamingRollout.pinnedOperationIds`). Once a chain's batch is
+   scheduled, its pins and the rows and constants they hash must not change: a
+   changed batch needs a new salt and a new script, not a re-pin. Each schedule
+   script's first Safe bundle ends in its root-line record (a reschedule after a
+   cancel is the schedule alone); no record rides in a timelock batch.
 2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
    one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
    beacon, then its in-use receipt-vault beacon
@@ -333,15 +336,32 @@ sequence on a fork of each chain.
    likewise rejects an implementation with no code. A reverted `executeBatch`
    rolls back and leaves the operation Ready with its delay spent: deploy what
    is missing and execute the same batch again. A new delay is needed only if
-   the operation is cancelled or its arguments change. The wrapper keeps its
-   current name and symbol while the vault has no underlying set. The
-   orchestrator's vault-logic lock reads the 0.1.30 beacon-set deployer's
-   beacons, not the in-use ones, so it does not cover this upgrade: minting and
-   burning keep running across it (the Base fork test mints and burns through
-   the live orchestrator after the batch); the orchestrator admin move still
-   comes first on the root line (step 0). It also means the lock does not watch
-   the logic production tokens run; pointing it at the in-use beacons is a
-   separate orchestrator change.
+   the operation is cancelled or its arguments change. To reschedule a batch the
+   Safe cancelled, dispatch its schedule script again: its record is already on
+   the root line, so it authors the schedule alone and the line does not move.
+   If both batches were cancelled, reschedule the beacon batch first, then the
+   rename. Both pre-flights refuse unless the derived operation id equals the
+   pinned one (`LibUnderlyingNamingRollout.pinnedOperationIds`). A reschedule is
+   valid only for an unchanged batch the Safe cancelled to pause this rollout,
+   never for one cancelled under the stale-batch rule below; before signing it,
+   check that no other beacon upgrade is pending. A rescheduling bundle is one
+   call, which the Safe UI proposes as a direct call rather than the `MultiSend`
+   that `verify` hashes: compare the call's target and data with the artifact
+   instead of the `SafeTxHash`. To halt the rollout while the beacon batch is
+   pending, cancel both: a rename left pending becomes executable again as soon
+   as a rescheduled beacon batch executes. Cancel the rename first, in its own
+   Safe transaction, then the beacon batch in another: in one bundle, a beacon
+   batch that executes while signatures are collected makes its `cancel` revert
+   and rolls back the rename's cancel too. The rollout is halted only once the
+   rename operation reads unset. Once the beacon batch is Done, `cancel` reverts
+   on it, so cancel the rename alone. The wrapper keeps its current name and
+   symbol while the vault has no underlying set. The orchestrator's vault-logic
+   lock reads the 0.1.30 beacon-set deployer's beacons, not the in-use ones, so
+   it does not cover this upgrade: minting and burning keep running across it
+   (the Base fork test mints and burns through the live orchestrator after the
+   batch); the orchestrator admin move still comes first on the root line (step
+   0). It also means the lock does not watch the logic production tokens run;
+   pointing it at the in-use beacons is a separate orchestrator change.
 
    The pre-flight also requires each beacon to still serve the implementation
    the batch moves it from (`RECEIPT_VAULT_FROM_IMPLEMENTATION`,
@@ -350,7 +370,9 @@ sequence on a fork of each chain.
    any other upgrade of a chain's receipt-vault or wrapper beacon, it must
    `cancel` that chain's pending beacon batch and its rename batch. Otherwise
    the stale batch stays Ready after its delay and anyone can execute it later,
-   which rolls the beacons back to this rollout's implementations.
+   which rolls the beacons back to this rollout's implementations. After such a
+   cancel the rollout resumes only through a reviewed change onto the new
+   from-implementations, not a reschedule.
 3. Schedule the rename batch (`20261021-schedule-underlying-naming-rename`): one
    `scheduleBatch` of `setUnderlying(ticker, underlyingName)` on every
    production vault, with the beacon batch as its predecessor, so the timelock
