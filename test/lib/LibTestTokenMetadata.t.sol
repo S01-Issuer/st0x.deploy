@@ -16,7 +16,8 @@ contract LibTestTokenMetadataTest is Test {
             name: "NVIDIA Corporation ST0x",
             symbol: "tNVDA",
             region: Region.US,
-            underlyingName: "NVIDIA Corporation"
+            underlyingName: "NVIDIA Corporation",
+            assetId: ""
         });
     }
 

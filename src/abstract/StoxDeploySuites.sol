@@ -110,7 +110,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        addTokenSuites(declared, LibProdTokenConfig.productionTokenConfigs());
+        // `addRegistryBeaconProxies` refuses an empty list.
+        if (tokenConfigs().length > 0) addTokenSuites(declared, tokenConfigs());
         addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;
@@ -339,6 +340,13 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibCloneCandidates.addRegistryBeaconProxies(declared, wrapperSuites(configs));
     }
 
+    /// The production rows that get a token suite: those with a non-empty asset id.
+    /// @return The rows.
+    function tokenConfigs() internal pure returns (TokenConfig[] memory) {
+        return LibProdTokenConfig.v6TokenConfigs();
+    }
+
+    /// One registry beacon proxy suite per row, keyed `TOKEN_PREFIX` + the lowercased `symbol`.
     function tokenSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](params.length);

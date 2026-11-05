@@ -36,6 +36,10 @@ import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxM
 
 import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
+import {IStoxAssetIdV1} from "../../src/interface/IStoxAssetIdV1.sol";
+import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
+import {StoxCorporateActionsFacet} from "../../src/concrete/StoxCorporateActionsFacet.sol";
+import {AssetIdNotInitializing} from "../../src/error/ErrAssetId.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
@@ -281,6 +285,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         execution.execute();
         assertTrue(controller.isOperationDone(renameId), string.concat(network, ": rename executed"));
         rename.callAssertRenamed(chainId);
+        assertLiveTokensHaveNoAssetId(chainId);
 
         vm.expectPartialRevert(NoUnderlyingNamingOperationReady.selector);
         execution.execute();
@@ -291,6 +296,18 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
             string.concat(network, ": line at the execution")
         );
+    }
+
+    /// @notice After the beacon batch every live vault and wrapper reports no asset id, and every live vault refuses
+    /// `initializeAssetId` with `AssetIdNotInitializing`.
+    function assertLiveTokensHaveNoAssetId(uint256 chainId) internal {
+        TokenInstance[] memory live = LibUnderlyingNamingRollout.tokens(chainId);
+        for (uint256 i = 0; i < live.length; i++) {
+            assertEq(IStoxAssetIdV1(live[i].receiptVault).assetId(), "", live[i].underlying);
+            assertEq(StoxWrappedTokenVault(live[i].wrappedTokenVault).assetId(), "", live[i].underlying);
+            vm.expectRevert(AssetIdNotInitializing.selector);
+            StoxCorporateActionsFacet(live[i].receiptVault).initializeAssetId("");
+        }
     }
 
     /// @notice Logs the gas the rename batch's `executeBatch` alone takes, on a

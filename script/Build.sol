@@ -155,8 +155,8 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genTokenProxy() internal {
-        RegistryBeaconProxyParams memory params =
-            LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs())[0];
+        // The proxy runtime code ignores a row's init data and salt, so it is built without a row.
+        RegistryBeaconProxyParams memory params = LibProdTokenParams.proxyParams("", bytes32(0));
         // The generated vault beacon constant is from the previous compile.
         params.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(

@@ -83,7 +83,7 @@ contract StoxReceiptVaultInitializeTest is Test {
     }
 
     function _data() internal pure returns (bytes memory) {
-        return LibTestDeploy.vaultData("Test tStock", "tTEST", AUTHORITY, RBAC_NAME);
+        return LibTestDeploy.vaultData("ST0XTEST", AUTHORITY, RBAC_NAME);
     }
 
     /// The RBAC's authorizer and owner are installed, replacing the vault
@@ -204,9 +204,12 @@ contract StoxReceiptVaultInitializeTest is Test {
 
     /// The receipt's `uri` is vats' receipt JSON with the off-chain asset
     /// named, where the generic receipt reads `asset()` at `address(0)`.
+    /// The token is initialized nameless, so its receipt names it once the
+    /// owner has set the underlying.
     function testReceiptUriNamesTheOffchainAsset() external {
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
-        StoxReceipt receipt = StoxReceipt(address(LibTestDeploy.newVault(AUTHORITY, _data()).receipt()));
+        StoxReceipt receipt =
+            StoxReceipt(address(LibTestDeploy.newNamedVault(vm, AUTHORITY, _data(), OWNER, "TEST", "Test").receipt()));
         assertEq(
             receipt.uri(0),
             string.concat(

@@ -321,6 +321,35 @@ that beacon to serve `LibProdDeployCurrent.STOX_RECEIPT`, so upgrading the
 orchestrator to it needs a receipt-beacon upgrade first, or every token halts
 mint and burn. The live 0.1.30 orchestrator does not check the in-use beacons.
 
+After the beacon batch, every new vault on a beacon that serves this
+implementation must be initialized nameless with an asset id (RAI-4373): its
+`initialize` reverts unless the config's name and symbol are empty and its
+metadata is `LibAssetId.encodeMetadata(assetId)` with a non-empty id. The hook
+is init-only, so live tokens are unaffected and report `assetId() == ""`.
+
+**V6 listings are deployed nameless.** A V6 token's address commits to its asset
+id, region, authority and beacon names, not to its name or symbol. It deploys
+with an empty name and symbol. Its owner is the RBAC owner of its region, which
+`Deploy.preDeployCheck` requires to be the Zoltu-deployed
+`LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` (not the per-Safe timelocks that
+own the live tokens). That timelock names it later with
+`setUnderlying(ticker, underlyingName)`, so the first `setUnderlying` of each V6
+token is an operation on that timelock with the 48h delay. The naming-rollout
+scripts cover only the live rows, so a schedule and execute script with the
+`MalformedUnderlying` shape checks must exist before the first V6 row ships.
+Rollout rule: do not publish a V6 token to the st0x.registry, activate it in the
+bots, or trade it until its first `setUnderlying` has executed and its `name()`
+and `symbol()` read back as expected. Until then the vault reports `""` / `""`
+and the wrapper `"Wrapped "` / `"w"`, which the liquidity parser does not
+accept. A token's address commits to the vault beacon name, not to the
+implementation the beacon serves, so `VAULT_BEACON_NAME` must only ever resolve
+to a beacon that serves an implementation with the asset id hook and the
+`assetId()` getter. `Deploy.preDeployCheck` refuses a token suite unless the
+bound vault beacon serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll
+a V6 vault beacon back to an implementation without the hook: the asset ids are
+public, so any undeployed pinned row could then be deployed with no asset id,
+forever.
+
 Execute each matured batch with `20261021-execute-underlying-naming` `execute()`
 from the CI deploy key, one operation per dispatch. On HyperEVM the rename batch
 needs more gas than a small block holds, so enable big blocks for the deploy key

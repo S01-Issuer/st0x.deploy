@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {RainDeployBroadcast} from "rain-deploy-0.1.30/src/abstract/RainDeployBroadcast.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
@@ -19,12 +20,14 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenCo
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {BeaconImplementationMismatch} from "../src/lib/LibBeaconInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
 error WrapperBeaconMismatch(address bound, address expected);
+error VaultBeaconNotDeployed(address beacon);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
 error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 
@@ -56,7 +59,7 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
         } else {
-            checkTokenSuites(name, LibProdTokenConfig.productionTokenConfigs());
+            checkTokenSuites(name, tokenConfigs());
             checkTokenSuites(name, LibProdTokenConfig.testTokenConfigs());
         }
     }
@@ -86,6 +89,12 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         address vaultBeacon = boundAddress(LibStoxConfig.VAULT_BEACON_NAME);
         if (vaultBeacon != LibProdTokenParams.vaultBeacon()) {
             revert VaultBeaconMismatch(vaultBeacon, LibProdTokenParams.vaultBeacon());
+        }
+        // A token's address commits to the beacon name, so the beacon must serve the hook-carrying implementation.
+        if (vaultBeacon.code.length == 0) revert VaultBeaconNotDeployed(vaultBeacon);
+        address implementation = IBeacon(vaultBeacon).implementation();
+        if (implementation != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
+            revert BeaconImplementationMismatch(vaultBeacon, LibProdDeployCurrent.STOX_RECEIPT_VAULT, implementation);
         }
         address receiptBeacon = boundAddress(LibStoxConfig.RECEIPT_BEACON_NAME);
         if (receiptBeacon != LibProdDeployCurrent.STOX_RECEIPT_BEACON) {
