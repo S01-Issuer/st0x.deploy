@@ -28,6 +28,7 @@ on:
           # pins record what landed) — this dropdown is a registry of *which*
           # scripts exist, not *whether* they've run.
           - 20261021-execute-underlying-naming
+          - 20261105-execute-v6-first-rename
       network:
         description: 'Network to broadcast against (default: base)'
         required: true

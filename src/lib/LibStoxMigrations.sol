@@ -97,6 +97,12 @@ library LibStoxMigrations {
     bytes32 internal constant HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK =
         keccak256("script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol");
 
+    /// @notice `script/20261105-schedule-v6-first-rename.s.sol`.
+    bytes32 internal constant SCHEDULE_V6_FIRST_RENAME = keccak256("script/20261105-schedule-v6-first-rename.s.sol");
+
+    /// @notice `script/20261105-execute-v6-first-rename.s.sol`.
+    bytes32 internal constant EXECUTE_V6_FIRST_RENAME = keccak256("script/20261105-execute-v6-first-rename.s.sol");
+
     /// @notice What `declared` is recorded after on the root line.
     /// @param declared The declaration.
     /// @return The prerequisites.
