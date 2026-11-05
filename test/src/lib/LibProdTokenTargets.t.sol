@@ -27,10 +27,16 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdT
 import {LibProdTokenTargets} from "../../../src/lib/LibProdTokenTargets.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {IStoxAssetIdV1} from "../../../src/interface/IStoxAssetIdV1.sol";
+import {LibAssetId} from "../../../src/lib/LibAssetId.sol";
+import {EmptyAssetId} from "../../../src/error/ErrAssetId.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
+import {LibTestTokenConfigs} from "../../lib/LibTestTokenConfigs.sol";
+import {LibStoxTestTokens} from "../../../src/lib/LibStoxTestTokens.sol";
 
 /// @title LibProdTokenTargetsTest
-/// @notice One V8 registry beacon proxy per production token row; each row's deploy step lands its token.
+/// @notice One V8 registry beacon proxy per V6 token row (a row with an asset id); each row's deploy step lands its
+/// nameless token. The per-row tests run over the production V6 rows and the test tokens.
 contract LibProdTokenTargetsTest is Test {
     address internal constant US_OWNER = address(uint160(uint256(keccak256("st0x.test.token-targets.us-owner"))));
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.token-targets.eu-owner"))));
@@ -45,8 +51,8 @@ contract LibProdTokenTargetsTest is Test {
     }
 
     function testEachTargetIsARegistryBeaconProxyOfItsRowOverTheRootVaultBeacon() external pure {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
+        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets(configs);
         assertEq(targets.length, configs.length, "one target per row");
         for (uint256 i = 0; i < targets.length; i++) {
             assertEq(targets[i].factory, CLONE_FACTORY_V8_ADDRESS, configs[i].underlying);
@@ -54,20 +60,20 @@ contract LibProdTokenTargetsTest is Test {
             assertEq(targets[i].authority, LibStoxConfig.ROOT_AUTHORITY, configs[i].underlying);
             assertEq(targets[i].beaconName, LibStoxConfig.VAULT_BEACON_NAME, configs[i].underlying);
             assertEq(targets[i].beacon, LibProdTokenTargets.vaultBeacon(), configs[i].underlying);
-            assertEq(targets[i].salt, keccak256(bytes(configs[i].underlying)), configs[i].underlying);
+            assertEq(targets[i].salt, keccak256(bytes(configs[i].assetId)), configs[i].underlying);
         }
     }
 
     function testEachTargetDataIsTheCanonicalV3ConfigOfItsRow() external pure {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
+        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets(configs);
         for (uint256 i = 0; i < targets.length; i++) {
             (bytes32 tag, OffchainAssetReceiptVaultConfigV3 memory config) =
                 abi.decode(targets[i].data, (bytes32, OffchainAssetReceiptVaultConfigV3));
             assertEq(abi.encode(tag, config), targets[i].data, "canonical");
             assertEq(tag, OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG, "tag");
-            assertEq(config.name, configs[i].name, "name");
-            assertEq(config.symbol, configs[i].symbol, "symbol");
+            assertEq(config.name, "", "name");
+            assertEq(config.symbol, "", "symbol");
             assertEq(config.authority, LibStoxConfig.ROOT_AUTHORITY, "authority");
             assertEq(
                 config.rbacName,
@@ -75,12 +81,13 @@ contract LibProdTokenTargetsTest is Test {
                 "rbac name"
             );
             assertEq(config.receiptBeaconName, LibStoxConfig.RECEIPT_BEACON_NAME, "receipt beacon name");
-            assertEq(config.metadata, "", "metadata");
+            assertEq(config.metadata, LibAssetId.encodeMetadata(configs[i].assetId), "metadata");
         }
     }
 
     function testEveryRowLandsAtItsOwnAddress() external pure {
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+        RegistryBeaconProxyTarget[] memory targets =
+            LibProdTokenTargets.tokenTargets(LibTestTokenConfigs.v6AndTestTokenConfigs());
         for (uint256 i = 0; i < targets.length; i++) {
             address proxy = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(targets[i]);
             for (uint256 j = 0; j < i; j++) {
@@ -90,12 +97,13 @@ contract LibProdTokenTargetsTest is Test {
     }
 
     function testTargetsAreTheSameOnEveryDeploymentNetwork() external {
-        bytes memory baseline = abi.encode(LibProdTokenTargets.tokenTargets());
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
+        bytes memory baseline = abi.encode(LibProdTokenTargets.tokenTargets(configs));
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 n = 0; n < networks.length; n++) {
             vm.chainId(networks[n].chainId);
-            assertEq(abi.encode(LibProdTokenTargets.tokenTargets()), baseline, networks[n].name);
+            assertEq(abi.encode(LibProdTokenTargets.tokenTargets(configs)), baseline, networks[n].name);
         }
     }
 
@@ -115,8 +123,8 @@ contract LibProdTokenTargetsTest is Test {
         (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) =
             LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
 
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
+        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets(configs);
         for (uint256 i = 0; i < targets.length; i++) {
             address deployed = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(
                 vm, "base", DEPLOYER, abi.encode(targets[i])
@@ -128,10 +136,66 @@ contract LibProdTokenTargetsTest is Test {
 
             StoxReceiptVault token = StoxReceiptVault(payable(deployed));
             bool us = configs[i].region == Region.US;
-            assertEq(token.name(), configs[i].name, "name");
-            assertEq(token.symbol(), configs[i].symbol, "symbol");
+            assertEq(token.name(), "", "name");
+            assertEq(token.symbol(), "", "symbol");
+            assertEq(IStoxAssetIdV1(deployed).assetId(), configs[i].assetId, "asset id");
             assertEq(token.owner(), us ? US_OWNER : EU_OWNER, "owner");
             assertEq(address(token.authorizer()), address(us ? usAuthorizer : euAuthorizer), "authorizer");
         }
+    }
+
+    /// A row's name, symbol, underlying and underlying name are not part of its token's address.
+    function testAddressDependsOnlyOnAssetIdAndRegion(
+        string memory underlying,
+        string memory name,
+        string memory symbol,
+        string memory underlyingName
+    ) external pure {
+        TokenConfig[] memory configs = LibStoxTestTokens.testTokenConfigs();
+        for (uint256 i = 0; i < configs.length; i++) {
+            TokenConfig memory renamed = TokenConfig({
+                underlying: underlying,
+                name: name,
+                symbol: symbol,
+                region: configs[i].region,
+                underlyingName: underlyingName,
+                assetId: configs[i].assetId
+            });
+            assertEq(
+                LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(
+                    LibProdTokenTargets.tokenTarget(renamed)
+                ),
+                LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(
+                    LibProdTokenTargets.tokenTarget(configs[i])
+                ),
+                configs[i].underlying
+            );
+        }
+    }
+
+    /// The same asset id in two regions is two tokens: the region is part of the address.
+    function testSameAssetIdInEachRegionLandsAtItsOwnAddress(string memory assetId) external pure {
+        TokenConfig memory us = LibStoxTestTokens.testTokenConfigs()[0];
+        TokenConfig memory eu = LibStoxTestTokens.testTokenConfigs()[1];
+        us.assetId = assetId;
+        eu.assetId = assetId;
+        assertNotEq(
+            LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(LibProdTokenTargets.tokenTarget(us)),
+            LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(LibProdTokenTargets.tokenTarget(eu))
+        );
+    }
+
+    /// A row with an empty asset id cannot deploy: the vault refuses the empty id.
+    function testRowWithoutAssetIdCannotDeploy() external {
+        LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
+        TokenConfig memory config = LibProdTokenConfig.productionTokenConfigs()[0];
+        assertEq(config.assetId, "", "production rows have no asset id yet");
+        RegistryBeaconProxyTarget memory target = LibProdTokenTargets.tokenTarget(config);
+        vm.expectRevert(EmptyAssetId.selector);
+        this.externalDeployStep(target);
+    }
+
+    function externalDeployStep(RegistryBeaconProxyTarget memory target) external returns (address) {
+        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(vm, "base", DEPLOYER, abi.encode(target));
     }
 }

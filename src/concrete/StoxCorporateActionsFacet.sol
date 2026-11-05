@@ -18,7 +18,10 @@ import {
 import {LibStockSplit} from "../lib/LibStockSplit.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.18/src/abstract/OffchainAssetReceiptVault.sol";
+import {
+    OffchainAssetReceiptVault,
+    UnknownConfigVersion
+} from "rain-vats-0.2.18/src/abstract/OffchainAssetReceiptVault.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
@@ -26,6 +29,19 @@ import {IOwnable} from "../interface/IOwnable.sol";
 import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying.sol";
+import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
+import {
+    OffchainAssetReceiptVaultConfigV3,
+    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
+} from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
+import {IStoxAssetIdV1} from "../interface/IStoxAssetIdV1.sol";
+import {LibAssetId, ASSET_ID_INITIALIZED} from "../lib/LibAssetId.sol";
+import {
+    AssetIdAlreadySet,
+    AssetIdNotInitializing,
+    NonEmptyInitialName,
+    NonEmptyInitialSymbol
+} from "../error/ErrAssetId.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
@@ -42,10 +58,15 @@ import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying
 /// Corporate-action storage lives at the ERC-7201 namespace
 /// `rain.storage.corporate-action.1` (see `LibCorporateAction`). The facet
 /// also implements `IStoxUnderlyingV1`, whose ticker and name live at
-/// `rain.storage.underlying.1` (see `LibUnderlying`). Any future external
-/// entry points added here (e.g. list traversal) must also carry
-/// `onlyDelegatecalled`.
-contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
+/// `rain.storage.underlying.1` (see `LibUnderlying`), and `IStoxAssetIdV1`,
+/// whose asset id lives at `rain.storage.asset-id.1` (see `LibAssetId`). Any
+/// future external entry points added here (e.g. list traversal) must also
+/// carry `onlyDelegatecalled`.
+///
+/// The facet inherits OZ `Initializable` only to read the vault's
+/// `_isInitializing()` flag, which lives at OZ's ERC-7201 slot, under
+/// delegatecall. It declares no state of its own.
+contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IStoxAssetIdV1, Initializable {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -245,6 +266,50 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
         ERC20Upgradeable.ERC20Storage storage erc20Storage = LibERC20Storage.getStorage();
         erc20Storage._symbol = string.concat("t", newSymbol);
         erc20Storage._name = string.concat(newName, ST0X_NAME_SUFFIX);
+    }
+
+    /// @inheritdoc IStoxAssetIdV1
+    function assetId() external view override onlyDelegatecalled returns (string memory) {
+        return LibAssetId.getStorage().assetId;
+    }
+
+    /// @notice Stores the vault's asset id. Init-only: the vault calls it from
+    /// its `_initialize` hook, by delegatecall, while the vault's `initialize`
+    /// runs. It is not part of the vault's public surface.
+    /// @dev `data` is the vault's own `initialize(bytes)` argument,
+    /// `abi.encode(OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG, config)`: the
+    /// vault forwards its `initialize` calldata with the selector swapped. This
+    /// relies on `_initialize` being reached only from `initialize`, which
+    /// holds in rain-vats 0.2.18. rain-vats has already checked that these
+    /// exact bytes are the canonical encoding.
+    ///
+    /// Reverts with `AssetIdNotInitializing` outside `initialize`. The OZ
+    /// `_initializing` flag is true only inside the single `initialize` of a
+    /// fresh proxy: the vault implementation calls `_disableInitializers()`
+    /// and has no `reinitializer`. So every vault initialized before this
+    /// facet existed returns "" from `assetId()` forever. A future
+    /// `reinitializer` in the vault would reopen this window; write-once still
+    /// protects a vault that has an id.
+    ///
+    /// Reverts with `NonEmptyInitialName` / `NonEmptyInitialSymbol` unless the
+    /// config's name and symbol are empty, so a vault's address does not
+    /// commit to them. The owner sets them later with `setUnderlying`.
+    /// Reverts with `AssetIdAlreadySet` when an id is already stored.
+    /// @param data The vault's `initialize` argument.
+    /// @return `ASSET_ID_INITIALIZED`.
+    function initializeAssetId(bytes calldata data) external onlyDelegatecalled returns (bytes32) {
+        if (!_isInitializing()) revert AssetIdNotInitializing();
+        (bytes32 tag, OffchainAssetReceiptVaultConfigV3 memory config) =
+            abi.decode(data, (bytes32, OffchainAssetReceiptVaultConfigV3));
+        if (tag != OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG) revert UnknownConfigVersion(tag);
+        if (bytes(config.name).length != 0) revert NonEmptyInitialName();
+        if (bytes(config.symbol).length != 0) revert NonEmptyInitialSymbol();
+        string memory id = LibAssetId.decodeMetadata(config.metadata);
+        LibAssetId.AssetIdStorage storage s = LibAssetId.getStorage();
+        if (bytes(s.assetId).length != 0) revert AssetIdAlreadySet();
+        s.assetId = id;
+        emit AssetIdSet(msg.sender, id);
+        return ASSET_ID_INITIALIZED;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

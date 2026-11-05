@@ -19,4 +19,10 @@ library LibTestTokenConfigs {
         }
         return configs;
     }
+
+    /// The production rows with an asset id, then the test tokens: every row
+    /// that declares a token suite.
+    function v6AndTestTokenConfigs() internal pure returns (TokenConfig[] memory) {
+        return LibProdTokenConfig.withAssetId(productionAndTestTokenConfigs());
+    }
 }

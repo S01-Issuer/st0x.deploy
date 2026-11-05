@@ -23,6 +23,7 @@ import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol
 import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenTargets} from "../../src/lib/LibProdTokenTargets.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
+import {BeaconImplementationMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxTestTokens} from "../../src/lib/LibStoxTestTokens.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {LibTestTokenConfigs} from "../lib/LibTestTokenConfigs.sol";
@@ -34,6 +35,15 @@ contract DeployTokenBindingsTest is Test {
     function setUp() external {
         harness = new DeployPreDeployCheckHarness();
         LibTestDeploy.etchConfigRegistry(vm);
+        placeVaultBeacon(LibProdDeployCurrent.STOX_RECEIPT_VAULT);
+    }
+
+    /// The pinned vault beacon, serving `implementation`.
+    function placeVaultBeacon(address implementation) internal {
+        if (implementation.code.length == 0) {
+            vm.etch(implementation, hex"00");
+        }
+        LibTestDeploy.placeBeacon(vm, LibProdTokenTargets.vaultBeacon(), implementation, address(this));
     }
 
     function bindAddress(bytes32 name, address value) internal {
@@ -80,7 +90,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseUnboundVaultBeacon() external {
-        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -99,7 +109,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseUnboundReceiptBeacon() external {
-        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         bindAddress(LibStoxConfig.VAULT_BEACON_NAME, LibProdTokenTargets.vaultBeacon());
@@ -119,7 +129,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseUnboundRegionRbac() external {
-        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         bindPinnedBeacons();
@@ -138,10 +148,9 @@ contract DeployTokenBindingsTest is Test {
         }
     }
 
-    /// One production token per region, then every test token.
+    /// One V6 row per region, from the production V6 rows and the test tokens.
     function oneRowPerRegion(uint256 usSeed, uint256 euSeed) internal pure returns (TokenConfig[] memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        TokenConfig[] memory test = LibStoxTestTokens.testTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
         uint256 usCount = 0;
         for (uint256 i = 0; i < configs.length; i++) {
             if (configs[i].region == Region.US) {
@@ -150,7 +159,7 @@ contract DeployTokenBindingsTest is Test {
         }
         uint256 usPick = bound(usSeed, 0, usCount - 1);
         uint256 euPick = bound(euSeed, 0, configs.length - usCount - 1);
-        TokenConfig[] memory sample = new TokenConfig[](2 + test.length);
+        TokenConfig[] memory sample = new TokenConfig[](2);
         uint256 usSeen = 0;
         uint256 euSeen = 0;
         for (uint256 i = 0; i < configs.length; i++) {
@@ -161,9 +170,6 @@ contract DeployTokenBindingsTest is Test {
             } else if (euSeen++ == euPick) {
                 sample[1] = configs[i];
             }
-        }
-        for (uint256 i = 0; i < test.length; i++) {
-            sample[2 + i] = test[i];
         }
         return sample;
     }
@@ -258,7 +264,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseOtherRegionAuthoriser() external {
-        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -292,7 +298,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensIgnoreOtherRegionRbac() external {
-        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -308,7 +314,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensAcceptPinnedBindings() external {
-        TokenConfig[] memory configs = LibTestTokenConfigs.productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenConfigs.v6AndTestTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -375,6 +381,72 @@ contract DeployTokenBindingsTest is Test {
             for (uint256 j = 0; j < wrappers.length; j++) {
                 harness.exposedPreDeployCheck(wrappers[j], networks[i]);
             }
+        }
+    }
+
+    /// The token's address commits to the beacon name, not the implementation, so a pinned beacon serving any
+    /// implementation but the current receipt vault, which carries the asset id hook, is refused.
+    function testTokensRefuseVaultBeaconServingOtherImplementation(
+        address implementation,
+        uint256 usSeed,
+        uint256 euSeed
+    ) external {
+        vm.assume(implementation != LibProdDeployCurrent.STOX_RECEIPT_VAULT);
+        assumeNotPrecompile(implementation);
+        assumeNotForgeAddress(implementation);
+        vm.assume(implementation != LibProdTokenTargets.vaultBeacon());
+        vm.assume(implementation != address(harness));
+        vm.assume(implementation.code.length == 0);
+        placeVaultBeacon(implementation);
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(oneRowPerRegion(usSeed, euSeed));
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            bindPinned(networks[i].chainId);
+            for (uint256 j = 0; j < tokens.length; j++) {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        BeaconImplementationMismatch.selector,
+                        LibProdTokenTargets.vaultBeacon(),
+                        LibProdDeployCurrent.STOX_RECEIPT_VAULT,
+                        implementation
+                    )
+                );
+                harness.exposedPreDeployCheck(tokens[j], networks[i]);
+            }
+        }
+    }
+
+    /// A pinned vault beacon that is bound but has no code on the chain fails closed: reading its implementation
+    /// reverts. On chain the revert has no data, cause Solidity checks for code first. Forge with traces on
+    /// (`forge test -vvv`, as CI runs it) reports its own error for a call to an account with no code, so any revert
+    /// is accepted here.
+    function testTokensRefuseABoundVaultBeaconWithNoCode() external {
+        vm.etch(LibProdTokenTargets.vaultBeacon(), "");
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibStoxTestTokens.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            bindPinned(networks[i].chainId);
+            for (uint256 j = 0; j < tokens.length; j++) {
+                vm.expectRevert();
+                harness.exposedPreDeployCheck(tokens[j], networks[i]);
+            }
+        }
+    }
+
+    /// A production row without an asset id has no token suite, so its key matches no token check: with nothing
+    /// bound, the check passes instead of reverting on an unbound name.
+    function testRowsWithoutAssetIdMatchNoTokenCheck() external view {
+        TokenConfig[] memory production = LibProdTokenConfig.productionTokenConfigs();
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        for (uint256 j = 0; j < production.length; j++) {
+            if (bytes(production[j].assetId).length != 0) {
+                continue;
+            }
+            DeploySuite memory suite;
+            suite.suite = string.concat("stox-token-", vm.toLowercase(production[j].symbol));
+            harness.exposedPreDeployCheck(suite, networks[0]);
         }
     }
 }
