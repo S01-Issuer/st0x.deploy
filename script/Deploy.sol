@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {RainDeployBroadcast} from "rain-deploy-0.1.30/src/abstract/RainDeployBroadcast.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 import {
     LibOffchainAssetReceiptVaultRbac,
@@ -14,11 +15,12 @@ import {
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
+import {Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxTestTokens} from "../src/lib/LibStoxTestTokens.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {BeaconImplementationMismatch} from "../src/lib/LibBeaconInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
@@ -56,7 +58,7 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
         } else {
-            TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+            TokenConfig[] memory configs = tokenConfigs();
             for (uint256 i = 0; i < configs.length; i++) {
                 if (name == keccak256(bytes(string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol))))) {
                     checkToken(configs[i].region);
@@ -85,6 +87,13 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         address vaultBeacon = boundAddress(LibStoxConfig.VAULT_BEACON_NAME);
         if (vaultBeacon != LibProdTokenTargets.vaultBeacon()) {
             revert VaultBeaconMismatch(vaultBeacon, LibProdTokenTargets.vaultBeacon());
+        }
+        // A token's address commits to the beacon name, not the implementation,
+        // so a token deployed while the beacon serves an implementation without
+        // the asset id hook would never get an asset id.
+        address implementation = IBeacon(vaultBeacon).implementation();
+        if (implementation != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
+            revert BeaconImplementationMismatch(vaultBeacon, LibProdDeployCurrent.STOX_RECEIPT_VAULT, implementation);
         }
         address receiptBeacon = boundAddress(LibStoxConfig.RECEIPT_BEACON_NAME);
         if (receiptBeacon != LibProdDeployCurrent.STOX_RECEIPT_BEACON) {

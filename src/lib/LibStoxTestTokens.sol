@@ -25,15 +25,28 @@ import {LibStoxConfig} from "./LibStoxConfig.sol";
 /// @notice One test token per region, each a registry beacon proxy over the
 /// bound vault beacon, with a wrapper that is a registry beacon proxy over the
 /// bound wrapper beacon. Neither address commits to the chain or the beacon, so
-/// each lands at the same address on every chain.
+/// each lands at the same address on every chain. Each row has a synthetic
+/// asset id that cannot collide with an ISIN, and both the token and the
+/// wrapper are salted by it, so neither address moves when the name, symbol
+/// or ticker changes.
 library LibStoxTestTokens {
     function testTokenConfigs() internal pure returns (TokenConfig[] memory) {
         TokenConfig[] memory configs = new TokenConfig[](2);
         configs[0] = TokenConfig({
-            underlying: "USTEST", name: "US Test ST0x", symbol: "tUSTEST", region: Region.US, underlyingName: ""
+            underlying: "USTEST",
+            name: "US Test ST0x",
+            symbol: "tUSTEST",
+            region: Region.US,
+            underlyingName: "US Test",
+            assetId: "ST0XTESTUS"
         });
         configs[1] = TokenConfig({
-            underlying: "EUTEST", name: "EU Test ST0x", symbol: "tEUTEST", region: Region.EU, underlyingName: ""
+            underlying: "EUTEST",
+            name: "EU Test ST0x",
+            symbol: "tEUTEST",
+            region: Region.EU,
+            underlyingName: "EU Test",
+            assetId: "ST0XTESTEU"
         });
         return configs;
     }
@@ -55,7 +68,7 @@ library LibStoxTestTokens {
             beaconName: LibStoxConfig.WRAPPER_BEACON_NAME,
             beacon: wrapperBeacon(),
             data: abi.encode(tokenAddress(config)),
-            salt: keccak256(bytes(config.underlying))
+            salt: keccak256(bytes(config.assetId))
         });
     }
 

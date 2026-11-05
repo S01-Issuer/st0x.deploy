@@ -20,6 +20,7 @@ import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
+import {IStoxAssetIdV1} from "../../../src/interface/IStoxAssetIdV1.sol";
 import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
@@ -27,7 +28,8 @@ import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
 
 /// @title StoxDeploySuitesTestTokenSuitesTest
 /// @notice The US and EU test tokens and their wrappers are registry beacon proxy suites that land at their stored
-/// addresses on every network this repo deploys to.
+/// addresses on every network this repo deploys to. Each token deploys nameless with its asset id, and its wrapper is
+/// salted by that asset id.
 contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
     address internal constant US_OWNER = address(uint160(uint256(keccak256("st0x.test.test-token-suites.us-owner"))));
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.test-token-suites.eu-owner"))));
@@ -37,15 +39,14 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
 
     struct ExpectedTestToken {
         string key;
-        string name;
-        string symbol;
+        string assetId;
         bool us;
     }
 
     function expectedTestTokens() internal pure returns (ExpectedTestToken[] memory) {
         ExpectedTestToken[] memory tokens = new ExpectedTestToken[](2);
-        tokens[0] = ExpectedTestToken({key: "stox-token-tustest", name: "US Test ST0x", symbol: "tUSTEST", us: true});
-        tokens[1] = ExpectedTestToken({key: "stox-token-teutest", name: "EU Test ST0x", symbol: "tEUTEST", us: false});
+        tokens[0] = ExpectedTestToken({key: "stox-token-tustest", assetId: "ST0XTESTUS", us: true});
+        tokens[1] = ExpectedTestToken({key: "stox-token-teutest", assetId: "ST0XTESTEU", us: false});
         return tokens;
     }
 
@@ -99,6 +100,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
             assertEq(target.beaconName, LibStoxConfig.WRAPPER_BEACON_NAME, wrapper.suite);
             assertEq(target.beacon, V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE, wrapper.suite);
             assertEq(target.data, abi.encode(token.storedDeployedAddress), wrapper.suite);
+            assertEq(target.salt, keccak256(bytes(tokens[i].assetId)), wrapper.suite);
             assertTrue(wrapper.storedDeployedAddress != token.storedDeployedAddress, wrapper.suite);
         }
     }
@@ -173,8 +175,9 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
         string memory network
     ) internal view {
         string memory label = string.concat(expected.key, " on ", network);
-        assertEq(token.name(), expected.name, label);
-        assertEq(token.symbol(), expected.symbol, label);
+        assertEq(token.name(), "", label);
+        assertEq(token.symbol(), "", label);
+        assertEq(IStoxAssetIdV1(address(token)).assetId(), expected.assetId, label);
         assertEq(token.owner(), expected.us ? US_OWNER : EU_OWNER, label);
         assertEq(address(token.authorizer()), address(authorizer), label);
         address receipt = address(token.receipt());
@@ -214,6 +217,11 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
                 assertEq(
                     StoxWrappedTokenVault(wrapper).asset(),
                     token,
+                    string.concat(wrapperKey(tokens[j]), " on ", networks[i].name)
+                );
+                assertEq(
+                    StoxWrappedTokenVault(wrapper).assetId(),
+                    tokens[j].assetId,
                     string.concat(wrapperKey(tokens[j]), " on ", networks[i].name)
                 );
             }

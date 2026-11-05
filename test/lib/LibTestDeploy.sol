@@ -31,6 +31,8 @@ import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
+import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
+import {LibAssetId} from "../../src/lib/LibAssetId.sol";
 
 /// @title LibTestDeploy
 /// @notice The production token set on the local EVM: the candidate
@@ -160,9 +162,11 @@ library LibTestDeploy {
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS).registerV5(authority, name, valueType, value, "");
     }
 
-    /// The init data of a vault named `name`, `symbol`, resolving its RBAC from
-    /// `rbacName` under `authority`, with its receipt from `LibStoxConfig.RECEIPT_BEACON_NAME`.
-    function vaultData(string memory name, string memory symbol, address authority, bytes32 rbacName)
+    /// The init data of a nameless vault with asset id `assetId`, resolving its
+    /// RBAC from `rbacName` under `authority`, with its receipt from
+    /// `LibStoxConfig.RECEIPT_BEACON_NAME`. The vault rejects any init with a
+    /// name or symbol; `newNamedVault` sets them after deploy.
+    function vaultData(string memory assetId, address authority, bytes32 rbacName)
         internal
         pure
         returns (bytes memory)
@@ -170,13 +174,29 @@ library LibTestDeploy {
         return abi.encode(
             OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
             OffchainAssetReceiptVaultConfigV3({
-                name: name,
-                symbol: symbol,
+                name: "",
+                symbol: "",
                 authority: authority,
                 rbacName: rbacName,
                 receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,
-                metadata: ""
+                metadata: LibAssetId.encodeMetadata(assetId)
             })
         );
+    }
+
+    /// `newVault`, then `owner` sets its underlying `ticker` and `underlyingName`,
+    /// so it reports "t" + `ticker` and `underlyingName` + " (ST0x)".
+    function newNamedVault(
+        Vm vm,
+        address authority,
+        bytes memory data,
+        address owner,
+        string memory ticker,
+        string memory underlyingName
+    ) internal returns (StoxReceiptVault) {
+        StoxReceiptVault vault = newVault(authority, data);
+        vm.prank(owner);
+        IStoxUnderlyingV1(address(vault)).setUnderlying(ticker, underlyingName);
+        return vault;
     }
 }

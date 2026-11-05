@@ -106,7 +106,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites());
+        // `addRegistryBeaconProxies` refuses an empty list, and no production
+        // row has an asset id yet.
+        RegistryBeaconProxyDeploy[] memory tokens = tokenSuites();
+        if (tokens.length > 0) {
+            LibCloneCandidates.addRegistryBeaconProxies(declared, tokens);
+        }
         LibCloneCandidates.addRegistryBeaconProxies(declared, testTokenSuites());
         return declared;
     }
@@ -309,9 +314,20 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return string(out);
     }
 
+    /// The rows that get a token suite: the production rows with a non-empty
+    /// asset id. `tokenSuites` and `Deploy.preDeployCheck` both read this, so
+    /// they cannot drift.
+    /// @return The rows.
+    function tokenConfigs() internal pure returns (TokenConfig[] memory) {
+        return LibProdTokenConfig.v6TokenConfigs();
+    }
+
+    /// One registry beacon proxy suite per `tokenConfigs()` row, keyed
+    /// `TOKEN_PREFIX` + the lowercased `symbol`. A released row's `symbol`
+    /// never changes, so a released key stays frozen.
     function tokenSuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+        TokenConfig[] memory configs = tokenConfigs();
+        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets(configs);
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](targets.length);
         for (uint256 i = 0; i < targets.length; i++) {
             suites[i] = RegistryBeaconProxyDeploy({
