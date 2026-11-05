@@ -30,6 +30,16 @@ error NoUnderlyingNamingOperationReady(bytes32 beaconId, bool beaconDone, bytes3
 /// @param id The operation id.
 error UnderlyingNamingOperationNotDone(bytes32 id);
 
+/// @notice This script's declaration on the root line: after the rename schedule.
+/// @return The declaration.
+function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration memory) {
+    return ScriptDeclaration({
+        id: LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
+        onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
+        history: false
+    });
+}
+
 /// @title ExecuteUnderlyingNaming
 /// @notice Executes the next ready underlying-naming operation on the active
 /// chain from the CI deploy key, which holds no role: the beacon batch if it is
@@ -50,8 +60,8 @@ error UnderlyingNamingOperationNotDone(bytes32 id);
 /// `script = 20261021-execute-underlying-naming` per chain.
 contract ExecuteUnderlyingNaming is Script, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return LibStoxMigrations.notAMigration();
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
+        return executeUnderlyingNamingDeclaration();
     }
 
     /// @notice Execute the next ready rollout operation.

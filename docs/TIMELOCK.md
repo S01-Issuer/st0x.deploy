@@ -236,9 +236,8 @@ sequence on a fork of each chain.
    `stox-wrapped-token-vault` suites through `manual-sol-artifacts`. The beacon
    script's pre-flight checks each codehash against its pin before scheduling.
    The PR that freezes the release (`RELEASE_FROZEN`) also pins each chain's
-   beacon and rename operation ids as literals, and declares both schedule
-   scripts as timelock-written migrations that record themselves as the last
-   call of each batch.
+   beacon and rename operation ids as literals. Each schedule script's Safe
+   bundle ends in its root-line record; no record rides in a timelock batch.
 2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
    one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
    beacon, then its in-use receipt-vault beacon
@@ -328,11 +327,11 @@ by the Safe in `rain-deploy`'s `MigrationRegistry` (`LibStoxMigrations`), and
 records imply:
 
 1. `20261006-grant-orchestrator-emergency` — the Safe takes `EMERGENCY_ROLE`
-   while it still administers the orchestrator directly, and records the
-   governance-timelock migration (as history) and the grant.
+   while it still administers the orchestrator directly; it ran before V5, so
+   the backfill records it as history on the root line.
 2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
-   the Safe to the timelock, recorded onto the grant, so the registry refuses it
-   on a chain where step 1 has not executed.
+   the Safe to the timelock, recorded on the root line after step 1, so the
+   registry refuses it on a chain where step 1 has not executed.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over

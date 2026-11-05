@@ -5,9 +5,10 @@ pragma solidity =0.8.25;
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {BackfillMigrationRegistryV5} from "../../script/20261030-backfill-migration-registry-v5.s.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
-/// @dev Exposes the script's hooks, with a per-instance artifact path because
-/// tests run in parallel.
+/// @dev Exposes the script's hooks and the scripts it reads each record from,
+/// with a per-instance artifact path because tests run in parallel.
 contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
     string internal sArtifactTag;
 
@@ -40,5 +41,16 @@ contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
 
     function callAssertPostState() external view {
         assertPostState();
+    }
+
+    function scriptOf(bytes32 id) external view returns (address) {
+        if (id == LibStoxMigrations.MULTISIG_THRESHOLD) return MULTISIG_THRESHOLD_SCRIPT;
+        if (id == LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE) return REHEARSAL_SCHEDULE_SCRIPT;
+        if (id == LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL) return REHEARSAL_CANCEL_SCRIPT;
+        if (id == LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS) return EXECUTE_TIMELOCK_OPERATIONS_SCRIPT;
+        if (id == LibStoxMigrations.GOVERNANCE_TIMELOCK) return GOVERNANCE_TIMELOCK_SCRIPT;
+        if (id == LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES) return EU_AUTHORISER_SCRIPT;
+        if (id == LibStoxMigrations.ORCHESTRATOR_EMERGENCY) return ORCHESTRATOR_EMERGENCY_SCRIPT;
+        return address(0);
     }
 }
