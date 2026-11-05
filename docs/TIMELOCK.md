@@ -193,6 +193,11 @@ new migration.
 
 ## Rehearsing the timelock
 
+**History.** This section records how the rehearsal ran. Its three scripts are
+now history-only: they are off the `run-script` and `manual-broadcast` lists,
+their `run()` reverts, and the V5 backfill writes their records on the root
+line. To rehearse again, add a new dated rehearsal.
+
 The timelock can be exercised end-to-end BEFORE any governance is handed to it,
 so signers see the real loop before it controls anything. The rehearsed
 operation is `timelock.updateDelay(TIMELOCK_MIN_DELAY)` — re-setting the delay
@@ -302,6 +307,15 @@ sequence on a fork of each chain.
    comes first on the root line (step 0). It also means the lock does not watch
    the logic production tokens run; pointing it at the in-use beacons is a
    separate orchestrator change.
+
+   The pre-flight also requires each beacon to still serve the implementation
+   the batch moves it from (`RECEIPT_VAULT_FROM_IMPLEMENTATION`,
+   `WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION`), owned by the chain's timelock,
+   with the pinned beacon codehash. **Stale batches:** before the Safe schedules
+   any other upgrade of a chain's receipt-vault or wrapper beacon, it must
+   `cancel` that chain's pending beacon batch and its rename batch. Otherwise
+   the stale batch stays Ready after its delay and anyone can execute it later,
+   which rolls the beacons back to this rollout's implementations.
 3. Schedule the rename batch (`20261021-schedule-underlying-naming-rename`): one
    `scheduleBatch` of `setUnderlying(ticker, underlyingName)` on every
    production vault, with the beacon batch as its predecessor, so the timelock
@@ -333,9 +347,9 @@ sequence on a fork of each chain.
 After the beacon batch, the in-use receipt-vault beacon serves a vault that
 initializes only from the ConfigRegistry (rain-vats 0.2.12, config V3). The
 deployers that make a `BeaconProxy` on that beacon with a V2 config (the 0.1.1
-unified deployer behind `20260807-deploy-missing-tokens`, and Base's V1
-beacon-set path) then revert `UnknownConfigVersion`. New listings must move to
-the V6 factory path of the registry release before step 2 runs on a chain.
+unified deployer, whose broadcast script is deleted, and Base's V1 beacon-set
+path) then revert `UnknownConfigVersion`. New listings must move to the V6
+factory path of the registry release before step 2 runs on a chain.
 
 The beacon batch leaves the chain's receipt beacon on its current
 implementation. The current-source orchestrator's vault-logic check requires
@@ -391,7 +405,26 @@ forever.
 Execute each matured batch with `20261021-execute-underlying-naming` from the CI
 deploy key, one operation per dispatch. On HyperEVM the rename batch needs more
 gas than a small block holds, so enable big blocks for the deploy key
-(`manual-hyperevm-big-blocks`) before executing it there.
+(`manual-hyperevm-big-blocks`) before executing it there. After the rename batch
+executes, the Safe signs `run-script`
+`records/20261021-record-execute-underlying-naming`. It writes the execution's
+record, and until it lands the root line stays at the rename schedule and every
+later migration on that chain refuses.
+
+**Root-line order.** Every script is a migration on the root line, and each one
+sits onto exactly one predecessor. On each chain the naming rollout runs only
+after these have landed, in this order: the V5 backfill
+(`20261030-backfill-migration-registry-v5`), the orchestrator admin move
+(`20261006-orchestrator-admin-to-timelock`), and the Safe-owned Base vault
+handover (`20261103-hand-safe-owned-base-vaults-to-timelock`). Then come the
+beacon schedule, the rename schedule, the execution and its record, and then the
+V6 first rename. While the rollout is in flight (two 48h delays), no other
+migration can land on that chain. An urgent migration in that window needs a new
+script declared onto the current head, and a reviewed PR that re-declares the
+remaining naming scripts onto it. Do not sign main's older V5 bundles of the
+backfill or the admin move: they record on the Safe's own V5 line, which the
+root line does not read, so the admin move would become invisible and could not
+be replayed.
 
 ## Invariants
 

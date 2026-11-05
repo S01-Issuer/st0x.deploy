@@ -16,6 +16,7 @@ import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
+import {LibTestRenameBeacons} from "../../../lib/LibTestRenameBeacons.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../../src/lib/LibProdTokenConfig.sol";
 import {LibTestTokenMetadata} from "../../../lib/LibTestTokenMetadata.sol";
@@ -470,10 +471,12 @@ contract StoxCrossChainParityTest is Test {
             // (`20260825-upgrade-fleet-to-0-1-30`) put behind every chain's
             // in-use beacons, NOT `LibProdDeployCurrent`: the current tag
             // tracks the latest BUILD, which is never a deploy target. When
-            // a beacon upgrade moves production, these pins move with it.
+            // a beacon upgrade moves production, these pins move with it. The
+            // rename's beacon batch runs per chain, so the receipt-vault
+            // beacon accepts either side of it.
             assertEq(
                 IBeacon(beacon).implementation(),
-                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
+                LibTestRenameBeacons.receiptVaultImplementation(beacon),
                 string.concat(label, " in-use receipt-vault beacon implementation()")
             );
             assertEq(
@@ -537,14 +540,19 @@ contract StoxCrossChainParityTest is Test {
             );
         }
         if (base.tokenLegLive && other.tokenLegLive) {
-            assertEq(
-                other.beaconImpl, base.beaconImpl, string.concat("receipt-vault beacon impl diverges cross-chain", tag)
+            // Chains run the rename's beacon batch at different times, so the
+            // two sides may sit at different pinned steps of it.
+            assertTrue(
+                LibTestRenameBeacons.receiptVaultImplementationsAgree(other.beaconImpl, base.beaconImpl),
+                string.concat("receipt-vault beacon impl diverges cross-chain", tag)
             );
-            assertEq(
-                other.beaconImplCodehash,
-                base.beaconImplCodehash,
-                string.concat("receipt-vault beacon impl codehash diverges cross-chain", tag)
-            );
+            if (other.beaconImpl == base.beaconImpl) {
+                assertEq(
+                    other.beaconImplCodehash,
+                    base.beaconImplCodehash,
+                    string.concat("receipt-vault beacon impl codehash diverges cross-chain", tag)
+                );
+            }
             assertEq(
                 other.receiptBeaconImpl,
                 base.receiptBeaconImpl,
