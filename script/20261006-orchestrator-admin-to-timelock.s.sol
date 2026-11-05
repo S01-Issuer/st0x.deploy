@@ -17,14 +17,9 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {backfillMigrationRegistryV5Declaration} from "./20261030-backfill-migration-registry-v5.s.sol";
 
-/// @notice The Safe's line in the migration registry is not at the V5
-/// backfill's record, which this migration is applied onto: the backfill
-/// has not executed on this chain, this bundle already has, or another
-/// Safe-recorded migration has landed after it. In the last case this move
-/// can never apply onto the line as written and has to be re-authored onto
-/// the new head.
+/// @notice The root line is not at the migration-registry-v5 backfill record,
+/// which this migration is applied onto.
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
 
@@ -35,7 +30,7 @@ error UnexpectedMigrationLine(bytes32 head);
 /// @param actual The moment the registry answers.
 error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 
-/// @notice After the bundle, the Safe's line does not end at this script's
+/// @notice After the bundle, the root line does not end at this script's
 /// record.
 /// @param head The line's head.
 error LineHeadMismatch(bytes32 head);
@@ -69,16 +64,15 @@ error GrantReadyInsideDelay(bytes32 operationId);
 /// @param operationId The timelock operation.
 error ScheduledGrantNotExecuted(bytes32 operationId);
 
-/// @notice This script's declaration: the Safe's record after the V5
-/// backfill.
+/// @notice This script's declaration on the root line, after the
+/// backfill record.
 /// @return The declaration.
 function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        backfillMigrationRegistryV5Declaration().id,
-        false
-    );
+    return ScriptDeclaration({
+        id: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
+        history: false
+    });
 }
 
 /// @title OrchestratorAdminToTimelock
@@ -88,8 +82,8 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 ///
 /// 1. `orchestrator.grantRole(DEFAULT_ADMIN, timelock)`.
 /// 2. `orchestrator.renounceRole(DEFAULT_ADMIN, safe)`.
-/// 3. `registry.applyMigrationV5(safe, ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-///    [20261030-backfill-migration-registry-v5])`.
+/// 3. `registry.applyMigrationV5(ROOT_AUTHORITY, NAMESPACE,
+///    ORCHESTRATOR_ADMIN_TO_TIMELOCK, [BACKFILL_MIGRATION_REGISTRY_V5])`.
 ///
 /// `DEFAULT_ADMIN_ROLE` administers `MINT_ROLE`, `BURN_ROLE` and
 /// `EMERGENCY_ROLE` on the audited 0.1.30 orchestrator, so after this every
@@ -98,10 +92,10 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// burning and emergency recovery are not delayed. A holder can still
 /// `renounceRole` itself immediately.
 ///
-/// The record is applied onto the V5 backfill's, which carries the EMERGENCY
-/// grant's, so the registry refuses it on a chain where that grant has not
-/// executed: the Safe must be granted `EMERGENCY_ROLE` while it can still do
-/// so directly.
+/// The record is applied onto the migration-registry-v5 backfill record, which
+/// follows the EMERGENCY grant's, so the registry refuses it on a chain where
+/// that grant has not executed: the Safe must be granted `EMERGENCY_ROLE` while
+/// it can still do so directly.
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a
@@ -150,7 +144,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// `20261006-grant-orchestrator-emergency` has executed there.
 contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return orchestratorAdminToTimelockDeclaration();
     }
 
@@ -194,8 +188,8 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
         LibOrchestratorInvariants.assertBeaconSet();
 
-        bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != orchestratorAdminToTimelockDeclaration().prerequisites[0].migration) {
+        bytes32 head = LibStoxMigrations.head();
+        if (head != orchestratorAdminToTimelockDeclaration().onto) {
             revert UnexpectedMigrationLine(head);
         }
         assertHolds(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe);
@@ -229,7 +223,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
             operation: Enum.Operation.Call
         });
         (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(orchestratorAdminToTimelockDeclaration(), chainSafe, timelock());
+            LibStoxMigrations.recordCall(orchestratorAdminToTimelockDeclaration());
         txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
         return txs;
     }
@@ -242,13 +236,13 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
         address chainSafe = address(safe());
         // The registry stamps the block the record lands in, which on the
         // fork is this block: an equality with a known value, not a window.
-        uint256 record = LibStoxMigrations.applied(chainSafe, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
         // forge-lint: disable-next-line(block-timestamp)
         if (record != block.timestamp) {
             // forge-lint: disable-next-line(block-timestamp)
             revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, block.timestamp, record);
         }
-        bytes32 head = LibStoxMigrations.head(chainSafe);
+        bytes32 head = LibStoxMigrations.head();
         if (head != orchestratorAdminToTimelockDeclaration().id) {
             revert LineHeadMismatch(head);
         }
