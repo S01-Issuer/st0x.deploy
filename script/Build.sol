@@ -17,6 +17,7 @@ import {
 } from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
+import {LibStoxTestTokens} from "../src/lib/LibStoxTestTokens.sol";
 import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
@@ -135,6 +136,7 @@ contract Build is Script, StoxDeploySuites {
         genProdLibs();
         genReleasedLibs(candidates);
         genTokenProxy();
+        genWrapperProxy();
     }
 
     function genTokenProxy() internal {
@@ -152,6 +154,23 @@ contract Build is Script, StoxDeploySuites {
             string.concat('    bytes constant RUNTIME_CODE = hex"', vm.replace(vm.toString(code), "0x", ""), '";')
         );
         vm.writeLine(GEN_TOKEN_PROXY_PATH, "}");
+    }
+
+    function genWrapperProxy() internal {
+        bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
+            Vm(address(vm)),
+            LibStoxTestTokens.wrapperTarget(LibStoxTestTokens.testTokenConfigs()[0]),
+            V4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE,
+            V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_CANDIDATE
+        );
+        writeGeneratedHeader(GEN_WRAPPER_PROXY_PATH);
+        vm.writeLine(GEN_WRAPPER_PROXY_PATH, "");
+        vm.writeLine(GEN_WRAPPER_PROXY_PATH, "library LibStoxWrapperProxy {");
+        vm.writeLine(
+            GEN_WRAPPER_PROXY_PATH,
+            string.concat('    bytes constant RUNTIME_CODE = hex"', vm.replace(vm.toString(code), "0x", ""), '";')
+        );
+        vm.writeLine(GEN_WRAPPER_PROXY_PATH, "}");
     }
 
     /// @notice Writes `src/generated/St0xAttestSubParserPointers.sol`. The
@@ -229,6 +248,7 @@ contract Build is Script, StoxDeploySuites {
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
     string constant GEN_TOKEN_PROXY_PATH = "src/generated/LibStoxTokenProxy.sol";
+    string constant GEN_WRAPPER_PROXY_PATH = "src/generated/LibStoxWrapperProxy.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
     // REUSE-IgnoreStart  (the two SPDX lines below are the header EMITTED into
