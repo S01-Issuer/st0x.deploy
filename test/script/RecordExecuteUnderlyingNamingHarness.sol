@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
-import {RecordExecuteUnderlyingNaming} from "../../script/20261021-execute-underlying-naming.s.sol";
+import {RecordExecuteUnderlyingNaming} from "../../script/records/20261021-record-execute-underlying-naming.s.sol";
 
 /// @dev Exposes the script's hooks and gives each test its own artifact path.
 contract RecordExecuteUnderlyingNamingHarness is RecordExecuteUnderlyingNaming {

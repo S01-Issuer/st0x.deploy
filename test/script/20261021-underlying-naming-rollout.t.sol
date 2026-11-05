@@ -23,12 +23,14 @@ import {
     ExecuteUnderlyingNaming,
     NoUnderlyingNamingOperationReady,
     UnderlyingNamingExecutorHoldsRole,
+    executeUnderlyingNamingDeclaration
+} from "../../script/20261021-execute-underlying-naming.s.sol";
+import {
     UnderlyingNamingNotExecuted,
     ExecuteUnderlyingNamingRecorded,
     ExecuteUnderlyingNamingUnexpectedMigrationLine,
-    ExecuteUnderlyingNamingRecordMismatch,
-    executeUnderlyingNamingDeclaration
-} from "../../script/20261021-execute-underlying-naming.s.sol";
+    ExecuteUnderlyingNamingRecordMismatch
+} from "../../script/records/20261021-record-execute-underlying-naming.s.sol";
 import {
     ScheduleUnderlyingNamingBeacons,
     ImplementationNotDeployed,
