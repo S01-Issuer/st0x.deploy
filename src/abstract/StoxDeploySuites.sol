@@ -110,8 +110,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        // `addRegistryBeaconProxies` refuses an empty list.
-        if (tokenConfigs().length > 0) addTokenSuites(declared, tokenConfigs());
+        addTokenSuites(declared, tokenConfigs());
         addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;

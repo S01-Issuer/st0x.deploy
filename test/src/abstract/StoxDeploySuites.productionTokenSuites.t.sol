@@ -13,8 +13,7 @@ import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConf
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 
 /// @title StoxDeploySuitesProductionTokenSuitesTest
-/// @notice The production declaration has a token suite for each V6 row and each test token only: a production row
-/// with an empty asset id has none.
+/// @notice The production declaration has a token suite for each V6 row and each test token only.
 contract StoxDeploySuitesProductionTokenSuitesTest is Test, StoxDeploySuites {
     function testOnlyV6RowsAreDeclaredTokenSuites() external view {
         DeployDeclaration memory declared = declaration();
@@ -30,12 +29,20 @@ contract StoxDeploySuitesProductionTokenSuitesTest is Test, StoxDeploySuites {
             }
         }
         assertEq(count, v6.length + LibProdTokenConfig.testTokenConfigs().length, "one suite per V6 and test row");
-        TokenConfig[] memory production = LibProdTokenConfig.productionTokenConfigs();
-        for (uint256 i = 0; i < production.length; i++) {
-            if (bytes(production[i].assetId).length == 0) {
-                (, bool found) = candidateOf(declared, string.concat(TOKEN_PREFIX, lowercase(production[i].symbol)));
-                assertFalse(found, production[i].underlying);
-            }
+        for (uint256 i = 0; i < v6.length; i++) {
+            (, bool found) = candidateOf(declared, string.concat(TOKEN_PREFIX, lowercase(v6[i].symbol)));
+            assertTrue(found, v6[i].underlying);
+        }
+    }
+
+    /// A row with an empty asset id gets no token suite, whatever the live table holds.
+    function testRowWithoutAssetIdGetsNoTokenSuite() external pure {
+        TokenConfig[] memory rows = LibProdTokenConfig.productionTokenConfigs();
+        rows[0].assetId = "";
+        TokenConfig[] memory v6 = LibProdTokenConfig.withAssetId(rows);
+        assertEq(v6.length, rows.length - 1, "one row dropped");
+        for (uint256 i = 0; i < v6.length; i++) {
+            assertNotEq(keccak256(bytes(v6[i].underlying)), keccak256(bytes(rows[0].underlying)), v6[i].underlying);
         }
     }
 }
