@@ -298,8 +298,13 @@ sequence on a fork of each chain.
    likewise rejects an implementation with no code. A reverted `executeBatch`
    rolls back and leaves the operation Ready with its delay spent: deploy what
    is missing and execute the same batch again. A new delay is needed only if
-   the operation is cancelled or its arguments change. The wrapper keeps its
-   current name and symbol while the vault has no underlying set. The
+   the operation is cancelled or its arguments change. To reschedule a batch the
+   Safe cancelled, dispatch its schedule script again: its record is already on
+   the root line, so it authors the schedule alone and the line does not move.
+   If both batches were cancelled, reschedule the beacon batch first, then the
+   rename. To halt the rollout, cancel both: a rename left pending becomes
+   executable again as soon as a rescheduled beacon batch executes. The wrapper
+   keeps its current name and symbol while the vault has no underlying set. The
    orchestrator's vault-logic lock reads the 0.1.30 beacon-set deployer's
    beacons, not the in-use ones, so it does not cover this upgrade: minting and
    burning keep running across it (the Base fork test mints and burns through
