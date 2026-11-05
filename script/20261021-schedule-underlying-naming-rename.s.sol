@@ -47,13 +47,11 @@ error RenamedMetadataMismatch(address token, string expected, string actual);
 /// @param head The line's head.
 error ScheduleRenameUnexpectedMigrationLine(bytes32 head);
 
-/// @notice After the bundle this migration's record is not stamped at the
-/// fork's block.
-/// @param expected The fork's block timestamp.
-/// @param actual The recorded moment.
-error ScheduleRenameRecordMismatch(uint256 expected, uint256 actual);
+/// @notice After the bundle this migration's record is not on the root line.
+error ScheduleRenameRecordMissing();
 
-/// @notice After the bundle the root line's head is not this migration.
+/// @notice After the bundle the root line's head is not this migration's
+/// record.
 /// @param head The line's head.
 error ScheduleRenameLineHeadMismatch(bytes32 head);
 
@@ -74,7 +72,8 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// `TokenConfig.underlying` and name from `TokenConfig.underlyingName`. Two
 /// Safe calls: `timelock.scheduleBatch(...)`, with the beacon batch as
 /// predecessor so the timelock refuses to execute the rename first, then the
-/// Safe's root-line record.
+/// Safe's root-line record; or the schedule alone when rescheduling a
+/// cancelled batch.
 ///
 /// **The pre-flight refuses until
 /// `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set**, which
@@ -137,8 +136,7 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     /// is frozen, the downstream services accept the new
     /// symbols, every row is well formed, the Safe and timelock are the pinned ones,
     /// the beacon batch is registered, the rename batch is not, every ticker
-    /// is bound to its vault, the timelock owns every vault, and the root
-    /// line is at this migration's `onto`.
+    /// is bound to its vault, and the timelock owns every vault.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         if (!downstreamReady()) revert DownstreamNotReadyForRename();
@@ -192,23 +190,19 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Scheduled, pending and not ready inside the delay; the record is
-    /// this bundle's and heads the root line.
+    /// @dev Scheduled, pending and not ready inside the delay; this
+    /// migration's record heads the root line, written by this bundle or, on a
+    /// reschedule, before it.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibUnderlyingNamingRollout.renameOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert RenameNotPendingInsideDelay(id);
         }
-        // The registry stamps the block the record lands in, which on the
-        // fork is this block.
+        // A first schedule writes the record in this bundle; a reschedule
+        // finds it already on the line.
         uint256 record = LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
-        // A rescheduling bundle writes no record, so the record predates it.
-        // forge-lint: disable-next-line(block-timestamp)
-        if (record == 0 || record > block.timestamp) {
-            // forge-lint: disable-next-line(block-timestamp)
-            revert ScheduleRenameRecordMismatch(block.timestamp, record);
-        }
+        if (record == 0) revert ScheduleRenameRecordMissing();
         bytes32 head = LibStoxMigrations.head();
         if (head != scheduleUnderlyingNamingRenameDeclaration().id) {
             revert ScheduleRenameLineHeadMismatch(head);

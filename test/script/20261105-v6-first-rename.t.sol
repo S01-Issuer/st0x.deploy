@@ -86,11 +86,7 @@ contract V6FirstRenameTest is V6ReleaseBaseFork {
     /// The batch the table derives is the one this migration froze. A row edit fails here, so it needs a new dated
     /// script instead of moving a batch that may already be scheduled.
     function testOperationIdIsFrozen() external pure {
-        assertEq(
-            LibV6FirstRename.operationId(LibProdTokenConfig.v6TokenConfigs()),
-            LibV6FirstRename.OPERATION_ID,
-            "frozen batch"
-        );
+        assertEq(LibV6FirstRename.operationId(LibV6FirstRename.rows()), LibV6FirstRename.OPERATION_ID, "frozen batch");
     }
 
     /// The execution migration sits onto the schedule, which sits onto the live tokens' execution.

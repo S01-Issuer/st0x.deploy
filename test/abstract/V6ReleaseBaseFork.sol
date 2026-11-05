@@ -24,20 +24,24 @@ import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {DeployPreDeployCheckHarness} from "../script/DeployPreDeployCheckHarness.sol";
 
 /// @title V6ReleaseBaseFork
-/// @notice A Base head fork with the release the V6 path needs. Nothing of the V6 path is live on Base yet, so this
+/// @notice A Base fork, pinned before any V6 deploy, with the release the V6 path needs. Nothing of the V6 path is live there, so this
 /// does what the release does: it binds each registry name the root authority has not bound (the timelock's proposer
 /// is the Base Safe, the beacon owner and RBAC owner are the governance timelock, the authorisers are the live ones)
 /// and dispatches the timelock, implementation, beacon and token suites, each through the real `Deploy` pre-flight.
 /// It never overrides a live binding or redeploys live code.
 abstract contract V6ReleaseBaseFork is Test, StoxDeploySuites {
+    /// A Base block from before any V6 binding or deploy, so the fixture keeps
+    /// working once the release lands and the V6 tokens are named on Base.
+    uint256 internal constant BASE_BLOCK = 53585734;
+
     address internal constant DEPLOYER = address(uint160(uint256(keccak256("st0x.test.v6-tokens-base-fork.deployer"))));
 
     DeployPreDeployCheckHarness internal harness;
     SupportedNetwork internal base;
 
-    /// Selects a Base head fork and the harness that runs the real `Deploy` pre-flight.
+    /// Selects the pinned Base fork and the harness that runs the real `Deploy` pre-flight.
     function forkBase() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.createSelectFork(LibRainDeploy.BASE, BASE_BLOCK);
         harness = new DeployPreDeployCheckHarness();
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -64,7 +68,7 @@ abstract contract V6ReleaseBaseFork is Test, StoxDeploySuites {
         if (isBound(name)) {
             return;
         }
-        vm.warp(block.timestamp + 1);
+        vm.warp(vm.getBlockTimestamp() + 1);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS).registerV5(LibStoxConfig.ROOT_AUTHORITY, name, valueType, value, "");
     }
