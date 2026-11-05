@@ -445,6 +445,39 @@ chains added later.
   `nameListing` call alone. Check Multicall3's code on a chain before its first
   listing.
 
+**The V6 listing.** `LibV6Listing.ROOT` lists the leading 59 production V6 rows
+(`LibV6Listing.ROW_COUNT`) and the two test tokens. It is frozen: an edit to
+those rows refuses (`V6ListingMoved`). `script/BuildListing.sol` writes
+`listing.json`, which `Git is clean` checks: the root, the EIP-712 digest to
+sign, and per row the token, asset id, ticker, name, leaf, proof and the factory
+call that deploys the token (`deployTo`, `deployData`). A row added later goes
+into a new listing root with its own signature; the frozen root keeps naming its
+rows. Once the listing signer is bound on a chain:
+
+1. Signing, once for every chain: the signer maps each row of `listing.json` to
+   `[token, assetId, ticker, name]`, in that order, and rebuilds the root with
+   OpenZeppelin's
+   `StandardMerkleTree.of(rows, ["address","string","string","string"])`. It
+   checks each asset id, ticker and name against the st0x.registry entry of the
+   live token with that asset id, and the five rows sourced from issuers (IBHG,
+   RKLB, BIRD, SNES and DIS) and the two test rows against `LibProdTokenConfig`.
+   It checks each token address by deriving it from the asset id with the token
+   params, not from the registry, which lists no V6 token before it is named. It
+   computes the digest from that root (domain name `ST0x Listing`, version `1`,
+   no chain id and no verifying contract; struct `Listing(bytes32 root)`),
+   checks it equals the `digest` of `listing.json`, and signs it with the
+   listing key. The signature is `r || s || v` with a low `s` and `v` 27 or 28,
+   and it is kept in the repository next to `ROOT`, with a test that it recovers
+   to the signer.
+2. Per token: check that the signature recovers to the signer bound on the
+   chain, run the token suite's pre-flight as a dry run, then from any account
+   send Multicall3 `aggregate3` with the row's `deployTo`/`deployData` call and
+   its `nameListing(assetId, ticker, name, proof, root, signature)` call, both
+   with `allowFailure = false`. If the token already has code, send the
+   `nameListing` call alone.
+3. Check that `assetId()` is the row's asset id, `symbol()` is `"t"` + ticker,
+   and `name()` is the name + `" (ST0x)"`.
+
 Execute each matured batch with `20261021-execute-underlying-naming` `execute()`
 from the CI deploy key, one operation per dispatch. On HyperEVM the rename batch
 needs more gas than a small block holds, so enable big blocks for the deploy key

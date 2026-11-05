@@ -175,9 +175,16 @@ abstract contract V6ReleaseBaseFork is Test, StoxDeploySuites {
     /// the signed listing in one `aggregate3`, in its own call frame: the declaration is large and memory is only freed
     /// when a frame returns.
     function deployAndNameRow(uint256 index) external returns (address) {
-        TokenConfig memory config = LibProdTokenConfig.productionTokenConfigs()[index];
+        return deployAndName(LibProdTokenConfig.productionTokenConfigs()[index], listing(), index);
+    }
+
+    /// `config`'s token suite, through the fork checks and the pre-flight, deployed and named from row `index` of
+    /// `listed`, signed by the test listing signer, in one `aggregate3`.
+    function deployAndName(TokenConfig memory config, ListingRow[] memory listed, uint256 index)
+        internal
+        returns (address)
+    {
         DeploySuite memory suite = checkedSuite(declaration(), string.concat(TOKEN_PREFIX, lowercase(config.symbol)));
-        ListingRow[] memory listed = listing();
         bytes32 root = LibListingTree.root(listed);
         IMulticall3.Call3[] memory calls = LibTestListingMulticall.deployAndName(
             LibProdTokenParams.tokenParam(config),

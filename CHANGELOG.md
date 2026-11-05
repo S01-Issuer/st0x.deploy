@@ -119,6 +119,14 @@
   `0xF605c034E2D16D39f656A7F12AF6cb04D7Cef329`, and the token, wrapper and
   orchestrator proxy runtime code that embeds the beacons.
 
+### The V6 listing
+
+- **`LibV6Listing.ROOT`** is the listing of the leading 59 production V6 rows
+  (`ROW_COUNT`) and the two test tokens, frozen: `V6ListingMoved` refuses any
+  edit to them. **`script/BuildListing.sol`** writes it to `listing.json` with
+  the digest the listing signer signs and, per row, the leaf, the proof and the
+  factory call that deploys the token. `Git is clean` regenerates it.
+
 ## Registry-config tokens (rain.vats 0.2.9)
 
 ### StoxReceiptVault
