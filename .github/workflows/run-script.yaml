@@ -118,7 +118,7 @@ jobs:
           NETWORK: ${{ inputs.network }}
         run: |
           FILE="${SCRIPT%%:*}"
-          echo "name=${SCRIPT/:/-}" >> "$GITHUB_OUTPUT"
+          echo "name=${SCRIPT//[:\/]/-}" >> "$GITHUB_OUTPUT"
           nix develop --command forge script "script/${FILE}.s.sol${SCRIPT#"${FILE}"}" \
             --sig "${SIG}" \
             --rpc-url "${NETWORK}" \
