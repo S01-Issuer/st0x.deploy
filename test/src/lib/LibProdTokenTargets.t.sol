@@ -189,7 +189,7 @@ contract LibProdTokenTargetsTest is Test {
     function testRowWithoutAssetIdCannotDeploy() external {
         LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
         TokenConfig memory config = LibProdTokenConfig.productionTokenConfigs()[0];
-        assertEq(config.assetId, "", "production rows have no asset id yet");
+        config.assetId = "";
         RegistryBeaconProxyTarget memory target = LibProdTokenTargets.tokenTarget(config);
         vm.expectRevert(EmptyAssetId.selector);
         this.externalDeployStep(target);
