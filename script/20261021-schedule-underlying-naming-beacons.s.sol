@@ -45,12 +45,12 @@ error OperationNotPendingInsideDelay(bytes32 id);
 /// @param actual The beacon's implementation.
 error BeaconNotUpgraded(address beacon, address expected, address actual);
 
-/// @notice This script's declaration: the Safe's record, after orchestrator-admin-to-timelock.
+/// @notice This script's declaration: the Safe's record, after the Safe-owned Base vault handover.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        onto: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
         history: false
     });
 }
