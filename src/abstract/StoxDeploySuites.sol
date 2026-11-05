@@ -106,12 +106,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        // `addRegistryBeaconProxies` refuses an empty list, and no production
-        // row has an asset id yet.
-        RegistryBeaconProxyDeploy[] memory tokens = tokenSuites();
-        if (tokens.length > 0) {
-            LibCloneCandidates.addRegistryBeaconProxies(declared, tokens);
-        }
+        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites());
         LibCloneCandidates.addRegistryBeaconProxies(declared, testTokenSuites());
         return declared;
     }

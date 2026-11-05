@@ -31,9 +31,68 @@ error PinnedKeyMoved(string key, string derived);
 contract LibProdTokenConfigAssetIdTest is Test, StoxDeploySuites {
     /// The pinned V6 token suite keys. A key is frozen once released: a released row's `symbol` never changes in the
     /// table (renames are on-chain only). Add each V6 row here in the same change that gives it an asset id; its key
-    /// is frozen from then on. No production row has an asset id yet, so there is none.
-    function releasedTokenSuiteKeys() internal pure returns (PinnedTokenSuiteKey[] memory) {
-        return new PinnedTokenSuiteKey[](0);
+    /// is frozen from then on. Every production row has an asset id, so every production row is pinned.
+    function releasedTokenSuiteKeys() internal pure returns (PinnedTokenSuiteKey[] memory pins) {
+        pins = new PinnedTokenSuiteKey[](59);
+        pins[0] = PinnedTokenSuiteKey({assetId: "US5949724083", region: Region.US, key: "stox-token-tmstr"});
+        pins[1] = PinnedTokenSuiteKey({assetId: "US88160R1014", region: Region.US, key: "stox-token-ttsla"});
+        pins[2] = PinnedTokenSuiteKey({assetId: "US19260Q1076", region: Region.US, key: "stox-token-tcoin"});
+        pins[3] = PinnedTokenSuiteKey({assetId: "US78464A8541", region: Region.US, key: "stox-token-tspym"});
+        pins[4] = PinnedTokenSuiteKey({assetId: "US0032641088", region: Region.US, key: "stox-token-tsivr"});
+        pins[5] = PinnedTokenSuiteKey({assetId: "US1725731079", region: Region.US, key: "stox-token-tcrcl"});
+        pins[6] = PinnedTokenSuiteKey({assetId: "US67066G1040", region: Region.US, key: "stox-token-tnvda"});
+        pins[7] = PinnedTokenSuiteKey({assetId: "US4642852044", region: Region.US, key: "stox-token-tiau"});
+        pins[8] = PinnedTokenSuiteKey({assetId: "US0032601066", region: Region.US, key: "stox-token-tpplt"});
+        pins[9] = PinnedTokenSuiteKey({assetId: "US0231351067", region: Region.US, key: "stox-token-tamzn"});
+        pins[10] = PinnedTokenSuiteKey({assetId: "US09175A2069", region: Region.US, key: "stox-token-tbmnr"});
+        pins[11] = PinnedTokenSuiteKey({assetId: "US46436E4787", region: Region.US, key: "stox-token-tibhg"});
+        pins[12] = PinnedTokenSuiteKey({assetId: "US46436E7186", region: Region.US, key: "stox-token-tsgov"});
+        pins[13] = PinnedTokenSuiteKey({assetId: "US46138G6492", region: Region.US, key: "stox-token-tqqqm"});
+        pins[14] = PinnedTokenSuiteKey({assetId: "US9220428588", region: Region.US, key: "stox-token-tvwo"});
+        pins[15] = PinnedTokenSuiteKey({assetId: "US00214Q1040", region: Region.US, key: "stox-token-tarkk"});
+        pins[16] = PinnedTokenSuiteKey({assetId: "US84615Q1031", region: Region.US, key: "stox-token-tspcx"});
+        pins[17] = PinnedTokenSuiteKey({assetId: "US21037T1097", region: Region.US, key: "stox-token-tceg"});
+        pins[18] = PinnedTokenSuiteKey({assetId: "US77926X3200", region: Region.US, key: "stox-token-tdram"});
+        pins[19] = PinnedTokenSuiteKey({assetId: "US8740391003", region: Region.US, key: "stox-token-ttsm"});
+        pins[20] = PinnedTokenSuiteKey({assetId: "US78392B2060", region: Region.US, key: "stox-token-tskhy"});
+        pins[21] = PinnedTokenSuiteKey({assetId: "USN070592100", region: Region.US, key: "stox-token-tasml"});
+        pins[22] = PinnedTokenSuiteKey({assetId: "US5951121038", region: Region.US, key: "stox-token-tmu"});
+        pins[23] = PinnedTokenSuiteKey({assetId: "US0079031078", region: Region.US, key: "stox-token-tamd"});
+        pins[24] = PinnedTokenSuiteKey({assetId: "US11135F1012", region: Region.US, key: "stox-token-tavgo"});
+        pins[25] = PinnedTokenSuiteKey({assetId: "US0382221051", region: Region.US, key: "stox-token-tamat"});
+        pins[26] = PinnedTokenSuiteKey({assetId: "US5128073062", region: Region.US, key: "stox-token-tlrcx"});
+        pins[27] = PinnedTokenSuiteKey({assetId: "US8740541094", region: Region.US, key: "stox-token-tttwo"});
+        pins[28] = PinnedTokenSuiteKey({assetId: "US7731211089", region: Region.US, key: "stox-token-trklb"});
+        pins[29] = PinnedTokenSuiteKey({assetId: "US02079K3059", region: Region.US, key: "stox-token-tgoogl"});
+        pins[30] = PinnedTokenSuiteKey({assetId: "US0378331005", region: Region.US, key: "stox-token-taapl"});
+        pins[31] = PinnedTokenSuiteKey({assetId: "US5949181045", region: Region.US, key: "stox-token-tmsft"});
+        pins[32] = PinnedTokenSuiteKey({assetId: "US5324571083", region: Region.US, key: "stox-token-tlly"});
+        pins[33] = PinnedTokenSuiteKey({assetId: "US72201B1017", region: Region.US, key: "stox-token-tpty"});
+        pins[34] = PinnedTokenSuiteKey({assetId: "US4581401001", region: Region.US, key: "stox-token-tintc"});
+        pins[35] = PinnedTokenSuiteKey({assetId: "US7707001027", region: Region.US, key: "stox-token-thood"});
+        pins[36] = PinnedTokenSuiteKey({assetId: "US68389X1054", region: Region.US, key: "stox-token-torcl"});
+        pins[37] = PinnedTokenSuiteKey({assetId: "US86800U3023", region: Region.US, key: "stox-token-tsmci"});
+        pins[38] = PinnedTokenSuiteKey({assetId: "US01609W1027", region: Region.US, key: "stox-token-tbaba"});
+        pins[39] = PinnedTokenSuiteKey({assetId: "US74347X8314", region: Region.US, key: "stox-token-ttqqq"});
+        pins[40] = PinnedTokenSuiteKey({assetId: "US35472T1016", region: Region.US, key: "stox-token-tftf"});
+        pins[41] = PinnedTokenSuiteKey({assetId: "US15675D1037", region: Region.US, key: "stox-token-tcbrs"});
+        pins[42] = PinnedTokenSuiteKey({assetId: "US5801351017", region: Region.US, key: "stox-token-tmcd"});
+        pins[43] = PinnedTokenSuiteKey({assetId: "US6541061031", region: Region.US, key: "stox-token-tnke"});
+        pins[44] = PinnedTokenSuiteKey({assetId: "US39854F1012", region: Region.US, key: "stox-token-tgrnd"});
+        pins[45] = PinnedTokenSuiteKey({assetId: "US50101L1061", region: Region.US, key: "stox-token-tdnut"});
+        pins[46] = PinnedTokenSuiteKey({assetId: "US72814P1093", region: Region.US, key: "stox-token-tplby"});
+        pins[47] = PinnedTokenSuiteKey({assetId: "US8905161076", region: Region.US, key: "stox-token-ttr"});
+        pins[48] = PinnedTokenSuiteKey({assetId: "US95058W1009", region: Region.US, key: "stox-token-twen"});
+        pins[49] = PinnedTokenSuiteKey({assetId: "KYG3302D2024", region: Region.US, key: "stox-token-tfgi"});
+        pins[50] = PinnedTokenSuiteKey({assetId: "US01675A2087", region: Region.US, key: "stox-token-tbird"});
+        pins[51] = PinnedTokenSuiteKey({assetId: "US78462F1030", region: Region.US, key: "stox-token-tspy"});
+        pins[52] = PinnedTokenSuiteKey({assetId: "US81720R6045", region: Region.US, key: "stox-token-tsnes"});
+        pins[53] = PinnedTokenSuiteKey({assetId: "US9311421039", region: Region.US, key: "stox-token-twmt"});
+        pins[54] = PinnedTokenSuiteKey({assetId: "FR0000121014", region: Region.EU, key: "stox-token-tmc"});
+        pins[55] = PinnedTokenSuiteKey({assetId: "US2546871060", region: Region.US, key: "stox-token-tdis"});
+        pins[56] = PinnedTokenSuiteKey({assetId: "DE0006231004", region: Region.EU, key: "stox-token-tifx"});
+        pins[57] = PinnedTokenSuiteKey({assetId: "FR0013227113", region: Region.EU, key: "stox-token-tsoi"});
+        pins[58] = PinnedTokenSuiteKey({assetId: "IT0005482333", region: Region.EU, key: "stox-token-ttpro"});
     }
 
     /// The key `StoxDeploySuites.tokenSuites` gives `config`.

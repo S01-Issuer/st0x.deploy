@@ -37,9 +37,14 @@
 
 - **`TokenConfig.assetId`**, fixed at listing time (the ISIN of the exact share
   line where one exists). `LibProdTokenConfig.v6TokenConfigs()` is the rows with
-  a non-empty asset id; only those get a V6 token suite. Every production row
-  has `assetId: ""` for now, so the declaration has no production token suites
-  and `manual-sol-artifacts` offers only the test-token `stox-token-*` choices.
+  a non-empty asset id; only those get a V6 token suite.
+- **Every production row has an asset id, so every row has a V6 token suite.**
+  The ids are ISINs: 54 from the st0x.registry Base token list
+  (`extensions.isin` at `e9e47a6`), and IBHG, RKLB, BIRD, SNES and DIS sourced
+  from the issuer and two listings each (see
+  `LibProdTokenConfigRegistryIsinTest`). `manual-sol-artifacts` offers one
+  `stox-token-*` choice per row, and every key is pinned. A V6 suite deploys a
+  second token at a new address; it does not touch the live token.
 - **Test tokens carry asset ids.** `tUSTEST` and `tEUTEST` have the synthetic
   ids `ST0XTESTUS` and `ST0XTESTEU` and an underlying name, so they deploy
   nameless and `setUnderlying` can name them. Their wrappers are salted by
