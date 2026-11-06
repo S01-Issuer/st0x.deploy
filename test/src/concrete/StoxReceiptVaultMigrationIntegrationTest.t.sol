@@ -107,7 +107,10 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vm.warp(2000);
 
         // Touch Alice via a 0-amount mint. (The publicUpdate path via mint=0
-        // doesn't trigger OZ's mint-amount check at this layer.)
+        // doesn't trigger OZ's mint-amount check at this layer.) The cursor
+        // advance emits even though `oldBalance == newBalance == 0` (#81).
+        vm.expectEmit(true, false, false, true, address(vault));
+        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 1, 0, 0);
         vault.publicUpdate(address(0), ALICE, 0);
 
         // Alice's cursor should now be 1 — bootstrap is at idx 0 (default
@@ -196,8 +199,33 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(BOB), 150);
     }
 
+    /// Returns the number of `AccountMigrated` logs for `account` in `logs`,
+    /// the index of the last one and its data.
+    function _migrationsOf(address account, Vm.Log[] memory logs)
+        internal
+        pure
+        returns (uint256, uint256, bytes memory)
+    {
+        uint256 count;
+        uint256 index = type(uint256).max;
+        bytes memory data;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].topics.length > 1 && logs[i].topics[0] == StoxReceiptVault.AccountMigrated.selector
+                    && address(uint160(uint256(logs[i].topics[1]))) == account
+            ) {
+                count++;
+                index = i;
+                data = logs[i].data;
+            }
+        }
+        return (count, index, data);
+    }
+
     /// On a fresh vault, mint `balance` to ALICE, complete one split
-    /// (`num2 == 0`) or two, then touch ALICE once.
+    /// (`num2 == 0`) or two, then touch ALICE twice: the first touch emits
+    /// exactly one `AccountMigrated` aggregating every completed split, the
+    /// second (cursor already at the latest split) emits none.
     function _assertSoleHolderMigrates(
         uint256 balance,
         int256 num1,
@@ -219,87 +247,38 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             latest = 2;
         }
         vm.warp(3000);
-        vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.AccountMigrated(ALICE, 0, latest, balance, expected);
+        vm.recordLogs();
         vault.publicUpdate(ALICE, ALICE, 0);
+        (uint256 count,, bytes memory data) = _migrationsOf(ALICE, vm.getRecordedLogs());
+        assertEq(count, 1, "exactly one AccountMigrated per touch");
+        assertEq(data, abi.encode(uint256(0), latest, balance, expected), "AccountMigrated fields");
         assertEq(vault.rawStoredBalance(ALICE), expected, "stored balance");
         assertEq(vault.migrationCursor(ALICE), latest, "cursor at the latest split");
+
+        vm.recordLogs();
+        vault.publicUpdate(ALICE, ALICE, 0);
+        (count,,) = _migrationsOf(ALICE, vm.getRecordedLogs());
+        assertEq(count, 0, "no re-emit once at the latest split");
     }
 
     /// One touch emits one `AccountMigrated` and stores the rasterized
-    /// balance, also when truncation (1 x1.5, 10 x1.09) or a round trip
-    /// (4 x2 x1/2) leaves it unchanged.
+    /// balance — aggregated across two splits (100 x2 x3), and also when
+    /// truncation (1 x1.5, 10 x1.09) or a round trip (4 x2 x1/2) leaves it
+    /// unchanged — and a repeat touch emits none.
     function testAccountMigratedRasterizesStoredBalance() external {
         _assertSoleHolderMigrates(100, 2, 1, 0, 0, 200);
+        _assertSoleHolderMigrates(100, 2, 1, 3, 1, 600);
         _assertSoleHolderMigrates(1, 3, 2, 0, 0, 1);
         _assertSoleHolderMigrates(4, 2, 1, 1, 2, 4);
         _assertSoleHolderMigrates(10, 109, 100, 0, 0, 10);
     }
 
-    /// `AccountMigrated` must fire exactly once per `_update`, aggregating
-    /// the full multi-split migration into a single event with the aggregate
-    /// `fromCursor → toCursor` and `oldBalance → newBalance`. Pins that the
-    /// emit is not per-split and that the post-rasterization fields reflect
-    /// the end state after all completed splits are applied, not an
-    /// intermediate state.
-    function testAccountMigratedEventAggregatesAcrossMultipleSplits() external {
-        vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _splitParams(3));
-        vm.warp(3000);
-
-        vm.recordLogs();
-        vault.publicUpdate(BOB, BOB, 0);
-
-        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        uint256 count = 0;
-        uint256 fromCursor;
-        uint256 toCursor;
-        uint256 oldBalance;
-        uint256 newBalance;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics.length > 0 && logs[i].topics[0] == sig) {
-                count++;
-                assertEq(address(uint160(uint256(logs[i].topics[1]))), BOB, "indexed account is BOB");
-                (fromCursor, toCursor, oldBalance, newBalance) =
-                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
-            }
-        }
-        assertEq(count, 1, "exactly one AccountMigrated event per multi-split migration");
-        assertEq(fromCursor, 0, "fromCursor is pre-migration cursor (default = bootstrap idx 0)");
-        // Bootstrap (idx 0) + two splits (idx 1, 2); migration walks past
-        // the bootstrap to the second split.
-        assertEq(toCursor, 2, "toCursor is latest completed split index");
-        assertEq(oldBalance, 100, "oldBalance is pre-rasterization stored value");
-        assertEq(newBalance, 600, "newBalance is fully rasterized (100 * 2 * 3)");
-    }
-
-    /// Phenomenon 1 (zero balance): `AccountMigrated` fires when a
-    /// zero-balance account's cursor advances. `oldBalance == newBalance == 0`,
-    /// the cursor moves from 0 to the latest completed split. Pins issue
-    /// #81 resolution: every cursor advance emits.
-    function testAccountMigratedFiresOnZeroBalanceCursorAdvance() external {
-        // Pre-existing holder so bootstrap has something to read.
-        vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
-        vm.warp(2000);
-
-        // Touch Alice (zero balance, fresh recipient).
-        vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 1, 0, 0);
-        vault.publicUpdate(address(0), ALICE, 0);
-
-        // Confirm the cursor actually advanced.
-        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor must have advanced");
-    }
-
-    /// Transfer path with both `from` and `to` stale: both ends migrate
-    /// during `_update`, so two `AccountMigrated` events fire — one per
-    /// account — both before the ERC-20 `Transfer`. Bob's balance is
-    /// non-zero pre-split, so his pre-rebase value is rasterized and
-    /// his event has `oldBalance != newBalance`; Alice's same.
-    function testAccountMigratedFiresForBothEndsOfTransfer() external {
+    /// Transfer path with both `from` and `to` stale: each end emits exactly
+    /// one `AccountMigrated` carrying its rasterized balance, `from` before
+    /// `to`, and both before the ERC-20 `Transfer` because `migrateAccount`
+    /// runs before `super._update`. Indexers rely on this ordering to compute
+    /// pre-transfer rasterized balances from the migration log.
+    function testAccountMigratedFiresForBothEndsBeforeTransfer() external {
         vault.publicUpdate(address(0), ALICE, 100);
         vault.publicUpdate(address(0), BOB, 200);
         vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
@@ -309,98 +288,21 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vault.publicUpdate(ALICE, BOB, 50);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
-        uint256 aliceCount;
-        uint256 bobCount;
-        uint256 aliceLogIdx = type(uint256).max;
-        uint256 bobLogIdx = type(uint256).max;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics.length == 0 || logs[i].topics[0] != sig) continue;
-            address who = address(uint160(uint256(logs[i].topics[1])));
-            if (who == ALICE) {
-                aliceCount++;
-                aliceLogIdx = i;
-            } else if (who == BOB) {
-                bobCount++;
-                bobLogIdx = i;
-            }
-        }
+        (uint256 aliceCount, uint256 aliceIdx, bytes memory aliceData) = _migrationsOf(ALICE, logs);
+        (uint256 bobCount, uint256 bobIdx, bytes memory bobData) = _migrationsOf(BOB, logs);
         assertEq(aliceCount, 1, "exactly one AccountMigrated for ALICE");
         assertEq(bobCount, 1, "exactly one AccountMigrated for BOB");
-        // ordering: ALICE migrates first (the `from` side), then BOB.
-        assertLt(aliceLogIdx, bobLogIdx, "ALICE (from) migrates before BOB (to)");
+        assertEq(aliceData, abi.encode(uint256(0), uint256(1), uint256(100), uint256(200)), "ALICE fields");
+        assertEq(bobData, abi.encode(uint256(0), uint256(1), uint256(200), uint256(400)), "BOB fields");
+        assertLt(aliceIdx, bobIdx, "ALICE (from) migrates before BOB (to)");
 
-        // Decode payloads and check each rasterized balance.
-        (, uint256 aliceTo, uint256 aliceOld, uint256 aliceNew) =
-            abi.decode(logs[aliceLogIdx].data, (uint256, uint256, uint256, uint256));
-        (, uint256 bobTo, uint256 bobOld, uint256 bobNew) =
-            abi.decode(logs[bobLogIdx].data, (uint256, uint256, uint256, uint256));
-        assertEq(aliceTo, 1, "alice cursor advanced to split");
-        assertEq(aliceOld, 100);
-        assertEq(aliceNew, 200);
-        assertEq(bobTo, 1, "bob cursor advanced to split");
-        assertEq(bobOld, 200);
-        assertEq(bobNew, 400);
-    }
-
-    /// Already-migrated complement of #81's always-emit semantics: an
-    /// account at the latest cursor that gets touched again (no new
-    /// completed splits in between) must NOT re-emit `AccountMigrated`.
-    /// The `newCursor == currentCursor` early return in `migrateAccount`
-    /// suppresses the spurious event. Pins that "every cursor advance
-    /// emits" reads as "iff cursor advances".
-    function testAccountMigratedDoesNotReEmitWhenAlreadyAtLatest() external {
-        vault.publicUpdate(address(0), ALICE, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
-        vm.warp(2000);
-
-        // First touch migrates Alice — event fires.
-        vault.publicUpdate(ALICE, ALICE, 0);
-        assertEq(vault.migrationCursor(ALICE), 1, "alice migrated to cursor 1");
-
-        // Second touch with no new splits — event must NOT fire.
-        vm.recordLogs();
-        vault.publicUpdate(ALICE, ALICE, 0);
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-
-        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
+        uint256 transferIdx;
         for (uint256 i = 0; i < logs.length; i++) {
-            if (
-                logs[i].topics.length > 0 && logs[i].topics[0] == sig
-                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE
-            ) {
-                fail();
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == keccak256("Transfer(address,address,uint256)")) {
+                transferIdx = i;
             }
         }
-    }
-
-    /// Event ordering pin: `AccountMigrated` must fire BEFORE the
-    /// corresponding ERC-20 `Transfer` event in the same `_update` call,
-    /// because `migrateAccount` runs before `super._update`. Indexers
-    /// rely on this ordering to compute pre-transfer rasterized balances
-    /// from the migration log before applying the transfer delta.
-    function testAccountMigratedOrderedBeforeTransfer() external {
-        vault.publicUpdate(address(0), ALICE, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
-        vm.warp(2000);
-
-        vm.recordLogs();
-        vault.publicUpdate(ALICE, BOB, 50);
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-
-        bytes32 migratedSig = StoxReceiptVault.AccountMigrated.selector;
-        bytes32 transferSig = keccak256("Transfer(address,address,uint256)");
-        uint256 firstMigrated = type(uint256).max;
-        uint256 firstTransfer = type(uint256).max;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics.length == 0) continue;
-            if (logs[i].topics[0] == migratedSig && firstMigrated == type(uint256).max) {
-                firstMigrated = i;
-            } else if (logs[i].topics[0] == transferSig && firstTransfer == type(uint256).max) {
-                firstTransfer = i;
-            }
-        }
-        assertLt(firstMigrated, firstTransfer, "AccountMigrated must precede Transfer");
+        assertLt(bobIdx, transferIdx, "both AccountMigrated precede Transfer");
     }
 
     /// Global invariant: across a random balance and a random sequence of
@@ -438,27 +340,9 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         }
         vm.warp(uint64(1500 + uint256(splitCount) * 1000));
 
-        // Touch Alice. Capture every log emitted by `_update`.
         vm.recordLogs();
         vault.publicUpdate(ALICE, ALICE, 0);
-
-        bytes32 sig = StoxReceiptVault.AccountMigrated.selector;
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        uint256 count;
-        uint256 emittedFromCursor;
-        uint256 emittedToCursor;
-        uint256 emittedOld;
-        uint256 emittedNew;
-        for (uint256 i = 0; i < logs.length; i++) {
-            if (
-                logs[i].topics.length > 0 && logs[i].topics[0] == sig
-                    && address(uint160(uint256(logs[i].topics[1]))) == ALICE
-            ) {
-                count++;
-                (emittedFromCursor, emittedToCursor, emittedOld, emittedNew) =
-                    abi.decode(logs[i].data, (uint256, uint256, uint256, uint256));
-            }
-        }
+        (uint256 count,, bytes memory data) = _migrationsOf(ALICE, vm.getRecordedLogs());
 
         uint256 cursorAfter = vault.migrationCursor(ALICE);
         if (cursorAfter == cursorBefore) {
@@ -467,10 +351,11 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
             assertEq(count, 0, "no event when cursor did not advance");
         } else {
             assertEq(count, 1, "exactly one AccountMigrated event per cursor advance");
-            assertEq(emittedFromCursor, cursorBefore, "fromCursor matches pre-migrate cursor");
-            assertEq(emittedToCursor, cursorAfter, "toCursor matches post-migrate cursor");
-            assertEq(emittedOld, storedBefore, "oldBalance matches the pre-migrate stored balance");
-            assertEq(emittedNew, vault.rawStoredBalance(ALICE), "newBalance matches the post-migrate stored balance");
+            assertEq(
+                data,
+                abi.encode(cursorBefore, cursorAfter, storedBefore, vault.rawStoredBalance(ALICE)),
+                "AccountMigrated carries the pre/post-migrate cursor and stored balance"
+            );
         }
     }
 
