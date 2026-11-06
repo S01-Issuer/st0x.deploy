@@ -362,11 +362,11 @@ gas than a small block holds, so enable big blocks for the deploy key
 - `LibOrchestratorInvariants.assertMintCapsBeaconSet()` /
   `assertMintCapsInstance()` — the mint-caps orchestrator: the beacon is owned
   by the timelock and points at the current implementation; the instance has
-  code, the timelock holds the four admin roles, and every `getRoleAdmin`
-  wiring is as `initialize` sets it. These are the expected grants only;
+  code, the timelock holds the four admin roles, and every `getRoleAdmin` wiring
+  is as `initialize` sets it. These are the expected grants only;
   `LibIdealRoles` emits the instance's so the dashboard reports any other
-  holder. The live orchestrator keeps `assertBeaconSet` / `assertInstance`
-  while both run.
+  holder. The live orchestrator keeps `assertBeaconSet` / `assertInstance` while
+  both run.
 
 ## Orchestrator roles
 
