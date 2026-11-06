@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {ECDSA} from "@openzeppelin-contracts-5.7.0/utils/cryptography/ECDSA.sol";
 import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {StackItem} from "rainlang-0.2.32/src/interface/IInterpreterV4.sol";
 import {InvalidSignature} from "rainlang-0.2.32/src/lib/caller/LibContext.sol";
 import {LibDecimalFloat, Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
@@ -77,6 +78,22 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
 
     function toString(bytes32 value) internal pure returns (string memory) {
         return LibIntOrAString.toStringV3(IntOrAString.wrap(uint256(value)));
+    }
+
+    function testObservationDomainIsThePriceDomain() external pure {
+        assertEq(OBSERVATION_DOMAIN, priceDomain());
+    }
+
+    function testLeadOnlyWeightingAcceptsTheAlpacaObservation() external {
+        vm.warp(LibDecimalFloat.toFixedDecimalLossless(Float.wrap(OBSERVATION_TIME), 0));
+        string memory rainlang = vm.replace(
+            vm.readFile(string.concat(DIR, "lead-only-mint-weighting.rl")),
+            vm.toString(vm.addr(LEAD_KEY)),
+            vm.toString(OBSERVATION_SIGNER)
+        );
+        (StackItem[] memory stack,) =
+            parseAndEval(bytes(rainlang), LibSt0xAttestContext.build(symbol("tAAPL"), float(1), observations()));
+        assertTrue(LibDecimalFloat.eq(Float.wrap(StackItem.unwrap(stack[0])), LibDecimalFloat.packLossless(34463, -2)));
     }
 
     /// Each signature recovers the signer from the EIP-712 digest under the
