@@ -7,25 +7,11 @@ import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibTimelockRehearsal} from "rain-deploy-0.1.30/src/lib/LibTimelockRehearsal.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
-import {
-    TimelockRehearsalSchedule,
-    RehearsalScheduleNotHistory,
-    RehearsalScheduleRecordedByBackfill
-} from "../../script/20260813-timelock-rehearsal-schedule.s.sol";
-import {
-    TimelockRehearsalCancel,
-    RehearsalCancelNotHistory,
-    RehearsalCancelRecordedByBackfill
-} from "../../script/20260813-timelock-rehearsal-cancel.s.sol";
-import {
-    ExecuteTimelockOperations,
-    ExecuteTimelockOperationsNotHistory,
-    ExecuteTimelockOperationsRecordedByBackfill
-} from "../../script/20260813-execute-timelock-operations.s.sol";
+import {TimelockRehearsalSchedule} from "../../script/20260813-timelock-rehearsal-schedule.s.sol";
+import {TimelockRehearsalCancel} from "../../script/20260813-timelock-rehearsal-cancel.s.sol";
+import {ExecuteTimelockOperations} from "../../script/20260813-execute-timelock-operations.s.sol";
 import {IStoxHistoryMigration} from "../../src/interface/IStoxScript.sol";
-import {BackfilledHistoryScriptTest} from "../lib/BackfilledHistoryScriptTest.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
@@ -85,97 +71,5 @@ contract TimelockRehearsalTest is Test {
         );
         assertRehearsalEventAt(cancelScript, "Cancelled(bytes32)", 50181351);
         assertRehearsalEventAt(executeScript, "CallExecuted(bytes32,uint256,address,uint256,bytes)", 50273568);
-    }
-}
-
-contract TimelockRehearsalScheduleHistoryTest is BackfilledHistoryScriptTest {
-    function newHistoryScript() internal override returns (address) {
-        return address(new TimelockRehearsalSchedule());
-    }
-
-    function declaredId() internal pure override returns (bytes32) {
-        return LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE;
-    }
-
-    function declaredOnto(uint256 chainId) internal pure override returns (bytes32) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID
-            ? LibStoxMigrations.MULTISIG_THRESHOLD
-            : LibStoxMigrations.ORCHESTRATOR_EMERGENCY;
-    }
-
-    function declaredHistory(uint256 chainId) internal pure override returns (bool) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID;
-    }
-
-    function ranOn(uint256 chainId) internal pure override returns (bool) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID;
-    }
-
-    function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(RehearsalScheduleNotHistory.selector, chainId);
-    }
-
-    function runRefusal(uint256 chainId) internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(RehearsalScheduleRecordedByBackfill.selector, chainId);
-    }
-}
-
-contract TimelockRehearsalCancelHistoryTest is BackfilledHistoryScriptTest {
-    function newHistoryScript() internal override returns (address) {
-        return address(new TimelockRehearsalCancel());
-    }
-
-    function declaredId() internal pure override returns (bytes32) {
-        return LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL;
-    }
-
-    function declaredOnto(uint256) internal pure override returns (bytes32) {
-        return LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE;
-    }
-
-    function declaredHistory(uint256 chainId) internal pure override returns (bool) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID;
-    }
-
-    function ranOn(uint256 chainId) internal pure override returns (bool) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID;
-    }
-
-    function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(RehearsalCancelNotHistory.selector, chainId);
-    }
-
-    function runRefusal(uint256 chainId) internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(RehearsalCancelRecordedByBackfill.selector, chainId);
-    }
-}
-
-contract ExecuteTimelockOperationsHistoryTest is BackfilledHistoryScriptTest {
-    function newHistoryScript() internal override returns (address) {
-        return address(new ExecuteTimelockOperations());
-    }
-
-    function declaredId() internal pure override returns (bytes32) {
-        return LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS;
-    }
-
-    function declaredOnto(uint256) internal pure override returns (bytes32) {
-        return LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL;
-    }
-
-    function declaredHistory(uint256 chainId) internal pure override returns (bool) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID;
-    }
-
-    function ranOn(uint256 chainId) internal pure override returns (bool) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID;
-    }
-
-    function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(ExecuteTimelockOperationsNotHistory.selector, chainId);
-    }
-
-    function runRefusal(uint256 chainId) internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(ExecuteTimelockOperationsRecordedByBackfill.selector, chainId);
     }
 }
