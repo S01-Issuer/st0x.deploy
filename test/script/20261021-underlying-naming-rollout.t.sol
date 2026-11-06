@@ -63,7 +63,8 @@ import {
     UnderlyingNamingReleaseNotFrozen
 } from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
-/// @dev Blocks before either rollout batch is registered, where the timelock owns every vault and in-use beacon.
+/// @dev Blocks before either rollout batch is registered; the timelock owns every in-use beacon and every vault but
+/// `safeOwnedVaultsAtForkBlock`.
 uint256 constant ROLLOUT_FORK_BLOCK_BASE = 53922000;
 uint256 constant ROLLOUT_FORK_BLOCK_ETHEREUM = 26356000;
 uint256 constant ROLLOUT_FORK_BLOCK_HYPEREVM = 50546000;
@@ -274,6 +275,7 @@ contract UnderlyingNamingRolloutTest is Test {
         rename.callPreflight();
         plantImplementations();
         authorVerifyExecute(address(beacons), beacons.callArtifactPath());
+        completeOwnershipHandover(rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
 
         // forge-lint: disable-next-line(block-timestamp)
@@ -306,6 +308,36 @@ contract UnderlyingNamingRolloutTest is Test {
         uint256 gasBefore = gasleft();
         LibSafeFork.executeBundle(vm, Safe(payable(artifactSafe)), txs);
         console2.log("Safe bundle execution gas (upper bound, includes signing):", gasBefore - gasleft());
+    }
+
+    /// @notice The leading-row vaults still Safe-owned at the chain's fork
+    /// block: Base's WMT, MC and DIS, deployed after the governance migration.
+    function safeOwnedVaultsAtForkBlock(uint256 chainId) internal pure returns (address[] memory) {
+        address[] memory vaults = new address[](0);
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            vaults = new address[](3);
+            vaults[0] = LibTokenInvariants.WMT_RECEIPT_VAULT;
+            vaults[1] = LibTokenInvariants.MC_RECEIPT_VAULT;
+            vaults[2] = LibTokenInvariants.DIS_RECEIPT_VAULT;
+        }
+        return vaults;
+    }
+
+    /// @notice The rename pre-flight refuses the first vault the timelock
+    /// does not own, then the Safe hands `safeOwnedVaultsAtForkBlock` to the
+    /// timelock on the fork so the rest of the rollout can be exercised.
+    function completeOwnershipHandover(ScheduleUnderlyingNamingRenameHarness rename) internal {
+        address[] memory pending = safeOwnedVaultsAtForkBlock(block.chainid);
+        if (pending.length == 0) return;
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, pending[0], timelock, safe));
+        rename.callPreflight();
+        vm.startPrank(safe);
+        for (uint256 i = 0; i < pending.length; i++) {
+            OwnableUpgradeable(pending[i]).transferOwnership(timelock);
+        }
+        vm.stopPrank();
     }
 
     /// @notice Logs the gas the rename batch's `executeBatch` alone takes, on a
@@ -355,6 +387,7 @@ contract UnderlyingNamingRolloutTest is Test {
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("nvda");
         authorVerifyExecute(address(beacons), beacons.callArtifactPath());
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("nvda");
+        completeOwnershipHandover(rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
@@ -441,13 +474,15 @@ contract UnderlyingNamingRolloutTest is Test {
     }
 
     /// @notice Brings the forked chain to the point where the rename can be
-    /// authored: the implementations planted and the beacon batch registered.
-    function prepareRename() internal {
+    /// authored: the implementations planted, the beacon batch registered and
+    /// every vault owned by the timelock.
+    function prepareRename(ScheduleUnderlyingNamingRenameHarness rename) internal {
         plantImplementations();
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("prepare");
         LibSafeFork.executeBundle(
             vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), beacons.callAuthorBundle()
         );
+        completeOwnershipHandover(rename);
     }
 
     /// @notice Until the release is frozen, both schedule scripts refuse in
@@ -541,7 +576,7 @@ contract UnderlyingNamingRolloutTest is Test {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("refusals");
-        prepareRename();
+        prepareRename(rename);
         rename.callPreflight();
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
         vm.expectRevert(
@@ -617,7 +652,7 @@ contract UnderlyingNamingRolloutTest is Test {
     function testRenamePreflightRefusesAMismatchedTicker() external {
         vm.createSelectFork(LibRainDeploy.BASE, ROLLOUT_FORK_BLOCK_BASE);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("ticker");
-        prepareRename();
+        prepareRename(rename);
         rename.callPreflight();
         TokenInstance memory last =
             LibUnderlyingNamingRollout.tokens(block.chainid)[LibUnderlyingNamingRollout.TOKEN_COUNT - 1];
@@ -625,21 +660,6 @@ contract UnderlyingNamingRolloutTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(TickerNotBoundToVault.selector, last.underlying, last.receiptVault, "tWRONG")
         );
-        rename.callPreflight();
-    }
-
-    /// @notice The rename pre-flight refuses a vault the timelock does not
-    /// own, since `setUnderlying` would revert the whole batch at execution.
-    function testRenamePreflightRefusesAVaultTheTimelockDoesNotOwn() external {
-        vm.createSelectFork(LibRainDeploy.BASE, ROLLOUT_FORK_BLOCK_BASE);
-        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("owner");
-        prepareRename();
-        rename.callPreflight();
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        address vault = LibUnderlyingNamingRollout.tokens(block.chainid)[0].receiptVault;
-        vm.prank(timelock);
-        OwnableUpgradeable(vault).transferOwnership(address(0xbeef));
-        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, vault, timelock, address(0xbeef)));
         rename.callPreflight();
     }
 
@@ -651,7 +671,7 @@ contract UnderlyingNamingRolloutTest is Test {
         uint256 chainId = block.chainid;
         address safe = LibSafeInvariants.safeForChainId(chainId);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("renamed");
-        prepareRename();
+        prepareRename(rename);
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);

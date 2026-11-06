@@ -33,7 +33,8 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJ
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
-/// @dev Blocks after the migration executed on each chain, where the timelock owns every vault and in-use beacon.
+/// @dev Blocks after the migration executed on each chain; the timelock owns every in-use beacon and every vault but
+/// `_vaultsSafeOwnedAtForkBlock`.
 uint256 constant GOVERNANCE_FORK_BLOCK_BASE = 53922000;
 uint256 constant GOVERNANCE_FORK_BLOCK_ETHEREUM = 26356000;
 uint256 constant GOVERNANCE_FORK_BLOCK_HYPEREVM = 50546000;
@@ -116,20 +117,48 @@ contract MigrateGovernanceToTimelockTest is Test {
         rewindMigration();
     }
 
+    /// @notice The active chain's production vaults still Safe-owned at its
+    /// fork block: Base's rows deployed after the migration ran.
+    function _vaultsSafeOwnedAtForkBlock() internal view returns (address[] memory) {
+        address[] memory vaults = new address[](0);
+        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
+            vaults = new address[](6);
+            vaults[0] = LibTokenInvariants.WMT_RECEIPT_VAULT;
+            vaults[1] = LibTokenInvariants.MC_RECEIPT_VAULT;
+            vaults[2] = LibTokenInvariants.DIS_RECEIPT_VAULT;
+            vaults[3] = LibTokenInvariants.IFX_RECEIPT_VAULT;
+            vaults[4] = LibTokenInvariants.SOI_RECEIPT_VAULT;
+            vaults[5] = LibTokenInvariants.TPRO_RECEIPT_VAULT;
+        }
+        return vaults;
+    }
+
+    /// @notice Whether `item` is in `set`.
+    function _contains(address[] memory set, address item) internal pure returns (bool) {
+        for (uint256 i = 0; i < set.length; i++) {
+            if (set[i] == item) return true;
+        }
+        return false;
+    }
+
     /// @notice Put the active fork back in the pre-migration state: every
-    /// production vault and in-use beacon goes from the timelock back to the
-    /// Safe, and the seven authoriser `_ADMIN` roles move from the timelock
-    /// back to the Safe. Uses only powers the timelock holds, so the rewound
-    /// state is one the real contracts admit.
+    /// production vault and in-use beacon the timelock owns at the fork block
+    /// goes back to the Safe, and the seven authoriser `_ADMIN` roles move
+    /// from the timelock back to the Safe. Uses only powers the timelock
+    /// holds, so the rewound state is one the real contracts admit.
     function rewindMigration() internal {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         IAccessControl authoriser = IAccessControl(_activeChainAuthoriser());
 
+        address[] memory safeOwned = _vaultsSafeOwnedAtForkBlock();
+        for (uint256 i = 0; i < safeOwned.length; i++) {
+            assertEq(Ownable(safeOwned[i]).owner(), safe, "vault Safe-owned at the fork block");
+        }
         vm.startPrank(timelock);
         address[] memory vaults = _activeChainVaults();
         for (uint256 i = 0; i < vaults.length; i++) {
-            Ownable(vaults[i]).transferOwnership(safe);
+            if (!_contains(safeOwned, vaults[i])) Ownable(vaults[i]).transferOwnership(safe);
         }
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
         for (uint256 i = 0; i < beacons.length; i++) {
