@@ -164,12 +164,12 @@ library LibOrchestratorInvariants {
 
     /// @notice Assert the mint-caps orchestrator beacon on the active chain:
     /// it has the `ST0xOrchestratorBeacon` codehash, points at the
-    /// current-release orchestrator and is owned by the chain's governance
+    /// current-release orchestrator and is owned by the governance
     /// timelock.
     function assertMintCapsBeaconSet() internal view {
         LibBeaconInvariants.assertBeaconInvariants(
             mintCapsBeacon(),
-            LibTimelockInvariants.timelockForChainId(block.chainid),
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
             LibProdDeployCurrent.ST0X_ORCHESTRATOR,
             LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH
         );
