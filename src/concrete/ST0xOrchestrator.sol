@@ -347,18 +347,18 @@ contract ST0xOrchestrator is
         internal
     {
         MainStorage storage $ = _main();
-        MintCapV1 storage minterCap = $.minterMintCaps[msg.sender];
+        MintCapV1 storage minterCap = $.minterMintCaps[_minter()];
         MintCapV1 storage recipientCap = $.recipientMintCaps[to];
         MintLimitV1 memory minterLimit = minterCap.limit;
-        if (!minterLimit.set) revert MinterMintLimitUnset(msg.sender);
+        if (!minterLimit.set) revert MinterMintLimitUnset(_minter());
         MintLimitV1 memory recipientLimit = recipientCap.limit;
         if (!recipientLimit.set) revert RecipientMintLimitUnset(to);
 
         // The buckets meter the weighted charge, never the raw amount.
         Float charge = _weighMint($, token, amount, signedContext);
         Float timestamp = _now();
-        _fillMintCap(minterCap, minterLimit, msg.sender, true, timestamp, charge);
-        _fillMintCap(recipientCap, recipientLimit, to, false, timestamp, charge);
+        _fillMintCap(minterCap, minterLimit, _minter(), timestamp, charge);
+        _fillMintCap(recipientCap, recipientLimit, to, timestamp, charge);
     }
 
     /// @dev Evaluate the mint weighting over this mint and its signed context
@@ -415,23 +415,24 @@ contract ST0xOrchestrator is
         return Float.wrap(StackItem.unwrap(stack[0]));
     }
 
+    /// @dev The minter of the mint in progress.
+    function _minter() internal view returns (address) {
+        return msg.sender;
+    }
+
     /// @dev Fill `account`'s bucket with `charge`, reverting with the minter
-    /// or recipient cap error when it does not fit. Split out of
-    /// `_consumeMintCaps` to keep that frame within stack limits.
+    /// or recipient cap error when it does not fit. `mint` refuses a recipient
+    /// equal to the minter, so `account` names which bucket this is. Split out
+    /// of `_consumeMintCaps` to keep that frame within stack limits.
     // The bucket write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
-    function _fillMintCap(
-        MintCapV1 storage cap,
-        MintLimitV1 memory limit,
-        address account,
-        bool minter,
-        Float timestamp,
-        Float charge
-    ) internal {
+    function _fillMintCap(MintCapV1 storage cap, MintLimitV1 memory limit, address account, Float timestamp, Float charge)
+        internal
+    {
         LeakyBucket memory bucket = _bucket(cap.bucket, limit);
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
         if (charge.gt(headroom)) {
-            if (minter) revert MinterMintCapExceeded(account, limit.capacity, headroom, charge);
+            if (account == _minter()) revert MinterMintCapExceeded(account, limit.capacity, headroom, charge);
             revert RecipientMintCapExceeded(account, limit.capacity, headroom, charge);
         }
 
