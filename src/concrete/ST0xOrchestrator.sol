@@ -357,8 +357,8 @@ contract ST0xOrchestrator is
         // The buckets meter the weighted charge, never the raw amount.
         Float charge = _weighMint($, token, amount, signedContext);
         Float timestamp = _now();
-        _fillMinterMintCap(minterCap, minterLimit, timestamp, charge);
-        _fillRecipientMintCap(recipientCap, recipientLimit, to, timestamp, charge);
+        _fillMintCap(minterCap, minterLimit, msg.sender, true, timestamp, charge);
+        _fillMintCap(recipientCap, recipientLimit, to, false, timestamp, charge);
     }
 
     /// @dev Evaluate the mint weighting over this mint and its signed context
@@ -415,34 +415,25 @@ contract ST0xOrchestrator is
         return Float.wrap(StackItem.unwrap(stack[0]));
     }
 
-    /// @dev The minter's bucket, across every token and recipient. Split out
-    /// of `_consumeMintCaps` to keep that frame within stack limits.
+    /// @dev Fill `account`'s bucket with `charge`, reverting with the minter
+    /// or recipient cap error when it does not fit. Split out of
+    /// `_consumeMintCaps` to keep that frame within stack limits.
     // The bucket write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
-    function _fillMinterMintCap(MintCapV1 storage cap, MintLimitV1 memory limit, Float timestamp, Float charge)
-        internal
-    {
-        LeakyBucket memory bucket = _bucket(cap.bucket, limit);
-        Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
-        if (charge.gt(headroom)) revert MinterMintCapExceeded(msg.sender, limit.capacity, headroom, charge);
-
-        (Float level, Float checkpoint) = LibLeakyBucket.fill(bucket, timestamp, charge);
-        cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
-    }
-
-    /// @dev The recipient's bucket, across every token and minter.
-    // As `_fillMinterMintCap`.
-    // slither-disable-next-line reentrancy-no-eth
-    function _fillRecipientMintCap(
+    function _fillMintCap(
         MintCapV1 storage cap,
         MintLimitV1 memory limit,
-        address to,
+        address account,
+        bool minter,
         Float timestamp,
         Float charge
     ) internal {
         LeakyBucket memory bucket = _bucket(cap.bucket, limit);
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
-        if (charge.gt(headroom)) revert RecipientMintCapExceeded(to, limit.capacity, headroom, charge);
+        if (charge.gt(headroom)) {
+            if (minter) revert MinterMintCapExceeded(account, limit.capacity, headroom, charge);
+            revert RecipientMintCapExceeded(account, limit.capacity, headroom, charge);
+        }
 
         (Float level, Float checkpoint) = LibLeakyBucket.fill(bucket, timestamp, charge);
         cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
