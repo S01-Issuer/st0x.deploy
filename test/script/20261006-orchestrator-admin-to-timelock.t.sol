@@ -23,6 +23,7 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
+import {LibTestTamperedArtifact} from "../lib/LibTestTamperedArtifact.sol";
 
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network, at its pinned
@@ -79,9 +80,9 @@ contract OrchestratorAdminToTimelockTest is Test {
         LibOrchestratorInvariants.assertInstance();
         assertEq(block.timestamp, runAt, string.concat(network, ": the governance proof's warp leaked"));
         assertEq(
-            vm.parseJsonUint(vm.readFile(script.callArtifactPath()), string.concat(network, ": .createdAt")),
+            vm.parseJsonUint(vm.readFile(script.callArtifactPath()), ".createdAt"),
             runAt * 1000,
-            "artifact dated after the governance proof's warp"
+            string.concat(network, ": artifact dated after the governance proof's warp")
         );
         vm.revertToState(preRun);
 
@@ -140,24 +141,13 @@ contract OrchestratorAdminToTimelockTest is Test {
         executeBackfill(safe);
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("tamper");
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        // Built in memory and written to its own paths, so this test never
-        // reads the artifact `run()` writes for the other tests.
         string memory json =
             LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, "tamper test", script.callAuthorBundle());
-        string memory cleanPath =
-            string.concat("out/20261006-orchestrator-admin-to-timelock-clean-", vm.toString(block.chainid), ".json");
-        vm.writeFile(cleanPath, json);
-        // Control: the untampered artifact verifies, so the refusal below is
-        // the tamper's doing.
-        script.verify(cleanPath);
         string memory timelockHex = vm.replace(vm.toLowercase(vm.toString(timelock)), "0x", "");
         string memory tampered = vm.replace(json, timelockHex, "000000000000000000000000000000000000dead");
-        assertTrue(keccak256(bytes(tampered)) != keccak256(bytes(json)), "tamper did not apply");
-        string memory tamperedPath =
-            string.concat("out/20261006-orchestrator-admin-to-timelock-tampered-", vm.toString(block.chainid), ".json");
-        vm.writeFile(tamperedPath, tampered);
-        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
-        script.verify(tamperedPath);
+        LibTestTamperedArtifact.assertVerifyRefusesTamper(
+            vm, address(script), json, tampered, "20261006-orchestrator-admin-to-timelock"
+        );
     }
 
     /// @notice External shim: execute a bundle through the Safe so

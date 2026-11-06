@@ -36,6 +36,7 @@ import {
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
+import {LibTestTamperedArtifact} from "../lib/LibTestTamperedArtifact.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -453,10 +454,6 @@ contract BackfillMigrationRegistryV5Test is Test {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
         string memory json =
             LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, "tamper test", script.callAuthorBundle());
-        string memory cleanPath =
-            string.concat("out/20261030-backfill-migration-registry-v5-clean-", vm.toString(block.chainid), ".json");
-        vm.writeFile(cleanPath, json);
-        script.verify(cleanPath);
         bytes32 threshold = LibStoxMigrations.MULTISIG_THRESHOLD;
         uint256 at = momentOf(script, threshold);
         string memory tampered = vm.replace(
@@ -464,12 +461,9 @@ contract BackfillMigrationRegistryV5Test is Test {
             vm.toString(historyData(threshold, at, MIGRATION_HEAD_GENESIS)),
             vm.toString(historyData(threshold, at - 1, MIGRATION_HEAD_GENESIS))
         );
-        assertTrue(keccak256(bytes(tampered)) != keccak256(bytes(json)), "tamper did not apply");
-        string memory tamperedPath =
-            string.concat("out/20261030-backfill-migration-registry-v5-tampered-", vm.toString(block.chainid), ".json");
-        vm.writeFile(tamperedPath, tampered);
-        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
-        script.verify(tamperedPath);
+        LibTestTamperedArtifact.assertVerifyRefusesTamper(
+            vm, address(script), json, tampered, "20261030-backfill-migration-registry-v5"
+        );
     }
 
     function testPostStateRefusesUnwrittenLine() external {
