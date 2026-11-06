@@ -19,7 +19,7 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJ
 import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
+import {HistoryMigrationScriptTest} from "../lib/HistoryMigrationScriptTest.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
@@ -194,23 +194,6 @@ contract MigrateMultisigThresholdTest is Test {
         ];
     }
 
-    function testDeclarationIsHistoryOntoGenesis(uint256 chainId) external {
-        ScriptDeclaration memory declared = new MigrateMultisigThreshold().declaration(chainId);
-        assertEq(declared.id, LibStoxMigrations.MULTISIG_THRESHOLD);
-        assertEq(declared.onto, MIGRATION_HEAD_GENESIS);
-        assertTrue(declared.history);
-    }
-
-    function testExecutedAtRevertsOffItsChains(uint256 chainId) external {
-        uint256[5] memory known = chains();
-        for (uint256 i = 0; i < known.length; i++) {
-            vm.assume(chainId != known[i]);
-        }
-        MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
-        vm.expectRevert(abi.encodeWithSelector(NoMultisigThresholdMigrationOnChain.selector, chainId));
-        migration.executedAt(chainId);
-    }
-
     function testHistoryAtExecutedAtOpensTheRootLine(uint256 index) external {
         uint256 chainId = chains()[bound(index, 0, 4)];
         MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
@@ -268,5 +251,31 @@ contract MigrateMultisigThresholdTest is Test {
         MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
         vm.expectRevert(MultisigThresholdAlreadyApplied.selector);
         migration.run();
+    }
+}
+
+contract MigrateMultisigThresholdHistoryTest is HistoryMigrationScriptTest {
+    function newHistoryScript() internal override returns (address) {
+        return address(new MigrateMultisigThreshold());
+    }
+
+    function declaredId() internal pure override returns (bytes32) {
+        return LibStoxMigrations.MULTISIG_THRESHOLD;
+    }
+
+    function declaredOnto(uint256) internal pure override returns (bytes32) {
+        return MIGRATION_HEAD_GENESIS;
+    }
+
+    function declaredHistory(uint256) internal pure override returns (bool) {
+        return true;
+    }
+
+    function ranOn(uint256 chainId) internal pure override returns (bool) {
+        return onDeploymentChain(chainId);
+    }
+
+    function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {
+        return abi.encodeWithSelector(NoMultisigThresholdMigrationOnChain.selector, chainId);
     }
 }

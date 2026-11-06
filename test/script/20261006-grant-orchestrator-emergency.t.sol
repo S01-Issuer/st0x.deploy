@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
+import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 
 import {
@@ -10,49 +10,38 @@ import {
     NoOrchestratorEmergencyOnChain,
     OrchestratorEmergencyRecordedByBackfill
 } from "../../script/20261006-grant-orchestrator-emergency.s.sol";
-import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {BackfilledHistoryScriptTest} from "../lib/HistoryMigrationScriptTest.sol";
 
-contract GrantOrchestratorEmergencyTest is Test {
-    GrantOrchestratorEmergency internal script;
-
-    function setUp() external {
-        script = new GrantOrchestratorEmergency();
-        vm.makePersistent(address(script));
+contract GrantOrchestratorEmergencyTest is BackfilledHistoryScriptTest {
+    function newHistoryScript() internal override returns (address) {
+        return address(new GrantOrchestratorEmergency());
     }
 
-    function isGrantChain(uint256 chainId) internal pure returns (bool) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID || chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID
-            || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID
-            || chainId == LibSafeInvariants.BSC_CHAIN_ID;
+    function declaredId() internal pure override returns (bytes32) {
+        return LibStoxMigrations.ORCHESTRATOR_EMERGENCY;
     }
 
-    function testDeclarationIsTheEmergencyHistoryRecordOntoTheEuGrant(uint256 chainId) external view {
-        ScriptDeclaration memory declared = script.declaration(chainId);
-        assertEq(declared.id, LibStoxMigrations.ORCHESTRATOR_EMERGENCY);
-        assertEq(declared.onto, LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES);
-        assertTrue(declared.history);
+    function declaredOnto(uint256) internal pure override returns (bytes32) {
+        return LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES;
     }
 
-    function testExecutedAtRefusesChainsWithoutTheGrant(uint256 chainId) external {
-        vm.assume(!isGrantChain(chainId));
-        vm.expectRevert(abi.encodeWithSelector(NoOrchestratorEmergencyOnChain.selector, chainId));
-        script.executedAt(chainId);
+    function declaredHistory(uint256) internal pure override returns (bool) {
+        return true;
     }
 
-    function testRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
-        chainId = bound(chainId, 0, type(uint64).max / 2 - 36);
-        vm.chainId(chainId);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorEmergencyRecordedByBackfill.selector, chainId));
-        script.run();
+    function ranOn(uint256 chainId) internal pure override returns (bool) {
+        return onDeploymentChain(chainId);
     }
 
-    function testRunRefusesOnChainZero() external {
-        vm.chainId(0);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorEmergencyRecordedByBackfill.selector, uint256(0)));
-        script.run();
+    function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {
+        return abi.encodeWithSelector(NoOrchestratorEmergencyOnChain.selector, chainId);
+    }
+
+    function runRefusal(uint256 chainId) internal pure override returns (bytes memory) {
+        return abi.encodeWithSelector(OrchestratorEmergencyRecordedByBackfill.selector, chainId);
     }
 
     function assertGrantedAt(string memory network, uint256 chainId, uint256 blockNumber) internal {
@@ -68,7 +57,11 @@ contract GrantOrchestratorEmergencyTest is Test {
         Vm.EthGetLogs[] memory logs =
             vm.eth_getLogs(blockNumber, blockNumber, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE, topics);
         assertEq(logs.length, 1, string.concat(network, ": emergency grants to the Safe in the block"));
-        assertEq(script.executedAt(chainId), block.timestamp, string.concat(network, ": executedAt"));
+        assertEq(
+            GrantOrchestratorEmergency(sHistoryScript).executedAt(chainId),
+            block.timestamp,
+            string.concat(network, ": executedAt")
+        );
     }
 
     function testExecutedAtIsTheGrantBlockOnEveryChain() external {
