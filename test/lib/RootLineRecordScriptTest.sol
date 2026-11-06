@@ -52,6 +52,10 @@ abstract contract RootLineRecordScriptTest is Test {
 
     function landOnto() internal virtual;
 
+    /// @dev Re-stamps now any state besides the record that the post-state
+    /// pins to the landing block.
+    function restampAtThisMoment() internal virtual {}
+
     function setUp() public virtual {
         landBeforeOnto();
         sScript = newScript();
@@ -148,6 +152,7 @@ abstract contract RootLineRecordScriptTest is Test {
         executeBundle();
         uint256 recorded = block.timestamp;
         vm.warp(recorded + later);
+        restampAtThisMoment();
         vm.expectRevert(abi.encodeWithSelector(RecordMismatch.selector, declaredId(), recorded + later, recorded));
         sScript.callAssertPostState();
     }
