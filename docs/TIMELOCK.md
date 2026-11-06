@@ -280,9 +280,9 @@ that beacon to serve `LibProdDeployCurrent.STOX_RECEIPT`, so upgrading the
 orchestrator to it needs a receipt-beacon upgrade first, or every token halts
 mint and burn. The live 0.1.30 orchestrator does not check the in-use beacons.
 
-Execute each matured batch with `20261021-execute-underlying-naming`
-`execute()` from the CI deploy key, one operation per dispatch. On HyperEVM the rename batch needs more
-gas than a small block holds, so enable big blocks for the deploy key
+Execute each matured batch with `20261021-execute-underlying-naming` `execute()`
+from the CI deploy key, one operation per dispatch. On HyperEVM the rename batch
+needs more gas than a small block holds, so enable big blocks for the deploy key
 (`manual-hyperevm-big-blocks`) before executing it there.
 
 ## Invariants
