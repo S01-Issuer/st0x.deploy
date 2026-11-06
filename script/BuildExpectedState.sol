@@ -51,7 +51,7 @@ contract BuildExpectedState is Script {
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
         impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION;
         impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX] =
-            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
+        LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
         return impls;
     }
 
