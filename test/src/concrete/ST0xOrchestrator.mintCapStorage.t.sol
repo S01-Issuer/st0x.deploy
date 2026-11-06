@@ -107,7 +107,7 @@ contract ST0xOrchestratorMintCapStorageTest is ST0xOrchestratorMintWeightingFixt
         uint256 kindSeed,
         address account,
         uint256 amount,
-        uint256 spareCapacity,
+        uint256 capacityUnits,
         uint256 leakRateUnits,
         uint256 elapsed
     ) external {
@@ -117,7 +117,7 @@ contract ST0xOrchestratorMintCapStorageTest is ST0xOrchestratorMintWeightingFixt
         vm.assume(account.code.length == 0);
         vm.assume(account != MINTER);
         amount = bound(amount, 1, 1e40);
-        Float capacity = LibDecimalFloat.packLossless(int256(amount + bound(spareCapacity, 0, 1e40)), -18);
+        Float capacity = LibDecimalFloat.packLossless(int256(bound(capacityUnits, amount, amount + 1e40)), -18);
         Float leakRate = LibDecimalFloat.packLossless(int256(bound(leakRateUnits, 0, 1e40)), -18);
 
         LeakyBucket memory expected = _setAndMint(kind, account, amount, capacity, leakRate, bound(elapsed, 0, 1e9));
