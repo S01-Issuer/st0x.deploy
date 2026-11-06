@@ -16,11 +16,6 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {migrateMultisigThresholdDeclaration} from "./20260619-migrate-multisig-threshold.s.sol";
-
-/// @notice The Safe's line is not at the migration this bind applies onto.
-/// @param head The line's head.
-error BindBeaconInitialOwnerUnexpectedLine(bytes32 head);
 
 /// @notice The root authority has not approved the Safe to bind the
 /// beacon initial owner.
@@ -33,19 +28,15 @@ error SafeNotBeaconInitialOwnerDelegate(address safe);
 /// @param registeredAt When it was bound.
 error BeaconInitialOwnerBindingMismatch(bytes value, uint256 registeredAt);
 
-/// @notice After the bundle, this script's record is not this block's.
-/// @param recordedAt The recorded moment.
-error BindBeaconInitialOwnerRecordMismatch(uint256 recordedAt);
-
-/// @notice This script's declaration.
+/// @notice This script's declaration on the root line, after the
+/// backfill record.
 /// @return The declaration.
 function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE,
-        keccak256("script/20261022-bind-beacon-initial-owner.s.sol"),
-        migrateMultisigThresholdDeclaration().id,
-        false
-    );
+    return ScriptDeclaration({
+        id: LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
+        onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
+        history: false
+    });
 }
 
 /// @title BindBeaconInitialOwner
@@ -55,7 +46,7 @@ function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration mem
 /// delegate, and records it.
 contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
+    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return bindBeaconInitialOwnerDeclaration();
     }
 
@@ -80,10 +71,7 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, chainSafe);
 
-        bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != bindBeaconInitialOwnerDeclaration().prerequisites[0].migration) {
-            revert BindBeaconInitialOwnerUnexpectedLine(head);
-        }
+        LibStoxMigrations.assertNext(bindBeaconInitialOwnerDeclaration(), chainSafe);
         if (!IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
                 .approvedV5(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe)) {
             revert SafeNotBeaconInitialOwnerDelegate(chainSafe);
@@ -92,7 +80,6 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        address chainSafe = address(safe());
         address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
@@ -110,15 +97,12 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
             ),
             operation: Enum.Operation.Call
         });
-        (address to, bytes memory data) =
-            LibStoxMigrations.recordCall(bindBeaconInitialOwnerDeclaration(), chainSafe, timelock);
-        txs[1] = SafeTx({to: to, value: 0, data: data, operation: Enum.Operation.Call});
+        txs[1] = LibStoxMigrations.recordTx(bindBeaconInitialOwnerDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
-        address chainSafe = address(safe());
         (bytes memory value, uint256 registeredAt) = LibConfigRegistry.resolve(
             LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, keccak256("address")
         );
@@ -127,12 +111,7 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
         if (keccak256(value) != keccak256(expected) || registeredAt != block.timestamp) {
             revert BeaconInitialOwnerBindingMismatch(value, registeredAt);
         }
-        bytes32 id = bindBeaconInitialOwnerDeclaration().id;
-        uint256 recordedAt = LibStoxMigrations.applied(chainSafe, id);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (recordedAt != block.timestamp) revert BindBeaconInitialOwnerRecordMismatch(recordedAt);
-        bytes32 head = LibStoxMigrations.head(chainSafe);
-        if (head != id) revert BindBeaconInitialOwnerUnexpectedLine(head);
+        LibStoxMigrations.assertRecorded(bindBeaconInitialOwnerDeclaration());
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
 }
