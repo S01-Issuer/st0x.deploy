@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     CREATION_CODE as TIMELOCK_CREATION_CODE
@@ -47,7 +48,11 @@ contract LibTimelockInvariantsTest is Test {
     function bindTimelockInitialProposer(address safe) internal {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME, "address", abi.encode(safe)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
+            "address",
+            abi.encode(safe)
         );
     }
 
