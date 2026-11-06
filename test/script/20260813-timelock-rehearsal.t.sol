@@ -23,7 +23,7 @@ import {
     ExecuteTimelockOperationsRecordedByBackfill
 } from "../../script/20260813-execute-timelock-operations.s.sol";
 import {IStoxHistoryMigration} from "../../src/interface/IStoxScript.sol";
-import {BackfilledHistoryScriptTest} from "../lib/HistoryMigrationScriptTest.sol";
+import {BackfilledHistoryScriptTest} from "../lib/BackfilledHistoryScriptTest.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";

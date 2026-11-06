@@ -13,7 +13,7 @@ import {
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
-import {BackfilledHistoryScriptTest} from "../lib/HistoryMigrationScriptTest.sol";
+import {BackfilledHistoryScriptTest} from "../lib/BackfilledHistoryScriptTest.sol";
 
 contract GrantOrchestratorEmergencyTest is BackfilledHistoryScriptTest {
     function newHistoryScript() internal override returns (address) {

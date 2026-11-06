@@ -12,7 +12,7 @@ import {
 import {MigrateGovernanceToTimelock} from "../../script/20260729-migrate-governance-to-timelock.s.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
-import {BackfilledHistoryScriptTest} from "../lib/HistoryMigrationScriptTest.sol";
+import {BackfilledHistoryScriptTest} from "../lib/BackfilledHistoryScriptTest.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 
 contract GrantEuAuthoriserRolesTest is BackfilledHistoryScriptTest {

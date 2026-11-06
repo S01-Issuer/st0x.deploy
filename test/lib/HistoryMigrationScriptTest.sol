@@ -8,10 +8,6 @@ import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRai
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 
-interface IRunnableScript {
-    function run() external;
-}
-
 /// @title HistoryMigrationScriptTest
 /// @notice A history migration declares `id` onto its predecessor, and
 /// `executedAt` refuses every chain it did not run on.
@@ -55,25 +51,5 @@ abstract contract HistoryMigrationScriptTest is Test {
         vm.assume(!ranOn(chainId));
         vm.expectRevert(executedAtRefusal(chainId));
         IStoxHistoryMigration(sHistoryScript).executedAt(chainId);
-    }
-}
-
-/// @title BackfilledHistoryScriptTest
-/// @notice A history migration whose record the V5 backfill writes: `run()`
-/// refuses on every chain.
-abstract contract BackfilledHistoryScriptTest is HistoryMigrationScriptTest {
-    function runRefusal(uint256 chainId) internal pure virtual returns (bytes memory);
-
-    function testRunRefusesOnEveryChain(uint256 chainId) external {
-        chainId = bound(chainId, 0, type(uint64).max / 2 - 36);
-        vm.chainId(chainId);
-        vm.expectRevert(runRefusal(chainId));
-        IRunnableScript(sHistoryScript).run();
-    }
-
-    function testRunRefusesOnChainZero() external {
-        vm.chainId(0);
-        vm.expectRevert(runRefusal(0));
-        IRunnableScript(sHistoryScript).run();
     }
 }
