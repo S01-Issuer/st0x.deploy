@@ -98,8 +98,7 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function run() external {
-        // The generated code does not depend on the bound timelock value.
-        // TimelockController has no immutables, so any bound Safe snapshots the same runtime code.
+        // Generated code depends on no bound value.
         vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
         vm.prank(LibStoxConfig.ROOT_AUTHORITY);
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
@@ -115,6 +114,15 @@ contract Build is Script, StoxDeploySuites {
             .registerV5(
                 LibStoxConfig.ROOT_AUTHORITY,
                 LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
+                "address",
+                abi.encode(address(1)),
+                ""
+            );
+        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
+            .registerV5(
+                LibStoxConfig.ROOT_AUTHORITY,
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
                 "address",
                 abi.encode(address(1)),
                 ""
@@ -506,7 +514,6 @@ contract Build is Script, StoxDeploySuites {
         vm.writeLine(GEN_CURRENT_PATH, "");
         vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
         vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
-        vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
         vm.writeLine(
             GEN_CURRENT_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"

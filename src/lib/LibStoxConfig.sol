@@ -26,6 +26,21 @@ library LibStoxConfig {
     /// @notice `abi.encode(address)`: the orchestrator's beacon.
     bytes32 internal constant ORCHESTRATOR_BEACON_NAME = keccak256("st0x.orchestrator-beacon.v2");
 
+    /// @notice `abi.encode(address)`: the initial owner every st0x beacon is
+    /// constructed with, read once in its constructor; ownership moves on-chain
+    /// after.
+    bytes32 internal constant BEACON_INITIAL_OWNER_NAME = keccak256("st0x.beacon-initial-owner.v1");
+
+    /// @notice The bound beacon initial owner. Reverts `NameNotRegistered` where
+    /// it is unbound.
+    /// @return The beacon initial owner.
+    function beaconInitialOwner() internal view returns (address) {
+        // slither-disable-next-line unused-return
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_INITIAL_OWNER_NAME, keccak256("address"));
+        return abi.decode(value, (address));
+    }
+
     /// @notice `abi.encode(address)`: the timelock's initial proposer and
     /// canceller, read once at its construction.
     bytes32 internal constant TIMELOCK_INITIAL_PROPOSER_NAME = keccak256("st0x.timelock-initial-proposer.v1");

@@ -22,6 +22,8 @@ import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActi
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {ST0xOrchestratorBeacon} from "../../../src/concrete/ST0xOrchestratorBeacon.sol";
 import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
+import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 
 /// @title LibProdDeployV4Test
 /// @notice Pins every constant in `LibProdDeployV4` so a wrong address or
@@ -48,6 +50,17 @@ import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol
 /// `testAuthoriserV4ClonePin` asserts the literal + the codehash derivation
 /// so a drifted generator value fails a test.
 contract LibProdDeployV4Test is Test {
+    function setUp() external {
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK)
+        );
+    }
+
     function deployZoltuWithinEip170(bytes memory creationCode) internal returns (address) {
         address deployed = LibRainDeploy.deployZoltu(creationCode);
         assertLe(deployed.code.length, 24_576, "runtime exceeds EIP-170");
