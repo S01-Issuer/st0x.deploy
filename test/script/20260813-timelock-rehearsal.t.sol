@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibTimelockRehearsal} from "rain-deploy-0.1.30/src/lib/LibTimelockRehearsal.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
 import {
@@ -25,7 +26,6 @@ import {IStoxHistoryMigration, ScriptDeclaration} from "../../src/interface/ISto
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibTimelockRehearsal} from "../../src/lib/LibTimelockRehearsal.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 contract TimelockRehearsalTest is Test {
@@ -44,6 +44,12 @@ contract TimelockRehearsalTest is Test {
         return LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID);
     }
 
+    function rehearsalOperationId(address timelock) internal pure returns (bytes32) {
+        return LibTimelockRehearsal.operationId(
+            timelock, LibTimelockInvariants.TIMELOCK_MIN_DELAY, keccak256("st0x.timelock.rehearsal.20260813")
+        );
+    }
+
     /// @dev Literal parameters hashed by the live timelock, so a library drift cannot agree with itself.
     function testRehearsalOperationIdMatchesTheLibrary() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
@@ -55,7 +61,7 @@ contract TimelockRehearsalTest is Test {
             bytes32(0),
             keccak256("st0x.timelock.rehearsal.20260813")
         );
-        assertEq(LibTimelockRehearsal.operationId(address(timelock)), expected);
+        assertEq(rehearsalOperationId(address(timelock)), expected);
     }
 
     function assertDeclared(ScriptDeclaration memory declared, bytes32 id, bytes32 onto, bool history) internal pure {
@@ -176,7 +182,7 @@ contract TimelockRehearsalTest is Test {
         vm.createSelectFork(LibRainDeploy.BASE, blockNumber);
         bytes32[] memory topics = new bytes32[](2);
         topics[0] = keccak256(bytes(eventSignature));
-        topics[1] = LibTimelockRehearsal.operationId(baseTimelock());
+        topics[1] = rehearsalOperationId(baseTimelock());
         Vm.EthGetLogs[] memory logs = vm.eth_getLogs(blockNumber, blockNumber, baseTimelock(), topics);
         assertEq(logs.length, 1, eventSignature);
         assertEq(script.executedAt(LibSafeInvariants.BASE_CHAIN_ID), block.timestamp, eventSignature);
