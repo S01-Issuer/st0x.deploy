@@ -14,14 +14,13 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
 
-import {UnexpectedMigrationLine} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 

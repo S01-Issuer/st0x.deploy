@@ -27,6 +27,11 @@ library LibTestRootLine {
         IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS).approveUnscopedV5(delegate);
     }
 
+    function revoke(Vm vm, address delegate) internal {
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
+        IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS).revokeUnscopedV5(delegate);
+    }
+
     function write(Vm vm, address safe, bytes32 id, bytes32 onto) internal {
         vm.prank(safe);
         IMigrationRegistryV5(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)

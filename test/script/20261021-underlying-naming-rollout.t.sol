@@ -25,9 +25,6 @@ import {
     UnderlyingNamingExecutorHoldsRole,
     UnderlyingNamingNotExecuted,
     ExecuteUnderlyingNamingRecorded,
-    ExecuteUnderlyingNamingUnexpectedMigrationLine,
-    ExecuteUnderlyingNamingRecordMismatch,
-    ExecuteUnderlyingNamingLineHeadMismatch,
     executeUnderlyingNamingDeclaration
 } from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
@@ -35,9 +32,6 @@ import {
     ImplementationNotDeployed,
     BeaconAlreadyUpgraded,
     OperationAlreadyScheduled,
-    ScheduleBeaconsUnexpectedMigrationLine,
-    ScheduleBeaconsRecordMismatch,
-    ScheduleBeaconsLineHeadMismatch,
     scheduleUnderlyingNamingBeaconsDeclaration
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 import {
@@ -45,9 +39,6 @@ import {
     BeaconBatchNotScheduled,
     RenameAlreadyScheduled,
     RenamedMetadataMismatch,
-    ScheduleRenameUnexpectedMigrationLine,
-    ScheduleRenameRecordMismatch,
-    ScheduleRenameLineHeadMismatch,
     scheduleUnderlyingNamingRenameDeclaration
 } from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
@@ -57,7 +48,13 @@ import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5H
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    LineHeadMismatch,
+    RecordMismatch,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../src/lib/LibStoxMigrations.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 
@@ -326,9 +323,7 @@ contract UnderlyingNamingRolloutTest is Test {
         vm.expectPartialRevert(ImplementationNotDeployed.selector);
         beacons.callPreflight();
         vm.expectRevert(
-            abi.encodeWithSelector(
-                ScheduleRenameUnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
-            )
+            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
         );
         rename.callPreflight();
         plantImplementations();
@@ -806,7 +801,7 @@ contract UnderlyingNamingRolloutTest is Test {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         plantImplementations();
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("line");
-        vm.expectRevert(abi.encodeWithSelector(ScheduleBeaconsUnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
         beacons.callPreflight();
         advanceRootLineToBeaconSchedule();
         beacons.callPreflight();
@@ -817,7 +812,19 @@ contract UnderlyingNamingRolloutTest is Test {
             FOREIGN_RECORD,
             LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
         );
-        vm.expectRevert(abi.encodeWithSelector(ScheduleBeaconsUnexpectedMigrationLine.selector, FOREIGN_RECORD));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, FOREIGN_RECORD));
+        beacons.callPreflight();
+    }
+
+    function testBeaconPreflightRefusesASafeTheRootDoesNotApprove() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        plantImplementations();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("writer");
+        beacons.callPreflight();
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibTestRootLine.revoke(vm, safe);
+        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
         beacons.callPreflight();
     }
 
@@ -833,7 +840,11 @@ contract UnderlyingNamingRolloutTest is Test {
         uint256 snapshot = vm.snapshotState();
         executePrefix(txs, 1);
         // forge-lint: disable-next-line(block-timestamp)
-        vm.expectRevert(abi.encodeWithSelector(ScheduleBeaconsRecordMismatch.selector, block.timestamp, 0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS, block.timestamp, 0
+            )
+        );
         beacons.callAssertPostState();
         vm.revertToState(snapshot);
 
@@ -841,7 +852,11 @@ contract UnderlyingNamingRolloutTest is Test {
         // forge-lint: disable-next-line(block-timestamp)
         uint256 recorded = block.timestamp;
         vm.warp(recorded + 1);
-        vm.expectRevert(abi.encodeWithSelector(ScheduleBeaconsRecordMismatch.selector, recorded + 1, recorded));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS, recorded + 1, recorded
+            )
+        );
         beacons.callAssertPostState();
         vm.warp(recorded);
 
@@ -851,7 +866,7 @@ contract UnderlyingNamingRolloutTest is Test {
             FOREIGN_RECORD,
             LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
         );
-        vm.expectRevert(abi.encodeWithSelector(ScheduleBeaconsLineHeadMismatch.selector, FOREIGN_RECORD));
+        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, FOREIGN_RECORD));
         beacons.callAssertPostState();
     }
 
@@ -887,9 +902,7 @@ contract UnderlyingNamingRolloutTest is Test {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("line");
         vm.expectRevert(
-            abi.encodeWithSelector(
-                ScheduleRenameUnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
-            )
+            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
         );
         rename.callPreflight();
         landBeaconScheduleAndHandOver(rename);
@@ -897,7 +910,7 @@ contract UnderlyingNamingRolloutTest is Test {
 
         uint256 snapshot = vm.snapshotState();
         LibTestRootLine.write(vm, safe, FOREIGN_RECORD, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
-        vm.expectRevert(abi.encodeWithSelector(ScheduleRenameUnexpectedMigrationLine.selector, FOREIGN_RECORD));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, FOREIGN_RECORD));
         rename.callPreflight();
         vm.revertToState(snapshot);
 
@@ -905,6 +918,17 @@ contract UnderlyingNamingRolloutTest is Test {
         vm.prank(safe);
         TimelockController(payable(timelock)).cancel(beaconId);
         vm.expectRevert(abi.encodeWithSelector(BeaconBatchNotScheduled.selector, beaconId));
+        rename.callPreflight();
+    }
+
+    function testRenamePreflightRefusesASafeTheRootDoesNotApprove() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("writer");
+        prepareRename(rename);
+        rename.callPreflight();
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibTestRootLine.revoke(vm, safe);
+        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
         rename.callPreflight();
     }
 
@@ -919,7 +943,11 @@ contract UnderlyingNamingRolloutTest is Test {
         uint256 snapshot = vm.snapshotState();
         executePrefix(txs, 1);
         // forge-lint: disable-next-line(block-timestamp)
-        vm.expectRevert(abi.encodeWithSelector(ScheduleRenameRecordMismatch.selector, block.timestamp, 0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME, block.timestamp, 0
+            )
+        );
         rename.callAssertPostState();
         vm.revertToState(snapshot);
 
@@ -927,7 +955,11 @@ contract UnderlyingNamingRolloutTest is Test {
         // forge-lint: disable-next-line(block-timestamp)
         uint256 recorded = block.timestamp;
         vm.warp(recorded + 1);
-        vm.expectRevert(abi.encodeWithSelector(ScheduleRenameRecordMismatch.selector, recorded + 1, recorded));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME, recorded + 1, recorded
+            )
+        );
         rename.callAssertPostState();
         vm.warp(recorded);
 
@@ -937,8 +969,19 @@ contract UnderlyingNamingRolloutTest is Test {
             FOREIGN_RECORD,
             LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME
         );
-        vm.expectRevert(abi.encodeWithSelector(ScheduleRenameLineHeadMismatch.selector, FOREIGN_RECORD));
+        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, FOREIGN_RECORD));
         rename.callAssertPostState();
+    }
+
+    function testExecutionRecordPreflightRefusesASafeTheRootDoesNotApprove() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ExecuteUnderlyingNamingHarness record = new ExecuteUnderlyingNamingHarness("writer");
+        executeRollout(new ScheduleUnderlyingNamingRenameHarness("writer"));
+        record.callPreflight();
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibTestRootLine.revoke(vm, safe);
+        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
+        record.callPreflight();
     }
 
     /// @notice The execution record is one root-line record call, refused
@@ -957,12 +1000,16 @@ contract UnderlyingNamingRolloutTest is Test {
 
         record.callPreflight();
         // forge-lint: disable-next-line(block-timestamp)
-        vm.expectRevert(abi.encodeWithSelector(ExecuteUnderlyingNamingRecordMismatch.selector, block.timestamp, 0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING, block.timestamp, 0
+            )
+        );
         record.callAssertPostState();
 
         uint256 snapshot = vm.snapshotState();
         LibTestRootLine.write(vm, safe, FOREIGN_RECORD, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
-        vm.expectRevert(abi.encodeWithSelector(ExecuteUnderlyingNamingUnexpectedMigrationLine.selector, FOREIGN_RECORD));
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, FOREIGN_RECORD));
         record.callPreflight();
         vm.revertToState(snapshot);
 
@@ -985,12 +1032,16 @@ contract UnderlyingNamingRolloutTest is Test {
         // forge-lint: disable-next-line(block-timestamp)
         uint256 recorded = block.timestamp;
         vm.warp(recorded + 1);
-        vm.expectRevert(abi.encodeWithSelector(ExecuteUnderlyingNamingRecordMismatch.selector, recorded + 1, recorded));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RecordMismatch.selector, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING, recorded + 1, recorded
+            )
+        );
         record.callAssertPostState();
         vm.warp(recorded);
 
         LibTestRootLine.write(vm, safe, FOREIGN_RECORD, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
-        vm.expectRevert(abi.encodeWithSelector(ExecuteUnderlyingNamingLineHeadMismatch.selector, FOREIGN_RECORD));
+        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, FOREIGN_RECORD));
         record.callAssertPostState();
     }
 }

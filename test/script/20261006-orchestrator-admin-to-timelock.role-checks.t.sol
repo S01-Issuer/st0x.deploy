@@ -7,19 +7,19 @@ import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/s
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 
-import {
-    LineHeadMismatch,
-    OrchestratorAdminToTimelock,
-    RecordMismatch,
-    RoleNotHeld,
-    UnexpectedMigrationLine
-} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
+import {OrchestratorAdminToTimelock, RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {LocalBaseOrchestratorFixture} from "./LocalBaseOrchestratorFixture.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    LineHeadMismatch,
+    RecordMismatch,
+    SafeNotApprovedWriter,
+    UnexpectedMigrationLine
+} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title OrchestratorAdminToTimelockLocalTest
 /// @notice The move on a local Base whose root line is at the V5 backfill, so
@@ -73,6 +73,13 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         script.callPreflight();
         LibTestRootLine.write(vm, address(safe), head, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5);
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, head));
+        script.callPreflight();
+    }
+
+    function testPreflightRefusesASafeTheRootDoesNotApprove() external {
+        script.callPreflight();
+        LibTestRootLine.revoke(vm, address(safe));
+        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, address(safe)));
         script.callPreflight();
     }
 
