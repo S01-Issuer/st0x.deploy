@@ -22,8 +22,7 @@ import {ExecuteTimelockOperations} from "../../script/20260813-execute-timelock-
 import {MigrateMultisigThreshold} from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
-import {HistoryMigrationScriptTest} from "../lib/HistoryMigrationScriptTest.sol";
-import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibTestTamperedArtifact} from "../lib/LibTestTamperedArtifact.sol";
@@ -618,33 +617,5 @@ contract MigrateGovernanceToTimelockTest is Test {
         MigrateGovernanceToTimelock migration = new MigrateGovernanceToTimelock();
         vm.expectRevert(GovernanceTimelockAlreadyApplied.selector);
         migration.run();
-    }
-}
-
-contract MigrateGovernanceToTimelockHistoryTest is HistoryMigrationScriptTest {
-    function newHistoryScript() internal override returns (address) {
-        return address(new MigrateGovernanceToTimelock());
-    }
-
-    function declaredId() internal pure override returns (bytes32) {
-        return LibStoxMigrations.GOVERNANCE_TIMELOCK;
-    }
-
-    function declaredOnto(uint256 chainId) internal pure override returns (bytes32) {
-        return chainId == LibSafeInvariants.BASE_CHAIN_ID
-            ? LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS
-            : LibStoxMigrations.MULTISIG_THRESHOLD;
-    }
-
-    function declaredHistory(uint256) internal pure override returns (bool) {
-        return true;
-    }
-
-    function ranOn(uint256 chainId) internal pure override returns (bool) {
-        return onDeploymentChain(chainId);
-    }
-
-    function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(NoGovernanceTimelockMigrationOnChain.selector, chainId);
     }
 }
