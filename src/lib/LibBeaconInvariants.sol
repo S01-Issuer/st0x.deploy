@@ -79,6 +79,10 @@ error BeaconImplNotDeployed(address beacon, address implementation);
 /// @param chainId The chain id with no pinned in-use beacon set.
 error UnsupportedChainForProdBeacons(uint256 chainId);
 
+/// @notice `createAddress` was given a nonce its single-byte RLP encoding does not cover (0x01-0x7f).
+/// @param nonce The out-of-range nonce.
+error CreateNonceOutOfRange(uint8 nonce);
+
 /// @title LibBeaconInvariants
 /// @notice Reusable invariant assertions for an OpenZeppelin
 /// `UpgradeableBeacon`. The single public assertion either returns silently
@@ -293,6 +297,7 @@ library LibBeaconInvariants {
     /// @param nonce The creating contract's nonce at the CREATE.
     /// @return The created address.
     function createAddress(address deployer, uint8 nonce) internal pure returns (address) {
+        if (nonce == 0 || nonce > 0x7f) revert CreateNonceOutOfRange(nonce);
         return address(uint160(uint256(keccak256(abi.encodePacked(bytes2(0xd694), deployer, nonce)))));
     }
 
