@@ -24,35 +24,35 @@ import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../src/lib/LibProdDeployV2BaseOverrides.sol";
+import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
-/// `network`, `beaconSetDeployer`, `beacons` (beacon, codehash, implementation, owner; `address(0)` where
-/// `beaconSetDeployer` resolves it), the token-owner `safe` lock-down, the `timelock`, the `orchestrator`, the V4
+/// `network`, `beaconSetDeployer`, `beacons` (beacon, codehash, implementation, owner), the token-owner `safe`
+/// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
 /// token's renamed metadata), and per production token under `tokens`: `underlying`, `name`, `renamedName`, `symbol`,
 /// `decimals`, `wrappedTokenVaultName`, `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
 /// `receiptVaultReceipt` (`receiptVault.receipt()`), `wrappedTokenVaultAsset` (`wrappedTokenVault.asset()`), the
-/// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon` (`address(0)` where
-/// `beaconSetDeployer` resolves it), the per-leg proxy codehashes `receiptVaultCodehash`, `receiptCodehash`,
+/// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
+/// `receiptVaultCodehash`, `receiptCodehash`,
 /// `wrappedTokenVaultCodehash`, `owner` and `authoriser`. Under `v2`, per network V2 was checked on: `network`,
 /// `deployments` (each `LibProdDeployV2` key, address, codehash), `beaconSetDeployer`, and `receiptBeacon`,
-/// `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon, implementation, owner; beacon `address(0)` where
-/// `beaconSetDeployer` resolves it).
+/// `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon, implementation, owner).
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
     function beaconsJson(uint256 chainId, string memory key) internal returns (string[] memory) {
-        address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
+        address[4] memory derived = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId);
         address[4] memory implementations = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
         bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(chainId);
         address owner = LibTimelockInvariants.timelockForChainId(chainId);
-        string[] memory rows = new string[](pinned.length);
-        for (uint256 i = 0; i < pinned.length; i++) {
+        string[] memory rows = new string[](derived.length);
+        for (uint256 i = 0; i < derived.length; i++) {
             string memory row = string.concat(key, ".beacon.", vm.toString(i));
-            vm.serializeAddress(row, "beacon", pinned[i]);
+            vm.serializeAddress(row, "beacon", derived[i]);
             vm.serializeBytes32(row, "codehash", codehashes[i]);
             vm.serializeAddress(row, "implementation", implementations[i]);
             rows[i] = vm.serializeAddress(row, "owner", owner);
@@ -174,7 +174,7 @@ contract BuildExpectedState is Script {
     function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
-        address[4] memory beacons = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
+        address[4] memory beacons = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId);
         bytes32[4] memory proxyCodehashes = LibBeaconInvariants.prodTokenProxyCodehashesForChainId(chainId);
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -224,11 +224,18 @@ contract BuildExpectedState is Script {
         return rows;
     }
 
+    /// Base's beacons are the V1 set deployer's; elsewhere the 0.1.1 set deployer's.
+    function beaconSetDeployer(uint256 chainId) internal pure returns (address) {
+        return LibBeaconInvariants.runsBaseBeaconSet(chainId)
+            ? LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+            : LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId);
+    }
+
     function chainJson(SupportedNetwork memory network) internal returns (string memory) {
         uint256 chainId = network.chainId;
         string memory key = vm.toString(chainId);
         vm.serializeString(key, "network", network.name);
-        vm.serializeAddress(key, "beaconSetDeployer", LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId));
+        vm.serializeAddress(key, "beaconSetDeployer", beaconSetDeployer(chainId));
         vm.serializeString(key, "beacons", beaconsJson(chainId, key));
         vm.serializeString(key, "safe", safeJson(chainId, key));
         vm.serializeString(key, "timelock", timelockJson(chainId, key));
@@ -345,22 +352,22 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(at, "owner", owner);
     }
 
-    /// Receipt and receipt-vault beacons are `address(0)`: the set deployer's `I_RECEIPT_BEACON()` /
-    /// `I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()` resolve them. Base's are `LibProdDeployV2BaseOverrides`.
+    /// Receipt and receipt-vault beacons are the set deployer's constructor CREATEs at nonce 1 and 2.
     function v2Json(SupportedNetwork memory network) internal returns (string memory) {
         string memory key = string.concat("v2.", vm.toString(network.chainId));
         bool isBase = network.chainId == LibSafeInvariants.BASE_CHAIN_ID;
+        address setDeployer = LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER;
         vm.serializeString(key, "network", network.name);
         vm.serializeString(key, "deployments", v2DeploymentsJson(key));
         vm.serializeAddress(
-            key, "beaconSetDeployer", LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+            key, "beaconSetDeployer", setDeployer
         );
         vm.serializeString(
             key,
             "receiptBeacon",
             v2BeaconJson(
                 string.concat(key, ".receiptBeacon"),
-                address(0),
+                LibBeaconInvariants.createAddress(setDeployer, 1),
                 isBase ? LibProdDeployV2BaseOverrides.RECEIPT_BEACON_IMPLEMENTATION : LibProdDeployV2.STOX_RECEIPT,
                 isBase ? LibProdDeployV2BaseOverrides.RECEIPT_BEACON_OWNER : LibProdDeployV2.BEACON_INITIAL_OWNER
             )
@@ -370,7 +377,7 @@ contract BuildExpectedState is Script {
             "receiptVaultBeacon",
             v2BeaconJson(
                 string.concat(key, ".receiptVaultBeacon"),
-                address(0),
+                LibBeaconInvariants.createAddress(setDeployer, 2),
                 isBase ? LibProdDeployV2BaseOverrides.VAULT_BEACON_IMPLEMENTATION : LibProdDeployV2.STOX_RECEIPT_VAULT,
                 isBase ? LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER : LibProdDeployV2.BEACON_INITIAL_OWNER
             )
