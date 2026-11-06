@@ -25,6 +25,7 @@ import {BuildExpectedStateHarness} from "./BuildExpectedStateHarness.sol";
 import {LibLocalProdState} from "../lib/LibLocalProdState.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
+import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
 import {RUNTIME_CODE as SUITE_TIMELOCK_RUNTIME_CODE} from "../../src/generated/candidate/StoxGovernanceTimelock.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
@@ -153,15 +154,14 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// Fixed example from the Ethereum leg: the receipt beacon is the 0.1.1 set deployer's `I_RECEIPT_BEACON()` and
+    /// Fixed example from the Ethereum leg: the receipt beacon is the 0.1.1 set deployer's `iReceiptBeacon()` and
     /// serves the 0.1.30 receipt.
     function testEthereumReceiptBeaconIsTheSetDeployersAt0_1_30() external {
         string memory json = build.render();
         LibLocalProdState.beacons(vm, LibSafeInvariants.ETHEREUM_CHAIN_ID);
         address expected = address(
-            IOffchainAssetReceiptVaultBeaconSetDeployerV1(
-                    LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
-                ).I_RECEIPT_BEACON()
+            IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1)
+                .iReceiptBeacon()
         );
         string memory row = ".chains.1.beacons[0]";
         assertNotEq(expected, address(0));
