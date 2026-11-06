@@ -10,9 +10,10 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 contract StoxDeployChainTest is StoxDeploySuites, RainDeployVerifyChain {
     /// Released suites derive on this bare EVM before any fork, and a released
-    /// timelock's constructor resolves the governance Safe. The registry code
-    /// goes again so only a suite's declared dependency etches it back.
-    function setUp() external {
+    /// timelock's constructor resolves the governance Safe and a beacon's its
+    /// initial owner. The registry code goes again so only a suite's declared
+    /// dependency etches it back.
+    function setUp() public {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
             vm,
@@ -20,6 +21,9 @@ contract StoxDeployChainTest is StoxDeploySuites, RainDeployVerifyChain {
             LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
             "address",
             abi.encode(address(0x5AFE))
+        );
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(address(1))
         );
         vm.etch(CONFIG_REGISTRY_ADDRESS, hex"");
     }
