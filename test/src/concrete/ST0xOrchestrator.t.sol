@@ -1061,9 +1061,9 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                        Reentrancy guard                            //
     // ------------------------------------------------------------------ //
 
-    /// A callback recipient that reenters `mint` from inside its
-    /// `authorizeMint` callback (holding MINT_ROLE itself) is stopped by the
-    /// reentrancy guard: the nested call reverts
+    /// A callback recipient that, holding MINT_ROLE itself, reenters `mint`
+    /// to another recipient from inside its `authorizeMint` callback is
+    /// stopped by the reentrancy guard: the nested call reverts
     /// `ReentrancyGuardReentrantCall` and the whole outer mint unwinds, so
     /// neither nonce is consumed.
     function testMintReenteredFromCallbackReverts() external {
@@ -1073,14 +1073,14 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         bytes32 outerNonce = keccak256("outer");
         bytes32 innerNonce = keccak256("inner");
 
-        ReentrantMintRecipient recipient = new ReentrantMintRecipient(orchestrator, TOKEN, innerAmount, innerNonce);
+        MockMintRecipient innerRecipient = new MockMintRecipient(true);
+        ReentrantMintRecipient recipient =
+            new ReentrantMintRecipient(orchestrator, TOKEN, address(innerRecipient), innerAmount, innerNonce);
         _grant(orchestrator.MINT_ROLE(), address(recipient));
 
-        // Mock the vault legs for both mints, and cap neither the recipient
-        // nor its own minting, so that, were the guard absent, nested and
-        // outer mint would both complete instead of reverting for an
-        // unrelated reason.
+        // Without the guard both mints would complete, so the guard is the only thing that can revert here.
         _allowRecipient(address(recipient));
+        _allowRecipient(address(innerRecipient));
         vm.prank(OWNER);
         orchestrator.setMinterMintLimit(address(recipient), UNBOUNDED_CAPACITY, NO_LEAK);
         _prepMintExact(TOKEN, outerAmount, "");
@@ -1090,7 +1090,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.mint(TOKEN, address(recipient), outerAmount, _auth("", outerNonce), "", new SignedContextV2[](0));
 
         assertFalse(orchestrator.nonceUsed(address(recipient), outerNonce), "outer nonce must not persist");
-        assertFalse(orchestrator.nonceUsed(address(recipient), innerNonce), "inner nonce must not persist");
+        assertFalse(orchestrator.nonceUsed(address(innerRecipient), innerNonce), "inner nonce must not persist");
     }
 
     /// The vault reporting an assets amount != the shares redeemed reverts
