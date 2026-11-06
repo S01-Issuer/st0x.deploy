@@ -15,6 +15,10 @@ import {CloneDeploy} from "rain-factory-0.2.10/src/lib/LibRainDeployClone.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.10/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.10/src/lib/LibRainDeployCloneMechanism.sol";
 import {
+    RegistryBeaconProxyDeploy,
+    RegistryBeaconProxyTarget
+} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
 } from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
@@ -36,6 +40,9 @@ import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
 import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
+import {LibProdTokenConfig, TokenConfig} from "../lib/LibProdTokenConfig.sol";
+import {LibProdTokenTargets} from "../lib/LibProdTokenTargets.sol";
+import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -49,6 +56,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant RECEIPT_VAULT = "stox-receipt-vault";
     string constant WRAPPED_TOKEN_VAULT = "stox-wrapped-token-vault";
     string constant WRAPPED_TOKEN_VAULT_BEACON = "stox-wrapped-token-vault-beacon";
+    string constant RECEIPT_BEACON = "stox-receipt-beacon";
+    string constant RECEIPT_VAULT_BEACON = "stox-receipt-vault-beacon";
     string constant AUTHORIZER = "stox-offchain-asset-receipt-vault-authorizer";
     string constant PAYMENT_MINT_AUTHORIZER = "stox-offchain-asset-receipt-vault-payment-mint-authorizer";
     string constant ORCHESTRATOR = "stox-orchestrator";
@@ -58,6 +67,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
     string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
+    string constant TOKEN_PREFIX = "stox-token-";
     string constant GOVERNANCE_TIMELOCK = "stox-governance-timelock";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
@@ -66,6 +76,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant WRAPPED_TOKEN_VAULT_PATH = "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault";
     string constant WRAPPED_TOKEN_VAULT_BEACON_PATH =
         "src/concrete/StoxWrappedTokenVaultBeacon.sol:StoxWrappedTokenVaultBeacon";
+    string constant RECEIPT_BEACON_PATH = "src/concrete/StoxReceiptBeacon.sol:StoxReceiptBeacon";
+    string constant RECEIPT_VAULT_BEACON_PATH = "src/concrete/StoxReceiptVaultBeacon.sol:StoxReceiptVaultBeacon";
     string constant AUTHORIZER_PATH =
         "src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol:StoxOffchainAssetReceiptVaultAuthorizerV1";
     string constant PAYMENT_MINT_AUTHORIZER_PATH =
@@ -91,11 +103,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
+        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites());
         return declared;
     }
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
-        DeployCandidate[] memory candidates = new DeployCandidate[](10);
+        DeployCandidate[] memory candidates = new DeployCandidate[](12);
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -223,6 +236,38 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 one(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE)
             )
         );
+        candidates[10] = anchored(
+            zoltu(
+                RECEIPT_BEACON,
+                V4.STOX_RECEIPT_BEACON_CREATION_CODE_CANDIDATE,
+                V4.STOX_RECEIPT_BEACON_CANDIDATE,
+                V4.STOX_RECEIPT_BEACON_CODEHASH_CANDIDATE,
+                V4.STOX_RECEIPT_BEACON_RUNTIME_CODE_CANDIDATE,
+                RECEIPT_BEACON_PATH,
+                two(
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    V4.STOX_RECEIPT_CANDIDATE,
+                    V4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE
+                )
+            )
+        );
+        candidates[11] = anchored(
+            zoltu(
+                RECEIPT_VAULT_BEACON,
+                V4.STOX_RECEIPT_VAULT_BEACON_CREATION_CODE_CANDIDATE,
+                V4.STOX_RECEIPT_VAULT_BEACON_CANDIDATE,
+                V4.STOX_RECEIPT_VAULT_BEACON_CODEHASH_CANDIDATE,
+                V4.STOX_RECEIPT_VAULT_BEACON_RUNTIME_CODE_CANDIDATE,
+                RECEIPT_VAULT_BEACON_PATH,
+                two(
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    V4.STOX_RECEIPT_VAULT_CANDIDATE,
+                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
+                )
+            )
+        );
         return candidates;
     }
 
@@ -247,6 +292,38 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             )
         });
         return clones;
+    }
+
+    /// Suite keys allow only lowercase letters and hyphens; token symbols carry uppercase.
+    function lowercase(string memory s) internal pure returns (string memory) {
+        bytes memory b = bytes(s);
+        bytes memory out = new bytes(b.length);
+        for (uint256 i = 0; i < b.length; i++) {
+            bytes1 c = b[i];
+            out[i] = c >= "A" && c <= "Z" ? bytes1(uint8(c) + 32) : c;
+        }
+        return string(out);
+    }
+
+    function tokenSuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](targets.length);
+        for (uint256 i = 0; i < targets.length; i++) {
+            suites[i] = RegistryBeaconProxyDeploy({
+                suite: string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol)),
+                factory: targets[i].factory,
+                registry: targets[i].registry,
+                authority: targets[i].authority,
+                beaconName: targets[i].beaconName,
+                beacon: targets[i].beacon,
+                data: targets[i].data,
+                salt: targets[i].salt,
+                dependencies: LibProdTokenTargets.tokenDependencies(),
+                runtimeCode: LibStoxTokenProxy.RUNTIME_CODE
+            });
+        }
+        return suites;
     }
 
     function zoltu(
