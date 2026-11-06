@@ -13,6 +13,10 @@ import {LibScriptDeclarations} from "../src/lib/LibScriptDeclarations.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
+/// @notice The scripts directory holds a directory, whose scripts discovery does not read.
+/// @param path The directory's path.
+error ScriptsSubdirectory(string path);
+
 /// @notice No contract in a script file declares itself.
 /// @param script The script's path.
 error NoDeclaration(string script);
@@ -102,13 +106,14 @@ contract BuildMigrations is Script {
         return names;
     }
 
-    /// @dev Each `.s.sol` in `dir`, by file name.
+    /// @dev Each `.s.sol` in `dir`, by file name; reverts on any directory in `dir`.
     function scriptNames(string memory dir) internal view returns (string[] memory) {
         Vm.DirEntry[] memory entries = vm.readDir(dir, 1);
         string[] memory names = new string[](entries.length);
         uint256 count = 0;
         for (uint256 entry = 0; entry < entries.length; entry++) {
-            if (entries[entry].isDir || !endsWith(entries[entry].path, SUFFIX)) continue;
+            if (entries[entry].isDir) revert ScriptsSubdirectory(entries[entry].path);
+            if (!endsWith(entries[entry].path, SUFFIX)) continue;
             names[count++] = basename(entries[entry].path);
         }
         assembly ("memory-safe") {
