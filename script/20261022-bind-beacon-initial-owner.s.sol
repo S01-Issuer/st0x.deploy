@@ -8,6 +8,7 @@ import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
+import {ConfigBinding, LibConfigRegistryRegister} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryRegister.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
@@ -79,22 +80,19 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
         }
     }
 
+    /// @notice `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` as an `address`.
+    function timelockBinding() internal pure returns (ConfigBinding memory) {
+        return ConfigBinding("", "address", abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK), "");
+    }
+
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
             to: LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS,
             value: 0,
-            data: abi.encodeCall(
-                IConfigRegistryV5.registerV5,
-                (
-                    LibRegistryAuthority.ROOT_AUTHORITY,
-                    LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
-                    "address",
-                    abi.encode(timelock),
-                    ""
-                )
+            data: LibConfigRegistryRegister.registerCalldata(
+                LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, timelockBinding()
             ),
             operation: Enum.Operation.Call
         });
@@ -104,12 +102,11 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
-        (bytes memory value, uint256 registeredAt) = LibConfigRegistry.resolve(
-            LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, keccak256("address")
+        (bytes memory value, uint256 registeredAt, bytes32 typeHash) = LibConfigRegistryRegister.currentBinding(
+            LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME
         );
-        bytes memory expected = abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
         // forge-lint: disable-next-line(block-timestamp)
-        if (keccak256(value) != keccak256(expected) || registeredAt != block.timestamp) {
+        if (!LibConfigRegistryRegister.isBound(value, typeHash, timelockBinding()) || registeredAt != block.timestamp) {
             revert BeaconInitialOwnerBindingMismatch(value, registeredAt);
         }
         LibStoxMigrations.assertRecorded(bindBeaconInitialOwnerDeclaration());
