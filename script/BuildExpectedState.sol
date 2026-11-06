@@ -36,7 +36,8 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// token's renamed metadata), and per production token under `tokens`: `underlying`, `name`, `renamedName`, `symbol`,
 /// `decimals`, `wrappedTokenVaultName`, `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
-/// `receiptVaultReceipt` (`receiptVault.receipt()`), `wrappedTokenVaultAsset` (`wrappedTokenVault.asset()`), the
+/// `receiptVaultReceipt` (`receiptVault.receipt()`), `receiptManager` (`receipt.manager()`), `wrappedTokenVaultAsset`
+/// (`wrappedTokenVault.asset()`), the
 /// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
 /// `receiptVaultCodehash`, `receiptCodehash`,
 /// `wrappedTokenVaultCodehash`, `owner` and `authoriser`. Under `v2`, per network V2 was checked on: `network`,
@@ -168,6 +169,7 @@ contract BuildExpectedState is Script {
         vm.serializeAddress(row, "receipt", token.receipt);
         vm.serializeAddress(row, "wrappedTokenVault", token.wrappedTokenVault);
         vm.serializeAddress(row, "receiptVaultReceipt", token.receipt);
+        vm.serializeAddress(row, "receiptManager", token.receiptVault);
         vm.serializeAddress(row, "wrappedTokenVaultAsset", token.receiptVault);
         vm.serializeAddress(row, "receiptVaultBeacon", beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
         vm.serializeAddress(row, "receiptBeacon", beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
