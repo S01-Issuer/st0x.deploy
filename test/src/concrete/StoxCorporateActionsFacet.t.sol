@@ -1489,20 +1489,14 @@ contract StoxCorporateActionsFacetTest is Test {
     /// The first schedule pushes the bootstrap at idx 0 as the list head;
     /// later schedules push no second bootstrap.
     function testBootstrapPrecedesEveryUserAction() external {
-        uint256 scheduleTime = block.timestamp;
-        uint256 first =
-            corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(scheduleTime + 1), hex"deadbeef");
+        uint256 first = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1001, hex"deadbeef");
         assertEq(first, 1, "first user action");
-        assertEq(
-            corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(scheduleTime + 2), hex""),
-            2,
-            "second user action"
-        );
+        assertEq(corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1002, hex""), 2, "second user action");
         assertEq(corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex""), 3, "third user action");
 
         CorporateActionNode memory bootstrap = corporateActionHarness.getNode(0);
         assertEq(bootstrap.actionType, ACTION_TYPE_INIT_V1, "bootstrap actionType");
-        assertEq(uint256(bootstrap.effectiveTime), scheduleTime, "bootstrap effectiveTime is the first schedule time");
+        assertEq(uint256(bootstrap.effectiveTime), 1000, "bootstrap effectiveTime is the first schedule time");
         assertEq(bootstrap.parameters.length, 0, "bootstrap has no parameters");
         assertEq(bootstrap.prev, NODE_NONE, "bootstrap is the head");
         assertEq(bootstrap.next, first, "bootstrap.next is the first user action");
