@@ -32,6 +32,7 @@ import {
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
 } from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.sol";
@@ -89,13 +90,22 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function run() external {
-        // TimelockController has no immutables, so any bound Safe snapshots the same runtime code.
+        // Generated code depends on neither the bound timelock initial proposer nor the bound beacon initial owner.
         vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
             .registerV5(
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
+                "address",
+                abi.encode(address(1)),
+                ""
+            );
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
+        IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
+            .registerV5(
+                LibRegistryAuthority.ROOT_AUTHORITY,
+                LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
                 "address",
                 abi.encode(address(1)),
                 ""
@@ -462,7 +472,6 @@ contract Build is Script, StoxDeploySuites {
         vm.writeLine(GEN_CURRENT_PATH, "");
         vm.writeLine(GEN_CURRENT_PATH, "library LibProdDeployCurrent {");
         vm.writeLine(GEN_CURRENT_PATH, string.concat('string constant DEPLOY_TAG = "', tag, '";'));
-        vm.writeLine(GEN_CURRENT_PATH, "address constant BEACON_INITIAL_OWNER = LibProdDeployV4.BEACON_INITIAL_OWNER;");
         vm.writeLine(
             GEN_CURRENT_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;"

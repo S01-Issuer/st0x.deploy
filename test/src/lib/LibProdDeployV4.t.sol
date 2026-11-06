@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
@@ -19,6 +20,9 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 
 /// @title LibProdDeployV4Test
 /// @notice Pins every constant in `LibProdDeployV4` so a wrong address or
@@ -45,6 +49,17 @@ import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 /// `testAuthoriserV4ClonePin` asserts the literal + the codehash derivation
 /// so a drifted generator value fails a test.
 contract LibProdDeployV4Test is Test {
+    function setUp() external {
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK)
+        );
+    }
+
     function deployZoltuWithinEip170(bytes memory creationCode) internal returns (address) {
         address deployed = LibRainDeploy.deployZoltu(creationCode);
         assertLe(deployed.code.length, 24_576, "runtime exceeds EIP-170");
