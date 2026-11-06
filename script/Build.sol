@@ -5,8 +5,11 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm, VmSafe} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploySnapshot} from "rain-deploy-0.1.30/src/lib/LibRainDeploySnapshot.sol";
-import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {
+    LibRainDeployRegistryBeaconProxy,
+    RegistryBeaconProxyTarget
+} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DeployCandidate,
     DeployDeclaration,
@@ -133,11 +136,13 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genOrchestratorProxy() internal {
+        RegistryBeaconProxyTarget memory target = LibProdOrchestratorTarget.orchestratorTarget();
+        target.beacon = LibRainDeploy.zoltuAddress(type(ST0xOrchestratorBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
             Vm(address(vm)),
-            LibProdOrchestratorTarget.orchestratorTarget(),
-            V4.ST0X_ORCHESTRATOR_CANDIDATE,
-            V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE
+            target,
+            LibRainDeploy.zoltuAddress(type(ST0xOrchestrator).creationCode),
+            address(new ST0xOrchestrator()).code
         );
         writeGeneratedHeader(GEN_ORCHESTRATOR_PROXY_PATH);
         vm.writeLine(GEN_ORCHESTRATOR_PROXY_PATH, "");
