@@ -90,13 +90,13 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// until an admin grants it.
 ///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
-/// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
+/// authorisation of `(token, recipient, amount, nonce)` as a `MintAuthV1`: either an
 /// EIP-712 signature (verified with `SignatureChecker`, so EOAs sign with
 /// ECDSA and contracts via EIP-1271) or, when no signature is supplied, an
-/// `IMintRecipient.authorizeMint` callback on `to`. Replay protection is
-/// namespaced by recipient: `(to, nonce)` is single-use, regardless of token
+/// `IMintRecipient.authorizeMint` callback on `recipient`. Replay protection is
+/// namespaced by recipient: `(recipient, nonce)` is single-use, regardless of token
 /// or amount. The minter's `receiptInformation` payload is a separate
-/// parameter and never part of the recipient's authorisation. `to ==
+/// parameter and never part of the recipient's authorisation. `recipient ==
 /// msg.sender` reverts `SenderIsRecipient`, with no override.
 ///
 /// **Vault-logic version lock.** So much of the burn/mint logic depends on
@@ -179,7 +179,7 @@ contract ST0xOrchestrator is
     /// state goes on the end.
     struct MainStorage {
         mapping(address token => uint256) nextBurnReceiptId;
-        mapping(address to => mapping(bytes32 nonce => bool)) usedNonce;
+        mapping(address recipient => mapping(bytes32 nonce => bool)) usedNonce;
         mapping(address account => mapping(MintCapKind kind => MintCapV1)) mintCaps;
         /// The mint weighting: the one expression that converts every mint
         /// into the charge on both buckets. A zero interpreter is unset.
@@ -305,28 +305,28 @@ contract ST0xOrchestrator is
     // slither-disable-next-line reentrancy-no-eth
     function mint(
         address token,
-        address to,
+        address recipient,
         uint256 amount,
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation,
         SignedContextV2[] calldata signedContext
     ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic(token) nonReentrant {
         if (amount == 0) revert ZeroAmount();
-        if (to == _minter()) revert SenderIsRecipient(_minter());
-        _consumeMintCaps(token, to, amount, signedContext);
-        _consumeMintAuth(token, to, amount, auth);
+        if (recipient == _minter()) revert SenderIsRecipient(_minter());
+        _consumeMintCaps(token, recipient, amount, signedContext);
+        _consumeMintAuth(token, recipient, amount, auth);
 
         // Share ratio is 1:1; anything else halts the mint.
         uint256 assets = OffchainAssetReceiptVault(payable(token)).mint(amount, address(this), 0, receiptInformation);
         if (assets != amount) revert VaultAmountMismatch(amount, assets);
-        IERC20(token).safeTransfer(to, amount);
-        emit Minted(_minter(), token, to, amount, auth.nonce);
+        IERC20(token).safeTransfer(recipient, amount);
+        emit Minted(_minter(), token, recipient, amount, auth.nonce);
     }
 
     /// @dev Put a value on the mint with the mint weighting, then meter that
     /// value through both mint buckets, writing each back, and revert naming
     /// whichever one it did not fit. Runs before the recipient authorisation,
-    /// so the bucket writes land before the callback to `to`.
+    /// so the bucket writes land before the callback to `recipient`.
     ///
     /// Both limits are checked for having been set before the weighting is
     /// evaluated: an unset limit is refused without verifying a signature or
@@ -336,20 +336,23 @@ contract ST0xOrchestrator is
     /// recipient rejection reverts the whole call.
     ///
     /// `headroomAt` is read to name which cap bound.
-    function _consumeMintCaps(address token, address to, uint256 amount, SignedContextV2[] calldata signedContext)
-        internal
-    {
+    function _consumeMintCaps(
+        address token,
+        address recipient,
+        uint256 amount,
+        SignedContextV2[] calldata signedContext
+    ) internal {
         MainStorage storage $ = _main();
         MintCapV1 storage minterCap = $.mintCaps[_minter()][MintCapKind.Minter];
-        MintCapV1 storage recipientCap = $.mintCaps[to][MintCapKind.Recipient];
+        MintCapV1 storage recipientCap = $.mintCaps[recipient][MintCapKind.Recipient];
         if (!minterCap.set) revert MintLimitUnset(MintCapKind.Minter, _minter());
-        if (!recipientCap.set) revert MintLimitUnset(MintCapKind.Recipient, to);
+        if (!recipientCap.set) revert MintLimitUnset(MintCapKind.Recipient, recipient);
 
         // The buckets meter the weighted charge, never the raw amount.
         Float charge = _weighMint($, token, amount, signedContext);
         Float timestamp = _now();
         _fillMintCap(minterCap, MintCapKind.Minter, _minter(), timestamp, charge);
-        _fillMintCap(recipientCap, MintCapKind.Recipient, to, timestamp, charge);
+        _fillMintCap(recipientCap, MintCapKind.Recipient, recipient, timestamp, charge);
     }
 
     /// @dev Evaluate the mint weighting over this mint and its signed context
@@ -432,14 +435,14 @@ contract ST0xOrchestrator is
         return LibDecimalFloat.fromFixedDecimalLosslessPacked(block.timestamp, 0);
     }
 
-    /// @dev Consume the recipient's single-use `(to, nonce)` replay slot and
+    /// @dev Consume the recipient's single-use `(recipient, nonce)` replay slot and
     /// verify the recipient authorised this exact mint. Split out of `mint`
     /// to keep that frame within stack limits.
-    function _consumeMintAuth(address token, address to, uint256 amount, MintAuthV1 calldata auth) internal {
+    function _consumeMintAuth(address token, address recipient, uint256 amount, MintAuthV1 calldata auth) internal {
         MainStorage storage $ = _main();
-        if ($.usedNonce[to][auth.nonce]) revert NonceReplayed(to, auth.nonce);
-        $.usedNonce[to][auth.nonce] = true;
-        _verifyRecipientAuth(to, _mintAuthDigest(token, to, amount, auth.nonce), auth.signature);
+        if ($.usedNonce[recipient][auth.nonce]) revert NonceReplayed(recipient, auth.nonce);
+        $.usedNonce[recipient][auth.nonce] = true;
+        _verifyRecipientAuth(recipient, _mintAuthDigest(token, recipient, amount, auth.nonce), auth.signature);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -592,13 +595,17 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function nonceUsed(address to, bytes32 nonce) external view returns (bool) {
-        return _main().usedNonce[to][nonce];
+    function nonceUsed(address recipient, bytes32 nonce) external view returns (bool) {
+        return _main().usedNonce[recipient][nonce];
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest) {
-        return _mintAuthDigest(token, to, amount, nonce);
+    function mintAuthDigest(address token, address recipient, uint256 amount, bytes32 nonce)
+        external
+        view
+        returns (Digest)
+    {
+        return _mintAuthDigest(token, recipient, amount, nonce);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -639,21 +646,25 @@ contract ST0xOrchestrator is
     //                            Internals                               //
     // ------------------------------------------------------------------ //
 
-    function _mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) internal view returns (Digest) {
-        return Digest.wrap(_hashTypedDataV4(keccak256(abi.encode(MINT_AUTH_TYPEHASH, token, to, amount, nonce))));
+    function _mintAuthDigest(address token, address recipient, uint256 amount, bytes32 nonce)
+        internal
+        view
+        returns (Digest)
+    {
+        return Digest.wrap(_hashTypedDataV4(keccak256(abi.encode(MINT_AUTH_TYPEHASH, token, recipient, amount, nonce))));
     }
 
-    /// @dev Verify `to` authorised the mint: an EIP-712 signature (ECDSA or
+    /// @dev Verify `recipient` authorised the mint: an EIP-712 signature (ECDSA or
     /// EIP-1271) when `signature` is non-empty, else an `IMintRecipient`
     /// callback returning the magic selector.
-    function _verifyRecipientAuth(address to, Digest digest, bytes memory signature) internal {
+    function _verifyRecipientAuth(address recipient, Digest digest, bytes memory signature) internal {
         if (signature.length > 0) {
-            if (!SignatureChecker.isValidSignatureNow(to, Digest.unwrap(digest), signature)) {
+            if (!SignatureChecker.isValidSignatureNow(recipient, Digest.unwrap(digest), signature)) {
                 revert BadRecipientSignature();
             }
         } else {
-            if (IMintRecipient(to).authorizeMint(digest) != IMintRecipient.authorizeMint.selector) {
-                revert RecipientCallbackRejected(to);
+            if (IMintRecipient(recipient).authorizeMint(digest) != IMintRecipient.authorizeMint.selector) {
+                revert RecipientCallbackRejected(recipient);
             }
         }
     }

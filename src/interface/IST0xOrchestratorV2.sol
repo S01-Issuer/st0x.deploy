@@ -36,7 +36,9 @@ enum MintCapKind {
 /// `IST0xOrchestratorV1`: `mint` takes the signed context the mint weighting
 /// reads, and every mint is metered by the minter and recipient mint caps.
 interface IST0xOrchestratorV2 {
-    event Minted(address indexed caller, address indexed token, address indexed to, uint256 amount, bytes32 nonce);
+    event Minted(
+        address indexed caller, address indexed token, address indexed recipient, uint256 amount, bytes32 nonce
+    );
     /// @param firstReceiptId `nextBurnReceiptId[token]` at the start of the call.
     /// @param nextBurnReceiptIdAfter The pointer at the end of the call. The
     /// walk only ever moves forward within a burn, so `[firstReceiptId,
@@ -74,12 +76,12 @@ interface IST0xOrchestratorV2 {
     error ZeroAmount();
     /// @notice `mint` was asked to send the shares to the minter itself. The
     /// sender and the recipient of a mint can never be the same address.
-    /// @param sender The `MINT_ROLE` caller that named itself as `to`.
+    /// @param sender The `MINT_ROLE` caller that named itself as `recipient`.
     error SenderIsRecipient(address sender);
-    /// @notice `to` has already consumed `nonce`. Replay protection is
+    /// @notice `recipient` has already consumed `nonce`. Replay protection is
     /// namespaced by recipient: a nonce is single-use for that recipient
     /// regardless of token or amount.
-    error NonceReplayed(address to, bytes32 nonce);
+    error NonceReplayed(address recipient, bytes32 nonce);
     error BadRecipientSignature();
     error RecipientCallbackRejected(address recipient);
     /// @notice `account`, a token or its receipt, is not a registry beacon
@@ -125,15 +127,15 @@ interface IST0xOrchestratorV2 {
     /// @param outputs How many outputs the expression left.
     error UnsupportedMintWeightingOutputs(uint256 outputs);
 
-    /// @notice Mint `amount` rebased tStocks of `token` to `to`. The receipt
+    /// @notice Mint `amount` rebased tStocks of `token` to `recipient`. The receipt
     /// is minted to (and kept by) the orchestrator; the shares are forwarded
-    /// to `to`, which must authorise the mint via `auth`.
+    /// to `recipient`, which must authorise the mint via `auth`.
     ///
-    /// The minter can never be the recipient: `to == msg.sender` reverts
+    /// The minter can never be the recipient: `recipient == msg.sender` reverts
     /// `SenderIsRecipient`, checked before anything is metered or authorised.
     ///
     /// Metered by two leaky buckets, both of which must accept: the minter's
-    /// (`msg.sender`) bucket and the recipient's (`to`) bucket. Nothing
+    /// (`msg.sender`) bucket and the recipient's bucket. Nothing
     /// is metered per token. Either rejection reverts with `MintCapExceeded`,
     /// or with `MintLimitUnset` where the limit was never set at all, each
     /// naming the bucket's `MintCapKind`.
@@ -146,7 +148,7 @@ interface IST0xOrchestratorV2 {
     /// the mint if it does not. `MintWeightingUnset` if no expression has
     /// been set; a zero or negative charge is refused by the bucket by name.
     /// @param token The `OffchainAssetReceiptVault` to mint.
-    /// @param to Recipient of the shares.
+    /// @param recipient Receives the shares.
     /// @param amount Rebased tStock units to mint.
     /// @param auth The recipient's authorisation (see `MintAuthV1`).
     /// @param receiptInformation The MINTER's audit-trail payload, forwarded
@@ -157,7 +159,7 @@ interface IST0xOrchestratorV2 {
     /// Not part of the recipient's authorisation.
     function mint(
         address token,
-        address to,
+        address recipient,
         uint256 amount,
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation,
@@ -187,7 +189,7 @@ interface IST0xOrchestratorV2 {
     /// `capacity` is a set limit that admits nothing, distinct from never
     /// having been set.
     /// @param kind Which bucket.
-    /// @param account The `MINT_ROLE` holder or mint `to` the limit applies to.
+    /// @param account The `MINT_ROLE` holder or mint recipient the limit applies to.
     /// @param capacity Burst, in the units mints are charged in (see
     /// `MintLimitV1`).
     /// @param leakRate Sustained rate in those same units per second.
@@ -213,12 +215,15 @@ interface IST0xOrchestratorV2 {
     /// inspect.
     function nextBurnReceiptId(address token) external view returns (uint256);
 
-    /// @notice True if `to` has already consumed `nonce`.
-    function nonceUsed(address to, bytes32 nonce) external view returns (bool);
+    /// @notice True if `recipient` has already consumed `nonce`.
+    function nonceUsed(address recipient, bytes32 nonce) external view returns (bool);
 
     /// @notice The EIP-712 digest a recipient signs (or checks in its
     /// `authorizeMint` callback) to authorise a mint.
-    function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest);
+    function mintAuthDigest(address token, address recipient, uint256 amount, bytes32 nonce)
+        external
+        view
+        returns (Digest);
 
     /// @notice `account`'s `kind` mint limit, as stored.
     function mintLimit(MintCapKind kind, address account) external view returns (MintLimitV1 memory);
