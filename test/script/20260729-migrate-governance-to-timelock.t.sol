@@ -156,57 +156,30 @@ contract MigrateGovernanceToTimelockTest is Test {
     function pinnedTimelock() internal view returns (address) {
         address safe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        assertEq(timelock, LibTimelockInvariants.expectedTimelockAddress(safe), "pin must be the derived timelock");
-        assertGt(timelock.code.length, 0, "pinned timelock must be live");
+        assertEq(
+            timelock, LibTimelockInvariants.expectedTimelockAddress(safe), onChain("pin must be the derived timelock")
+        );
+        assertGt(timelock.code.length, 0, onChain("pinned timelock must be live"));
         LibTimelockInvariants.assertTimelockState(timelock, safe);
         return timelock;
     }
 
-    /// @notice The full authoring against live Base state: post-state holds
-    /// (every vault AND every in-use beacon timelock-owned, grant map on the
-    /// timelock, Safe stripped of `_ADMIN` roles) and the emitted artifact
-    /// matches an independently derived bundle — 7 grants, then every
-    /// Safe-owned vault transfer, then every Safe-owned beacon transfer,
-    /// then 7 renounces, in order.
-    function testRunAuthorsFullMigration() external {
-        selectBaseFork();
-        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+    /// @notice The full authoring against each deployment network's live
+    /// state: post-state holds (every vault AND every in-use beacon
+    /// timelock-owned, grant map on the timelock, Safe stripped of `_ADMIN`
+    /// roles) and the emitted artifact matches an independently derived
+    /// bundle — 7 grants, then every Safe-owned vault transfer, then every
+    /// Safe-owned beacon transfer, then 7 renounces, in order.
+    function testRunAuthorsFullMigrationOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            selectRewoundFork(networks[i]);
+            _assertAuthorsFullMigration(LibSafeInvariants.safeForChainId(block.chainid));
+        }
     }
 
-    /// @notice The same full authoring against live HyperEVM state. HyperEVM
-    /// carries 29 production tokens behind the same Safe / authoriser /
-    /// beacon shape, so the chain-generic script must author there on
-    /// identical terms — this is the assertion that proves HyperEVM is
-    /// actually covered rather than merely reachable through the chain map.
-    /// @dev Forks unconditionally, matching `StoxProdV4Test`: CI supplies
-    /// `HYPEREVM_RPC_URL` to the shared rainix test workflow from the
-    /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC must fail at fork
-    /// time rather than pass having asserted nothing.
-    function testRunAuthorsFullMigrationOnHyperevm() external {
-        selectRewoundFork(LibStoxDeployNetworks.HYPEREVM);
-        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM);
-    }
-
-    /// @notice The same full authoring against live Ethereum state — Ethereum shares
-    /// HyperEVM's Safe and timelock but has its own token table and
-    /// authoriser clone, and chain-generic code is only proven generic by
-    /// running it on every chain it claims.
-    function testRunAuthorsFullMigrationOnEthereum() external {
-        selectRewoundFork(LibStoxDeployNetworks.ETHEREUM);
-        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM);
-    }
-
-    /// @notice The same full authoring against live Robinhood Chain state.
-    function testRunAuthorsFullMigrationOnRobinhood() external {
-        selectRewoundFork(LibStoxDeployNetworks.ROBINHOOD);
-        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD);
-    }
-
-    /// @notice The same full authoring against live BNB Smart Chain state, so
-    /// all five governed chains carry the same proof.
-    function testRunAuthorsFullMigrationOnBsc() external {
-        selectRewoundFork(LibStoxDeployNetworks.BSC);
-        _assertAuthorsFullMigration(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC);
+    function onChain(string memory message) internal view returns (string memory) {
+        return string.concat(vm.toString(block.chainid), ": ", message);
     }
 
     /// @notice Drive the full authoring on whichever fork is selected and
@@ -220,9 +193,9 @@ contract MigrateGovernanceToTimelockTest is Test {
         // Derive the expected target set from the PRE-run fork state — the
         // same derivation a reviewing signer performs.
         address[] memory vaultTargets = _safeOwnedVaults(safe);
-        assertGt(vaultTargets.length, 0, "fork state should have Safe-owned vaults pre-migration");
+        assertGt(vaultTargets.length, 0, onChain("fork state should have Safe-owned vaults pre-migration"));
         address[] memory beaconTargets = _safeOwnedBeacons(safe);
-        assertGt(beaconTargets.length, 0, "fork state should have Safe-owned beacons pre-migration");
+        assertGt(beaconTargets.length, 0, onChain("fork state should have Safe-owned beacons pre-migration"));
         address[4] memory implsBefore = _beaconImplementations();
 
         new MigrateGovernanceToTimelockHarness(timelock).run();
@@ -308,7 +281,7 @@ contract MigrateGovernanceToTimelockTest is Test {
             assertEq(
                 implsAfter[i],
                 implsBefore[i],
-                "migration must move beacon ownership without changing what the beacon serves"
+                onChain("migration must move beacon ownership without changing what the beacon serves")
             );
         }
 
@@ -317,7 +290,7 @@ contract MigrateGovernanceToTimelockTest is Test {
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
             assertFalse(
                 IAccessControl(authoriser).hasRole(grants[i].role, safe),
-                "Safe must not retain any _ADMIN role post-migration"
+                onChain("Safe must not retain any _ADMIN role post-migration")
             );
         }
     }
@@ -342,6 +315,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     ) internal view {
         address authoriser = _activeChainAuthoriser();
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        bytes memory transfer = abi.encodeCall(Ownable.transferOwnership, (timelock));
 
         (uint256 chainId, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(
             vm,
@@ -349,33 +323,45 @@ contract MigrateGovernanceToTimelockTest is Test {
                 string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json")
             )
         );
-        assertEq(chainId, block.chainid, "artifact must be authored for the active chain");
-        assertEq(artifactSafe, safe, "artifact must be authored for the chain's Safe");
-        assertEq(txs[0].to, authoriser, "bundle must open with the authoriser grants");
-        assertEq(txs.length, ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT);
+        assertEq(chainId, block.chainid, onChain("artifact must be authored for the active chain"));
+        assertEq(artifactSafe, safe, onChain("artifact must be authored for the chain's Safe"));
+        assertEq(txs[0].to, authoriser, onChain("bundle must open with the authoriser grants"));
+        assertEq(
+            txs.length,
+            ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + ADMIN_ROLE_COUNT,
+            onChain("bundle length")
+        );
 
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
-            assertEq(txs[i].to, authoriser);
-            assertEq(txs[i].data, abi.encodeCall(IAccessControl.grantRole, (grants[i].role, timelock)));
+            assertEq(txs[i].to, authoriser, onChain("grant target"));
+            assertEq(
+                txs[i].data,
+                abi.encodeCall(IAccessControl.grantRole, (grants[i].role, timelock)),
+                onChain("grant calldata")
+            );
         }
 
         for (uint256 i = 0; i < vaultTargets.length; i++) {
-            assertEq(txs[ADMIN_ROLE_COUNT + i].to, vaultTargets[i]);
-            assertEq(txs[ADMIN_ROLE_COUNT + i].data, abi.encodeCall(Ownable.transferOwnership, (timelock)));
+            assertEq(txs[ADMIN_ROLE_COUNT + i].to, vaultTargets[i], onChain("vault transfer target"));
+            assertEq(txs[ADMIN_ROLE_COUNT + i].data, transfer, onChain("vault transfer calldata"));
         }
 
         // Beacon transfers follow the vaults — the leg that closes the
         // upgrade-path bypass.
         for (uint256 i = 0; i < beaconTargets.length; i++) {
             uint256 idx = ADMIN_ROLE_COUNT + vaultTargets.length + i;
-            assertEq(txs[idx].to, beaconTargets[i]);
-            assertEq(txs[idx].data, abi.encodeCall(Ownable.transferOwnership, (timelock)));
+            assertEq(txs[idx].to, beaconTargets[i], onChain("beacon transfer target"));
+            assertEq(txs[idx].data, transfer, onChain("beacon transfer calldata"));
         }
 
         for (uint256 i = 0; i < ADMIN_ROLE_COUNT; i++) {
             uint256 idx = ADMIN_ROLE_COUNT + vaultTargets.length + beaconTargets.length + i;
-            assertEq(txs[idx].to, authoriser);
-            assertEq(txs[idx].data, abi.encodeCall(IAccessControl.renounceRole, (grants[i].role, safe)));
+            assertEq(txs[idx].to, authoriser, onChain("renounce target"));
+            assertEq(
+                txs[idx].data,
+                abi.encodeCall(IAccessControl.renounceRole, (grants[i].role, safe)),
+                onChain("renounce calldata")
+            );
         }
     }
 
