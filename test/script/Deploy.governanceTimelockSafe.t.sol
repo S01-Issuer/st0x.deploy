@@ -8,7 +8,7 @@ import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
-import {GovernanceSafeMismatch} from "../../script/Deploy.sol";
+import {TimelockInitialProposerMismatch} from "../../script/Deploy.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
@@ -22,9 +22,13 @@ contract DeployGovernanceTimelockSafeTest is Test {
         LibTestDeploy.etchConfigRegistry(vm);
     }
 
-    function bindGovernanceSafe(address safe) internal {
+    function bindTimelockInitialProposer(address safe) internal {
         LibTestDeploy.bind(
-            vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
+            "address",
+            abi.encode(safe)
         );
     }
 
@@ -41,7 +45,7 @@ contract DeployGovernanceTimelockSafeTest is Test {
         return suite;
     }
 
-    function testGovernanceTimelockRefusesUnboundSafe() external {
+    function testGovernanceTimelockRefusesUnboundTimelockInitialProposer() external {
         DeploySuite memory suite = harness.governanceTimelockSuite();
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -50,7 +54,7 @@ contract DeployGovernanceTimelockSafeTest is Test {
                 abi.encodeWithSelector(
                     IConfigRegistryV5.NameNotRegistered.selector,
                     LibRegistryAuthority.ROOT_AUTHORITY,
-                    LibStoxConfig.GOVERNANCE_SAFE_NAME
+                    LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME
                 )
             );
             harness.exposedPreDeployCheck(suite, networks[i]);
@@ -61,12 +65,14 @@ contract DeployGovernanceTimelockSafeTest is Test {
         DeploySuite memory suite = harness.governanceTimelockSuite();
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         assumeNoChainSafe(bound, networks);
-        bindGovernanceSafe(bound);
+        bindTimelockInitialProposer(bound);
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    GovernanceSafeMismatch.selector, bound, LibSafeInvariants.safeForChainId(networks[i].chainId)
+                    TimelockInitialProposerMismatch.selector,
+                    bound,
+                    LibSafeInvariants.safeForChainId(networks[i].chainId)
                 )
             );
             harness.exposedPreDeployCheck(suite, networks[i]);
@@ -78,7 +84,7 @@ contract DeployGovernanceTimelockSafeTest is Test {
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
-            bindGovernanceSafe(LibSafeInvariants.safeForChainId(networks[i].chainId));
+            bindTimelockInitialProposer(LibSafeInvariants.safeForChainId(networks[i].chainId));
             harness.exposedPreDeployCheck(suite, networks[i]);
         }
     }
@@ -88,12 +94,14 @@ contract DeployGovernanceTimelockSafeTest is Test {
         DeploySuite memory other = otherSuite(key);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         assumeNoChainSafe(bound, networks);
-        bindGovernanceSafe(bound);
+        bindTimelockInitialProposer(bound);
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    GovernanceSafeMismatch.selector, bound, LibSafeInvariants.safeForChainId(networks[i].chainId)
+                    TimelockInitialProposerMismatch.selector,
+                    bound,
+                    LibSafeInvariants.safeForChainId(networks[i].chainId)
                 )
             );
             harness.exposedPreDeployCheck(timelock, networks[i]);

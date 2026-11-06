@@ -18,7 +18,7 @@ contract StoxDeployChainTest is StoxDeploySuites, RainDeployVerifyChain {
         LibTestDeploy.bind(
             vm,
             LibRegistryAuthority.ROOT_AUTHORITY,
-            LibStoxConfig.GOVERNANCE_SAFE_NAME,
+            LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
             "address",
             abi.encode(address(0x5AFE))
         );
