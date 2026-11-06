@@ -84,10 +84,9 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// the admin roles.
 ///
 /// **Custody.** `initialize` seats `DEFAULT_ADMIN_ROLE` and the three admin
-/// roles on the initial admin bound in the `ConfigRegistry`
-/// (`LibStoxConfig.orchestratorInitialAdmin`), so every grant, cap and
-/// weighting change is scheduled and waits out the timelock delay. No
-/// operating role is held until the timelock grants it.
+/// roles on the account the root authority binds in the `ConfigRegistry` under
+/// `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME`. No operating role is held
+/// until an admin grants it.
 ///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
 /// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
@@ -226,8 +225,7 @@ contract ST0xOrchestrator is
         }
     }
 
-    // The implementation disables initializers; the proxy initialises via
-    // `initialize`.
+    // Only the proxy is initialised, via `initialize`.
     constructor() {
         _disableInitializers();
     }
@@ -249,16 +247,7 @@ contract ST0xOrchestrator is
         __EIP712_init("ST0xOrchestrator", "1");
         _grantRole(DEFAULT_ADMIN_ROLE, admin);
 
-        // Each admin role administers its operating role and itself, as
-        // `rain-vats`' `OffchainAssetReceiptVaultAuthorizerV1` and this repo's
-        // corporate-actions authorizer both do. Self-administering lets an
-        // admin seat a peer, rotate itself out and revoke a compromised peer
-        // without the root, so the root stays rare.
-        //
-        // The cost: `DEFAULT_ADMIN_ROLE` can no longer `grantRole` an admin
-        // role, since it is no longer that role's admin. The grants below are
-        // the only way a first holder is seated, so losing every holder of an
-        // admin role takes an upgrade to recover.
+        // Self-administering admin roles seat, rotate and revoke peers without the root.
         _setRoleAdmin(MINT_ROLE, MINT_ADMIN_ROLE);
         _setRoleAdmin(MINT_ADMIN_ROLE, MINT_ADMIN_ROLE);
         _grantRole(MINT_ADMIN_ROLE, admin);
@@ -319,9 +308,7 @@ contract ST0xOrchestrator is
     // ------------------------------------------------------------------ //
 
     /// @inheritdoc IST0xOrchestratorV2
-    // The nonce write in `_consumeMintAuth` follows the weighting's store
-    // write and the recipient callback; `nonReentrant` holds the
-    // ReentrancyGuardTransient lock for the whole entrypoint.
+    // The nonce write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
     function mint(
         address token,
@@ -332,7 +319,6 @@ contract ST0xOrchestrator is
         SignedContextV2[] calldata attestations
     ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic(token) nonReentrant {
         if (amount == 0) revert ZeroAmount();
-        // The sender and the recipient can never be the same.
         if (to == msg.sender) revert SenderIsRecipient(msg.sender);
         _consumeMintCaps(token, to, amount, attestations);
         _consumeMintAuth(token, to, amount, auth);
@@ -368,8 +354,7 @@ contract ST0xOrchestrator is
         MintLimitV1 memory recipientLimit = recipientCap.limit;
         if (!recipientLimit.set) revert RecipientMintLimitUnset(to);
 
-        // The charge is what the mint weighting says this mint is worth; the
-        // amount as passed never reaches the buckets.
+        // The buckets meter the weighted charge, never the raw amount.
         Float charge = _weighMint($, token, amount, attestations);
         Float timestamp = _now();
         _fillMinterMintCap(minterCap, minterLimit, timestamp, charge);
@@ -400,8 +385,7 @@ contract ST0xOrchestrator is
         if (address(evaluable.interpreter) == address(0)) revert MintWeightingUnset();
 
         string memory symbol = IERC20Metadata(token).symbol();
-        // `fromStringV3` keeps the length mod 32, so a longer symbol would
-        // encode as a different, shorter one.
+        // `fromStringV3` keeps the length mod 32, so a longer symbol would alias a shorter one.
         if (bytes(symbol).length > LENGTH_MASK_V3) revert MintSymbolTooLong(token, bytes(symbol).length);
         bytes32[][] memory context = LibSt0xAttestContext.build(
             bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(symbol))),
@@ -426,15 +410,13 @@ contract ST0xOrchestrator is
         if (writes.length > 0) {
             evaluable.store.set(MINT_WEIGHTING_NAMESPACE, writes);
         }
-        // The interpreter returns the stack top first, so the last output the
-        // expression wrote is item zero.
+        // The stack top, the expression's last output, is item zero.
         return Float.wrap(StackItem.unwrap(stack[0]));
     }
 
     /// @dev The minter's bucket, across every token and recipient. Split out
     /// of `_consumeMintCaps` to keep that frame within stack limits.
-    // The bucket write follows the weighting's external calls; every caller
-    // holds the reentrancy lock for the whole entrypoint.
+    // The bucket write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
     function _fillMinterMintCap(MintCapV1 storage cap, MintLimitV1 memory limit, Float timestamp, Float charge)
         internal
@@ -520,8 +502,7 @@ contract ST0xOrchestrator is
     /// amount still unburned. Persists and returns the final pointer. Split
     /// out of `burn`, and `burnInfo` taken as `memory`, to keep both frames
     /// within stack limits.
-    // Pointer write after external calls: every caller holds the
-    // ReentrancyGuardTransient lock for the whole entrypoint.
+    // The pointer write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
     function _burnWalk(address token, uint256 remaining, bytes memory burnInfo) internal returns (uint256 idx) {
         OffchainAssetReceiptVault vault = OffchainAssetReceiptVault(payable(token));
@@ -755,9 +736,7 @@ contract ST0xOrchestrator is
         external
         returns (bytes4)
     {
-        // An ERC-1155 batch passes equal-length arrays; the `i < values.length`
-        // bound covers a hand-crafted direct call, which the accept-all hooks
-        // never revert on.
+        // A hand-crafted direct call may pass unequal arrays; the accept-all hooks never revert.
         for (uint256 i = 0; i < ids.length; i++) {
             if (i < values.length && values[i] > 0) _maybeLowerBurnIndex(msg.sender, ids[i]);
         }
@@ -771,21 +750,17 @@ contract ST0xOrchestrator is
     /// transfer; spoofing a pointer move requires controlling
     /// `vault.receipt()`.
     function _maybeLowerBurnIndex(address erc1155, uint256 id) internal {
-        // Raw staticcalls: typed try/catch cannot catch returndata-decode
-        // failures, so a malformed return could revert the hook and block
-        // transfers.
+        // Raw staticcalls: typed try/catch cannot catch a returndata-decode failure.
         // slither-disable-next-line low-level-calls,calls-loop
         (bool ok, bytes memory ret) = erc1155.staticcall(abi.encodeWithSelector(IReceiptV3.manager.selector));
         if (!ok || ret.length != 32) return;
-        // Truncating the 32-byte return to 160 bits is the decode; dirty high
-        // bits fail the comparison below.
+        // Truncating to 160 bits is the decode; dirty high bits fail the comparison below.
         // forge-lint: disable-next-line(unsafe-typecast)
         address vault = address(uint160(uint256(bytes32(ret))));
         // slither-disable-next-line low-level-calls,calls-loop
         (ok, ret) = vault.staticcall(abi.encodeWithSelector(ReceiptVault.receipt.selector));
         if (!ok || ret.length != 32) return;
-        // Truncating the 32-byte return to 160 bits is the decode; dirty high
-        // bits fail the comparison below.
+        // Truncating to 160 bits is the decode; dirty high bits fail the comparison below.
         // forge-lint: disable-next-line(unsafe-typecast)
         if (address(uint160(uint256(bytes32(ret)))) != erc1155) return;
 
