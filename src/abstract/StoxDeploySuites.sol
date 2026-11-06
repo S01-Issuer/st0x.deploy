@@ -206,11 +206,15 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE,
                 V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
                 ORCHESTRATOR_PATH,
-                two(
+                four(
                     V4.STOX_RECEIPT_CANDIDATE,
                     V4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE,
                     V4.STOX_RECEIPT_VAULT_CANDIDATE,
-                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
+                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    TOFU_DECIMALS_ADDRESS,
+                    TOFU_DECIMALS_RUNTIME_CODE
                 )
             )
         );
@@ -382,6 +386,24 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
         deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
         deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
+        return deps;
+    }
+
+    function four(
+        address a,
+        bytes memory aRuntimeCode,
+        address b,
+        bytes memory bRuntimeCode,
+        address c,
+        bytes memory cRuntimeCode,
+        address d,
+        bytes memory dRuntimeCode
+    ) internal pure returns (DeployDependency[] memory) {
+        DeployDependency[] memory deps = new DeployDependency[](4);
+        deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
+        deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
+        deps[3] = DeployDependency({deployedAddress: d, runtimeCode: dRuntimeCode});
         return deps;
     }
 }
