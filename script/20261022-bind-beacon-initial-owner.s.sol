@@ -8,6 +8,7 @@ import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
@@ -73,7 +74,7 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
 
         LibStoxMigrations.assertNext(bindBeaconInitialOwnerDeclaration(), chainSafe);
         if (!IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-                .approvedV5(LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe)) {
+                .approvedV5(LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe)) {
             revert SafeNotBeaconInitialOwnerDelegate(chainSafe);
         }
     }
@@ -88,7 +89,7 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
             data: abi.encodeCall(
                 IConfigRegistryV5.registerV5,
                 (
-                    LibStoxConfig.ROOT_AUTHORITY,
+                    LibRegistryAuthority.ROOT_AUTHORITY,
                     LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
                     "address",
                     abi.encode(timelock),
@@ -104,7 +105,7 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
         (bytes memory value, uint256 registeredAt) = LibConfigRegistry.resolve(
-            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, keccak256("address")
+            LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, keccak256("address")
         );
         bytes memory expected = abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
         // forge-lint: disable-next-line(block-timestamp)
