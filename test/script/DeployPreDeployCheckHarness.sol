@@ -10,8 +10,15 @@ import {
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {Deploy} from "../../script/Deploy.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibTestV6TokenConfigs} from "../lib/LibTestV6TokenConfigs.sol";
 
+/// No production row has an asset id yet, so the harness declares the fixture
+/// V6 rows too.
 contract DeployPreDeployCheckHarness is Deploy {
+    function tokenConfigs() internal pure override returns (TokenConfig[] memory) {
+        return LibTestV6TokenConfigs.v6AndFixtureTokenConfigs();
+    }
+
     function governanceTimelockSuite() external view returns (DeploySuite memory) {
         return suiteByName(declaration(), GOVERNANCE_TIMELOCK);
     }

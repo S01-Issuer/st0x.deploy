@@ -46,7 +46,8 @@ contract LibUnderlyingNamingRolloutTest is Test {
             name: string.concat(underlyingName, " ST0x"),
             symbol: string.concat("t", ticker),
             region: Region.US,
-            underlyingName: underlyingName
+            underlyingName: underlyingName,
+            assetId: ""
         });
     }
 

@@ -90,8 +90,7 @@ abstract contract OrchestratorIntegrationTest is Test {
         // A real vault + receipt beacon-proxy pair from the clone factory, over
         // the beacon the guard version-locks against.
         vault = LibTestDeploy.newVault(
-            LibStoxConfig.ROOT_AUTHORITY,
-            LibTestDeploy.vaultData("Test tStock", "tTEST", LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME)
+            LibStoxConfig.ROOT_AUTHORITY, LibTestDeploy.vaultData("ST0XTEST", LibStoxConfig.ROOT_AUTHORITY, RBAC_NAME)
         );
         receipt = IERC1155(address(vault.receipt()));
 
