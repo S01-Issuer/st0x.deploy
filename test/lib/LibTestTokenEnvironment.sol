@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     CREATION_CODE as CONFIG_REGISTRY_CREATION_CODE
@@ -50,7 +51,7 @@ library LibTestTokenEnvironment {
         deployFactoryAndRegistry();
         LibTestDeploy.bind(
             vm,
-            LibStoxConfig.ROOT_AUTHORITY,
+            LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
             "address",
             abi.encode(beaconInitialOwner)
@@ -77,7 +78,7 @@ library LibTestTokenEnvironment {
     function bindRbac(Vm vm, bytes32 name, address owner, IAuthorizeV1 authorizer) internal {
         LibTestDeploy.bind(
             vm,
-            LibStoxConfig.ROOT_AUTHORITY,
+            LibRegistryAuthority.ROOT_AUTHORITY,
             name,
             OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE,
             abi.encode(OffchainAssetReceiptVaultRbacV1({owner: owner, authorizer: authorizer}))
@@ -94,10 +95,14 @@ library LibTestTokenEnvironment {
         IAuthorizeV1 usAuthorizer = newAuthorizer(usOwner);
         IAuthorizeV1 euAuthorizer = newAuthorizer(euOwner);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.VAULT_BEACON_NAME, "address", abi.encode(vaultBeacon)
+            vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.VAULT_BEACON_NAME, "address", abi.encode(vaultBeacon)
         );
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.RECEIPT_BEACON_NAME, "address", abi.encode(receiptBeacon)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.RECEIPT_BEACON_NAME,
+            "address",
+            abi.encode(receiptBeacon)
         );
         bindRbac(vm, LibStoxConfig.RBAC_US_NAME, usOwner, usAuthorizer);
         bindRbac(vm, LibStoxConfig.RBAC_EU_NAME, euOwner, euAuthorizer);

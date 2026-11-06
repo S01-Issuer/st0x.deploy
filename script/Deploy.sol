@@ -6,6 +6,7 @@ import {RainDeployBroadcast} from "rain-deploy-0.1.30/src/abstract/RainDeployBro
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     LibOffchainAssetReceiptVaultRbac,
     OffchainAssetReceiptVaultRbacV1,
@@ -79,10 +80,10 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             : LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
         // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(
-            LibStoxConfig.ROOT_AUTHORITY, rbacName, OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
+            LibRegistryAuthority.ROOT_AUTHORITY, rbacName, OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
         );
         OffchainAssetReceiptVaultRbacV1 memory rbac =
-            LibOffchainAssetReceiptVaultRbac.decodeCanonical(LibStoxConfig.ROOT_AUTHORITY, rbacName, value);
+            LibOffchainAssetReceiptVaultRbac.decodeCanonical(LibRegistryAuthority.ROOT_AUTHORITY, rbacName, value);
         if (rbac.owner != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
             revert RbacOwnerMismatch(rbacName, rbac.owner, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
         }
@@ -93,7 +94,8 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
 
     function boundAddress(bytes32 name) internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) = LibConfigRegistry.resolve(LibStoxConfig.ROOT_AUTHORITY, name, keccak256("address"));
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(LibRegistryAuthority.ROOT_AUTHORITY, name, keccak256("address"));
         return abi.decode(value, (address));
     }
 }

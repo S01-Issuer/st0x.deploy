@@ -8,6 +8,7 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
@@ -39,7 +40,11 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     function bindBeaconInitialOwner(address owner) internal {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(owner)
         );
     }
 
@@ -79,7 +84,7 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
@@ -92,7 +97,11 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     function testBeaconSuiteRefusesWhereTheOwnerIsBoundToZero() external {
         LibRainDeploy.etchDependencies(vm, beaconSuite().dependencies);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(address(0))
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(address(0))
         );
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
         construct();

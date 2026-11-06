@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {BeaconInitialOwnerMismatch} from "../../script/Deploy.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
@@ -22,7 +23,11 @@ contract DeployBeaconInitialOwnerTest is Test {
 
     function bindBeaconInitialOwner(address owner) internal {
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(owner)
         );
     }
 
@@ -35,7 +40,7 @@ contract DeployBeaconInitialOwnerTest is Test {
                 vm.expectRevert(
                     abi.encodeWithSelector(
                         IConfigRegistryV5.NameNotRegistered.selector,
-                        LibStoxConfig.ROOT_AUTHORITY,
+                        LibRegistryAuthority.ROOT_AUTHORITY,
                         LibStoxConfig.BEACON_INITIAL_OWNER_NAME
                     )
                 );
