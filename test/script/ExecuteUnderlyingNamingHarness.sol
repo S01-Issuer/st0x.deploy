@@ -5,29 +5,33 @@ pragma solidity =0.8.25;
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {ExecuteUnderlyingNaming} from "../../script/20261021-execute-underlying-naming.s.sol";
-import {SafeBundleScriptHooks} from "../lib/SafeBundleScriptHooks.sol";
 
-contract ExecuteUnderlyingNamingHarness is ExecuteUnderlyingNaming, SafeBundleScriptHooks {
-    constructor(string memory artifactTag) SafeBundleScriptHooks(artifactTag) {}
+/// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
+contract ExecuteUnderlyingNamingHarness is ExecuteUnderlyingNaming {
+    string internal sArtifactTag;
+
+    constructor(string memory artifactTag) {
+        sArtifactTag = artifactTag;
+    }
 
     /// @inheritdoc ExecuteUnderlyingNaming
     function artifactPath() internal view override returns (string memory) {
-        return tagged(super.artifactPath());
+        return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
     }
 
-    function callPreflight() external view override {
+    function callPreflight() external view {
         preflight();
     }
 
-    function callAuthorBundle() external view override returns (SafeTx[] memory) {
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
         return authorBundle();
     }
 
-    function callAssertPostState() external view override {
+    function callAssertPostState() external view {
         assertPostState();
     }
 
-    function callArtifactPath() external view override returns (string memory) {
+    function callArtifactPath() external view returns (string memory) {
         return artifactPath();
     }
 }

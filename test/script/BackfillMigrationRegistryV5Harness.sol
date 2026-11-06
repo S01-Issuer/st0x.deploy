@@ -6,32 +6,36 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {BackfillMigrationRegistryV5} from "../../script/20261030-backfill-migration-registry-v5.s.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
-import {SafeBundleScriptHooks} from "../lib/SafeBundleScriptHooks.sol";
 
 /// @dev The backfill reads no script for `id`.
 error NoBackfillScript(bytes32 id);
 
-contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5, SafeBundleScriptHooks {
-    constructor(string memory artifactTag) SafeBundleScriptHooks(artifactTag) {}
+/// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
+contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
+    string internal sArtifactTag;
+
+    constructor(string memory artifactTag) {
+        sArtifactTag = artifactTag;
+    }
 
     /// @inheritdoc BackfillMigrationRegistryV5
     function artifactPath() internal view override returns (string memory) {
-        return tagged(super.artifactPath());
+        return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
     }
 
-    function callPreflight() external view override {
+    function callPreflight() external view {
         preflight();
     }
 
-    function callAuthorBundle() external view override returns (SafeTx[] memory) {
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
         return authorBundle();
     }
 
-    function callAssertPostState() external view override {
+    function callAssertPostState() external view {
         assertPostState();
     }
 
-    function callArtifactPath() external view override returns (string memory) {
+    function callArtifactPath() external view returns (string memory) {
         return artifactPath();
     }
 

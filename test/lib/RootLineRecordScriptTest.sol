@@ -19,8 +19,16 @@ import {
     UnexpectedMigrationLine
 } from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {SafeBundleScriptHooks} from "./SafeBundleScriptHooks.sol";
 import {LibTestRootLine} from "./LibTestRootLine.sol";
+
+/// @dev The hooks a record script's harness exposes.
+interface IRecordScriptHooks {
+    function callPreflight() external view;
+
+    function callAuthorBundle() external view returns (SafeTx[] memory);
+
+    function callAssertPostState() external view;
+}
 
 /// @title RootLineRecordScriptTest
 /// @notice The root-line contract every record script keeps: it declares
@@ -30,10 +38,10 @@ import {LibTestRootLine} from "./LibTestRootLine.sol";
 /// `setUp` brings the chain to just before `onto` lands, snapshots, then lands
 /// it.
 abstract contract RootLineRecordScriptTest is Test {
-    SafeBundleScriptHooks internal sScript;
+    IRecordScriptHooks internal sScript;
     uint256 internal sBeforeOnto;
 
-    function newScript() internal virtual returns (SafeBundleScriptHooks);
+    function newScript() internal virtual returns (IRecordScriptHooks);
 
     function declaredId() internal pure virtual returns (bytes32);
 

@@ -9,8 +9,7 @@ import {RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.
 import {LocalBaseOrchestratorFixture} from "./LocalBaseOrchestratorFixture.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
-import {RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
-import {SafeBundleScriptHooks} from "../lib/SafeBundleScriptHooks.sol";
+import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
@@ -18,8 +17,8 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 /// @notice The move on a local Base whose root line is at the V5 backfill, so
 /// it runs whatever the live chains have recorded.
 contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, RootLineRecordScriptTest {
-    function newScript() internal override returns (SafeBundleScriptHooks) {
-        return new OrchestratorAdminToTimelockHarness("local");
+    function newScript() internal override returns (IRecordScriptHooks) {
+        return IRecordScriptHooks(address(new OrchestratorAdminToTimelockHarness("local")));
     }
 
     function declaredId() internal pure override returns (bytes32) {

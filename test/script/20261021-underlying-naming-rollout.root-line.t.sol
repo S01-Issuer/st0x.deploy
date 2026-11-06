@@ -17,8 +17,7 @@ import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingR
 import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
-import {RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
-import {SafeBundleScriptHooks} from "../lib/SafeBundleScriptHooks.sol";
+import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
@@ -27,8 +26,8 @@ import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollo
 /// @notice The beacon schedule on Base, from the line at genesis with the
 /// implementations planted.
 contract ScheduleUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFixture, RootLineRecordScriptTest {
-    function newScript() internal override returns (SafeBundleScriptHooks) {
-        return new ScheduleUnderlyingNamingBeaconsHarness("root-line");
+    function newScript() internal override returns (IRecordScriptHooks) {
+        return IRecordScriptHooks(address(new ScheduleUnderlyingNamingBeaconsHarness("root-line")));
     }
 
     function declaredId() internal pure override returns (bytes32) {
@@ -60,8 +59,8 @@ contract ScheduleUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutF
 /// @notice The rename schedule on Base, from the line at the orchestrator admin
 /// move.
 contract ScheduleUnderlyingNamingRenameRootLineTest is UnderlyingNamingRolloutFixture, RootLineRecordScriptTest {
-    function newScript() internal override returns (SafeBundleScriptHooks) {
-        return new ScheduleUnderlyingNamingRenameHarness("root-line");
+    function newScript() internal override returns (IRecordScriptHooks) {
+        return IRecordScriptHooks(address(new ScheduleUnderlyingNamingRenameHarness("root-line")));
     }
 
     function declaredId() internal pure override returns (bytes32) {
@@ -107,8 +106,8 @@ contract ScheduleUnderlyingNamingRenameRootLineTest is UnderlyingNamingRolloutFi
 /// @notice The execution record on Base, from both batches executed with the
 /// rename scheduled but its record not yet landed.
 contract ExecuteUnderlyingNamingRootLineTest is UnderlyingNamingRolloutFixture, RootLineRecordScriptTest {
-    function newScript() internal override returns (SafeBundleScriptHooks) {
-        return new ExecuteUnderlyingNamingHarness("root-line");
+    function newScript() internal override returns (IRecordScriptHooks) {
+        return IRecordScriptHooks(address(new ExecuteUnderlyingNamingHarness("root-line")));
     }
 
     function declaredId() internal pure override returns (bytes32) {
