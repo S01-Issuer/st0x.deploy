@@ -16,7 +16,13 @@ import {
     REGISTRY_BEACON_PROXY_PREFIX,
     REGISTRY_BEACON_PROXY_SUFFIX
 } from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {
+    IOffchainAssetReceiptVaultBeaconSetDeployerV1
+} from "rain-vats-0.2.18/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
 import {BuildExpectedState} from "../../script/BuildExpectedState.sol";
+import {BuildExpectedStateHarness} from "./BuildExpectedStateHarness.sol";
+import {LibLocalProdState} from "../lib/LibLocalProdState.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {RUNTIME_CODE as SUITE_TIMELOCK_RUNTIME_CODE} from "../../src/generated/candidate/StoxGovernanceTimelock.sol";
@@ -27,7 +33,7 @@ import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV2} from "../../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../../src/lib/LibProdDeployV2BaseOverrides.sol";
-import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig, UnknownUnderlying} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibReleasedSuites} from "../../src/lib/LibReleasedSuites.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -96,24 +102,22 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
+    /// The rows are the beacons the chain's set deployer getters resolve on a local build, so no row is left for the
+    /// dashboard to resolve.
     function testBeaconsAreTheInUseSetAtTheirExpectedImplementationsOwnedByTheTimelock() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 id = nets[c].chainId;
-            string memory at = chain(nets[c]);
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(at, ".beaconSetDeployer")),
-                LibBeaconInvariants.prodBeaconSetDeployerForChainId(id)
-            );
-            address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(id);
+            address[4] memory resolved = resolvedBeacons(id);
             address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(id);
             bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(id);
-            string memory list = string.concat(at, ".beacons");
-            assertFalse(vm.keyExistsJson(json, index(list, pinned.length)));
-            for (uint256 i = 0; i < pinned.length; i++) {
+            string memory list = string.concat(chain(nets[c]), ".beacons");
+            assertFalse(vm.keyExistsJson(json, index(list, resolved.length)));
+            for (uint256 i = 0; i < resolved.length; i++) {
                 string memory row = index(list, i);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), pinned[i]);
+                assertNotEq(resolved[i], address(0));
+                assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), resolved[i]);
                 assertEq(vm.parseJsonBytes32(json, string.concat(row, ".codehash")), codehashes[i]);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".implementation")), impls[i]);
                 assertEq(
@@ -124,17 +128,88 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// Fixed example from the Ethereum leg: the receipt beacon is read from the beacon set deployer, so its slot is
-    /// empty, and it must serve the 0.1.30 receipt.
-    function testEthereumReceiptBeaconIsDeployerResolvedAt0_1_30() external {
+    /// The set deployer is the one whose constructor's first and second CREATE are the chain's receipt and
+    /// receipt-vault beacons: the V1 set deployer on Base, the 0.1.1 one elsewhere.
+    function testBeaconSetDeployerCreatedTheReceiptAndReceiptVaultBeacons() external {
         string memory json = build.render();
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            uint256 id = nets[c].chainId;
+            string memory at = chain(nets[c]);
+            address setDeployer = vm.parseJsonAddress(json, string.concat(at, ".beaconSetDeployer"));
+            assertEq(
+                setDeployer,
+                id == LibSafeInvariants.BASE_CHAIN_ID
+                    ? LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+                    : LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
+            );
+            assertEq(
+                beaconRow(json, at, LibBeaconInvariants.RECEIPT_BEACON_INDEX), vm.computeCreateAddress(setDeployer, 1)
+            );
+            assertEq(
+                beaconRow(json, at, LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX),
+                vm.computeCreateAddress(setDeployer, 2)
+            );
+        }
+    }
+
+    /// Fixed example from the Ethereum leg: the receipt beacon is the 0.1.1 set deployer's `I_RECEIPT_BEACON()` and
+    /// serves the 0.1.30 receipt.
+    function testEthereumReceiptBeaconIsTheSetDeployersAt0_1_30() external {
+        string memory json = build.render();
+        LibLocalProdState.beacons(vm, LibSafeInvariants.ETHEREUM_CHAIN_ID);
+        address expected = address(
+            IOffchainAssetReceiptVaultBeaconSetDeployerV1(
+                    LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
+                ).I_RECEIPT_BEACON()
+        );
         string memory row = ".chains.1.beacons[0]";
-        assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), address(0));
+        assertNotEq(expected, address(0));
+        assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), expected);
         assertEq(vm.parseJsonAddress(json, string.concat(row, ".implementation")), LibProdDeployV4.STOX_RECEIPT_0_1_30);
         assertEq(
             vm.parseJsonAddress(json, ".chains.1.beaconSetDeployer"),
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
         );
+    }
+
+    /// `renamedImplementation` is what the rename migration's beacon batch upgrades the row's beacon to, and the row's
+    /// `implementation` where the batch leaves the beacon alone.
+    function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
+        string memory json = build.render();
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            uint256 id = nets[c].chainId;
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.beacons(vm, id);
+            (address[] memory targets,, bytes[] memory payloads) = LibUnderlyingNamingRollout.beaconBatch(id);
+            vm.revertToState(snapshot);
+            string memory list = string.concat(chain(nets[c]), ".beacons");
+            uint256 upgraded = 0;
+            for (uint256 i = 0; i < 4; i++) {
+                string memory row = index(list, i);
+                address beacon = vm.parseJsonAddress(json, string.concat(row, ".beacon"));
+                address renamed = vm.parseJsonAddress(json, string.concat(row, ".renamedImplementation"));
+                bool targeted = false;
+                for (uint256 k = 0; k < targets.length; k++) {
+                    if (targets[k] == beacon) {
+                        assertEq(payloads[k], abi.encodeCall(UpgradeableBeacon.upgradeTo, (renamed)));
+                        targeted = true;
+                        upgraded++;
+                    }
+                }
+                if (!targeted) {
+                    assertEq(renamed, vm.parseJsonAddress(json, string.concat(row, ".implementation")));
+                }
+            }
+            assertEq(upgraded, 2);
+        }
+    }
+
+    /// Every address is concrete: the zero address appears only as each chain's Safe guard.
+    function testZeroAddressIsOnlyTheSafeGuard() external {
+        string memory json = build.render();
+        assertEq(vm.split(json, vm.toString(address(0))).length - 1, networks().length);
     }
 
     function testSafeIsTheChainsSafeWithThePinnedPolicy() external {
@@ -437,7 +512,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function testTokenVaultReceiptAndWrapperAssetAreTheRowsOwnLegs() external {
+    function testTokenVaultReceiptManagerAndWrapperAssetAreTheRowsOwnLegs() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -446,6 +521,7 @@ contract BuildExpectedStateTest is Test {
             for (uint256 i = 0; i < tokens.length; i++) {
                 string memory row = index(list, i);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptVaultReceipt")), tokens[i].receipt);
+                assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptManager")), tokens[i].receiptVault);
                 assertEq(
                     vm.parseJsonAddress(json, string.concat(row, ".wrappedTokenVaultAsset")), tokens[i].receiptVault
                 );
@@ -453,20 +529,20 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// Each leg's beacon is the chain's beacon row for that leg, `address(0)` where the set deployer resolves it.
+    /// Each leg's beacon is the beacon the chain's set deployer getters resolve for that leg.
     function testTokenLegBeaconsAreTheChainsBeaconRows() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 id = nets[c].chainId;
             string memory at = chain(nets[c]);
-            address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(id);
+            address[4] memory resolved = resolvedBeacons(id);
             address receiptBeacon = beaconRow(json, at, LibBeaconInvariants.RECEIPT_BEACON_INDEX);
             address vaultBeacon = beaconRow(json, at, LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX);
             address wrapperBeacon = beaconRow(json, at, LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX);
-            assertEq(receiptBeacon, pinned[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
-            assertEq(vaultBeacon, pinned[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
-            assertEq(wrapperBeacon, pinned[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]);
+            assertEq(receiptBeacon, resolved[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
+            assertEq(vaultBeacon, resolved[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
+            assertEq(wrapperBeacon, resolved[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]);
             string memory list = string.concat(at, ".tokens");
             uint256 n = LibTokenInvariants.productionTokensForChainId(id).length;
             for (uint256 i = 0; i < n; i++) {
@@ -609,10 +685,24 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The receipt and receipt-vault beacons are resolved from the deployed set deployer and serve the V2 receipt and
-    /// vault from the V2 owner, except on Base, which carries its overrides; the wrapper beacon is the deployed one.
+    /// The receipt and receipt-vault beacons are the V2 set deployer's getters on a local Zoltu deploy and serve the V2
+    /// receipt and vault from the V2 owner, except on Base, which carries its overrides; the wrapper beacon is the
+    /// deployed one.
     function testV2BeaconsAreTheSetDeployersWithBaseOverrides() external {
         string memory json = build.render();
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_RECEIPT_CREATION_BYTECODE_V2);
+        LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V2);
+        IOffchainAssetReceiptVaultBeaconSetDeployerV1 deployed = IOffchainAssetReceiptVaultBeaconSetDeployerV1(
+            LibRainDeploy.deployZoltu(
+                LibProdDeployV2.PROD_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_BYTECODE_V2
+            )
+        );
+        assertEq(address(deployed), LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
+        address receiptBeacon = address(deployed.I_RECEIPT_BEACON());
+        address vaultBeacon = address(deployed.I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON());
+        assertNotEq(receiptBeacon, address(0));
+        assertNotEq(vaultBeacon, address(0));
         SupportedNetwork[] memory v2 = v2Networks();
         bool sawBase;
         for (uint256 c = 0; c < v2.length; c++) {
@@ -625,14 +715,14 @@ contract BuildExpectedStateTest is Test {
             assertV2Beacon(
                 json,
                 string.concat(at, ".receiptBeacon"),
-                address(0),
+                receiptBeacon,
                 isBase ? LibProdDeployV2BaseOverrides.RECEIPT_BEACON_IMPLEMENTATION : LibProdDeployV2.STOX_RECEIPT,
                 isBase ? LibProdDeployV2BaseOverrides.RECEIPT_BEACON_OWNER : LibProdDeployV2.BEACON_INITIAL_OWNER
             );
             assertV2Beacon(
                 json,
                 string.concat(at, ".receiptVaultBeacon"),
-                address(0),
+                vaultBeacon,
                 isBase ? LibProdDeployV2BaseOverrides.VAULT_BEACON_IMPLEMENTATION : LibProdDeployV2.STOX_RECEIPT_VAULT,
                 isBase ? LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER : LibProdDeployV2.BEACON_INITIAL_OWNER
             );
@@ -670,6 +760,12 @@ contract BuildExpectedStateTest is Test {
                 assertEq(codehash, keccak256(suites[i].storedRuntimeCode));
             }
         }
+    }
+
+    function testUnknownUnderlyingRevertsTyped() external {
+        BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
+        harness.callTokenMetadataJson("row", 0, "NOPE");
     }
 
     function testRunWritesTheRender() external {
@@ -743,6 +839,15 @@ contract BuildExpectedStateTest is Test {
         return vm.parseJsonString(json, string.concat(row, ".", key));
     }
 
+    /// The chain's beacons as its set deployer getters resolve them on a local build of the chain's beacons.
+    function resolvedBeacons(uint256 chainId) internal returns (address[4] memory) {
+        uint256 snapshot = vm.snapshotState();
+        LibLocalProdState.beacons(vm, chainId);
+        address[4] memory resolved = LibBeaconInvariants.prodBeaconsForChainId(chainId);
+        vm.revertToState(snapshot);
+        return resolved;
+    }
+
     function beaconRow(string memory json, string memory at, uint256 i) internal pure returns (address) {
         return vm.parseJsonAddress(json, string.concat(index(string.concat(at, ".beacons"), i), ".beacon"));
     }
@@ -784,11 +889,12 @@ contract BuildExpectedStateTest is Test {
     }
 
     function beaconFields() internal pure returns (string[] memory) {
-        string[] memory fields = new string[](4);
+        string[] memory fields = new string[](5);
         fields[0] = "beacon";
         fields[1] = "codehash";
         fields[2] = "implementation";
-        fields[3] = "owner";
+        fields[3] = "renamedImplementation";
+        fields[4] = "owner";
         return fields;
     }
 
@@ -835,7 +941,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     function tokenFields() internal pure returns (string[] memory) {
-        string[] memory fields = new string[](23);
+        string[] memory fields = new string[](24);
         fields[0] = "underlying";
         fields[1] = "name";
         fields[2] = "renamedName";
@@ -850,15 +956,16 @@ contract BuildExpectedStateTest is Test {
         fields[11] = "receipt";
         fields[12] = "wrappedTokenVault";
         fields[13] = "receiptVaultReceipt";
-        fields[14] = "wrappedTokenVaultAsset";
-        fields[15] = "receiptVaultBeacon";
-        fields[16] = "receiptBeacon";
-        fields[17] = "wrappedTokenVaultBeacon";
-        fields[18] = "receiptVaultCodehash";
-        fields[19] = "receiptCodehash";
-        fields[20] = "wrappedTokenVaultCodehash";
-        fields[21] = "owner";
-        fields[22] = "authoriser";
+        fields[14] = "receiptManager";
+        fields[15] = "wrappedTokenVaultAsset";
+        fields[16] = "receiptVaultBeacon";
+        fields[17] = "receiptBeacon";
+        fields[18] = "wrappedTokenVaultBeacon";
+        fields[19] = "receiptVaultCodehash";
+        fields[20] = "receiptCodehash";
+        fields[21] = "wrappedTokenVaultCodehash";
+        fields[22] = "owner";
+        fields[23] = "authoriser";
         return fields;
     }
 

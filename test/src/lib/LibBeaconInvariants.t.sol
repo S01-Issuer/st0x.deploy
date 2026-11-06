@@ -10,6 +10,7 @@ import {
     BeaconNotDeployed,
     BeaconOwnerMismatch,
     BeaconImplementationMismatch,
+    CreateNonceOutOfRange,
     UnsupportedChainForProdBeacons
 } from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -304,6 +305,19 @@ contract LibBeaconInvariantsTest is Test {
     function testFuzzCreateAddressIsTheCreateAtThatNonce(address deployer, uint8 nonce) external pure {
         nonce = uint8(bound(nonce, 1, 0x7f));
         assertEq(LibBeaconInvariants.createAddress(deployer, nonce), vm.computeCreateAddress(deployer, nonce));
+    }
+
+    function testFuzzCreateAddressRevertsAtNonceZero(address deployer) external {
+        LibBeaconInvariantsHarness nonceHarness = new LibBeaconInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(CreateNonceOutOfRange.selector, uint8(0)));
+        nonceHarness.callCreateAddress(deployer, 0);
+    }
+
+    function testFuzzCreateAddressRevertsAboveTheSingleByteRange(address deployer, uint8 nonce) external {
+        LibBeaconInvariantsHarness nonceHarness = new LibBeaconInvariantsHarness();
+        nonce = uint8(bound(nonce, 0x80, type(uint8).max));
+        vm.expectRevert(abi.encodeWithSelector(CreateNonceOutOfRange.selector, nonce));
+        nonceHarness.callCreateAddress(deployer, nonce);
     }
 
     /// @notice The derived set is the set the chain resolves: off Base the
