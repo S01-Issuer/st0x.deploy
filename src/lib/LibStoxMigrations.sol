@@ -94,6 +94,10 @@ library LibStoxMigrations {
     bytes32 internal constant BACKFILL_MIGRATION_REGISTRY_V5 =
         keccak256("script/20261030-backfill-migration-registry-v5.s.sol");
 
+    /// @notice `script/20261022-bind-beacon-initial-owner.s.sol`: the beacon
+    /// initial owner bound to the governance timelock in the ConfigRegistry.
+    bytes32 internal constant BIND_BEACON_INITIAL_OWNER = keccak256("script/20261022-bind-beacon-initial-owner.s.sol");
+
     /// @notice `script/20260619-migrate-multisig-threshold.s.sol`.
     bytes32 internal constant MULTISIG_THRESHOLD = keccak256("script/20260619-migrate-multisig-threshold.s.sol");
 

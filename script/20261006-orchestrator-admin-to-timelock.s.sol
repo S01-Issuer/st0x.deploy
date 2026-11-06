@@ -48,12 +48,12 @@ error GrantReadyInsideDelay(bytes32 operationId);
 error ScheduledGrantNotExecuted(bytes32 operationId);
 
 /// @notice This script's declaration on the root line, after the
-/// backfill record.
+/// beacon-initial-owner bind record.
 /// @return The declaration.
 function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
+        onto: LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
         history: false
     });
 }
@@ -66,7 +66,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// 1. `orchestrator.grantRole(DEFAULT_ADMIN, timelock)`.
 /// 2. `orchestrator.renounceRole(DEFAULT_ADMIN, safe)`.
 /// 3. `registry.applyMigrationV5(LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE,
-///    ORCHESTRATOR_ADMIN_TO_TIMELOCK, [BACKFILL_MIGRATION_REGISTRY_V5])`.
+///    ORCHESTRATOR_ADMIN_TO_TIMELOCK, [BIND_BEACON_INITIAL_OWNER])`.
 ///
 /// `DEFAULT_ADMIN_ROLE` administers `MINT_ROLE`, `BURN_ROLE` and
 /// `EMERGENCY_ROLE` on the audited 0.1.30 orchestrator, so after this every
@@ -75,8 +75,9 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// burning and emergency recovery are not delayed. A holder can still
 /// `renounceRole` itself immediately.
 ///
-/// The record is applied onto the migration-registry-v5 backfill record, which
-/// follows the EMERGENCY grant's, so the registry refuses it on a chain where
+/// The record is applied onto the beacon-initial-owner bind record, which
+/// follows the migration-registry-v5 backfill record, which follows the
+/// EMERGENCY grant's, so the registry refuses it on a chain where
 /// that grant has not executed: the Safe must be granted `EMERGENCY_ROLE` while
 /// it can still do so directly.
 ///
@@ -164,8 +165,8 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
-    /// pins, the root line is at the V5 backfill, the Safe may write it, and
-    /// the Safe holds `EMERGENCY_ROLE`.
+    /// pins, the root line is at the beacon-initial-owner bind, the Safe may
+    /// write it, and the Safe holds `EMERGENCY_ROLE`.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
