@@ -69,6 +69,17 @@ contract StoxWrappedTokenVaultBeaconTest is Test {
         new StoxWrappedTokenVaultBeacon();
     }
 
+    function testBeaconOwnerBoundZeroReverts() external {
+        LibTestDeploy.etchConfigRegistry(vm);
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(address(0))
+        );
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
+        new StoxWrappedTokenVaultBeacon();
+    }
+
     /// BEACON_INITIAL_OWNER is the same across V1 and V4.
     function testBeaconInitialOwnerConsistentAcrossVersions() external pure {
         assertEq(LibProdDeployV1.BEACON_INITIAL_OWNER, LibProdDeployV4.BEACON_INITIAL_OWNER);

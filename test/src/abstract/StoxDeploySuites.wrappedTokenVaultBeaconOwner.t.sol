@@ -84,4 +84,16 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
         vm.expectRevert(abi.encodeWithSelector(LibRainDeploy.DeployFailed.selector, false, address(0)));
         this.deploySuite();
     }
+
+    function testBeaconSuiteRefusesWhereTheOwnerIsBoundToZero() external {
+        LibRainDeploy.etchDependencies(vm, beaconSuite().dependencies);
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(address(0))
+        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
+        new StoxWrappedTokenVaultBeacon();
+
+        vm.expectRevert(abi.encodeWithSelector(LibRainDeploy.DeployFailed.selector, false, address(0)));
+        this.deploySuite();
+    }
 }
