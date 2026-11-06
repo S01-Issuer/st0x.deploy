@@ -7,6 +7,7 @@ import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
@@ -43,7 +44,7 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
             LibTestDeploy.etchConfigRegistry(vm);
             LibTestDeploy.bind(
                 vm,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
                 "address",
                 abi.encode(timelock)
@@ -59,7 +60,11 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
         vm.chainId(chainId);
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(owner)
         );
         assertEq(
             deployedAddress(declaration(), beaconSuite(), chainId),
@@ -75,7 +80,7 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
@@ -88,7 +93,11 @@ contract StoxDeploySuitesWrappedTokenVaultBeaconOwnerTest is Test, StoxDeploySui
     function testBeaconSuiteRefusesWhereTheOwnerIsBoundToZero() external {
         LibRainDeploy.etchDependencies(vm, beaconSuite().dependencies);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(address(0))
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(address(0))
         );
         vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
         new StoxWrappedTokenVaultBeacon();
