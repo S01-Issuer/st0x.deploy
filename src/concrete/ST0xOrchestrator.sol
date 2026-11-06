@@ -180,7 +180,7 @@ contract ST0xOrchestrator is
     struct MainStorage {
         mapping(address token => uint256) nextBurnReceiptId;
         mapping(address to => mapping(bytes32 nonce => bool)) usedNonce;
-        mapping(MintCapKind kind => mapping(address account => MintCapV1)) mintCaps;
+        mapping(address account => mapping(MintCapKind kind => MintCapV1)) mintCaps;
         /// The mint weighting: the one expression that converts every mint
         /// into the charge on both buckets. A zero interpreter is unset.
         EvaluableV4 mintWeighting;
@@ -340,8 +340,8 @@ contract ST0xOrchestrator is
         internal
     {
         MainStorage storage $ = _main();
-        MintCapV1 storage minterCap = $.mintCaps[MintCapKind.Minter][msg.sender];
-        MintCapV1 storage recipientCap = $.mintCaps[MintCapKind.Recipient][to];
+        MintCapV1 storage minterCap = $.mintCaps[msg.sender][MintCapKind.Minter];
+        MintCapV1 storage recipientCap = $.mintCaps[to][MintCapKind.Recipient];
         if (!minterCap.set) revert MintLimitUnset(MintCapKind.Minter, msg.sender);
         if (!recipientCap.set) revert MintLimitUnset(MintCapKind.Recipient, to);
 
@@ -525,7 +525,7 @@ contract ST0xOrchestrator is
         external
         onlyRole(MINT_ADMIN_ROLE)
     {
-        MintCapV1 storage cap = _main().mintCaps[kind][account];
+        MintCapV1 storage cap = _main().mintCaps[account][kind];
         cap.bucket = LibLeakyBucket.setPolicy(cap.bucket, _now(), capacity, leakRate);
         cap.set = true;
         emit MintLimitSet(kind, account, capacity, leakRate);
@@ -598,7 +598,7 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV2
     function mintLimit(MintCapKind kind, address account) external view returns (MintLimitV1 memory) {
-        MintCapV1 storage cap = _main().mintCaps[kind][account];
+        MintCapV1 storage cap = _main().mintCaps[account][kind];
         return MintLimitV1({capacity: cap.bucket.capacity, leakRate: cap.bucket.leakRate, set: cap.set});
     }
 
@@ -612,8 +612,8 @@ contract ST0xOrchestrator is
     /// limit admits nothing.
     function mintHeadroom(address minter, address recipient) external view returns (Float) {
         MainStorage storage $ = _main();
-        MintCapV1 storage minterCap = $.mintCaps[MintCapKind.Minter][minter];
-        MintCapV1 storage recipientCap = $.mintCaps[MintCapKind.Recipient][recipient];
+        MintCapV1 storage minterCap = $.mintCaps[minter][MintCapKind.Minter];
+        MintCapV1 storage recipientCap = $.mintCaps[recipient][MintCapKind.Recipient];
 
         if (!minterCap.set) return LibDecimalFloat.FLOAT_ZERO;
         if (!recipientCap.set) return LibDecimalFloat.FLOAT_ZERO;
@@ -627,7 +627,7 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV2
     function mintLevel(MintCapKind kind, address account) external view returns (Float) {
-        return LibLeakyBucket.levelAt(_main().mintCaps[kind][account].bucket, _now());
+        return LibLeakyBucket.levelAt(_main().mintCaps[account][kind].bucket, _now());
     }
 
     // ------------------------------------------------------------------ //
