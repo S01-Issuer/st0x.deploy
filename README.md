@@ -96,6 +96,13 @@ is delegatecalled by the vault. Key design choices:
 See `ICorporateActionsV1` NatSpec for the full external API and integrator
 guidance, and `docs/GLOSSARY.md` for domain terms.
 
+### Mint weighting
+
+`ST0xOrchestrator` charges its mint-cap buckets with the value a Rainlang
+weighting puts on each mint, evaluated over the attestations the minter
+supplies. Governance installs the weighting with `setMintWeighting`; the
+orchestrator holds no opinion on what it is.
+
 ## Operational scripts
 
 Scripts under `script/` that produce off-chain artifacts (Safe Tx Builder JSON,

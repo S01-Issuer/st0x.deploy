@@ -27,17 +27,18 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     address internal constant DEPLOYER = address(uint160(uint256(keccak256("st0x.test.token-suites.deployer"))));
     address internal constant TIMELOCK = address(uint160(uint256(keccak256("st0x.test.token-suites.timelock"))));
 
-    /// Released and candidate suites alike, so a token declared as a release is counted.
+    /// Every registry beacon proxy suite but the orchestrator instance, released and candidate alike, so a token
+    /// declared as a release is counted.
     function declaredTokenSuites(DeployDeclaration memory declared) internal pure returns (DeploySuite[] memory) {
         DeploySuite[] memory found = new DeploySuite[](declared.released.length + declared.candidates.length);
         uint256 count = 0;
         for (uint256 i = 0; i < declared.released.length; i++) {
-            if (mechanismIdOf(declared.released[i]) == REGISTRY_BEACON_PROXY_MECHANISM) {
+            if (isTokenSuite(declared.released[i])) {
                 found[count++] = declared.released[i];
             }
         }
         for (uint256 i = 0; i < declared.candidates.length; i++) {
-            if (mechanismIdOf(declared.candidates[i].snapshot) == REGISTRY_BEACON_PROXY_MECHANISM) {
+            if (isTokenSuite(declared.candidates[i].snapshot)) {
                 found[count++] = declared.candidates[i].snapshot;
             }
         }
@@ -45,6 +46,11 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             mstore(found, count)
         }
         return found;
+    }
+
+    function isTokenSuite(DeploySuite memory suite) internal pure returns (bool) {
+        return mechanismIdOf(suite) == REGISTRY_BEACON_PROXY_MECHANISM
+            && keccak256(bytes(suite.suite)) != keccak256(bytes(ORCHESTRATOR_PROXY));
     }
 
     /// @return The index of the one config whose underlying salts `suite`'s target.

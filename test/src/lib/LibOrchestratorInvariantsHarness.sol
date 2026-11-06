@@ -15,4 +15,12 @@ contract LibOrchestratorInvariantsHarness {
     function callAssertInstance() external view {
         LibOrchestratorInvariants.assertInstance();
     }
+
+    function callAssertMintCapsBeaconSet() external view {
+        LibOrchestratorInvariants.assertMintCapsBeaconSet();
+    }
+
+    function callAssertMintCapsInstance() external view {
+        LibOrchestratorInvariants.assertMintCapsInstance();
+    }
 }

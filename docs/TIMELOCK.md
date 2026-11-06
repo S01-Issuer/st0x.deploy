@@ -38,6 +38,46 @@ No deployed ST0x contract changes for any of this — the timelock is purely a
 deployment-config choice (the owner/admin principal moves from the Safe to the
 timelock). That keeps the audited contract set untouched.
 
+## The mint-caps orchestrator
+
+The mint-caps `ST0xOrchestrator` is a fresh deployment that runs next to the
+live orchestrator (`0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2`); minters move
+over once it is ready. The live orchestrator and its beacon are not upgraded in
+place. The new one has its own beacon, because different code needs a different
+beacon.
+
+Its admin is read from the `ConfigRegistry` under
+`LibRegistryAuthority.ROOT_AUTHORITY` rather than compiled in or passed by the
+deployer, so the creation code is chain-invariant and no migration bundle moves
+admin power:
+
+- **Beacon.** `ST0xOrchestratorBeacon` is a Zoltu-deployed `UpgradeableBeacon`
+  serving `LibProdDeployCurrent.ST0X_ORCHESTRATOR`, owned by the registry-bound
+  `LibStoxConfig.orchestratorInitialAdmin()`. The deploy key never owns it, and
+  with the governance timelock bound, `upgradeTo` is delay-gated. Its
+  constructor reverts while the binding is unset or zero.
+- **Instance.** A rain-factory registry beacon proxy over the beacon bound under
+  `LibStoxConfig.ORCHESTRATOR_BEACON_NAME`; its address commits to the registry,
+  authority and beacon name, so it is the same on every network. `initialize`
+  grants the registry-bound initial admin `DEFAULT_ADMIN_ROLE`,
+  `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, and nothing
+  else. It takes no admin argument, so whoever creates the proxy cannot seat an
+  admin of its own, and it reverts while the binding is unset, not an `address`,
+  or zero. Production binds the initial admin to the governance timelock.
+- **Suites.** `StoxDeploySuites` declares the implementation and the beacon as
+  Zoltu suites and the instance as the `stox-orchestrator-proxy` registry beacon
+  proxy suite, pinned to `LibST0xOrchestratorProxy.RUNTIME_CODE`.
+- **Operating roles** (`MINT_ROLE`, `BURN_ROLE`, `EMERGENCY_ROLE`) are granted
+  by their admin role, so each grant is a scheduled timelock operation.
+- **Configuration.** The mint weighting and the per-minter and per-recipient
+  mint limits are `MINT_ADMIN_ROLE` surfaces, so setting or changing them waits
+  out the delay too.
+
+Each admin role administers its operating role and itself, so
+`DEFAULT_ADMIN_ROLE` cannot grant an admin role: the grants in `initialize` are
+the only way a first holder is seated, and losing every holder of one takes a
+beacon upgrade to recover.
+
 ## Role model
 
 | Role on the timelock | Holder                                                 | Meaning                                                         |
@@ -302,6 +342,14 @@ needs more gas than a small block holds, so enable big blocks for the deploy key
   `LibBeaconInvariants.assertProdBeaconsOwnedBy` /
   `GovernanceTimelockMigration.t.sol` — vault ownership, beacon ownership and
   exclusive `_ADMIN` holding on the timelock, per chain.
+- `LibOrchestratorInvariants.assertMintCapsBeaconSet()` /
+  `assertMintCapsInstance()` — the mint-caps orchestrator: the beacon is owned
+  by the timelock and points at the current implementation; the instance has
+  code, the timelock holds the four admin roles, and every `getRoleAdmin` wiring
+  is as `initialize` sets it. These are the expected grants only;
+  `LibIdealRoles` emits the instance's so the dashboard reports any other
+  holder. The live orchestrator keeps `assertBeaconSet` / `assertInstance` while
+  both run.
 
 ## Orchestrator roles
 
