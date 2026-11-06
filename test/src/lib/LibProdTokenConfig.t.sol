@@ -42,6 +42,7 @@ contract LibProdTokenConfigTest is Test {
         }
     }
 
+    /// Every row is filled in and its symbol is "t" + its underlying key, so
     /// a `setUnderlying` batch that takes the ticker from `underlying` leaves
     /// each receipt vault's `symbol()` unchanged.
     function testSymbolIsTPlusUnderlying() external pure {
