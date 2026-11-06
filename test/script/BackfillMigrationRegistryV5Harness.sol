@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
+import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+
 import {BackfillMigrationRegistryV5} from "../../script/20261030-backfill-migration-registry-v5.s.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {SafeBundleScriptHooks} from "../lib/SafeBundleScriptHooks.sol";
@@ -15,6 +17,22 @@ contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5, Safe
     /// @inheritdoc BackfillMigrationRegistryV5
     function artifactPath() internal view override returns (string memory) {
         return tagged(super.artifactPath());
+    }
+
+    function callPreflight() external view override {
+        preflight();
+    }
+
+    function callAuthorBundle() external view override returns (SafeTx[] memory) {
+        return authorBundle();
+    }
+
+    function callAssertPostState() external view override {
+        assertPostState();
+    }
+
+    function callArtifactPath() external view override returns (string memory) {
+        return artifactPath();
     }
 
     function callScriptArtifactPath() external view returns (string memory) {
