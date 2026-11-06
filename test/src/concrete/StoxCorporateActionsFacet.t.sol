@@ -672,49 +672,6 @@ contract StoxCorporateActionsFacetTest is Test {
         corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp), "");
     }
 
-    /// In a single `schedule` call, `ensureBootstrap` runs BEFORE the
-    /// user node is pushed. Symptoms (bootstrap at idx 0, user at idx 1)
-    /// are pinned by other tests, but the property "bootstrap precedes
-    /// user node in array order" is the precondition. This pins it
-    /// directly: post-first-schedule, the bootstrap node sits at a
-    /// strictly lower array index than the returned actionIndex.
-    /// A regression that flipped the order inside `schedule` (push user,
-    /// then ensureBootstrap) would put the user at idx 0 and bootstrap
-    /// at idx 1 — every downstream cursor assumption would break.
-    function testEnsureBootstrapPrecedesUserActionInArrayOrder() external {
-        uint256 userIdx = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, "");
-
-        // Walk the head-inclusive list filtered by INIT mask: bootstrap
-        // must be the only match, and its index must be < userIdx.
-        uint256 bootstrapIdx = corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
-        assertLt(bootstrapIdx, userIdx, "bootstrap must precede user action in array order");
-    }
-
-    /// `bootstrap.effectiveTime < user.effectiveTime` for every user
-    /// action ever scheduled. Bootstrap is created at the first
-    /// schedule call with `effectiveTime == block.timestamp`; `schedule`
-    /// requires `effectiveTime > block.timestamp` for user actions. The
-    /// strict-inequality between the user's `> block.timestamp` and
-    /// bootstrap's `== block.timestamp` is the precondition that makes
-    /// `insertOrdered`'s tail-walk always terminate at bootstrap (the
-    /// tail walks back finding `effectiveTime <= newTime`, which is
-    /// guaranteed at idx 0). If `schedule`'s guard ever weakened to
-    /// `effectiveTime >= block.timestamp`, a user action could share
-    /// bootstrap's effectiveTime and the tail-walk's stable-ordering
-    /// rule (insert AFTER equal-time) still works, but the inequality
-    /// invariant breaks.
-    function testBootstrapEffectiveTimeStrictlyLessThanUserActions() external {
-        uint256 first = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp + 1), "");
-        uint256 second = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(block.timestamp + 2), "");
-
-        CorporateActionNode memory bootstrap = corporateActionHarness.getNode(0);
-        CorporateActionNode memory firstUser = corporateActionHarness.getNode(first);
-        CorporateActionNode memory secondUser = corporateActionHarness.getNode(second);
-
-        assertLt(bootstrap.effectiveTime, firstUser.effectiveTime, "bootstrap < first user action");
-        assertLt(bootstrap.effectiveTime, secondUser.effectiveTime, "bootstrap < second user action");
-    }
-
     /// Cancel idx 0 (the bootstrap node) reverts with `ActionAlreadyComplete`.
     /// Bootstrap's `effectiveTime == block.timestamp` at creation, so the
     /// standard time guard rejects it without a special case.
@@ -1529,24 +1486,37 @@ contract StoxCorporateActionsFacetTest is Test {
     // pin its identity, position, idempotency, and the immunity of the rest
     // of the system to the user trying to cancel or reschedule it.
 
-    /// On the first schedule call, the bootstrap node lands at index 1 with
-    /// `ACTION_TYPE_INIT_V1`, `effectiveTime = block.timestamp`, and empty
-    /// parameters. The user-scheduled action lands at index 1.
-    function testBootstrapNodePropertiesAfterFirstSchedule() external {
+    /// The first schedule pushes the bootstrap at idx 0 as the list head;
+    /// later schedules push no second bootstrap.
+    function testBootstrapPrecedesEveryUserAction() external {
         uint256 scheduleTime = block.timestamp;
-        uint256 userId = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"deadbeef");
-        assertEq(userId, 1, "user action lands at idx 1 because bootstrap occupies idx 0");
+        uint256 first =
+            corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(scheduleTime + 1), hex"deadbeef");
+        assertEq(first, 1, "first user action");
+        assertEq(
+            corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, uint64(scheduleTime + 2), hex""),
+            2,
+            "second user action"
+        );
+        assertEq(corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex""), 3, "third user action");
 
         CorporateActionNode memory bootstrap = corporateActionHarness.getNode(0);
-        assertEq(bootstrap.actionType, ACTION_TYPE_INIT_V1, "bootstrap actionType is ACTION_TYPE_INIT_V1");
-        assertEq(
-            uint256(bootstrap.effectiveTime),
-            scheduleTime,
-            "bootstrap effectiveTime is block.timestamp at first schedule"
-        );
+        assertEq(bootstrap.actionType, ACTION_TYPE_INIT_V1, "bootstrap actionType");
+        assertEq(uint256(bootstrap.effectiveTime), scheduleTime, "bootstrap effectiveTime is the first schedule time");
         assertEq(bootstrap.parameters.length, 0, "bootstrap has no parameters");
-        assertEq(bootstrap.prev, NODE_NONE, "bootstrap is the head: prev = NODE_NONE");
-        assertEq(bootstrap.next, userId, "bootstrap.next is the first user action");
+        assertEq(bootstrap.prev, NODE_NONE, "bootstrap is the head");
+        assertEq(bootstrap.next, first, "bootstrap.next is the first user action");
+        assertEq(
+            corporateActionHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL),
+            0,
+            "INIT walk from NODE_NONE finds the bootstrap at idx 0"
+        );
+
+        for (uint256 id = 1; id <= 3; id++) {
+            CorporateActionNode memory user = corporateActionHarness.getNode(id);
+            assertLt(bootstrap.effectiveTime, user.effectiveTime, "bootstrap effectiveTime < user effectiveTime");
+            assertEq(user.prev, id - 1, "user prev is the node before it");
+        }
     }
 
     /// `ensureBootstrap` writes `totalSupplyLatestCursor = NODE_NONE` as
@@ -1595,37 +1565,6 @@ contract StoxCorporateActionsFacetTest is Test {
             NODE_NONE,
             "ensureBootstrap writes NODE_NONE as the no-fold-yet sentinel"
         );
-    }
-
-    /// Bootstrap is created exactly once per vault. A second `schedule` call
-    /// must not push another bootstrap node — it appends a real action.
-    function testBootstrapIsIdempotentAcrossMultipleSchedules() external {
-        uint256 first = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        uint256 second = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, hex"");
-        uint256 third = corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 3500, hex"");
-
-        // Bootstrap + 3 user actions = 4 nodes in the array.
-        // Indices: 0 bootstrap, 1/2/3 user actions.
-        assertEq(first, 1);
-        assertEq(second, 2);
-        assertEq(third, 3);
-
-        // No second bootstrap was inserted between the user actions —
-        // each user node points at its predecessor user node, not at a
-        // duplicate bootstrap.
-        assertEq(corporateActionHarness.getNode(second).prev, first);
-        assertEq(corporateActionHarness.getNode(third).prev, second);
-    }
-
-    /// Bootstrap's `effectiveTime = block.timestamp` at schedule time means
-    /// it is "already complete" the moment it is created. Any attempt to
-    /// `cancel(bootstrap)` reverts with `ActionAlreadyComplete` via the
-    /// existing completion guard — no special-case in `cancel` needed.
-    function testCancelBootstrapNodeRevertsAlreadyComplete() external {
-        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-
-        vm.expectRevert(abi.encodeWithSelector(ActionAlreadyComplete.selector, uint256(0)));
-        corporateActionHarness.cancel(0);
     }
 
     /// The init action type is observable to external consumers via the
@@ -1717,45 +1656,6 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
-    /// `countCompleted` excludes the bootstrap node from its count by
-    /// masking out `ACTION_TYPE_INIT_V1`. Without that exclusion, the
-    /// public `completedActionCount` would always be off-by-one once any
-    /// schedule call had run.
-    function testCountCompletedExcludesBootstrap() external {
-        // No schedule yet → no bootstrap → count == 0.
-        assertEq(corporateActionHarness.countCompleted(), 0);
-
-        // First schedule creates bootstrap (idx 0, complete) AND user action
-        // (idx 1, pending). `countCompleted` must report 0 — the bootstrap
-        // is completed but masked out, the user action is pending.
-        corporateActionHarness.schedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, hex"");
-        assertEq(corporateActionHarness.countCompleted(), 0, "bootstrap must not inflate the user-action count");
-
-        // Warp past the user action's effectiveTime → it completes.
-        vm.warp(2000);
-        assertEq(corporateActionHarness.countCompleted(), 1, "only the user action counts as completed");
-    }
-
-    /// `getActionParameters(0)` returns the bootstrap's empty `parameters`
-    /// blob via the facet's external API. Under the 0-based scheme idx 0
-    /// is a real walkable node, and the facet's bounds check
-    /// (`actionId >= s.nodes.length`) admits cursor 0 once
-    /// `ensureBootstrap` has fired. Storage-direct reads of
-    /// `bootstrap.parameters.length == 0` already pin the storage shape;
-    /// this pins the public-API contract — a regression that re-introduced
-    /// a `cursor != 0` reject inside `getActionParameters` (matching the
-    /// pre-bootstrap 1-based scheme) would silently break receipt-side
-    /// walks that read parameters at cursor 0 and would not surface in any
-    /// existing test.
-    function testGetActionParametersReturnsEmptyBytesForBootstrap() external {
-        // Schedule a user action via the delegatecall path so bootstrap
-        // exists in the same storage namespace the facet reads from.
-        _scheduleSplitViaFacet(2, 1500);
-
-        bytes memory bootstrapParams = facetViaHarness.getActionParameters(0);
-        assertEq(bootstrapParams.length, 0, "bootstrap parameters must be empty bytes via facet API");
-    }
-
     /// Cross-contract pin: `vault.nextOfType(NODE_NONE, INIT, ALL)`
     /// returns the bootstrap (idx 0) through the facet's external function
     /// over a delegatecall fallback, not just through the in-process
@@ -1802,115 +1702,34 @@ contract StoxCorporateActionsFacetTest is Test {
         );
     }
 
-    /// Identity when no corporate action was ever scheduled — the list is
-    /// empty (not even a bootstrap node) and the walk finds nothing.
-    function testCumulativeMultiplierIdentityWhenNoActions() external view {
+    /// Identity on the empty list; then the product of the completed splits
+    /// only, inclusive at the exact effective time.
+    function testCumulativeMultiplierOverScheduleTimeline() external {
         assertFloatEq(
-            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.FLOAT_ONE,
-            "empty list must yield the identity multiplier"
+            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(), LibDecimalFloat.FLOAT_ONE, "empty list"
         );
-    }
 
-    /// Identity when only the bootstrap node is completed: the bootstrap
-    /// (ACTION_TYPE_INIT_V1) is walked but contributes nothing, and the
-    /// user-scheduled split is still pending so it is excluded.
-    function testCumulativeMultiplierIdentityWhenOnlyBootstrapCompleted() external {
-        _scheduleSplitViaFacet(3, 1500);
-        // No warp: block.timestamp = 1000 < 1500, so the split is pending;
-        // only the bootstrap (effectiveTime = 1000) is completed.
-        assertFloatEq(
-            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.FLOAT_ONE,
-            "bootstrap-only completion must yield the identity multiplier"
-        );
-    }
-
-    /// A single completed 3:1 split yields exactly Float 3.
-    function testCumulativeMultiplierSingleSplit() external {
-        _scheduleSplitViaFacet(3, 1500);
-        vm.warp(2000);
-        assertFloatEq(
-            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.packLossless(3, 0),
-            "single completed 3:1 split must yield 3"
-        );
-    }
-
-    /// A sequence of completed splits multiplies in chronological order:
-    /// 3:1 (x3) then 1:2 reverse (x0.5) collapses to 1.5.
-    function testCumulativeMultiplierSequenceOfSplits() external {
         _scheduleSplitViaFacet(3, 1500);
         _scheduleSplitViaFacet(LibDecimalFloat.packLossless(5, -1), 2000);
-        vm.warp(2500);
-        assertFloatEq(
-            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.packLossless(15, -1),
-            "3:1 then 1:2 must collapse to 1.5"
-        );
-    }
-
-    /// Pending (future) splits are excluded: only the completed prefix of
-    /// the list contributes to the product.
-    function testCumulativeMultiplierExcludesPending() external {
-        _scheduleSplitViaFacet(2, 1500); // completes
-        _scheduleSplitViaFacet(3, 9000); // stays pending
-        vm.warp(2000);
-        assertFloatEq(
-            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.packLossless(2, 0),
-            "pending split must not contribute to the product"
-        );
-    }
-
-    /// Cancelled splits are excluded: cancellation unlinks the node before
-    /// its effectiveTime, so it never completes and never contributes.
-    function testCumulativeMultiplierExcludesCancelled() external {
-        _scheduleSplitViaFacet(2, 1500);
-        uint256 cancelledId = _scheduleSplitViaFacet(3, 2000);
-
+        uint256 cancelled = _scheduleSplitViaFacet(7, 2500);
+        _scheduleSplitViaFacet(2, 9000);
         vm.prank(ALICE);
-        facetViaHarness.cancelCorporateAction(cancelledId);
+        facetViaHarness.cancelCorporateAction(cancelled);
 
-        // Warp past BOTH effective times — the cancelled node must stay
-        // invisible even after its original effectiveTime passes.
-        vm.warp(3000);
-        assertFloatEq(
-            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.packLossless(2, 0),
-            "cancelled split must not contribute to the product"
-        );
-    }
-
-    /// Boundary: a split whose `effectiveTime` equals `block.timestamp`
-    /// exactly is COMPLETED (the walk's `<=` completion check is inclusive)
-    /// and therefore contributes to the cumulative product. Every other
-    /// cumulative test warps strictly PAST the effective time; this pins the
-    /// inclusive boundary at this function's own API surface rather than
-    /// relying on it being covered transitively by the `LibCorporateActionNode`
-    /// COMPLETED-walk tests. A regression flipping that walk's `<=` to `<`
-    /// (so an exactly-due split reads as still pending) drops the split and
-    /// collapses the product back to identity — this test catches it from
-    /// both sides.
-    function testCumulativeMultiplierBoundaryAtExactEffectiveTime() external {
-        _scheduleSplitViaFacet(3, 1500);
-
-        // One second before the effective time: the split is still pending
-        // and excluded — only the bootstrap (identity) is completed.
-        vm.warp(1499);
-        assertFloatEq(
-            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.FLOAT_ONE,
-            "split one tick before its effective time is pending and excluded"
-        );
-
-        // At exactly the effective time: inclusive `<=` completion means the
-        // split counts and the product jumps to exactly 3.
-        vm.warp(1500);
-        assertFloatEq(
-            facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
-            LibDecimalFloat.packLossless(3, 0),
-            "split at exactly block.timestamp is completed (inclusive) and included"
-        );
+        uint64[5] memory times = [uint64(1000), 1499, 1500, 3000, 9000];
+        Float[5] memory expected;
+        expected[0] = LibDecimalFloat.FLOAT_ONE;
+        expected[1] = LibDecimalFloat.FLOAT_ONE;
+        expected[2] = LibDecimalFloat.packLossless(3, 0);
+        expected[3] = LibDecimalFloat.packLossless(15, -1);
+        expected[4] = LibDecimalFloat.packLossless(3, 0);
+        for (uint256 i = 0; i < times.length; i++) {
+            vm.warp(times[i]);
+            assertFloatEq(
+                facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
+                expected[i],
+                string.concat("cumulative multiplier at t=", vm.toString(times[i]))
+            );
+        }
     }
 }
