@@ -279,7 +279,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     function orchestratorProxySuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
         RegistryBeaconProxyTarget memory target = LibProdOrchestratorTarget.orchestratorTarget();
-        DeployDependency[] memory dependencies = new DeployDependency[](4);
+        DeployDependency[] memory dependencies = new DeployDependency[](3);
         dependencies[0] =
             DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
         dependencies[1] =
@@ -287,9 +287,6 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         dependencies[2] = DeployDependency({
             deployedAddress: V4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
             runtimeCode: V4.ST0X_ORCHESTRATOR_BEACON_RUNTIME_CODE_CANDIDATE
-        });
-        dependencies[3] = DeployDependency({
-            deployedAddress: V4.ST0X_ORCHESTRATOR_CANDIDATE, runtimeCode: V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE
         });
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](1);
         suites[0] = RegistryBeaconProxyDeploy({
