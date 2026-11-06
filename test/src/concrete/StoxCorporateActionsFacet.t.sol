@@ -1323,7 +1323,11 @@ contract StoxCorporateActionsFacetTest is Test {
         uint256 actionIndex = _scheduleSplitViaFacet(2, 1500);
 
         bytes memory read = facetViaHarness.getActionParameters(actionIndex);
-        assertEq(read, params, "getActionParameters must round-trip exactly");
+        assertEq(
+            read,
+            LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(2, 0)),
+            "getActionParameters must round-trip exactly"
+        );
     }
 
     /// getActionParameters(0) reverts with ActionDoesNotExist.
@@ -1368,7 +1372,11 @@ contract StoxCorporateActionsFacetTest is Test {
     /// getter — a regression in either surface fails this test.
     function testGetActionParametersRevertsForCancelledAction() external {
         uint256 actionId = _scheduleSplitViaFacet(2, 1500);
-        assertEq(facetViaHarness.getActionParameters(actionId), params, "scheduled payload readable before cancel");
+        assertEq(
+            facetViaHarness.getActionParameters(actionId),
+            LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(2, 0)),
+            "scheduled payload readable before cancel"
+        );
 
         vm.prank(ALICE);
         facetViaHarness.cancelCorporateAction(actionId);
