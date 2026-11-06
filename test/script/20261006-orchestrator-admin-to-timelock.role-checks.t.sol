@@ -14,8 +14,9 @@ import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestra
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title OrchestratorAdminToTimelockLocalTest
-/// @notice The move on a local Base whose root line is at the V5 backfill, so
-/// it runs whatever the live chains have recorded.
+/// @notice The move on a local Base whose root line is at the beacon-initial-owner
+/// bind, after the V5 backfill, so it runs whatever the live chains have
+/// recorded.
 contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, RootLineRecordScriptTest {
     function newScript() internal override returns (IRecordScriptHooks) {
         return IRecordScriptHooks(address(new OrchestratorAdminToTimelockHarness("local")));
@@ -26,7 +27,7 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, R
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
+        return LibStoxMigrations.BIND_BEACON_INITIAL_OWNER;
     }
 
     function landBeforeOnto() internal override {
@@ -35,11 +36,17 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, R
         bytes32 emergency = ORCHESTRATOR.EMERGENCY_ROLE();
         vm.prank(address(safe));
         ORCHESTRATOR.grantRole(emergency, address(safe));
+        LibTestRootLine.write(
+            vm, address(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, MIGRATION_HEAD_GENESIS
+        );
     }
 
     function landOnto() internal override {
         LibTestRootLine.write(
-            vm, address(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, MIGRATION_HEAD_GENESIS
+            vm,
+            address(safe),
+            LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
+            LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
         );
     }
 

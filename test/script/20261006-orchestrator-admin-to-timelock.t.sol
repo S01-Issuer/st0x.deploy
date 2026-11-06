@@ -22,14 +22,16 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibTestTamperedArtifact} from "../lib/LibTestTamperedArtifact.sol";
 
 /// @title OrchestratorAdminToTimelockTest
 /// @notice The admin move on every deployment network, at its pinned
 /// pre-backfill block. The bundle walks the line: before the V5 backfill the
-/// script refuses and the bundle cannot execute; with the backfill bundle
-/// executed on the fork `run()` executes the move through the Safe, proves it
+/// script refuses and the bundle cannot execute, at the backfill it refuses;
+/// with the backfill and beacon-initial-owner bind bundles executed on the
+/// fork `run()` executes the move through the Safe, proves it
 /// and writes the artifact, `verify` accepts that artifact, and the artifact
 /// executed by the owners leaves the state the invariants demand and makes a
 /// re-dispatch refuse.
@@ -40,6 +42,11 @@ contract OrchestratorAdminToTimelockTest is Test {
     function executeBackfill(address safe) internal {
         BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("admin-move-prerequisite");
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), backfill.callAuthorBundle());
+    }
+
+    function executeBackfillThenBind(address safe) internal {
+        executeBackfill(safe);
+        LibTestBeaconInitialOwnerBind.execute(vm, safe, "admin-move-prerequisite");
     }
 
     function assertBundle(string memory network) internal {
@@ -65,11 +72,16 @@ contract OrchestratorAdminToTimelockTest is Test {
                 LibMigrationRegistry.onto(
                     LibRegistryAuthority.ROOT_AUTHORITY,
                     LibStoxMigrations.NAMESPACE,
-                    LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
+                    LibStoxMigrations.BIND_BEACON_INITIAL_OWNER
                 ),
                 ""
             );
         executeBackfill(safe);
+        vm.expectRevert(
+            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5)
+        );
+        script.callPreflight();
+        LibTestBeaconInitialOwnerBind.execute(vm, safe, network);
 
         uint256 preRun = vm.snapshotState();
         uint256 runAt = block.timestamp;
@@ -138,7 +150,7 @@ contract OrchestratorAdminToTimelockTest is Test {
     function testVerifyRefusesTamperedArtifact() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        executeBackfill(safe);
+        executeBackfillThenBind(safe);
         OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("tamper");
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         string memory json =

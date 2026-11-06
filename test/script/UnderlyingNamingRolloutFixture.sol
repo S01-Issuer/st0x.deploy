@@ -17,6 +17,7 @@ import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNaming
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
+import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {IOwnable} from "../../src/interface/IOwnable.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
@@ -29,12 +30,14 @@ import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollo
 /// rollout's steps as the Safe and the executing key would.
 abstract contract UnderlyingNamingRolloutFixture is Test {
     /// @notice Lands, as the Safe would, the root-line records before the
-    /// beacon schedule: the V5 backfill, then the orchestrator admin move.
+    /// beacon schedule: the V5 backfill, the beacon-initial-owner bind, then
+    /// the orchestrator admin move.
     function advanceRootLineToBeaconSchedule() internal {
         Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
         BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("underlying-naming");
         backfill.callPreflight();
         LibSafeFork.executeBundle(vm, safe, backfill.callAuthorBundle());
+        LibTestBeaconInitialOwnerBind.execute(vm, address(safe), "underlying-naming");
         OrchestratorAdminToTimelockHarness adminMove = new OrchestratorAdminToTimelockHarness("underlying-naming");
         adminMove.callPreflight();
         LibSafeFork.executeBundle(vm, safe, adminMove.callAuthorBundle());
