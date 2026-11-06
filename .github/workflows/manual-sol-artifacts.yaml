@@ -18,6 +18,7 @@ on:
           - stox-offchain-asset-receipt-vault-payment-mint-authorizer
           - stox-orchestrator
           - stox-orchestrator-beacon
+          - stox-orchestrator-proxy
           - stox-attest-sub-parser
           - stox-governance-timelock
           - stox-eu-assets-authoriser

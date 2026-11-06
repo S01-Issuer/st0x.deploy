@@ -12,6 +12,10 @@ import {
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.30/src/lib/LibRainDeployDeclaration.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.30/src/lib/LibRainDeployZoltuMechanism.sol";
 import {CloneDeploy} from "rain-factory-0.2.10/src/lib/LibRainDeployClone.sol";
+import {
+    RegistryBeaconProxyDeploy,
+    RegistryBeaconProxyTarget
+} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.10/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.10/src/lib/LibRainDeployCloneMechanism.sol";
 import {
@@ -38,6 +42,7 @@ import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {LibProdOrchestratorTarget} from "../lib/LibProdOrchestratorTarget.sol";
+import {LibST0xOrchestratorProxy} from "../generated/LibST0xOrchestratorProxy.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -60,6 +65,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON = "stox-orchestrator-beacon";
+    string constant ORCHESTRATOR_PROXY = "stox-orchestrator-proxy";
     string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
     string constant GOVERNANCE_TIMELOCK = "stox-governance-timelock";
 
@@ -95,6 +101,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
+        LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;
     }
 
@@ -264,6 +271,36 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             )
         });
         return clones;
+    }
+
+    function orchestratorProxySuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
+        RegistryBeaconProxyTarget memory target = LibProdOrchestratorTarget.orchestratorTarget();
+        DeployDependency[] memory dependencies = new DeployDependency[](4);
+        dependencies[0] =
+            DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
+        dependencies[1] =
+            DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
+        dependencies[2] = DeployDependency({
+            deployedAddress: V4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE,
+            runtimeCode: V4.ST0X_ORCHESTRATOR_BEACON_V2_RUNTIME_CODE_CANDIDATE
+        });
+        dependencies[3] = DeployDependency({
+            deployedAddress: V4.ST0X_ORCHESTRATOR_CANDIDATE, runtimeCode: V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE
+        });
+        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](1);
+        suites[0] = RegistryBeaconProxyDeploy({
+            suite: ORCHESTRATOR_PROXY,
+            factory: target.factory,
+            registry: target.registry,
+            authority: target.authority,
+            beaconName: target.beaconName,
+            beacon: target.beacon,
+            data: target.data,
+            salt: target.salt,
+            dependencies: dependencies,
+            runtimeCode: LibST0xOrchestratorProxy.RUNTIME_CODE
+        });
+        return suites;
     }
 
     function zoltu(
