@@ -23,7 +23,11 @@ contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {
             abi.encode(address(0x5AFE))
         );
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(address(1))
+            vm,
+            LibStoxConfig.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(address(0xBEAC0))
         );
         vm.etch(CONFIG_REGISTRY_ADDRESS, hex"");
     }
