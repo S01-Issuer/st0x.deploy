@@ -130,12 +130,11 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// global across every token, minter and recipient, converts each mint into
 /// the charge. `mint` builds the context grid of `LibSt0xAttestContext` (the
 /// token's symbol, the amount as a `Float` of whole tokens, then the signed
-/// attestations the minter passed, every signature verified) and evaluates
-/// the expression over it. The last output is the charge on both buckets.
-/// What the attestations must say is the expression's to check and revert
-/// on, including pinning each signer's domain from the domain separators
-/// column; the orchestrator verifies only that each attestation was signed by
-/// the signer it names under the domain separator it names. State the
+/// context the minter passed, every signature verified) and evaluates the
+/// expression over it. The last output is the charge on both buckets. What
+/// the signed context must contain is the expression's to check and revert
+/// on; the orchestrator verifies only that each entry was signed by the
+/// signer it names under the domain separator it names. State the
 /// expression writes is persisted to its store under the orchestrator's
 /// namespace.
 ///
@@ -316,11 +315,11 @@ contract ST0xOrchestrator is
         uint256 amount,
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation,
-        SignedContextV2[] calldata attestations
+        SignedContextV2[] calldata signedContext
     ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic(token) nonReentrant {
         if (amount == 0) revert ZeroAmount();
         if (to == msg.sender) revert SenderIsRecipient(msg.sender);
-        _consumeMintCaps(token, to, amount, attestations);
+        _consumeMintCaps(token, to, amount, signedContext);
         _consumeMintAuth(token, to, amount, auth);
 
         // Share ratio is 1:1; anything else halts the mint.
@@ -343,7 +342,7 @@ contract ST0xOrchestrator is
     /// recipient rejection reverts the whole call.
     ///
     /// `headroomAt` is read to name which cap bound.
-    function _consumeMintCaps(address token, address to, uint256 amount, SignedContextV2[] calldata attestations)
+    function _consumeMintCaps(address token, address to, uint256 amount, SignedContextV2[] calldata signedContext)
         internal
     {
         MainStorage storage $ = _main();
@@ -355,13 +354,13 @@ contract ST0xOrchestrator is
         if (!recipientLimit.set) revert RecipientMintLimitUnset(to);
 
         // The buckets meter the weighted charge, never the raw amount.
-        Float charge = _weighMint($, token, amount, attestations);
+        Float charge = _weighMint($, token, amount, signedContext);
         Float timestamp = _now();
         _fillMinterMintCap(minterCap, minterLimit, timestamp, charge);
         _fillRecipientMintCap(recipientCap, recipientLimit, to, timestamp, charge);
     }
 
-    /// @dev Evaluate the mint weighting over this mint and its attestations
+    /// @dev Evaluate the mint weighting over this mint and its signed context
     /// and return the charge. Reverts `MintWeightingUnset` if no expression
     /// has been set, `MintSymbolTooLong` if the token's symbol is longer
     /// than the 31 bytes an `IntOrAString` holds,
@@ -371,13 +370,13 @@ contract ST0xOrchestrator is
     /// The context is the grid of `LibSt0xAttestContext`: the token's symbol
     /// as an `IntOrAString`, and the amount as a `Float` in whole tokens per
     /// the token's `decimals()`. Building the grid verifies every
-    /// attestation's signature and reverts `InvalidSignature(i)` on the first
+    /// signed context entry's signature and reverts `InvalidSignature(i)` on the first
     /// that fails.
     ///
     /// The evaluation is a static call; the writes it returns are then
     /// applied to the expression's store under the orchestrator's namespace.
     /// Split out of `_consumeMintCaps` to keep that frame within stack limits.
-    function _weighMint(MainStorage storage $, address token, uint256 amount, SignedContextV2[] calldata attestations)
+    function _weighMint(MainStorage storage $, address token, uint256 amount, SignedContextV2[] calldata signedContext)
         internal
         returns (Float)
     {
@@ -390,7 +389,7 @@ contract ST0xOrchestrator is
         bytes32[][] memory context = LibSt0xAttestContext.build(
             bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(symbol))),
             Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, IERC20Metadata(token).decimals())),
-            attestations
+            signedContext
         );
         emit ContextV2(msg.sender, context);
 

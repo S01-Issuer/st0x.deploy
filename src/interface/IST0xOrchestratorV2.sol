@@ -36,7 +36,7 @@ struct MintBucketV1 {
 /// @title IST0xOrchestratorV2
 /// @notice Full external interface of the ST0x orchestrator, the singleton
 /// mint/burn proxy for the ST0x receipt-vault set. Supersedes
-/// `IST0xOrchestratorV1`: `mint` takes the attestations the mint weighting
+/// `IST0xOrchestratorV1`: `mint` takes the signed context the mint weighting
 /// reads, and every mint is metered by the minter and recipient mint caps.
 interface IST0xOrchestratorV2 {
     event Minted(address indexed caller, address indexed token, address indexed to, uint256 amount, bytes32 nonce);
@@ -166,9 +166,9 @@ interface IST0xOrchestratorV2 {
     /// What both buckets are charged is the value the mint weighting puts on
     /// this mint: the mint admin's expression (`setMintWeighting`) is
     /// evaluated over the mint (`token`'s symbol and `amount` as a `Float` of
-    /// whole tokens) and `attestations`, and its last output is the charge.
-    /// The expression decides what the attestations must say and reverts the
-    /// mint if they do not say it. `MintWeightingUnset` if no expression has
+    /// whole tokens) and `signedContext`, and its last output is the charge.
+    /// The expression decides what `signedContext` must contain and reverts
+    /// the mint if it does not. `MintWeightingUnset` if no expression has
     /// been set; a zero or negative charge is refused by the bucket by name.
     /// @param token The `OffchainAssetReceiptVault` to mint.
     /// @param to Recipient of the shares.
@@ -176,19 +176,17 @@ interface IST0xOrchestratorV2 {
     /// @param auth The recipient's authorisation (see `MintAuthV1`).
     /// @param receiptInformation The MINTER's audit-trail payload, forwarded
     /// verbatim to `vault.mint` — not part of the recipient's authorisation.
-    /// @param attestations The signed attestations the weighting reads, the
-    /// lead's first, each beginning `[symbol, price, time, source, currency]`
-    /// with later rows carried but not read (see `LibSt0xAttestContext`).
-    /// Every signature is verified under its own domain separator before the
-    /// expression runs; what the signed values and domains must be is the
-    /// expression's decision. Not part of the recipient's authorisation.
+    /// @param signedContext Signed context the weighting reads. Every
+    /// signature is verified under the domain separator it names before the
+    /// expression runs; what it must contain is the expression's decision.
+    /// Not part of the recipient's authorisation.
     function mint(
         address token,
         address to,
         uint256 amount,
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation,
-        SignedContextV2[] calldata attestations
+        SignedContextV2[] calldata signedContext
     ) external;
 
     /// @notice Burn `amount` rebased tStocks of `token`, pulled from the
@@ -233,7 +231,7 @@ interface IST0xOrchestratorV2 {
     ///
     /// The expression is evaluated by `evaluable.interpreter` over the context
     /// grid `LibSt0xAttestContext` builds — the mint's symbol and amount, then
-    /// the attestations passed to `mint` — and must leave at least one
+    /// the signed context passed to `mint` — and must leave at least one
     /// output, the last of which is the charge. Any state it writes is
     /// persisted to `evaluable.store` under the orchestrator's namespace.
     ///
