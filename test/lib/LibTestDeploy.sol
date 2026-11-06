@@ -104,7 +104,11 @@ library LibTestDeploy {
     function bindBeaconInitialOwner(Vm vm, address owner) internal {
         etchConfigRegistry(vm);
         bind(
-            vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(owner)
         );
     }
 
