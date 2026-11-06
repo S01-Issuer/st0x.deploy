@@ -199,7 +199,7 @@ library LibOrchestratorInvariants {
         }
 
         IAccessControl acl = IAccessControl(instance);
-        RoleGrant[] memory grants = mintCapsExpectedGrants(LibTimelockInvariants.timelockForChainId(block.chainid));
+        RoleGrant[] memory grants = mintCapsExpectedGrants(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
         for (uint256 i = 0; i < grants.length; i++) {
             assertHolds(acl, grants[i].role, grants[i].grantee);
         }

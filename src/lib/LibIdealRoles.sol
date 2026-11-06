@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
+import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibOrchestratorInvariants} from "./LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
@@ -43,7 +44,8 @@ library LibIdealRoles {
         );
         roles[3] = ContractRoles(timelock, LibTimelockInvariants.expectedGrants(timelock, safe));
         roles[4] = ContractRoles(
-            LibOrchestratorInvariants.mintCapsInstance(), LibOrchestratorInvariants.mintCapsExpectedGrants(timelock)
+            LibOrchestratorInvariants.mintCapsInstance(),
+            LibOrchestratorInvariants.mintCapsExpectedGrants(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
         );
         return roles;
     }
