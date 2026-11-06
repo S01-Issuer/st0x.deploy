@@ -10,13 +10,13 @@ import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistr
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
+import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// A registry-owned beacon suite lands at its pin, owned by the bound
 /// beacon initial owner and serving the current implementation, and refuses
-/// where the initial owner is unbound.
+/// where the initial owner is unbound or bound to zero.
 abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     function suiteKey() internal pure virtual returns (string memory);
 
@@ -55,10 +55,11 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     function testBeaconSuiteDeploysOwnedByEachNetworksBoundTimelock() external {
         uint256[] memory chainIds = suiteChainIds(beaconSuite());
         assertTrue(chainIds.length > 0, "networks");
+        // Deploy.preDeployCheck accepts only this bound owner.
+        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         for (uint256 i = 0; i < chainIds.length; i++) {
             uint256 preDeploy = vm.snapshotState();
             vm.chainId(chainIds[i]);
-            address timelock = LibTimelockInvariants.timelockForChainId(chainIds[i]);
             bindBeaconInitialOwner(timelock);
             assertDeployedAtThePin(this.deploySuite(), timelock);
             vm.revertToState(preDeploy);
@@ -82,6 +83,18 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
                 LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
+        construct();
+
+        vm.expectRevert(abi.encodeWithSelector(LibRainDeploy.DeployFailed.selector, false, address(0)));
+        this.deploySuite();
+    }
+
+    function testBeaconSuiteRefusesWhereTheOwnerIsBoundToZero() external {
+        LibRainDeploy.etchDependencies(vm, beaconSuite().dependencies);
+        LibTestDeploy.bind(
+            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(address(0))
+        );
+        vm.expectRevert(abi.encodeWithSelector(Ownable.OwnableInvalidOwner.selector, address(0)));
         construct();
 
         vm.expectRevert(abi.encodeWithSelector(LibRainDeploy.DeployFailed.selector, false, address(0)));
