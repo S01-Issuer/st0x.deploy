@@ -534,15 +534,44 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         assertEq(receipt.holderIdCursor(BOB, ID_A), 1);
     }
 
-    /// ReceiptAccountMigrated event is emitted for non-trivial migrations.
-    function testReceiptAccountMigratedEventEmitted() external {
-        _mint(ALICE, ID_A, 100);
-        _splitParams(2);
+    function _addSplit(int256 num, int256 denom) internal {
+        if (denom == 1) _splitParams(num);
+        else _fractionalParams(num, denom);
+    }
 
+    /// On a fresh receipt, mint `balance` to `(ALICE, ID_A)`, complete one
+    /// split (`num2 == 0`) or two, then touch the pair once.
+    function _assertReceiptMigrates(
+        uint256 balance,
+        int256 num1,
+        int256 den1,
+        int256 num2,
+        int256 den2,
+        uint256 expected
+    ) internal {
+        setUp();
+        _mint(ALICE, ID_A, balance);
+        _addSplit(num1, den1);
+        uint256 latest = 1;
+        if (num2 != 0) {
+            _addSplit(num2, den2);
+            latest = 2;
+        }
         vm.expectEmit(true, true, false, true, address(receipt));
-        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 1, 100, 200);
-
+        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, latest, balance, expected);
         _transfer(ALICE, ALICE, ID_A, 0);
+        assertEq(receipt.rawStoredBalance(ALICE, ID_A), expected, "stored balance");
+        assertEq(receipt.holderIdCursor(ALICE, ID_A), latest, "cursor at the latest split");
+    }
+
+    /// One touch emits one `ReceiptAccountMigrated` and stores the rasterized
+    /// balance, also when truncation (1 x1.5, 10 x1.09) or a round trip
+    /// (4 x2 x1/2) leaves it unchanged.
+    function testReceiptAccountMigratedRasterizesStoredBalance() external {
+        _assertReceiptMigrates(100, 2, 1, 0, 0, 200);
+        _assertReceiptMigrates(1, 3, 2, 0, 0, 1);
+        _assertReceiptMigrates(4, 2, 1, 1, 2, 4);
+        _assertReceiptMigrates(10, 109, 100, 0, 0, 10);
     }
 
     /// A dormant `(holder, id)` touched after multiple completed splits
@@ -604,60 +633,6 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         emit StoxReceipt.ReceiptAccountMigrated(BOB, ID_A, 0, 1, 0, 0);
 
         _transfer(ALICE, BOB, ID_A, 0);
-    }
-
-    /// Receipt phenomenon 2 (single-step truncation collision): a stored
-    /// 1 through a 1.5x multiplier rasterizes to `trunc(1.5) == 1`. The
-    /// cursor advances; the stored balance is unchanged; the event fires.
-    function testReceiptAccountMigratedFiresOnTruncationCollision() external {
-        _mint(ALICE, ID_A, 1);
-        _fractionalParams(3, 2);
-
-        vm.expectEmit(true, true, false, true, address(receipt));
-        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 1, 1, 1);
-
-        _transfer(ALICE, ALICE, ID_A, 0);
-
-        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 1, "stored balance unchanged after truncation collision");
-        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice cursor advanced past the split");
-    }
-
-    /// Receipt phenomenon 3 (multi-step round-trip): a balance of 4
-    /// through `[2x, 1/2x]` rasterizes `4 -> 8 -> 4`. Float represents
-    /// 1/2 exactly in base 10, so this round-trips deterministically.
-    /// Cursor jumps two splits in a single `_update`; the event fires
-    /// once with `oldBalance == newBalance == 4`.
-    function testReceiptAccountMigratedFiresOnMultiStepRoundTrip() external {
-        _mint(ALICE, ID_A, 4);
-        _splitParams(2);
-        _fractionalParams(1, 2);
-
-        vm.expectEmit(true, true, false, true, address(receipt));
-        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 2, 4, 4);
-
-        _transfer(ALICE, ALICE, ID_A, 0);
-
-        assertEq(receipt.rawStoredBalance(ALICE, ID_A), 4, "stored balance round-tripped to itself");
-        assertEq(receipt.holderIdCursor(ALICE, ID_A), 2, "alice cursor advanced past both splits");
-    }
-
-    /// Receipt phenomenon 4 (balance-specific identity): a balance of 10
-    /// through a 1.09x multiplier rasterizes to `trunc(10.9) == 10`. The
-    /// same multiplier on a larger balance produces a real change; the
-    /// no-op here is balance-specific. The event fires.
-    function testReceiptAccountMigratedFiresOnBalanceSpecificIdentity() external {
-        _mint(ALICE, ID_A, 10);
-        _fractionalParams(109, 100);
-
-        vm.expectEmit(true, true, false, true, address(receipt));
-        emit StoxReceipt.ReceiptAccountMigrated(ALICE, ID_A, 0, 1, 10, 10);
-
-        _transfer(ALICE, ALICE, ID_A, 0);
-
-        assertEq(
-            receipt.rawStoredBalance(ALICE, ID_A), 10, "stored balance unchanged for this specific balance / multiplier"
-        );
-        assertEq(receipt.holderIdCursor(ALICE, ID_A), 1, "alice cursor advanced");
     }
 
     /// Already-migrated complement: a `(holder, id)` pair at the latest
