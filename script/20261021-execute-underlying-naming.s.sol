@@ -51,6 +51,10 @@ error ExecuteUnderlyingNamingUnexpectedMigrationLine(bytes32 head);
 /// @param actual The recorded moment.
 error ExecuteUnderlyingNamingRecordMismatch(uint256 expected, uint256 actual);
 
+/// @notice After the bundle the root line's head is not this migration.
+/// @param head The line's head.
+error ExecuteUnderlyingNamingLineHeadMismatch(bytes32 head);
+
 /// @notice This script's declaration on the root line: after the rename schedule.
 /// @return The declaration.
 function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration memory) {
@@ -175,9 +179,7 @@ contract ExecuteUnderlyingNaming is SafeBundleScript, IStoxScript {
             // forge-lint: disable-next-line(block-timestamp)
             revert ExecuteUnderlyingNamingRecordMismatch(block.timestamp, record);
         }
-        require(
-            LibStoxMigrations.head() == LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
-            "RecordExecuteUnderlyingNaming: record not at head"
-        );
+        bytes32 head = LibStoxMigrations.head();
+        if (head != LibStoxMigrations.EXECUTE_UNDERLYING_NAMING) revert ExecuteUnderlyingNamingLineHeadMismatch(head);
     }
 }
