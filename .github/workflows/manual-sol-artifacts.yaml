@@ -14,6 +14,8 @@ on:
           - stox-receipt-vault
           - stox-wrapped-token-vault
           - stox-wrapped-token-vault-beacon
+          - stox-receipt-beacon
+          - stox-receipt-vault-beacon
           - stox-offchain-asset-receipt-vault-authorizer
           - stox-offchain-asset-receipt-vault-payment-mint-authorizer
           - stox-orchestrator
@@ -22,6 +24,65 @@ on:
           - stox-attest-sub-parser
           - stox-governance-timelock
           - stox-eu-assets-authoriser
+          - stox-token-tmstr
+          - stox-token-ttsla
+          - stox-token-tcoin
+          - stox-token-tspym
+          - stox-token-tsivr
+          - stox-token-tcrcl
+          - stox-token-tnvda
+          - stox-token-tiau
+          - stox-token-tpplt
+          - stox-token-tamzn
+          - stox-token-tbmnr
+          - stox-token-tibhg
+          - stox-token-tsgov
+          - stox-token-tqqqm
+          - stox-token-tvwo
+          - stox-token-tarkk
+          - stox-token-tspcx
+          - stox-token-tceg
+          - stox-token-tdram
+          - stox-token-ttsm
+          - stox-token-tskhy
+          - stox-token-tasml
+          - stox-token-tmu
+          - stox-token-tamd
+          - stox-token-tavgo
+          - stox-token-tamat
+          - stox-token-tlrcx
+          - stox-token-tttwo
+          - stox-token-trklb
+          - stox-token-tgoogl
+          - stox-token-taapl
+          - stox-token-tmsft
+          - stox-token-tlly
+          - stox-token-tpty
+          - stox-token-tintc
+          - stox-token-thood
+          - stox-token-torcl
+          - stox-token-tsmci
+          - stox-token-tbaba
+          - stox-token-ttqqq
+          - stox-token-tftf
+          - stox-token-tcbrs
+          - stox-token-tmcd
+          - stox-token-tnke
+          - stox-token-tgrnd
+          - stox-token-tdnut
+          - stox-token-tplby
+          - stox-token-ttr
+          - stox-token-twen
+          - stox-token-tfgi
+          - stox-token-tbird
+          - stox-token-tspy
+          - stox-token-tsnes
+          - stox-token-twmt
+          - stox-token-tmc
+          - stox-token-tdis
+          - stox-token-tifx
+          - stox-token-tsoi
+          - stox-token-ttpro
           - stox-corporate-actions-facet@0_1_1
           - stox-receipt@0_1_1
           - stox-receipt-vault@0_1_1

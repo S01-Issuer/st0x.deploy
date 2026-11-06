@@ -6,7 +6,7 @@ import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {Unauthorized} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
-import {IST0xOrchestratorV2, MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintCapKind, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
 
@@ -86,8 +86,8 @@ contract MintWithEcdsaSignatureTest is OrchestratorIntegrationTest {
         // Mint caps fail closed: grant an unreachable capacity for MM and the
         // recipient so the vault's missing `DEPOSIT` grant is the only thing
         // that can fail.
-        fresh.setMinterMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
-        fresh.setRecipientMintLimit(eoa, UNBOUNDED_CAPACITY, NO_LEAK);
+        fresh.setMintLimit(MintCapKind.Minter, MM, UNBOUNDED_CAPACITY, NO_LEAK);
+        fresh.setMintLimit(MintCapKind.Recipient, eoa, UNBOUNDED_CAPACITY, NO_LEAK);
         // And a weighting: without one the mint is refused
         // `MintWeightingUnset` before the vault leg.
         fresh.setMintWeighting(_identityWeighting());

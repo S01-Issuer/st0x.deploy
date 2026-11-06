@@ -14,7 +14,7 @@ import {EvaluableV4, SignedContextV2} from "rainlang-0.2.32/src/interface/IInter
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {LibTestDeploy} from "test/lib/LibTestDeploy.sol";
 import {LibTimelockInvariants} from "src/lib/LibTimelockInvariants.sol";
-import {MintAuthV1} from "src/interface/IST0xOrchestratorV2.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintCapKind} from "src/interface/IST0xOrchestratorV2.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestRegistryBeaconProxy} from "test/lib/LibTestRegistryBeaconProxy.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
@@ -159,8 +159,8 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     /// Set the minter's and the recipient's limits, as OWNER.
     function _setLimits(Float minterCapacity, Float recipientCapacity) internal {
         vm.startPrank(OWNER);
-        orchestrator.setMinterMintLimit(MINTER, minterCapacity, NO_LEAK);
-        orchestrator.setRecipientMintLimit(address(recipient), recipientCapacity, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Minter, MINTER, minterCapacity, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Recipient, address(recipient), recipientCapacity, NO_LEAK);
         vm.stopPrank();
     }
 
@@ -227,23 +227,19 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         return _mintReverts(TOKEN, amount, nonce, attestations);
     }
 
-    /// The arguments of a `*CapExceeded(address, Float, Float, Float)` error,
-    /// after checking its selector.
-    function _decodeCapExceeded(bytes memory reason, bytes4 selector)
-        internal
-        pure
-        returns (address, Float, Float, Float)
-    {
+    /// The arguments of a `MintCapExceeded` error, after checking its
+    /// selector.
+    function _decodeCapExceeded(bytes memory reason) internal pure returns (MintCapKind, address, Float, Float, Float) {
         // The truncation to the selector is intended.
         // forge-lint: disable-next-line(unsafe-typecast)
-        assertEq(bytes32(bytes4(reason)), bytes32(selector), "selector");
+        assertEq(bytes32(bytes4(reason)), bytes32(IST0xOrchestratorV2.MintCapExceeded.selector), "selector");
         bytes memory args = new bytes(reason.length - 4);
         for (uint256 i = 0; i < args.length; i++) {
             args[i] = reason[i + 4];
         }
-        (address who, bytes32 capacityWord, bytes32 headroomWord, bytes32 chargeWord) =
-            abi.decode(args, (address, bytes32, bytes32, bytes32));
-        return (who, Float.wrap(capacityWord), Float.wrap(headroomWord), Float.wrap(chargeWord));
+        (MintCapKind kind, address who, bytes32 capacityWord, bytes32 headroomWord, bytes32 chargeWord) =
+            abi.decode(args, (MintCapKind, address, bytes32, bytes32, bytes32));
+        return (kind, who, Float.wrap(capacityWord), Float.wrap(headroomWord), Float.wrap(chargeWord));
     }
 
     function _headroom() internal view returns (Float) {

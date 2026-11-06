@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {EvaluableV4, SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
 
-import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
+import {MintAuthV1, MintCapKind} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title MintChargedByWeightingTest
@@ -39,7 +39,7 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
         (address eoa, uint256 pk) = makeAddrAndKey("weighted-recipient");
         EvaluableV4 memory priced = _weighting("_: mul(mint-amount() lead-price());");
         vm.startPrank(OWNER);
-        orchestrator.setRecipientMintLimit(eoa, CAPACITY, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Recipient, eoa, CAPACITY, NO_LEAK);
         orchestrator.setMintWeighting(priced);
         vm.stopPrank();
 
@@ -70,7 +70,7 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
             "_: mul(mint-amount() lead-price());"
         );
         vm.startPrank(OWNER);
-        orchestrator.setRecipientMintLimit(eoa, CAPACITY, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Recipient, eoa, CAPACITY, NO_LEAK);
         orchestrator.setMintWeighting(guarded);
         vm.stopPrank();
 

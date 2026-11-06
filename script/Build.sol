@@ -4,18 +4,20 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm, VmSafe} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploySnapshot} from "rain-deploy-0.1.30/src/lib/LibRainDeploySnapshot.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {
-    LibRainDeployRegistryBeaconProxy,
-    RegistryBeaconProxyTarget
-} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {LibRainDeploySnapshot} from "rain-deploy-0.1.30/src/lib/LibRainDeploySnapshot.sol";
 import {
     DeployCandidate,
     DeployDeclaration,
     DeploySuite
 } from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
+import {
+    LibRainDeployRegistryBeaconProxy,
+    RegistryBeaconProxyTarget
+} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
+import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
+import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
@@ -32,6 +34,8 @@ import {ST0xOrchestratorBeacon} from "../src/concrete/ST0xOrchestratorBeacon.sol
 import {St0xAttestSubParser} from "../src/concrete/St0xAttestSubParser.sol";
 import {StoxGovernanceTimelock} from "../src/concrete/StoxGovernanceTimelock.sol";
 import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0xAttestSubParser.sol";
+import {StoxReceiptBeacon} from "../src/concrete/StoxReceiptBeacon.sol";
+import {StoxReceiptVaultBeacon} from "../src/concrete/StoxReceiptVaultBeacon.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibProdOrchestratorTarget} from "../src/lib/LibProdOrchestratorTarget.sol";
 import {
@@ -66,8 +70,8 @@ contract Build is Script, StoxDeploySuites {
 
     /// @notice Snapshot file names, index-aligned with the Zoltu entries of
     /// `candidateSuites()`.
-    function candidateContractNames() internal pure returns (string[11] memory) {
-        string[11] memory names;
+    function candidateContractNames() internal pure returns (string[13] memory) {
+        string[13] memory names;
         names[0] = "StoxCorporateActionsFacet";
         names[1] = "StoxReceipt";
         names[2] = "StoxReceiptVault";
@@ -76,14 +80,16 @@ contract Build is Script, StoxDeploySuites {
         names[5] = "StoxOffchainAssetReceiptVaultAuthorizerV1";
         names[6] = "StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1";
         names[7] = "ST0xOrchestrator";
-        names[8] = "ST0xOrchestratorBeacon";
-        names[9] = "St0xAttestSubParser";
-        names[10] = "StoxGovernanceTimelock";
+        names[8] = "St0xAttestSubParser";
+        names[9] = "StoxGovernanceTimelock";
+        names[10] = "StoxReceiptBeacon";
+        names[11] = "StoxReceiptVaultBeacon";
+        names[12] = "ST0xOrchestratorBeacon";
         return names;
     }
 
-    function candidateCreationCodes() internal pure returns (bytes[11] memory) {
-        bytes[11] memory codes;
+    function candidateCreationCodes() internal pure returns (bytes[13] memory) {
+        bytes[13] memory codes;
         codes[0] = type(StoxCorporateActionsFacet).creationCode;
         codes[1] = type(StoxReceipt).creationCode;
         codes[2] = type(StoxReceiptVault).creationCode;
@@ -92,9 +98,11 @@ contract Build is Script, StoxDeploySuites {
         codes[5] = type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode;
         codes[6] = type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
         codes[7] = type(ST0xOrchestrator).creationCode;
-        codes[8] = type(ST0xOrchestratorBeacon).creationCode;
-        codes[9] = type(St0xAttestSubParser).creationCode;
-        codes[10] = type(StoxGovernanceTimelock).creationCode;
+        codes[8] = type(St0xAttestSubParser).creationCode;
+        codes[9] = type(StoxGovernanceTimelock).creationCode;
+        codes[10] = type(StoxReceiptBeacon).creationCode;
+        codes[11] = type(StoxReceiptVaultBeacon).creationCode;
+        codes[12] = type(ST0xOrchestratorBeacon).creationCode;
         return codes;
     }
 
@@ -129,10 +137,9 @@ contract Build is Script, StoxDeploySuites {
                 ""
             );
         buildSubParserPointers(address(new St0xAttestSubParser()));
-
         DeployCandidate[] memory candidates = candidateSuites();
-        string[11] memory names = candidateContractNames();
-        bytes[11] memory codes = candidateCreationCodes();
+        string[13] memory names = candidateContractNames();
+        bytes[13] memory codes = candidateCreationCodes();
         for (uint256 i = 0; i < names.length; i++) {
             LibRainDeploySnapshot.writeSnapshot(
                 vm, RECORD_ROOT, CANDIDATE_TAG, names[i], codes[i], candidates[i].snapshot.dependencies
@@ -141,7 +148,25 @@ contract Build is Script, StoxDeploySuites {
 
         genProdLibs();
         genReleasedLibs(candidates);
+        genTokenProxy();
         genOrchestratorProxy();
+    }
+
+    function genTokenProxy() internal {
+        RegistryBeaconProxyTarget memory target = LibProdTokenTargets.tokenTargets()[0];
+        // The generated vault beacon constant is from the previous compile.
+        target.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
+        bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
+            Vm(address(vm)), target, V4.STOX_RECEIPT_VAULT_0_1_1, V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
+        );
+        writeGeneratedHeader(GEN_TOKEN_PROXY_PATH);
+        vm.writeLine(GEN_TOKEN_PROXY_PATH, "");
+        vm.writeLine(GEN_TOKEN_PROXY_PATH, "library LibStoxTokenProxy {");
+        vm.writeLine(
+            GEN_TOKEN_PROXY_PATH,
+            string.concat('    bytes constant RUNTIME_CODE = hex"', vm.replace(vm.toString(code), "0x", ""), '";')
+        );
+        vm.writeLine(GEN_TOKEN_PROXY_PATH, "}");
     }
 
     function genOrchestratorProxy() internal {
@@ -187,8 +212,8 @@ contract Build is Script, StoxDeploySuites {
     /// @notice The key and artifact path each released lib is emitted with,
     /// index-aligned with `contractNames()`. Contracts with no candidate carry
     /// only those two fields.
-    function releasedTemplates(DeployCandidate[] memory candidates) internal pure returns (DeploySuite[15] memory) {
-        DeploySuite[15] memory templates;
+    function releasedTemplates(DeployCandidate[] memory candidates) internal pure returns (DeploySuite[17] memory) {
+        DeploySuite[17] memory templates;
         templates[0] = candidates[1].snapshot;
         templates[1] = candidates[2].snapshot;
         templates[2] = candidates[3].snapshot;
@@ -205,15 +230,17 @@ contract Build is Script, StoxDeploySuites {
         templates[10] = candidates[7].snapshot;
         templates[11].suite = ORCHESTRATOR_BEACON_SET_DEPLOYER;
         templates[11].artifactPath = ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH;
-        templates[12] = candidates[9].snapshot;
-        templates[13] = candidates[8].snapshot;
+        templates[12] = candidates[8].snapshot;
+        templates[13] = candidates[9].snapshot;
         templates[14] = candidates[10].snapshot;
+        templates[15] = candidates[11].snapshot;
+        templates[16] = candidates[12].snapshot;
         return templates;
     }
 
     function genReleasedLibs(DeployCandidate[] memory candidates) internal {
-        string[15] memory names = contractNames();
-        DeploySuite[15] memory templates = releasedTemplates(candidates);
+        string[17] memory names = contractNames();
+        DeploySuite[17] memory templates = releasedTemplates(candidates);
         string[] memory released = new string[](names.length);
         DeployDeclaration memory d = declaration();
         for (uint256 i = 0; i < names.length; i++) {
@@ -236,6 +263,7 @@ contract Build is Script, StoxDeploySuites {
 
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
+    string constant GEN_TOKEN_PROXY_PATH = "src/generated/LibStoxTokenProxy.sol";
     string constant GEN_ORCHESTRATOR_PROXY_PATH = "src/generated/LibST0xOrchestratorProxy.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 
@@ -247,7 +275,7 @@ contract Build is Script, StoxDeploySuites {
     // REUSE-IgnoreEnd
 
     /// @notice Pointer filenames (record file names without `.sol`) in a fixed order.
-    function contractNames() internal pure returns (string[15] memory names) {
+    function contractNames() internal pure returns (string[17] memory names) {
         names[0] = "StoxReceipt";
         names[1] = "StoxReceiptVault";
         names[2] = "StoxWrappedTokenVault";
@@ -261,12 +289,14 @@ contract Build is Script, StoxDeploySuites {
         names[10] = "ST0xOrchestrator";
         names[11] = "ST0xOrchestratorBeaconSetDeployer";
         names[12] = "St0xAttestSubParser";
-        names[13] = "ST0xOrchestratorBeacon";
-        names[14] = "StoxGovernanceTimelock";
+        names[13] = "StoxGovernanceTimelock";
+        names[14] = "StoxReceiptBeacon";
+        names[15] = "StoxReceiptVaultBeacon";
+        names[16] = "ST0xOrchestratorBeacon";
     }
 
     /// @notice The constant BASE for each contract, in the same order.
-    function contractBases() internal pure returns (string[15] memory bases) {
+    function contractBases() internal pure returns (string[17] memory bases) {
         bases[0] = "STOX_RECEIPT";
         bases[1] = "STOX_RECEIPT_VAULT";
         bases[2] = "STOX_WRAPPED_TOKEN_VAULT";
@@ -280,8 +310,10 @@ contract Build is Script, StoxDeploySuites {
         bases[10] = "ST0X_ORCHESTRATOR";
         bases[11] = "ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER";
         bases[12] = "ST0X_ATTEST_SUB_PARSER";
-        bases[13] = "ST0X_ORCHESTRATOR_BEACON";
-        bases[14] = "STOX_GOVERNANCE_TIMELOCK";
+        bases[13] = "STOX_GOVERNANCE_TIMELOCK";
+        bases[14] = "STOX_RECEIPT_BEACON";
+        bases[15] = "STOX_RECEIPT_VAULT_BEACON";
+        bases[16] = "ST0X_ORCHESTRATOR_BEACON";
     }
 
     /// @notice The last path segment of `path` (the basename).
@@ -420,8 +452,8 @@ contract Build is Script, StoxDeploySuites {
 
     /// @notice Generate `LibProdDeployV4.sol`: one versioned alias set per tag.
     function genV4(string[] memory tags) internal {
-        string[15] memory names = contractNames();
-        string[15] memory bases = contractBases();
+        string[17] memory names = contractNames();
+        string[17] memory bases = contractBases();
 
         writeGeneratedHeader(GEN_V4_PATH);
         for (uint256 t = 0; t < tags.length; t++) {
@@ -507,8 +539,8 @@ contract Build is Script, StoxDeploySuites {
         string memory tag = deployTag();
         string memory suffix = tagSuffix(tag);
         require(vm.exists(string.concat("src/generated/", tag)), "Build: current tag dir missing");
-        string[15] memory names = contractNames();
-        string[15] memory bases = contractBases();
+        string[17] memory names = contractNames();
+        string[17] memory bases = contractBases();
 
         writeGeneratedHeader(GEN_CURRENT_PATH);
         vm.writeLine(GEN_CURRENT_PATH, 'import {LibProdDeployV4} from "./LibProdDeployV4.sol";');

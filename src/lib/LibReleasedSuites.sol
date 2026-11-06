@@ -42,9 +42,13 @@ import {LibST0xOrchestratorBeaconSetDeployerReleased} from "./LibST0xOrchestrato
 
 import {LibSt0xAttestSubParserReleased} from "./LibSt0xAttestSubParserReleased.sol";
 
-import {LibST0xOrchestratorBeaconReleased} from "./LibST0xOrchestratorBeaconReleased.sol";
-
 import {LibStoxGovernanceTimelockReleased} from "./LibStoxGovernanceTimelockReleased.sol";
+
+import {LibStoxReceiptBeaconReleased} from "./LibStoxReceiptBeaconReleased.sol";
+
+import {LibStoxReceiptVaultBeaconReleased} from "./LibStoxReceiptVaultBeaconReleased.sol";
+
+import {LibST0xOrchestratorBeaconReleased} from "./LibST0xOrchestratorBeaconReleased.sol";
 
 /// @title LibReleasedSuites
 /// @notice Every frozen release this repo has cut, of every contract it
@@ -63,7 +67,7 @@ library LibReleasedSuites {
     /// Every released suite, in the order the build script lists them.
     /// @return The released suites.
     function releasedSuites() internal pure returns (DeploySuite[] memory) {
-        DeploySuite[][] memory released = new DeploySuite[][](15);
+        DeploySuite[][] memory released = new DeploySuite[][](17);
         released[0] = LibStoxReceiptReleased.releasedSuites();
         released[1] = LibStoxReceiptVaultReleased.releasedSuites();
         released[2] = LibStoxWrappedTokenVaultReleased.releasedSuites();
@@ -77,8 +81,10 @@ library LibReleasedSuites {
         released[10] = LibST0xOrchestratorReleased.releasedSuites();
         released[11] = LibST0xOrchestratorBeaconSetDeployerReleased.releasedSuites();
         released[12] = LibSt0xAttestSubParserReleased.releasedSuites();
-        released[13] = LibST0xOrchestratorBeaconReleased.releasedSuites();
-        released[14] = LibStoxGovernanceTimelockReleased.releasedSuites();
+        released[13] = LibStoxGovernanceTimelockReleased.releasedSuites();
+        released[14] = LibStoxReceiptBeaconReleased.releasedSuites();
+        released[15] = LibStoxReceiptVaultBeaconReleased.releasedSuites();
+        released[16] = LibST0xOrchestratorBeaconReleased.releasedSuites();
         return LibDeploySuiteConcat.concat(released);
     }
 }

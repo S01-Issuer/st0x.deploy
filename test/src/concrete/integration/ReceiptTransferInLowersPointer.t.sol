@@ -67,8 +67,8 @@ contract ReceiptTransferInLowersPointerTest is OrchestratorIntegrationTest {
         // The holder transfers the receipt back in. The receiver hook
         // recognises the genuine production receipt and lowers the pointer to
         // the arriving id — no setBurnIndex.
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV2.BurnIndexLowered(address(vault), highId + 1, lowId);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV2.BurnIndexLowered(address(receipt), address(vault), highId + 1, lowId);
         vm.prank(holder);
         receipt.safeTransferFrom(holder, address(orchestrator), lowId, 10e18, "");
         assertEq(orchestrator.nextBurnReceiptId(address(vault)), lowId, "pointer auto-lowered to the transferred id");

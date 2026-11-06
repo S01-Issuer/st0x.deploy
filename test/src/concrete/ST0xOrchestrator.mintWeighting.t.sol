@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
 import {
@@ -14,8 +15,9 @@ import {
 import {StateNamespace} from "rainlang-0.2.32/src/interface/IInterpreterStoreV3.sol";
 import {LibNamespace} from "rainlang-0.2.32/src/lib/ns/LibNamespace.sol";
 import {InvalidSignature} from "rainlang-0.2.32/src/lib/caller/LibContext.sol";
+import {ITOFUTokenDecimals, TOFUOutcome} from "rain-tofu-erc20-decimals-0.1.4/src/interface/ITOFUTokenDecimals.sol";
 
-import {IST0xOrchestratorV2, MintAuthV1, Digest} from "src/interface/IST0xOrchestratorV2.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintCapKind, Digest} from "src/interface/IST0xOrchestratorV2.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
 import {EcdsaOwnerErc1271Account} from "test/src/concrete/EcdsaOwnerErc1271Account.sol";
 
@@ -105,16 +107,18 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testUnsetLimitIsRefusedBeforeTheWeighting() external {
         SignedContextV2[] memory attestations = _lead(TOKEN_SYMBOL, PRICE);
         _mockVaultMint(AMOUNT);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.MinterMintLimitUnset.selector, MINTER));
+        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.MintLimitUnset.selector, MintCapKind.Minter, MINTER));
         vm.prank(MINTER);
         orchestrator.mint(
             TOKEN, address(recipient), AMOUNT, MintAuthV1({nonce: keccak256("a"), signature: ""}), "", attestations
         );
 
         vm.prank(OWNER);
-        orchestrator.setMinterMintLimit(MINTER, CAPACITY, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Minter, MINTER, CAPACITY, NO_LEAK);
         vm.expectRevert(
-            abi.encodeWithSelector(IST0xOrchestratorV2.RecipientMintLimitUnset.selector, address(recipient))
+            abi.encodeWithSelector(
+                IST0xOrchestratorV2.MintLimitUnset.selector, MintCapKind.Recipient, address(recipient)
+            )
         );
         vm.prank(MINTER);
         orchestrator.mint(
@@ -299,33 +303,20 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _assertFloatEq(_headroom(), _f(1000 - VALUE - 200, 0), "charged 2 * 100 for the same amount");
     }
 
-    /// The recipient's cap-exceeded error carries the value as the charge.
-    function testRecipientCapExceededCarriesTheWeightingValue() external {
+    /// Either bucket's cap-exceeded error carries the value as the charge.
+    function testFuzzCapExceededCarriesTheWeightingValue(uint256 kindSeed) external {
+        MintCapKind kind = MintCapKind(bound(kindSeed, 0, uint256(type(MintCapKind).max)));
         Float capacity = _f(500, 0);
-        _setLimits(UNBOUNDED_CAPACITY, capacity);
+        if (kind == MintCapKind.Minter) _setLimits(capacity, UNBOUNDED_CAPACITY);
+        else _setLimits(UNBOUNDED_CAPACITY, capacity);
         _setWeighting(PRICED);
         _mint(AMOUNT, keccak256("fits"), _lead(TOKEN_SYMBOL, PRICE));
 
         bytes memory reason = _mintReverts(AMOUNT, keccak256("over"), _lead(TOKEN_SYMBOL, PRICE));
-        (address who, Float carriedCapacity, Float headroom, Float charge) =
-            _decodeCapExceeded(reason, IST0xOrchestratorV2.RecipientMintCapExceeded.selector);
-        assertEq(who, address(recipient), "recipient");
-        _assertFloatEq(carriedCapacity, capacity, "capacity");
-        _assertFloatEq(headroom, _f(500 - VALUE, 0), "headroom after one mint");
-        _assertFloatEq(charge, _f(VALUE, 0), "the charge is the value");
-    }
-
-    /// And the minter's.
-    function testMinterCapExceededCarriesTheWeightingValue() external {
-        Float capacity = _f(500, 0);
-        _setLimits(capacity, UNBOUNDED_CAPACITY);
-        _setWeighting(PRICED);
-        _mint(AMOUNT, keccak256("fits"), _lead(TOKEN_SYMBOL, PRICE));
-
-        bytes memory reason = _mintReverts(AMOUNT, keccak256("over"), _lead(TOKEN_SYMBOL, PRICE));
-        (address who, Float carriedCapacity, Float headroom, Float charge) =
-            _decodeCapExceeded(reason, IST0xOrchestratorV2.MinterMintCapExceeded.selector);
-        assertEq(who, MINTER, "minter");
+        (MintCapKind carriedKind, address who, Float carriedCapacity, Float headroom, Float charge) =
+            _decodeCapExceeded(reason);
+        assertEq(uint256(carriedKind), uint256(kind), "kind");
+        assertEq(who, kind == MintCapKind.Minter ? MINTER : address(recipient), "account");
         _assertFloatEq(carriedCapacity, capacity, "capacity");
         _assertFloatEq(headroom, _f(500 - VALUE, 0), "headroom after one mint");
         _assertFloatEq(charge, _f(VALUE, 0), "the charge is the value");
@@ -338,6 +329,31 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _setWeighting("_: mint-amount();");
         _mint(2.5e18, keccak256("whole"), new SignedContextV2[](0));
         _assertFloatEq(_headroom(), _f(9975, -1), "charged 2.5");
+    }
+
+    /// The first weighted mint fixes the token's decimals; a later `decimals()` that differs is refused.
+    function testFuzzMintRevertsWhenTokenDecimalsChangeAfterTheFirstMint(uint8 changedDecimals) external {
+        vm.assume(changedDecimals != TOKEN_DECIMALS);
+        _setLimits(CAPACITY, CAPACITY);
+        _setWeighting("_: mint-amount();");
+        _mint(AMOUNT, keccak256("first"), new SignedContextV2[](0));
+
+        vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(changedDecimals));
+        _mockVaultMint(AMOUNT);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITOFUTokenDecimals.TokenDecimalsReadFailure.selector, TOKEN, TOFUOutcome.Inconsistent
+            )
+        );
+        vm.prank(MINTER);
+        orchestrator.mint(
+            TOKEN,
+            address(recipient),
+            AMOUNT,
+            MintAuthV1({nonce: keccak256("second"), signature: ""}),
+            "",
+            new SignedContextV2[](0)
+        );
     }
 
     /// The last output is the charge, whatever else the expression leaves.
@@ -385,8 +401,8 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
     function testAttestationsAreOutsideTheRecipientsAuthorisation() external {
         (address eoa, uint256 pk) = makeAddrAndKey("recipient");
         vm.startPrank(OWNER);
-        orchestrator.setMinterMintLimit(MINTER, CAPACITY, NO_LEAK);
-        orchestrator.setRecipientMintLimit(eoa, CAPACITY, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Minter, MINTER, CAPACITY, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Recipient, eoa, CAPACITY, NO_LEAK);
         vm.stopPrank();
         _setWeighting(PRICED);
 

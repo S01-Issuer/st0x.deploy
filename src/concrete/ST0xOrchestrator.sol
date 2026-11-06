@@ -20,6 +20,7 @@ import {ReceiptVault} from "rain-vats-0.2.18/src/abstract/ReceiptVault.sol";
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
+import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.4/src/lib/LibTOFUTokenDecimals.sol";
 import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV5,
@@ -39,7 +40,7 @@ import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
-import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintCapKind, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.10/src/interface/ICloneableV2.sol";
@@ -89,13 +90,13 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// until an admin grants it.
 ///
 /// **Mint recipient authorisation.** Every mint carries the recipient's own
-/// authorisation of `(token, to, amount, nonce)` as a `MintAuthV1`: either an
+/// authorisation of `(token, recipient, amount, nonce)` as a `MintAuthV1`: either an
 /// EIP-712 signature (verified with `SignatureChecker`, so EOAs sign with
 /// ECDSA and contracts via EIP-1271) or, when no signature is supplied, an
-/// `IMintRecipient.authorizeMint` callback on `to`. Replay protection is
-/// namespaced by recipient: `(to, nonce)` is single-use, regardless of token
+/// `IMintRecipient.authorizeMint` callback on `recipient`. Replay protection is
+/// namespaced by recipient: `(recipient, nonce)` is single-use, regardless of token
 /// or amount. The minter's `receiptInformation` payload is a separate
-/// parameter and never part of the recipient's authorisation. `to ==
+/// parameter and never part of the recipient's authorisation. `recipient ==
 /// msg.sender` reverts `SenderIsRecipient`, with no override.
 ///
 /// **Vault-logic version lock.** So much of the burn/mint logic depends on
@@ -130,12 +131,11 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// global across every token, minter and recipient, converts each mint into
 /// the charge. `mint` builds the context grid of `LibSt0xAttestContext` (the
 /// token's symbol, the amount as a `Float` of whole tokens, then the signed
-/// attestations the minter passed, every signature verified) and evaluates
-/// the expression over it. The last output is the charge on both buckets.
-/// What the attestations must say is the expression's to check and revert
-/// on, including pinning each signer's domain from the domain separators
-/// column; the orchestrator verifies only that each attestation was signed by
-/// the signer it names under the domain separator it names. State the
+/// context the minter passed, every signature verified) and evaluates the
+/// expression over it. The last output is the charge on both buckets. What
+/// the signed context must contain is the expression's to check and revert
+/// on; the orchestrator verifies only that each entry was signed by the
+/// signer it names under the domain separator it names. State the
 /// expression writes is persisted to its store under the orchestrator's
 /// namespace.
 ///
@@ -179,27 +179,20 @@ contract ST0xOrchestrator is
     /// state goes on the end.
     struct MainStorage {
         mapping(address token => uint256) nextBurnReceiptId;
-        mapping(address to => mapping(bytes32 nonce => bool)) usedNonce;
-        /// Each minter's cap: its policy across every token and recipient,
-        /// and the bucket under it.
-        mapping(address minter => MintCapV1) minterMintCaps;
-        /// Each recipient's cap: its policy across every token and minter,
-        /// and the bucket under it.
-        mapping(address recipient => MintCapV1) recipientMintCaps;
+        mapping(address recipient => mapping(bytes32 nonce => bool)) usedNonce;
+        mapping(address account => mapping(MintCapKind kind => MintCapV1)) mintCaps;
         /// The mint weighting: the one expression that converts every mint
         /// into the charge on both buckets. A zero interpreter is unset.
         EvaluableV4 mintWeighting;
     }
 
-    /// @dev One cap: a policy and the bucket metered under it. A bucket is
-    /// two words, `(level, timestamp)`, and two zero words are an unused
-    /// bucket. Live storage holds the members in this order; they are never
-    /// reordered.
-    /// @param limit The policy, as set.
-    /// @param bucket The bucket under `limit`.
+    /// @dev One cap. Live storage holds the members in this order; they are
+    /// never reordered.
+    /// @param bucket The bucket and its policy, as `LibLeakyBucket` stores it.
+    /// @param set True once a limit has been written (see `MintLimitV1`).
     struct MintCapV1 {
-        MintLimitV1 limit;
-        MintBucketV1 bucket;
+        LeakyBucket bucket;
+        bool set;
     }
 
     // keccak256(abi.encode(uint256(keccak256("st0x.orchestrator.main")) - 1)) & ~bytes32(uint256(0xff))
@@ -312,28 +305,28 @@ contract ST0xOrchestrator is
     // slither-disable-next-line reentrancy-no-eth
     function mint(
         address token,
-        address to,
+        address recipient,
         uint256 amount,
         MintAuthV1 calldata auth,
         bytes calldata receiptInformation,
-        SignedContextV2[] calldata attestations
+        SignedContextV2[] calldata signedContext
     ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic(token) nonReentrant {
         if (amount == 0) revert ZeroAmount();
-        if (to == msg.sender) revert SenderIsRecipient(msg.sender);
-        _consumeMintCaps(token, to, amount, attestations);
-        _consumeMintAuth(token, to, amount, auth);
+        if (recipient == _minter()) revert SenderIsRecipient(_minter());
+        _consumeMintCaps(token, recipient, amount, signedContext);
+        _consumeMintAuth(token, recipient, amount, auth);
 
         // Share ratio is 1:1; anything else halts the mint.
         uint256 assets = OffchainAssetReceiptVault(payable(token)).mint(amount, address(this), 0, receiptInformation);
         if (assets != amount) revert VaultAmountMismatch(amount, assets);
-        IERC20(token).safeTransfer(to, amount);
-        emit Minted(msg.sender, token, to, amount, auth.nonce);
+        IERC20(token).safeTransfer(recipient, amount);
+        emit Minted(_minter(), token, recipient, amount, auth.nonce);
     }
 
     /// @dev Put a value on the mint with the mint weighting, then meter that
     /// value through both mint buckets, writing each back, and revert naming
     /// whichever one it did not fit. Runs before the recipient authorisation,
-    /// so the bucket writes land before the callback to `to`.
+    /// so the bucket writes land before the callback to `recipient`.
     ///
     /// Both limits are checked for having been set before the weighting is
     /// evaluated: an unset limit is refused without verifying a signature or
@@ -343,25 +336,26 @@ contract ST0xOrchestrator is
     /// recipient rejection reverts the whole call.
     ///
     /// `headroomAt` is read to name which cap bound.
-    function _consumeMintCaps(address token, address to, uint256 amount, SignedContextV2[] calldata attestations)
-        internal
-    {
+    function _consumeMintCaps(
+        address token,
+        address recipient,
+        uint256 amount,
+        SignedContextV2[] calldata signedContext
+    ) internal {
         MainStorage storage $ = _main();
-        MintCapV1 storage minterCap = $.minterMintCaps[msg.sender];
-        MintCapV1 storage recipientCap = $.recipientMintCaps[to];
-        MintLimitV1 memory minterLimit = minterCap.limit;
-        if (!minterLimit.set) revert MinterMintLimitUnset(msg.sender);
-        MintLimitV1 memory recipientLimit = recipientCap.limit;
-        if (!recipientLimit.set) revert RecipientMintLimitUnset(to);
+        MintCapV1 storage minterCap = $.mintCaps[_minter()][MintCapKind.Minter];
+        MintCapV1 storage recipientCap = $.mintCaps[recipient][MintCapKind.Recipient];
+        if (!minterCap.set) revert MintLimitUnset(MintCapKind.Minter, _minter());
+        if (!recipientCap.set) revert MintLimitUnset(MintCapKind.Recipient, recipient);
 
         // The buckets meter the weighted charge, never the raw amount.
-        Float charge = _weighMint($, token, amount, attestations);
+        Float charge = _weighMint($, token, amount, signedContext);
         Float timestamp = _now();
-        _fillMinterMintCap(minterCap, minterLimit, timestamp, charge);
-        _fillRecipientMintCap(recipientCap, recipientLimit, to, timestamp, charge);
+        _fillMintCap(minterCap, MintCapKind.Minter, _minter(), timestamp, charge);
+        _fillMintCap(recipientCap, MintCapKind.Recipient, recipient, timestamp, charge);
     }
 
-    /// @dev Evaluate the mint weighting over this mint and its attestations
+    /// @dev Evaluate the mint weighting over this mint and its signed context
     /// and return the charge. Reverts `MintWeightingUnset` if no expression
     /// has been set, `MintSymbolTooLong` if the token's symbol is longer
     /// than the 31 bytes an `IntOrAString` holds,
@@ -370,14 +364,14 @@ contract ST0xOrchestrator is
     ///
     /// The context is the grid of `LibSt0xAttestContext`: the token's symbol
     /// as an `IntOrAString`, and the amount as a `Float` in whole tokens per
-    /// the token's `decimals()`. Building the grid verifies every
-    /// attestation's signature and reverts `InvalidSignature(i)` on the first
+    /// the token's decimals as the TOFU singleton first read them. Building the grid verifies every
+    /// signed context entry's signature and reverts `InvalidSignature(i)` on the first
     /// that fails.
     ///
     /// The evaluation is a static call; the writes it returns are then
     /// applied to the expression's store under the orchestrator's namespace.
     /// Split out of `_consumeMintCaps` to keep that frame within stack limits.
-    function _weighMint(MainStorage storage $, address token, uint256 amount, SignedContextV2[] calldata attestations)
+    function _weighMint(MainStorage storage $, address token, uint256 amount, SignedContextV2[] calldata signedContext)
         internal
         returns (Float)
     {
@@ -387,12 +381,13 @@ contract ST0xOrchestrator is
         string memory symbol = IERC20Metadata(token).symbol();
         // `fromStringV3` keeps the length mod 32, so a longer symbol would alias a shorter one.
         if (bytes(symbol).length > LENGTH_MASK_V3) revert MintSymbolTooLong(token, bytes(symbol).length);
+        uint8 decimals = LibTOFUTokenDecimals.safeDecimalsForToken(token);
         bytes32[][] memory context = LibSt0xAttestContext.build(
             bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(symbol))),
-            Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, IERC20Metadata(token).decimals())),
-            attestations
+            Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, decimals)),
+            signedContext
         );
-        emit ContextV2(msg.sender, context);
+        emit ContextV2(_minter(), context);
 
         (StackItem[] memory stack, bytes32[] memory writes) = evaluable.interpreter
             .eval4(
@@ -414,55 +409,24 @@ contract ST0xOrchestrator is
         return Float.wrap(StackItem.unwrap(stack[0]));
     }
 
-    /// @dev The minter's bucket, across every token and recipient. Split out
-    /// of `_consumeMintCaps` to keep that frame within stack limits.
+    /// @dev The minter of the mint in progress.
+    function _minter() internal view returns (address) {
+        return msg.sender;
+    }
+
+    /// @dev Fill `account`'s `kind` bucket with `charge`, reverting
+    /// `MintCapExceeded` when it does not fit. Split out of `_consumeMintCaps`
+    /// to keep that frame within stack limits.
     // The bucket write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
-    function _fillMinterMintCap(MintCapV1 storage cap, MintLimitV1 memory limit, Float timestamp, Float charge)
+    function _fillMintCap(MintCapV1 storage cap, MintCapKind kind, address account, Float timestamp, Float charge)
         internal
     {
-        LeakyBucket memory bucket = _bucket(cap.bucket, limit);
+        LeakyBucket memory bucket = cap.bucket;
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
-        if (charge.gt(headroom)) revert MinterMintCapExceeded(msg.sender, limit.capacity, headroom, charge);
+        if (charge.gt(headroom)) revert MintCapExceeded(kind, account, bucket.capacity, headroom, charge);
 
-        (Float level, Float checkpoint) = LibLeakyBucket.fill(bucket, timestamp, charge);
-        cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
-    }
-
-    /// @dev The recipient's bucket, across every token and minter.
-    // As `_fillMinterMintCap`.
-    // slither-disable-next-line reentrancy-no-eth
-    function _fillRecipientMintCap(
-        MintCapV1 storage cap,
-        MintLimitV1 memory limit,
-        address to,
-        Float timestamp,
-        Float charge
-    ) internal {
-        LeakyBucket memory bucket = _bucket(cap.bucket, limit);
-        Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
-        if (charge.gt(headroom)) revert RecipientMintCapExceeded(to, limit.capacity, headroom, charge);
-
-        (Float level, Float checkpoint) = LibLeakyBucket.fill(bucket, timestamp, charge);
-        cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
-    }
-
-    /// @dev Settle `cap`'s bucket at its stored rate up to now, then store the
-    /// new policy. An unset limit holds a zero rate, so a first limit starts
-    /// from the level the bucket already holds.
-    function _setMintLimit(MintCapV1 storage cap, Float capacity, Float leakRate) internal {
-        if (capacity.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitCapacity(capacity);
-        if (leakRate.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitLeakRate(leakRate);
-        LeakyBucket memory bucket = LibLeakyBucket.setPolicy(_bucket(cap.bucket, cap.limit), _now(), capacity, leakRate);
-        cap.bucket = MintBucketV1({level: bucket.level, timestamp: bucket.timestamp});
-        cap.limit = MintLimitV1({capacity: bucket.capacity, leakRate: bucket.leakRate, set: true});
-    }
-
-    /// @dev A stored bucket under a limit, as the library takes it.
-    function _bucket(MintBucketV1 memory stored, MintLimitV1 memory limit) internal pure returns (LeakyBucket memory) {
-        return LeakyBucket({
-            level: stored.level, timestamp: stored.timestamp, capacity: limit.capacity, leakRate: limit.leakRate
-        });
+        (cap.bucket.level, cap.bucket.timestamp) = LibLeakyBucket.fill(bucket, timestamp, charge);
     }
 
     /// @dev `block.timestamp` as the library's clock: seconds, at exponent
@@ -471,14 +435,14 @@ contract ST0xOrchestrator is
         return LibDecimalFloat.fromFixedDecimalLosslessPacked(block.timestamp, 0);
     }
 
-    /// @dev Consume the recipient's single-use `(to, nonce)` replay slot and
+    /// @dev Consume the recipient's single-use `(recipient, nonce)` replay slot and
     /// verify the recipient authorised this exact mint. Split out of `mint`
     /// to keep that frame within stack limits.
-    function _consumeMintAuth(address token, address to, uint256 amount, MintAuthV1 calldata auth) internal {
+    function _consumeMintAuth(address token, address recipient, uint256 amount, MintAuthV1 calldata auth) internal {
         MainStorage storage $ = _main();
-        if ($.usedNonce[to][auth.nonce]) revert NonceReplayed(to, auth.nonce);
-        $.usedNonce[to][auth.nonce] = true;
-        _verifyRecipientAuth(to, _mintAuthDigest(token, to, amount, auth.nonce), auth.signature);
+        if ($.usedNonce[recipient][auth.nonce]) revert NonceReplayed(recipient, auth.nonce);
+        $.usedNonce[recipient][auth.nonce] = true;
+        _verifyRecipientAuth(recipient, _mintAuthDigest(token, recipient, amount, auth.nonce), auth.signature);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -551,7 +515,7 @@ contract ST0xOrchestrator is
         MainStorage storage $ = _main();
         uint256 old = $.nextBurnReceiptId[token];
         $.nextBurnReceiptId[token] = newIndex;
-        emit BurnIndexSet(token, old, newIndex);
+        emit BurnIndexSet(msg.sender, token, old, newIndex);
     }
 
     // ------------------------------------------------------------------ //
@@ -560,23 +524,19 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV2
     /// @dev The bucket is settled at the outgoing rate up to now, then the new
-    /// policy is written (`LibLeakyBucket.setPolicy`), so each rate is charged
-    /// only for the time it was in force. A lowered capacity binds
+    /// policy is written (`LibLeakyBucket.setPolicy`, which refuses a negative
+    /// capacity or leak rate), so each rate is charged only for the time it was
+    /// in force. An unset limit holds a zero rate, so a first limit starts from
+    /// the level the bucket already holds. A lowered capacity binds
     /// immediately against the settled level.
-    function setMinterMintLimit(address minter, Float capacity, Float leakRate) external onlyRole(MINT_ADMIN_ROLE) {
-        _setMintLimit(_main().minterMintCaps[minter], capacity, leakRate);
-        emit MinterMintLimitSet(minter, capacity, leakRate);
-    }
-
-    /// @inheritdoc IST0xOrchestratorV2
-    /// @dev Same terms as `setMinterMintLimit`: the bucket is settled at the
-    /// outgoing rate, then the new policy is written.
-    function setRecipientMintLimit(address recipient, Float capacity, Float leakRate)
+    function setMintLimit(MintCapKind kind, address account, Float capacity, Float leakRate)
         external
         onlyRole(MINT_ADMIN_ROLE)
     {
-        _setMintLimit(_main().recipientMintCaps[recipient], capacity, leakRate);
-        emit RecipientMintLimitSet(recipient, capacity, leakRate);
+        MintCapV1 storage cap = _main().mintCaps[account][kind];
+        cap.bucket = LibLeakyBucket.setPolicy(cap.bucket, _now(), capacity, leakRate);
+        cap.set = true;
+        emit MintLimitSet(msg.sender, kind, account, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -601,7 +561,7 @@ contract ST0xOrchestrator is
     {
         IERC1155(address(OffchainAssetReceiptVault(payable(token)).receipt()))
             .safeTransferFrom(address(this), to, id, amount, "");
-        emit ReceiptsWithdrawn(token, to, id, amount);
+        emit ReceiptsWithdrawn(msg.sender, token, to, id, amount);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -614,7 +574,7 @@ contract ST0xOrchestrator is
         nonReentrant
     {
         IERC1155(erc1155).safeTransferFrom(address(this), to, id, amount, "");
-        emit ForeignERC1155Swept(erc1155, to, id, amount);
+        emit ForeignERC1155Swept(msg.sender, erc1155, to, id, amount);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -622,7 +582,7 @@ contract ST0xOrchestrator is
     /// or rebase-truncation dust after fractional splits).
     function withdrawShares(address token, uint256 amount, address to) external onlyRole(EMERGENCY_ROLE) nonReentrant {
         IERC20(token).safeTransfer(to, amount);
-        emit SharesWithdrawn(token, to, amount);
+        emit SharesWithdrawn(msg.sender, token, to, amount);
     }
 
     // ------------------------------------------------------------------ //
@@ -635,23 +595,23 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function nonceUsed(address to, bytes32 nonce) external view returns (bool) {
-        return _main().usedNonce[to][nonce];
+    function nonceUsed(address recipient, bytes32 nonce) external view returns (bool) {
+        return _main().usedNonce[recipient][nonce];
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) external view returns (Digest) {
-        return _mintAuthDigest(token, to, amount, nonce);
+    function mintAuthDigest(address token, address recipient, uint256 amount, bytes32 nonce)
+        external
+        view
+        returns (Digest)
+    {
+        return _mintAuthDigest(token, recipient, amount, nonce);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function minterMintLimit(address minter) external view returns (MintLimitV1 memory) {
-        return _main().minterMintCaps[minter].limit;
-    }
-
-    /// @inheritdoc IST0xOrchestratorV2
-    function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory) {
-        return _main().recipientMintCaps[recipient].limit;
+    function mintLimit(MintCapKind kind, address account) external view returns (MintLimitV1 memory) {
+        MintCapV1 storage cap = _main().mintCaps[account][kind];
+        return MintLimitV1({capacity: cap.bucket.capacity, leakRate: cap.bucket.leakRate, set: cap.set});
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -664,52 +624,47 @@ contract ST0xOrchestrator is
     /// limit admits nothing.
     function mintHeadroom(address minter, address recipient) external view returns (Float) {
         MainStorage storage $ = _main();
-        MintCapV1 storage minterCap = $.minterMintCaps[minter];
-        MintCapV1 storage recipientCap = $.recipientMintCaps[recipient];
+        MintCapV1 storage minterCap = $.mintCaps[minter][MintCapKind.Minter];
+        MintCapV1 storage recipientCap = $.mintCaps[recipient][MintCapKind.Recipient];
 
-        MintLimitV1 memory minterLimit = minterCap.limit;
-        if (!minterLimit.set) return LibDecimalFloat.FLOAT_ZERO;
-        MintLimitV1 memory recipientLimit = recipientCap.limit;
-        if (!recipientLimit.set) return LibDecimalFloat.FLOAT_ZERO;
+        if (!minterCap.set) return LibDecimalFloat.FLOAT_ZERO;
+        if (!recipientCap.set) return LibDecimalFloat.FLOAT_ZERO;
 
         Float timestamp = _now();
-        Float minterHeadroom = LibLeakyBucket.headroomAt(_bucket(minterCap.bucket, minterLimit), timestamp);
-        Float recipientHeadroom = LibLeakyBucket.headroomAt(_bucket(recipientCap.bucket, recipientLimit), timestamp);
+        Float minterHeadroom = LibLeakyBucket.headroomAt(minterCap.bucket, timestamp);
+        Float recipientHeadroom = LibLeakyBucket.headroomAt(recipientCap.bucket, timestamp);
 
         return LibDecimalFloat.min(minterHeadroom, recipientHeadroom);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function minterMintLevel(address minter) external view returns (Float) {
-        MintCapV1 storage cap = _main().minterMintCaps[minter];
-        return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
-    }
-
-    /// @inheritdoc IST0xOrchestratorV2
-    function recipientMintLevel(address recipient) external view returns (Float) {
-        MintCapV1 storage cap = _main().recipientMintCaps[recipient];
-        return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
+    function mintLevel(MintCapKind kind, address account) external view returns (Float) {
+        return LibLeakyBucket.levelAt(_main().mintCaps[account][kind].bucket, _now());
     }
 
     // ------------------------------------------------------------------ //
     //                            Internals                               //
     // ------------------------------------------------------------------ //
 
-    function _mintAuthDigest(address token, address to, uint256 amount, bytes32 nonce) internal view returns (Digest) {
-        return Digest.wrap(_hashTypedDataV4(keccak256(abi.encode(MINT_AUTH_TYPEHASH, token, to, amount, nonce))));
+    function _mintAuthDigest(address token, address recipient, uint256 amount, bytes32 nonce)
+        internal
+        view
+        returns (Digest)
+    {
+        return Digest.wrap(_hashTypedDataV4(keccak256(abi.encode(MINT_AUTH_TYPEHASH, token, recipient, amount, nonce))));
     }
 
-    /// @dev Verify `to` authorised the mint: an EIP-712 signature (ECDSA or
+    /// @dev Verify `recipient` authorised the mint: an EIP-712 signature (ECDSA or
     /// EIP-1271) when `signature` is non-empty, else an `IMintRecipient`
     /// callback returning the magic selector.
-    function _verifyRecipientAuth(address to, Digest digest, bytes memory signature) internal {
+    function _verifyRecipientAuth(address recipient, Digest digest, bytes memory signature) internal {
         if (signature.length > 0) {
-            if (!SignatureChecker.isValidSignatureNow(to, Digest.unwrap(digest), signature)) {
+            if (!SignatureChecker.isValidSignatureNow(recipient, Digest.unwrap(digest), signature)) {
                 revert BadRecipientSignature();
             }
         } else {
-            if (IMintRecipient(to).authorizeMint(digest) != IMintRecipient.authorizeMint.selector) {
-                revert RecipientCallbackRejected(to);
+            if (IMintRecipient(recipient).authorizeMint(digest) != IMintRecipient.authorizeMint.selector) {
+                revert RecipientCallbackRejected(recipient);
             }
         }
     }
@@ -768,7 +723,7 @@ contract ST0xOrchestrator is
         uint256 old = $.nextBurnReceiptId[vault];
         if (id < old) {
             $.nextBurnReceiptId[vault] = id;
-            emit BurnIndexLowered(vault, old, id);
+            emit BurnIndexLowered(msg.sender, vault, old, id);
         }
     }
 

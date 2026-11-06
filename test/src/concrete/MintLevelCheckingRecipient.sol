@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IMintRecipient} from "../../../src/interface/IMintRecipient.sol";
-import {IST0xOrchestratorV2, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
+import {IST0xOrchestratorV2, MintCapKind, Digest} from "../../../src/interface/IST0xOrchestratorV2.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 
 /// @dev Accepts a mint only if, at callback time, both its own recipient
@@ -23,8 +23,8 @@ contract MintLevelCheckingRecipient is IMintRecipient {
     }
 
     function authorizeMint(Digest) external view returns (bytes4) {
-        bool charged = ORCHESTRATOR.recipientMintLevel(address(this)).eq(EXPECTED_LEVEL)
-            && ORCHESTRATOR.minterMintLevel(MINTER).eq(EXPECTED_LEVEL);
+        bool charged = ORCHESTRATOR.mintLevel(MintCapKind.Recipient, address(this)).eq(EXPECTED_LEVEL)
+            && ORCHESTRATOR.mintLevel(MintCapKind.Minter, MINTER).eq(EXPECTED_LEVEL);
         return charged ? IMintRecipient.authorizeMint.selector : bytes4(0xdeadbeef);
     }
 }
