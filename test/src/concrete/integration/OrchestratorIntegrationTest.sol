@@ -25,7 +25,7 @@ import {EvaluableV4} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.so
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {IMintRecipient} from "../../../../src/interface/IMintRecipient.sol";
-import {MintAuthV1, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
+import {MintAuthV1, MintCapKind, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {StoxCorporateActionsFacet} from "../../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
 import {
@@ -149,7 +149,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         // Mint caps fail closed. Grant an unreachable capacity as MM's minter
         // limit; each workflow allows its own recipient with
         // `_allowRecipient`.
-        orchestrator.setMinterMintLimit(MM, UNBOUNDED_CAPACITY, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Minter, MM, UNBOUNDED_CAPACITY, NO_LEAK);
         vm.stopPrank();
     }
 
@@ -157,7 +157,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
     /// so a workflow that is not about the caps can mint to it.
     function _allowRecipient(address to) internal {
         vm.prank(OWNER);
-        orchestrator.setRecipientMintLimit(to, UNBOUNDED_CAPACITY, NO_LEAK);
+        orchestrator.setMintLimit(MintCapKind.Recipient, to, UNBOUNDED_CAPACITY, NO_LEAK);
     }
 
     /// The identity weighting on the test Rainlang: a mint is charged its
