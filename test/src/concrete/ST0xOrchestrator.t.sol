@@ -625,6 +625,149 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.burn(TOKEN, 1, "");
     }
 
+    /// A BURN_ROLE holder cannot mint, and a MINT_ROLE holder cannot burn.
+    function testMintAndBurnHoldersCannotCrossLines() external {
+        _grant(orchestrator.BURN_ROLE(), BOB);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, BOB, orchestrator.MINT_ROLE()
+            )
+        );
+        vm.prank(BOB);
+        orchestrator.mint(TOKEN, MINTER_A, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
+
+        _grant(orchestrator.MINT_ROLE(), MINTER_A);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IAccessControl.AccessControlUnauthorizedAccount.selector, MINTER_A, orchestrator.BURN_ROLE()
+            )
+        );
+        vm.prank(MINTER_A);
+        orchestrator.burn(TOKEN, 1, "");
+    }
+
+    /// Each admin line as `[admin role, operating role]`.
+    function _roleLines() internal view returns (bytes32[2][3] memory) {
+        return [
+            [orchestrator.MINT_ADMIN_ROLE(), orchestrator.MINT_ROLE()],
+            [orchestrator.BURN_ADMIN_ROLE(), orchestrator.BURN_ROLE()],
+            [orchestrator.EMERGENCY_ADMIN_ROLE(), orchestrator.EMERGENCY_ROLE()]
+        ];
+    }
+
+    function _expectUnauthorized(address account, bytes32 role) internal {
+        vm.expectRevert(abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, account, role));
+    }
+
+    /// An account holding one line's admin role alone grants and revokes that
+    /// line's operating and admin roles, and a peer it seats can act, but it
+    /// can neither grant nor revoke either role of the other two lines.
+    function testFuzzEachAdminLineManagesOnlyItself(address admin, address grantee) external {
+        vm.assume(admin != OWNER && grantee != OWNER && admin != grantee);
+        bytes32[2][3] memory lines = _roleLines();
+        for (uint256 i = 0; i < lines.length; i++) {
+            _grant(lines[i][0], admin);
+            for (uint256 j = 0; j < lines.length; j++) {
+                for (uint256 k = 0; k < 2; k++) {
+                    bytes32 role = lines[j][k];
+                    if (i == j) {
+                        vm.prank(admin);
+                        orchestrator.grantRole(role, grantee);
+                        assertTrue(orchestrator.hasRole(role, grantee), "own line grant failed");
+                        vm.prank(admin);
+                        orchestrator.revokeRole(role, grantee);
+                        assertFalse(orchestrator.hasRole(role, grantee), "own line revoke failed");
+                    } else {
+                        _expectUnauthorized(admin, lines[j][0]);
+                        vm.prank(admin);
+                        orchestrator.grantRole(role, grantee);
+
+                        _grant(role, grantee);
+                        _expectUnauthorized(admin, lines[j][0]);
+                        vm.prank(admin);
+                        orchestrator.revokeRole(role, grantee);
+                        assertTrue(orchestrator.hasRole(role, grantee), "other line revoked");
+                        vm.prank(OWNER);
+                        orchestrator.revokeRole(role, grantee);
+                    }
+                }
+            }
+
+            vm.prank(admin);
+            orchestrator.grantRole(lines[i][0], grantee);
+            vm.prank(grantee);
+            orchestrator.grantRole(lines[i][1], BOB);
+            assertTrue(orchestrator.hasRole(lines[i][1], BOB), "seated peer cannot grant");
+            vm.prank(grantee);
+            orchestrator.revokeRole(lines[i][0], admin);
+            assertFalse(orchestrator.hasRole(lines[i][0], admin), "seated peer cannot revoke");
+
+            vm.prank(OWNER);
+            orchestrator.revokeRole(lines[i][0], grantee);
+            vm.prank(OWNER);
+            orchestrator.revokeRole(lines[i][1], BOB);
+        }
+    }
+
+    /// `DEFAULT_ADMIN_ROLE` held alone grants none of the six roles.
+    function testFuzzRootAloneGrantsNoRole(address root, address grantee) external {
+        vm.assume(root != OWNER);
+        _grant(orchestrator.DEFAULT_ADMIN_ROLE(), root);
+        bytes32[2][3] memory lines = _roleLines();
+        for (uint256 j = 0; j < lines.length; j++) {
+            for (uint256 k = 0; k < 2; k++) {
+                _expectUnauthorized(root, lines[j][0]);
+                vm.prank(root);
+                orchestrator.grantRole(lines[j][k], grantee);
+            }
+        }
+    }
+
+    /// Holding a line's admin role is not holding its operating role, and no
+    /// admin role but the mint admin's sets the mint caps or weighting.
+    function testFuzzAdminOnlyHoldersCannotOperate(address admin) external {
+        vm.assume(admin != OWNER);
+        bytes32 mintRole = orchestrator.MINT_ROLE();
+        bytes32 mintAdminRole = orchestrator.MINT_ADMIN_ROLE();
+        bytes32 burnAdminRole = orchestrator.BURN_ADMIN_ROLE();
+        bytes32 emergencyRole = orchestrator.EMERGENCY_ROLE();
+        bytes32 emergencyAdminRole = orchestrator.EMERGENCY_ADMIN_ROLE();
+
+        _grant(mintAdminRole, admin);
+        _expectUnauthorized(admin, mintRole);
+        vm.prank(admin);
+        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
+        vm.prank(OWNER);
+        orchestrator.revokeRole(mintAdminRole, admin);
+
+        _grant(burnAdminRole, admin);
+        _expectUnauthorized(admin, orchestrator.BURN_ROLE());
+        vm.prank(admin);
+        orchestrator.burn(TOKEN, 1, "");
+        _expectUnauthorized(admin, mintAdminRole);
+        vm.prank(admin);
+        orchestrator.setMintLimit(MintCapKind.Minter, BOB, UNBOUNDED_CAPACITY, NO_LEAK);
+        vm.prank(OWNER);
+        orchestrator.revokeRole(burnAdminRole, admin);
+
+        _grant(emergencyAdminRole, admin);
+        _expectUnauthorized(admin, emergencyRole);
+        vm.prank(admin);
+        orchestrator.setBurnIndex(TOKEN, 1);
+        _expectUnauthorized(admin, emergencyRole);
+        vm.prank(admin);
+        orchestrator.withdrawReceipt(TOKEN, 0, 1, BOB);
+        _expectUnauthorized(admin, emergencyRole);
+        vm.prank(admin);
+        orchestrator.withdrawShares(TOKEN, 1, BOB);
+        _expectUnauthorized(admin, emergencyRole);
+        vm.prank(admin);
+        orchestrator.sweepERC1155(FOREIGN_1155, 0, 1, BOB);
+        _expectUnauthorized(admin, mintAdminRole);
+        vm.prank(admin);
+        orchestrator.setMintWeighting(EvaluableV4({interpreter: I_INTERPRETER, store: I_STORE, bytecode: ""}));
+    }
+
     // ------------------------------------------------------------------ //
     //                               mint()                               //
     // ------------------------------------------------------------------ //
