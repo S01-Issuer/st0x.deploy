@@ -28,9 +28,13 @@ import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {ICertifiableV1} from "rain-vats-0.2.18/src/interface/ICertifiableV1.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
+/// @dev A Base block after the governance-timelock migration, so the receipt
+/// vault beacon is owned by `PROD_BEACON_OWNER`.
+uint256 constant V3_SHADOW_FORK_BLOCK_BASE = 53450000;
+
 /// @title V3UpgradeShadowForkTest
 /// @notice Shadow-fork verification of the receipt vault V3 upgrade against
-/// LIVE production tokens. `setUp()` forks Base at head, applies the
+/// production tokens. `setUp()` forks Base at a pinned block, applies the
 /// beacon-ownership migration (PR-A) and the V3 upgrade (PR-B) to the fork,
 /// then each test exercises a behaviour against a real on-chain receipt vault
 /// in the upgraded state.
@@ -43,8 +47,7 @@ import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospe
 /// existing test against the upgraded fork — that is a larger refactor worth
 /// building only if many upgrades accumulate.
 ///
-/// @dev The upgrade is applied to the fork via three cheatcode-driven steps,
-/// each simulating an operational action that has not yet executed on-chain:
+/// @dev The upgrade is applied to the fork in three steps:
 ///
 /// 1. **Plant V3 bytecode** — the V3 receipt vault implementation and the
 ///    corporate-actions facet are planted at their deterministic Zoltu
@@ -54,7 +57,7 @@ import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospe
 ///    `STOX_CORPORATE_ACTIONS_FACET`; the vault's `fallback()` hardcodes that
 ///    address as its delegatecall target.
 /// 2. **Beacon ownership** — the receipt vault beacon is owned by the
-///    governance timelock (`PROD_BEACON_OWNER`), asserted live.
+///    governance timelock (`PROD_BEACON_OWNER`) at the pinned block.
 /// 3. **Upgrade** — `vm.prank(PROD_BEACON_OWNER); beacon.upgradeTo(V3 impl)`
 ///    upgrades the beacon (in production a timelock operation). Every live receipt vault behind the beacon now runs V3 code.
 contract V3UpgradeShadowForkTest is Test {
@@ -73,7 +76,7 @@ contract V3UpgradeShadowForkTest is Test {
     address internal constant LIVE_WRAPPED_VAULT = LibTokenInvariants.MSTR_WRAPPED_TOKEN_VAULT;
 
     function setUp() public {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.createSelectFork(LibRainDeploy.BASE, V3_SHADOW_FORK_BLOCK_BASE);
 
         // 1. Plant the V3 receipt vault implementation and the corporate-
         //    actions facet at their deterministic addresses, running their
@@ -93,12 +96,8 @@ contract V3UpgradeShadowForkTest is Test {
             LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
         );
 
-        // 2. The live beacon is owned by the governance timelock.
-        assertEq(
-            Ownable(BEACON).owner(),
-            LibBeaconInvariants.PROD_BEACON_OWNER,
-            "live beacon not timelock-owned - governance state regressed?"
-        );
+        // 2. The beacon is owned by the governance timelock at the pinned block.
+        assertEq(Ownable(BEACON).owner(), LibBeaconInvariants.PROD_BEACON_OWNER, "beacon not timelock-owned");
 
         // 3. Apply the upgrade: the beacon owner points the beacon at the V3
         //    impl. In production this is a timelock operation; the shadow
@@ -107,27 +106,26 @@ contract V3UpgradeShadowForkTest is Test {
         UpgradeableBeacon(BEACON).upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1);
     }
 
-    /// @notice Read the EIP-1967 beacon address from a proxy contract. Mirrors
-    /// `LibTokenInvariantsAddressesTest.beaconOf`.
+    /// @notice Read the EIP-1967 beacon address from a proxy contract.
     function beaconOf(address proxy) internal view returns (address) {
         return address(uint160(uint256(vm.load(proxy, ERC1967_BEACON_SLOT))));
     }
 
     /// @notice Sanity: the fork is in the upgraded state. The beacon is
-    /// timelock-owned, points at the V3 implementation, and the live receipt vault
-    /// is still behind this beacon.
+    /// timelock-owned, points at the V3 implementation, and the production
+    /// receipt vault is behind this beacon.
     function testForkIsInUpgradedState() external view {
         assertEq(Ownable(BEACON).owner(), LibBeaconInvariants.PROD_BEACON_OWNER, "beacon timelock-owned");
         assertEq(IBeacon(BEACON).implementation(), LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1, "beacon at V3 impl");
-        assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "live vault behind the upgraded beacon");
+        assertEq(beaconOf(LIVE_RECEIPT_VAULT), BEACON, "vault behind the upgraded beacon");
     }
 
-    /// @notice Headline V3 change: corporate-action selectors on a LIVE
+    /// @notice Headline V3 change: corporate-action selectors on a production
     /// receipt vault route into the facet via the vault's fallback
     /// delegatecall. `completedActionCount()` is not a selector on the vault
     /// itself — it only resolves if the fallback forwards to the facet — so a
     /// non-reverting read proves the wiring. A fresh-to-corporate-actions
-    /// live vault returns 0 completed actions.
+    /// vault returns 0 completed actions.
     function testCorporateActionsFacetWiredOnLiveVault() external view {
         uint256 completed = ICorporateActionsV1(LIVE_RECEIPT_VAULT).completedActionCount();
         assertEq(completed, 0, "live vault has no completed corporate actions post-upgrade");

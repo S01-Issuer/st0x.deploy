@@ -21,6 +21,7 @@ import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {LibTokenMetadata} from "../../../src/lib/LibTokenMetadata.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// End-to-end naming for a token pair built as in production (registry beacon
@@ -136,5 +137,10 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sVault.symbol(), "tMETA");
         assertEq(sWrapper.symbol(), "METAs");
         assertEq(sWrapper.name(), "Meta Platforms, Inc. (ST0x)");
+    }
+
+    function testVaultAndWrapperHaveTheTokenMetadataDecimals() external view {
+        assertEq(sVault.decimals(), LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
+        assertEq(sWrapper.decimals(), LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
     }
 }

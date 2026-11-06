@@ -5,8 +5,14 @@ pragma solidity ^0.8.25;
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "./LibProdBeacons0_1_1.sol";
+import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
+import {LibProdDeployV1} from "./LibProdDeployV1.sol";
+import {
+    REGISTRY_BEACON_PROXY_PREFIX,
+    REGISTRY_BEACON_PROXY_SUFFIX
+} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 
 /// @notice Minimal `Ownable`-like surface used to read a beacon's owner.
 /// Every OpenZeppelin `UpgradeableBeacon` exposes `owner()`; this library
@@ -72,6 +78,10 @@ error BeaconImplNotDeployed(address beacon, address implementation);
 /// exactly the dead-state pinning this map exists to prevent.
 /// @param chainId The chain id with no pinned in-use beacon set.
 error UnsupportedChainForProdBeacons(uint256 chainId);
+
+/// @notice `createAddress` was given a nonce its single-byte RLP encoding does not cover (0x01-0x7f).
+/// @param nonce The out-of-range nonce.
+error CreateNonceOutOfRange(uint8 nonce);
 
 /// @title LibBeaconInvariants
 /// @notice Reusable invariant assertions for an OpenZeppelin
@@ -282,6 +292,62 @@ library LibBeaconInvariants {
         return runsBaseBeaconSet(chainId) ? LibProdBeaconsBase.beacons() : LibProdBeacons0_1_1.pinnedBeacons();
     }
 
+    /// @notice The CREATE address `deployer` produces at `nonce` (1..0x7f).
+    /// @param deployer The creating contract.
+    /// @param nonce The creating contract's nonce at the CREATE.
+    /// @return The created address.
+    function createAddress(address deployer, uint8 nonce) internal pure returns (address) {
+        if (nonce == 0 || nonce > 0x7f) revert CreateNonceOutOfRange(nonce);
+        return address(uint160(uint256(keccak256(abi.encodePacked(bytes2(0xd694), deployer, nonce)))));
+    }
+
+    /// @notice The chain's four beacons, with the set deployer's receipt and receipt-vault beacons derived as its
+    /// constructor's first and second CREATE.
+    /// @param chainId The chain id.
+    /// @return The four beacon addresses.
+    function prodDerivedBeaconsForChainId(uint256 chainId) internal pure returns (address[4] memory) {
+        address[4] memory set = prodPinnedBeaconsForChainId(chainId);
+        address deployer = prodBeaconSetDeployerForChainId(chainId);
+        if (deployer != address(0)) {
+            set[RECEIPT_BEACON_INDEX] = createAddress(deployer, 1);
+            set[RECEIPT_VAULT_BEACON_INDEX] = createAddress(deployer, 2);
+        }
+        return set;
+    }
+
+    /// @notice Runtime codehash of a `RegistryBeaconProxy` over `beacon`.
+    /// @param beacon The beacon the proxy reads.
+    /// @return The proxy's runtime codehash.
+    function registryBeaconProxyCodehash(address beacon) internal pure returns (bytes32) {
+        return keccak256(
+            abi.encodePacked(
+                REGISTRY_BEACON_PROXY_PREFIX, bytes32(uint256(uint160(beacon))), REGISTRY_BEACON_PROXY_SUFFIX
+            )
+        );
+    }
+
+    /// @notice Expected runtime codehash of the chain's token proxies, index-aligned with `prodBeaconsForChainId`
+    /// (orchestrator entry zero). Base's are the V1 pins; elsewhere each is the proxy over the derived beacon.
+    /// @param chainId The chain id.
+    /// @return The per-leg proxy codehashes.
+    function prodTokenProxyCodehashesForChainId(uint256 chainId) internal pure returns (bytes32[4] memory) {
+        if (runsBaseBeaconSet(chainId)) {
+            return [
+                LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1,
+                LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1,
+                LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1,
+                bytes32(0)
+            ];
+        }
+        address[4] memory set = prodDerivedBeaconsForChainId(chainId);
+        return [
+            registryBeaconProxyCodehash(set[RECEIPT_BEACON_INDEX]),
+            registryBeaconProxyCodehash(set[RECEIPT_VAULT_BEACON_INDEX]),
+            registryBeaconProxyCodehash(set[WRAPPED_TOKEN_VAULT_BEACON_INDEX]),
+            bytes32(0)
+        ];
+    }
+
     /// @notice The deployer whose getters resolve the chain's unpinned beacons; `address(0)` when all are pinned.
     /// @param chainId The chain id.
     /// @return The beacon set deployer.
@@ -303,6 +369,18 @@ library LibBeaconInvariants {
         return runsBaseBeaconSet(chainId)
             ? LibProdBeaconsBase.v1Implementations()
             : [address(0), address(0), address(0), address(0)];
+    }
+
+    /// @notice The implementation each of the chain's beacons serves, index-aligned with
+    /// `prodBeaconsForChainId`: the receipt and receipt-vault beacons serve 0.1.30; the other two serve their
+    /// bootstrap implementation.
+    /// @param chainId The chain id.
+    /// @return The four expected implementation addresses.
+    function prodExpectedImplementationsForChainId(uint256 chainId) internal pure returns (address[4] memory) {
+        address[4] memory impls = prodImplementationsForChainId(chainId);
+        impls[RECEIPT_BEACON_INDEX] = LibProdDeployV4.STOX_RECEIPT_0_1_30;
+        impls[RECEIPT_VAULT_BEACON_INDEX] = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
+        return impls;
     }
 
     /// @notice Assert the active chain's four IN-USE production beacons are

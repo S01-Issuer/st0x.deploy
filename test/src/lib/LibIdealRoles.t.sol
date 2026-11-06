@@ -12,6 +12,7 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {RoleGrant} from "../../../src/lib/RoleGrant.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 contract LibIdealRolesTest is Test {
     RoleGrant[] internal want;
@@ -89,13 +90,16 @@ contract LibIdealRolesTest is Test {
         SupportedNetwork[] memory nets = networks();
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         for (uint256 c = 0; c < nets.length; c++) {
-            vm.createSelectFork(nets[c].name);
+            uint256 snapshot = vm.snapshotState();
+            vm.chainId(nets[c].chainId);
+            LibLocalProdState.orchestrator(vm, nets[c].chainId);
             ST0xOrchestrator instance = ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
             (address safe,) = principals(nets[c].chainId);
             RoleGrant[] memory expected = LibIdealRoles.contractRoles(nets[c].chainId)[2].expected;
             assertTrue(contains(expected, RoleGrant(instance.MINT_ROLE(), signer)));
             assertTrue(contains(expected, RoleGrant(instance.BURN_ROLE(), signer)));
             assertTrue(contains(expected, RoleGrant(instance.EMERGENCY_ROLE(), safe)));
+            vm.revertToState(snapshot);
         }
     }
 

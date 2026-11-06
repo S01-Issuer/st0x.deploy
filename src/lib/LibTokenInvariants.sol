@@ -547,7 +547,7 @@ library LibTokenInvariants {
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
-    /// (cross-chain parity, per-token config checks) iterate this instead.
+    /// iterate this instead.
     /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](59);
@@ -1634,8 +1634,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on Robinhood
     /// Chain (chain id 4663) — Base's underlyings in Base row order, so the
-    /// tables pair by index as well as by key (the cross-chain parity pin
-    /// asserts the alignment).
+    /// tables pair by index as well as by key.
     /// @return tokens The production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](59);
@@ -1997,8 +1996,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on BNB Smart
     /// Chain (chain id 56) — Base's underlyings in Base row order, so the
-    /// tables pair by index as well as by key (the cross-chain parity pin
-    /// asserts the alignment).
+    /// tables pair by index as well as by key.
     /// @return tokens The production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](59);
@@ -2438,6 +2436,22 @@ library LibTokenInvariants {
         assertUniformAuthoriser(productionTokensBase(), expected);
     }
 
+    /// @notice The authoriser a token's receipt vault must report on a chain: the chain's EU authoriser for an EU
+    /// underlying (`LibProdTokenConfig` region), `usAuthoriser` otherwise.
+    /// @param underlying The token's underlying ticker.
+    /// @param usAuthoriser The authoriser every US receipt vault on the chain shares.
+    /// @param chainId The chain id.
+    /// @return The expected authoriser.
+    function expectedAuthoriser(string memory underlying, address usAuthoriser, uint256 chainId)
+        internal
+        pure
+        returns (address)
+    {
+        return LibProdTokenConfig.regionOf(underlying) == Region.EU
+            ? LibAuthoriserInvariants.euAuthoriserForChainId(chainId)
+            : usAuthoriser;
+    }
+
     /// @notice Chain-parametric `assertUniformAuthoriser`: assert every
     /// receipt vault in the supplied token table reports `expected` as its
     /// authoriser. The Base overload delegates here with
@@ -2451,10 +2465,7 @@ library LibTokenInvariants {
     /// @param expected The authoriser every US receipt vault must share.
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
         for (uint256 i = 0; i < tokens.length; i++) {
-            address expectedForToken = expected;
-            if (LibProdTokenConfig.regionOf(tokens[i].underlying) == Region.EU) {
-                expectedForToken = LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
-            }
+            address expectedForToken = expectedAuthoriser(tokens[i].underlying, expected, block.chainid);
             address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
             if (actual != expectedForToken) {
                 revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expectedForToken, actual);
