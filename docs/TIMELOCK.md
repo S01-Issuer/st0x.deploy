@@ -78,9 +78,10 @@ timelock). That keeps the audited contract set untouched.
 
 The timelock is deployed via the **Zoltu deterministic factory**: its address is
 a pure function of its creation code. `StoxGovernanceTimelock` (the
-`stox-governance-timelock` suite) reads the chain's Safe from the
-`ConfigRegistry` under `GOVERNANCE_SAFE_NAME` (`st0x.governance-safe.v1`), so
-its creation code, and its address, is the same on every chain.
+`stox-governance-timelock` suite) reads its initial proposer from the
+`ConfigRegistry` under `TIMELOCK_INITIAL_PROPOSER_NAME`
+(`st0x.timelock-initial-proposer.v1`), so its creation code, and its address, is
+the same on every chain.
 
 The five live timelocks take the chain's Safe as a constructor arg, so each sits
 at a distinct address —
@@ -114,8 +115,9 @@ The five chains run the per-Safe timelocks at their `LibTimelockInvariants` pins
 chain whose timelock is the `stox-governance-timelock` suite.
 
 1. **Bind the Safe** — bind the chain's governance Safe under
-   `GOVERNANCE_SAFE_NAME` in the `ConfigRegistry`. The constructor's typed
-   resolve reverts on an unset name, so the bind always precedes the deploy.
+   `TIMELOCK_INITIAL_PROPOSER_NAME` in the `ConfigRegistry`. The constructor's
+   typed resolve reverts on an unset name, so the bind always precedes the
+   deploy.
 2. **Deploy** — Actions → `manual-sol-artifacts` → `stox-governance-timelock`.
    The Zoltu suite lands at one address on every network; that chain's
    `timelockForChainId` arm then returns
@@ -241,7 +243,7 @@ sequence on a fork of each chain.
    `scheduleBatch` of `setUnderlying(ticker, underlyingName)` on every
    production vault, with the beacon batch as its predecessor, so the timelock
    refuses to execute it first. It covers a fixed number of leading rows of each
-   chain's token table (`TOKEN_COUNT`, every row today), so its id does not move
+   chain's token table (`TOKEN_COUNT`, tMSTR to tDIS), so its id does not move
    when a table grows; a token added later gets its own `setUnderlying`
    operation. `ticker` is `TokenConfig.underlying` (e.g. `NVDA`) and
    `underlyingName` is `TokenConfig.underlyingName`, the issuer's name without
