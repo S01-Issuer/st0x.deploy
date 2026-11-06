@@ -359,9 +359,7 @@ contract BuildExpectedState is Script {
         address setDeployer = LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER;
         vm.serializeString(key, "network", network.name);
         vm.serializeString(key, "deployments", v2DeploymentsJson(key));
-        vm.serializeAddress(
-            key, "beaconSetDeployer", setDeployer
-        );
+        vm.serializeAddress(key, "beaconSetDeployer", setDeployer);
         vm.serializeString(
             key,
             "receiptBeacon",
