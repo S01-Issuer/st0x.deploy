@@ -2,9 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.30/src/interface/IRegistryDelegatesV3.sol";
 import {Prerequisite} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
@@ -15,6 +19,28 @@ import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 /// migration on this chain.
 /// @param chainId The chain asked about.
 error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
+
+/// @notice The root line is not at the head a migration is applied onto: the
+/// migration is already recorded, or its predecessor is not.
+/// @param head The line's head.
+error UnexpectedMigrationLine(bytes32 head);
+
+/// @notice The account that would write the record is not an unscoped
+/// delegate of the root authority, so the record would revert.
+/// @param safe The account.
+error SafeNotApprovedWriter(address safe);
+
+/// @notice After the bundle, the migration's record is not the one the
+/// bundle wrote.
+/// @param migration The migration.
+/// @param expected The moment the bundle records.
+/// @param actual The moment the registry answers.
+error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
+
+/// @notice After the bundle, the root line does not end at the bundle's
+/// record.
+/// @param head The line's head.
+error LineHeadMismatch(bytes32 head);
 
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's scripts record what they applied
@@ -111,6 +137,45 @@ library LibStoxMigrations {
             LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.id, prerequisitesFor(declared), ""
         );
         return (registry, data);
+    }
+
+    /// @notice `recordCall` as a bundle entry.
+    /// @param declared The declaration.
+    /// @return The CALL that writes the record.
+    function recordTx(ScriptDeclaration memory declared) internal view returns (SafeTx memory) {
+        (address registry, bytes memory data) = recordCall(declared);
+        return SafeTx({to: registry, value: 0, data: data, operation: Enum.Operation.Call});
+    }
+
+    /// @notice Reverts unless `declared` is the root line's next record and
+    /// `delegate` may write it.
+    /// @param declared The declaration.
+    /// @param delegate The account that writes the record.
+    function assertNext(ScriptDeclaration memory declared, address delegate) internal view {
+        bytes32 lineHead = head();
+        if (lineHead != declared.onto) revert UnexpectedMigrationLine(lineHead);
+        if (!approved(delegate)) revert SafeNotApprovedWriter(delegate);
+    }
+
+    /// @notice Reverts unless `declared` was recorded in this block and heads
+    /// the root line.
+    /// @param declared The declaration.
+    function assertRecorded(ScriptDeclaration memory declared) internal view {
+        uint256 record = applied(declared.id);
+        // forge-lint: disable-next-line(block-timestamp)
+        if (record != block.timestamp) revert RecordMismatch(declared.id, block.timestamp, record);
+        bytes32 lineHead = head();
+        if (lineHead != declared.id) revert LineHeadMismatch(lineHead);
+    }
+
+    /// @notice Whether `delegate` is an unscoped delegate of the root
+    /// authority. Verifies the registry's code hash first.
+    /// @param delegate The account asked about.
+    /// @return The root's unscoped approval of it.
+    function approved(address delegate) internal view returns (bool) {
+        LibMigrationRegistry.checkCodeHash();
+        return IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
+            .approvedUnscopedV5(LibRegistryAuthority.ROOT_AUTHORITY, delegate);
     }
 
     /// @notice `recordCall` as history, at `appliedAt`.
