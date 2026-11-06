@@ -40,7 +40,6 @@ import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
 import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
-import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {LibProdOrchestratorTarget} from "../lib/LibProdOrchestratorTarget.sol";
 import {LibST0xOrchestratorProxy} from "../generated/LibST0xOrchestratorProxy.sol";
 
@@ -212,10 +211,10 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         candidates[8] = anchored(
             zoltu(
                 ORCHESTRATOR_BEACON,
-                V4.ST0X_ORCHESTRATOR_BEACON_V2_CREATION_CODE_CANDIDATE,
-                V4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE,
-                V4.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH_CANDIDATE,
-                V4.ST0X_ORCHESTRATOR_BEACON_V2_RUNTIME_CODE_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_CREATION_CODE_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_CODEHASH_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_RUNTIME_CODE_CANDIDATE,
                 ORCHESTRATOR_BEACON_PATH,
                 two(
                     V4.ST0X_ORCHESTRATOR_CANDIDATE,
@@ -281,8 +280,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         dependencies[1] =
             DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
         dependencies[2] = DeployDependency({
-            deployedAddress: V4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE,
-            runtimeCode: V4.ST0X_ORCHESTRATOR_BEACON_V2_RUNTIME_CODE_CANDIDATE
+            deployedAddress: V4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
+            runtimeCode: V4.ST0X_ORCHESTRATOR_BEACON_RUNTIME_CODE_CANDIDATE
         });
         dependencies[3] = DeployDependency({
             deployedAddress: V4.ST0X_ORCHESTRATOR_CANDIDATE, runtimeCode: V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE

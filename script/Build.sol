@@ -271,7 +271,7 @@ contract Build is Script, StoxDeploySuites {
         bases[10] = "ST0X_ORCHESTRATOR";
         bases[11] = "ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER";
         bases[12] = "ST0X_ATTEST_SUB_PARSER";
-        bases[13] = "ST0X_ORCHESTRATOR_BEACON_V2";
+        bases[13] = "ST0X_ORCHESTRATOR_BEACON";
         bases[14] = "STOX_GOVERNANCE_TIMELOCK";
     }
 

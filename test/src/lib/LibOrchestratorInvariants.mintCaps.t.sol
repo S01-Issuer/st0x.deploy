@@ -108,13 +108,13 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
     function testFuzzAssertMintCapsBeaconSetRevertsOnOtherCode(bytes memory code) external {
         // Deployed code never starts 0xef (EIP-3541); vm.etch reads 0xef01 as an EIP-7702 designator.
         vm.assume(code.length > 0 && code[0] != 0xef);
-        vm.assume(keccak256(code) != LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH);
+        vm.assume(keccak256(code) != LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH);
         vm.etch(deployedBeacon, code);
         vm.expectRevert(
             abi.encodeWithSelector(
                 BeaconCodehashMismatch.selector,
                 deployedBeacon,
-                LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH,
+                LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH,
                 keccak256(code)
             )
         );

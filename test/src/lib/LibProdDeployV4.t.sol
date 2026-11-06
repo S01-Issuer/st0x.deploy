@@ -166,9 +166,9 @@ contract LibProdDeployV4Test is Test {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(type(ST0xOrchestrator).creationCode);
         address deployed = deployZoltuWithinEip170(type(ST0xOrchestratorBeacon).creationCode);
-        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE);
+        assertEq(deployed, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE);
         assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH_CANDIDATE);
+        assertEq(deployed.codehash, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_CODEHASH_CANDIDATE);
     }
 
     function testDeployAddressSt0xAttestSubParser() external {
@@ -214,7 +214,7 @@ contract LibProdDeployV4Test is Test {
         );
         assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE, type(ST0xOrchestrator).creationCode);
         assertEq(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_CREATION_CODE_CANDIDATE,
             type(ST0xOrchestratorBeacon).creationCode
         );
         assertEq(LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CREATION_CODE_CANDIDATE, type(St0xAttestSubParser).creationCode);
@@ -636,10 +636,10 @@ contract LibProdDeployV4Test is Test {
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
         _assertFrozenRedeploy(
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CREATION_CODE_CANDIDATE,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_RUNTIME_CODE_CANDIDATE,
-            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH_CANDIDATE
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_CREATION_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_RUNTIME_CODE_CANDIDATE,
+            LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_CODEHASH_CANDIDATE
         );
     }
 }

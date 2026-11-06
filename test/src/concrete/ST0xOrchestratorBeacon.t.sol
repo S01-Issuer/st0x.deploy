@@ -48,7 +48,7 @@ contract ST0xOrchestratorBeaconTest is OrchestratorInitialAdminSeatTest {
     function testBeaconUpgradeRedirectsSingleton() external {
         LibTestDeploy.bindOrchestratorInitialAdmin(vm, TIMELOCK);
         address beacon = LibRainDeploy.deployZoltu(type(ST0xOrchestratorBeacon).creationCode);
-        assertEq(beacon, LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2, "beacon address");
+        assertEq(beacon, LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON, "beacon address");
         address orchestrator = LibTestOrchestratorDeploy.deployInstance(vm, makeAddr("deployer"));
 
         UpgradedImpl newImpl = new UpgradedImpl();

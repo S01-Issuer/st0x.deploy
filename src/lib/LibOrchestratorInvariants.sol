@@ -150,7 +150,7 @@ library LibOrchestratorInvariants {
 
     /// @return The mint-caps orchestrator beacon.
     function mintCapsBeacon() internal pure returns (address) {
-        return LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2;
+        return LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON;
     }
 
     /// @notice The mint-caps orchestrator instance: the registry beacon proxy
@@ -171,7 +171,7 @@ library LibOrchestratorInvariants {
             mintCapsBeacon(),
             LibTimelockInvariants.timelockForChainId(block.chainid),
             LibProdDeployCurrent.ST0X_ORCHESTRATOR,
-            LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_V2_CODEHASH
+            LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH
         );
     }
 

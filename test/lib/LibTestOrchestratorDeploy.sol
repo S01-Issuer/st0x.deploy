@@ -31,9 +31,9 @@ library LibTestOrchestratorDeploy {
     function deployBeacon() internal returns (address) {
         address implementation = LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_CANDIDATE);
         require(implementation == LibProdDeployV4.ST0X_ORCHESTRATOR_CANDIDATE, "ST0xOrchestrator address mismatch");
-        address beacon = LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CREATION_CODE_CANDIDATE);
+        address beacon = LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_CREATION_CODE_CANDIDATE);
         require(
-            beacon == LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_V2_CANDIDATE, "ST0xOrchestratorBeacon address mismatch"
+            beacon == LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE, "ST0xOrchestratorBeacon address mismatch"
         );
         return beacon;
     }
