@@ -21,6 +21,14 @@ library LibStoxConfig {
     /// @notice `abi.encode(address)`: the beacon production wrappers proxy.
     bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
 
+    /// @notice `abi.encode(OffchainAssetReceiptVaultRbacV1)`: the RBAC US
+    /// production tokens initialize with.
+    bytes32 internal constant RBAC_US_NAME = keccak256("st0x.rbac.us.v1");
+
+    /// @notice `abi.encode(OffchainAssetReceiptVaultRbacV1)`: the RBAC EU
+    /// production tokens initialize with.
+    bytes32 internal constant RBAC_EU_NAME = keccak256("st0x.rbac.eu.v1");
+
     /// @notice `abi.encode(address)`: the initial owner every st0x beacon is
     /// constructed with, read once in its constructor; ownership moves on-chain
     /// after.
