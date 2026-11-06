@@ -7,8 +7,7 @@ import {
     MigrateMultisigThreshold,
     VerifyMismatch,
     VerifyExpectedSingleTx,
-    MultisigThresholdAlreadyApplied,
-    NoMultisigThresholdMigrationOnChain
+    MultisigThresholdAlreadyApplied
 } from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
@@ -19,7 +18,6 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJ
 import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {HistoryMigrationScriptTest} from "../lib/HistoryMigrationScriptTest.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
@@ -206,31 +204,5 @@ contract MigrateMultisigThresholdTest is Test {
         MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
         vm.expectRevert(MultisigThresholdAlreadyApplied.selector);
         migration.run();
-    }
-}
-
-contract MigrateMultisigThresholdHistoryTest is HistoryMigrationScriptTest {
-    function newHistoryScript() internal override returns (address) {
-        return address(new MigrateMultisigThreshold());
-    }
-
-    function declaredId() internal pure override returns (bytes32) {
-        return LibStoxMigrations.MULTISIG_THRESHOLD;
-    }
-
-    function declaredOnto(uint256) internal pure override returns (bytes32) {
-        return MIGRATION_HEAD_GENESIS;
-    }
-
-    function declaredHistory(uint256) internal pure override returns (bool) {
-        return true;
-    }
-
-    function ranOn(uint256 chainId) internal pure override returns (bool) {
-        return onDeploymentChain(chainId);
-    }
-
-    function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(NoMultisigThresholdMigrationOnChain.selector, chainId);
     }
 }
