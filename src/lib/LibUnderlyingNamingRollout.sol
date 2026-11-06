@@ -98,8 +98,8 @@ library LibUnderlyingNamingRollout {
     /// also: re-points the six implementation constants and the step-1 deploy
     /// at the release; pins each chain's `beaconOperationId` and
     /// `renameOperationId` as literals, so a later row edit cannot move a
-    /// scheduled batch; and declares both schedule scripts as timelock-written
-    /// migrations that record themselves as the last call of each batch.
+    /// scheduled batch. Each schedule script's Safe bundle ends in its root-line
+    /// record; no record rides in a timelock batch.
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
@@ -125,7 +125,7 @@ library LibUnderlyingNamingRollout {
     bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = true;
 
     /// @notice How many leading rows of each chain's production token table
-    /// this rollout renames: every row today, on every chain. Fixed, so the
+    /// this rollout renames: tMSTR to tDIS, on every chain. Fixed, so the
     /// rename operation's id does not move when a table grows once the batch
     /// is scheduled; a token added later gets its own `setUnderlying`
     /// operation.
