@@ -74,7 +74,10 @@ abstract contract RootLineRecordScriptTest is Test {
     }
 
     function assumeForeign(bytes32 record) internal view {
-        vm.assume(record != bytes32(0) && record != MIGRATION_HEAD_GENESIS && LibStoxMigrations.applied(record) == 0);
+        vm.assume(
+            record != bytes32(0) && record != MIGRATION_HEAD_GENESIS && record != declaredId()
+                && LibStoxMigrations.applied(record) == 0
+        );
     }
 
     function testDeclarationIsItsRootLineRecord(uint256 chainId) external view {
