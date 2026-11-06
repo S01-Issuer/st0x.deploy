@@ -28,7 +28,8 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
-/// `network`, `beaconSetDeployer`, `beacons` (beacon, codehash, implementation, owner), the token-owner `safe`
+/// `network`, `beaconSetDeployer`, `beacons` (beacon, codehash, implementation, renamedImplementation once
+/// `renameMigration` is recorded, owner), the token-owner `safe`
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
@@ -44,10 +45,20 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
+    /// The implementations `renameMigration`'s beacon batch moves the beacons to.
+    function renamedImplementations(uint256 chainId) internal pure returns (address[4] memory) {
+        address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
+        impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION;
+        impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX] =
+            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
+        return impls;
+    }
+
     function beaconsJson(uint256 chainId, string memory key) internal returns (string[] memory) {
         address[4] memory derived = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId);
         address[4] memory implementations = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
         bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(chainId);
+        address[4] memory renamed = renamedImplementations(chainId);
         address owner = LibTimelockInvariants.timelockForChainId(chainId);
         string[] memory rows = new string[](derived.length);
         for (uint256 i = 0; i < derived.length; i++) {
@@ -55,6 +66,7 @@ contract BuildExpectedState is Script {
             vm.serializeAddress(row, "beacon", derived[i]);
             vm.serializeBytes32(row, "codehash", codehashes[i]);
             vm.serializeAddress(row, "implementation", implementations[i]);
+            vm.serializeAddress(row, "renamedImplementation", renamed[i]);
             rows[i] = vm.serializeAddress(row, "owner", owner);
         }
         return rows;
