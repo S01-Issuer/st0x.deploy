@@ -17,6 +17,9 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJ
 import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 
+/// @dev A Base block at which the Safe holds its pinned threshold and roster.
+uint256 constant MULTISIG_THRESHOLD_FORK_BLOCK_BASE = 53922000;
+
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
 /// script. Covers the happy-path `run()` dry-run, inverted preconditions
@@ -27,18 +30,17 @@ contract MigrateMultisigThresholdTest is Test {
     /// @notice The script under test, deployed fresh per fork.
     MigrateMultisigThreshold internal script;
 
-    /// @notice Live Safe handle.
+    /// @notice The forked Safe.
     Safe internal safe;
 
-    /// @notice Selects the Base fork at chain head — deliberately
-    /// unpinned.
+    /// @notice Selects the Base fork at `MULTISIG_THRESHOLD_FORK_BLOCK_BASE`.
     function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.createSelectFork(LibRainDeploy.BASE, MULTISIG_THRESHOLD_FORK_BLOCK_BASE);
         script = new MigrateMultisigThreshold();
         safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
     }
 
-    /// @notice `run()` dry-run completes against the live pre-state,
+    /// @notice `run()` dry-run completes against the pinned pre-state,
     /// writes the artifact, and the artifact has the expected single-tx
     /// shape. The final fork state must show the threshold back at the
     /// pinned pre-migration value — this is the n+1 reversibility check's
@@ -125,7 +127,7 @@ contract MigrateMultisigThresholdTest is Test {
         SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = txn;
         // Emit a bundle that claims to be for a different chain id by
-        // bypassing the live `block.chainid` and passing `block.chainid + 1`.
+        // bypassing the fork's `block.chainid` and passing `block.chainid + 1`.
         string memory json =
             LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid + 1, "safe-verify-wrong-chain", txs);
         string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-chain.json");
