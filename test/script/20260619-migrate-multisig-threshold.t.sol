@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {
     MigrateMultisigThreshold,
     VerifyMismatch,
@@ -227,6 +227,36 @@ contract MigrateMultisigThresholdTest is Test {
 
         assertEq(LibStoxMigrations.applied(LibStoxMigrations.MULTISIG_THRESHOLD), executedAt);
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.MULTISIG_THRESHOLD);
+    }
+
+    function assertThresholdChangedAt(
+        MigrateMultisigThreshold migration,
+        string memory network,
+        uint256 chainId,
+        uint256 blockNumber
+    ) internal {
+        // A fork at the change's block reads its header and logs; no state at
+        // that block is touched, so no archive node is needed.
+        vm.createSelectFork(network, blockNumber);
+        assertEq(block.chainid, chainId, network);
+
+        bytes32[] memory topics = new bytes32[](1);
+        topics[0] = keccak256("ChangedThreshold(uint256)");
+        Vm.EthGetLogs[] memory logs =
+            vm.eth_getLogs(blockNumber, blockNumber, LibSafeInvariants.safeForChainId(chainId), topics);
+        assertEq(logs.length, 1, string.concat(network, ": the Safe changes its threshold in the block"));
+        assertEq(logs[0].data, abi.encode(uint256(3)), string.concat(network, ": to 3"));
+        assertEq(migration.executedAt(chainId), block.timestamp, string.concat(network, ": executedAt"));
+    }
+
+    function testExecutedAtIsTheThresholdChangeBlockOnEveryChain() external {
+        MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
+        vm.makePersistent(address(migration));
+        assertThresholdChangedAt(migration, LibRainDeploy.BASE, LibSafeInvariants.BASE_CHAIN_ID, 47725937);
+        assertThresholdChangedAt(migration, LibRainDeploy.ETHEREUM, LibSafeInvariants.ETHEREUM_CHAIN_ID, 25552949);
+        assertThresholdChangedAt(migration, LibRainDeploy.HYPEREVM, LibSafeInvariants.HYPEREVM_CHAIN_ID, 41323887);
+        assertThresholdChangedAt(migration, LibRainDeploy.ROBINHOOD, LibSafeInvariants.ROBINHOOD_CHAIN_ID, 59658260);
+        assertThresholdChangedAt(migration, LibRainDeploy.BSC, LibSafeInvariants.BSC_CHAIN_ID, 121126994);
     }
 
     function testRunRefusesWhenAlreadyRecorded() external {

@@ -27,6 +27,7 @@ import {
     ExecuteUnderlyingNamingRecorded,
     ExecuteUnderlyingNamingUnexpectedMigrationLine,
     ExecuteUnderlyingNamingRecordMismatch,
+    ExecuteUnderlyingNamingLineHeadMismatch,
     executeUnderlyingNamingDeclaration
 } from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
@@ -51,7 +52,7 @@ import {
 } from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
-import {RecordExecuteUnderlyingNamingHarness} from "./RecordExecuteUnderlyingNamingHarness.sol";
+import {ExecuteUnderlyingNamingHarness} from "./ExecuteUnderlyingNamingHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
@@ -315,7 +316,7 @@ contract UnderlyingNamingRolloutTest is Test {
         bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, chainId);
         bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, chainId);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness(network);
-        RecordExecuteUnderlyingNamingHarness record = new RecordExecuteUnderlyingNamingHarness(network);
+        ExecuteUnderlyingNamingHarness execution = new ExecuteUnderlyingNamingHarness(network);
 
         assertBeaconBatchExact(chainId);
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness(network);
@@ -339,23 +340,22 @@ contract UnderlyingNamingRolloutTest is Test {
 
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        ExecuteUnderlyingNaming execute = new ExecuteUnderlyingNaming();
-        execute.run();
+        execution.execute();
         assertEq(
             IBeacon(LibUnderlyingNamingRollout.receiptVaultBeacon(chainId)).implementation(),
             LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION
         );
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotExecuted.selector, renameId));
-        record.callPreflight();
+        execution.callPreflight();
         logRenameExecutionGas(controller, chainId, beaconId);
-        execute.run();
+        execution.execute();
         assertTrue(controller.isOperationDone(renameId), "rename executed");
         rename.callAssertRenamed(chainId);
 
         vm.expectPartialRevert(NoUnderlyingNamingOperationReady.selector);
-        execute.run();
+        execution.execute();
 
-        authorVerifyExecute(address(record), record.callArtifactPath());
+        authorVerifyExecute(address(execution), execution.callArtifactPath());
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.EXECUTE_UNDERLYING_NAMING, "line at the execution");
     }
 
@@ -449,8 +449,8 @@ contract UnderlyingNamingRolloutTest is Test {
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        ExecuteUnderlyingNaming execute = new ExecuteUnderlyingNaming();
-        execute.run();
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
+        executor.execute();
 
         assertTrue(
             IST0xOrchestratorV1(address(orchestrator)).vaultLogicIsExpected(), "lock accepts the beacon set after"
@@ -461,7 +461,7 @@ contract UnderlyingNamingRolloutTest is Test {
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_RECEIPT_VAULT).symbol(), "tNVDA");
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).symbol(), "wtNVDA");
 
-        execute.run();
+        executor.execute();
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_RECEIPT_VAULT).symbol(), "tNVDA");
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_RECEIPT_VAULT).name(), "NVIDIA Corporation (ST0x)");
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).symbol(), "NVDAs");
@@ -658,12 +658,12 @@ contract UnderlyingNamingRolloutTest is Test {
     function testExecutorRefusesAKeyHoldingTheExecutorRole() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        ExecuteUnderlyingNaming execute = new ExecuteUnderlyingNaming();
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
         bytes32 executorRole = LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE;
         vm.prank(timelock);
         TimelockController(payable(timelock)).grantRole(executorRole, address(this));
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingExecutorHoldsRole.selector, timelock, address(this)));
-        execute.run();
+        executor.execute();
     }
 
     /// @notice A ticker that does not match its vault's live symbol refuses.
@@ -774,9 +774,9 @@ contract UnderlyingNamingRolloutTest is Test {
         );
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        ExecuteUnderlyingNaming execute = new ExecuteUnderlyingNaming();
-        execute.run();
-        execute.run();
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
+        executor.execute();
+        executor.execute();
     }
 
     /// @notice The beacon bundle is the schedule then the beacon record, and
@@ -949,7 +949,7 @@ contract UnderlyingNamingRolloutTest is Test {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
-        RecordExecuteUnderlyingNamingHarness record = new RecordExecuteUnderlyingNamingHarness("record");
+        ExecuteUnderlyingNamingHarness record = new ExecuteUnderlyingNamingHarness("record");
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotExecuted.selector, renameId));
         record.callPreflight();
         executeRollout(new ScheduleUnderlyingNamingRenameHarness("execution-record"));
@@ -989,7 +989,7 @@ contract UnderlyingNamingRolloutTest is Test {
         vm.warp(recorded);
 
         LibTestRootLine.write(vm, safe, FOREIGN_RECORD, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
-        vm.expectRevert("RecordExecuteUnderlyingNaming: record not at head");
+        vm.expectRevert(abi.encodeWithSelector(ExecuteUnderlyingNamingLineHeadMismatch.selector, FOREIGN_RECORD));
         record.callAssertPostState();
     }
 }

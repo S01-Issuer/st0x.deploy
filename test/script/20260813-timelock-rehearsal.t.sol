@@ -26,6 +26,7 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTimelockRehearsal} from "../../src/lib/LibTimelockRehearsal.sol";
+import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 contract TimelockRehearsalTest is Test {
     TimelockRehearsalSchedule internal scheduleScript;
@@ -45,7 +46,7 @@ contract TimelockRehearsalTest is Test {
 
     /// @dev Literal parameters hashed by the live timelock, so a library drift cannot agree with itself.
     function testRehearsalOperationIdMatchesTheLibrary() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         TimelockController timelock = TimelockController(payable(baseTimelock()));
         bytes32 expected = timelock.hashOperation(
             address(timelock),
@@ -100,6 +101,24 @@ contract TimelockRehearsalTest is Test {
         );
     }
 
+    function testCancelOnBaseIsHistoryOntoTheSchedule() external view {
+        assertDeclared(
+            cancelScript.declaration(LibSafeInvariants.BASE_CHAIN_ID),
+            LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL,
+            LibStoxMigrations.TIMELOCK_REHEARSAL_SCHEDULE,
+            true
+        );
+    }
+
+    function testExecuteOnBaseIsHistoryOntoTheCancel() external view {
+        assertDeclared(
+            executeScript.declaration(LibSafeInvariants.BASE_CHAIN_ID),
+            LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS,
+            LibStoxMigrations.TIMELOCK_REHEARSAL_CANCEL,
+            true
+        );
+    }
+
     function assertNotHistoryOffBase(IStoxHistoryMigration script, bytes4 selector, uint256 chainId) internal {
         vm.assume(chainId != LibSafeInvariants.BASE_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(selector, chainId));
@@ -119,23 +138,33 @@ contract TimelockRehearsalTest is Test {
     }
 
     function testScheduleRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
-        chainId = bound(chainId, 1, type(uint64).max / 2 - 36);
+        chainId = bound(chainId, 0, type(uint64).max / 2 - 36);
         vm.chainId(chainId);
         vm.expectRevert(abi.encodeWithSelector(RehearsalScheduleRecordedByBackfill.selector, chainId));
         scheduleScript.run();
     }
 
     function testCancelRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
-        chainId = bound(chainId, 1, type(uint64).max / 2 - 36);
+        chainId = bound(chainId, 0, type(uint64).max / 2 - 36);
         vm.chainId(chainId);
         vm.expectRevert(abi.encodeWithSelector(RehearsalCancelRecordedByBackfill.selector, chainId));
         cancelScript.run();
     }
 
     function testExecuteRunRefusesBecauseTheBackfillWritesTheRecord(uint256 chainId) external {
-        chainId = bound(chainId, 1, type(uint64).max / 2 - 36);
+        chainId = bound(chainId, 0, type(uint64).max / 2 - 36);
         vm.chainId(chainId);
         vm.expectRevert(abi.encodeWithSelector(ExecuteTimelockOperationsRecordedByBackfill.selector, chainId));
+        executeScript.run();
+    }
+
+    function testRunRefusesOnChainZero() external {
+        vm.chainId(0);
+        vm.expectRevert(abi.encodeWithSelector(RehearsalScheduleRecordedByBackfill.selector, uint256(0)));
+        scheduleScript.run();
+        vm.expectRevert(abi.encodeWithSelector(RehearsalCancelRecordedByBackfill.selector, uint256(0)));
+        cancelScript.run();
+        vm.expectRevert(abi.encodeWithSelector(ExecuteTimelockOperationsRecordedByBackfill.selector, uint256(0)));
         executeScript.run();
     }
 

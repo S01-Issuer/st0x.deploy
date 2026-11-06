@@ -24,7 +24,8 @@ import {
     ManyDeclarations,
     NoDeclaration,
     NoDeploymentNetworks,
-    ScriptNotBuilt
+    ScriptNotBuilt,
+    ScriptsSubdirectory
 } from "../../script/BuildMigrations.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {BuildMigrationsHarness} from "./BuildMigrationsHarness.sol";
@@ -243,6 +244,21 @@ contract BuildMigrationsTest is Test {
         assertEq(paths[0], string.concat(dir, "/ValidDeclarationFixture.s.sol"));
         assertEq(declarations[0].id, keccak256(bytes(paths[0])));
         assertGt(instances[0].code.length, 0);
+    }
+
+    function assertSubdirectoryFails(string memory dir, string memory entry) internal {
+        vm.expectRevert(
+            abi.encodeWithSelector(ScriptsSubdirectory.selector, string.concat(vm.projectRoot(), "/", dir, "/", entry))
+        );
+        build.discover(dir, LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
+    function testADirectoryHoldingAScriptFails() external {
+        assertSubdirectoryFails(string.concat(FIXTURES, "/subdirectory"), "nested");
+    }
+
+    function testADirectoryNamedLikeAScriptFails() external {
+        assertSubdirectoryFails(string.concat(FIXTURES, "/script-named-directory"), "ADirectoryNamedLikeAScript.s.sol");
     }
 
     function testAHistoryMigrationWithNoMomentFails() external {

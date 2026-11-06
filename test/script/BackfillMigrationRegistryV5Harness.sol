@@ -7,6 +7,9 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {BackfillMigrationRegistryV5} from "../../script/20261030-backfill-migration-registry-v5.s.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
+/// @dev The backfill reads no script for `id`.
+error NoBackfillScript(bytes32 id);
+
 /// @dev Exposes the script's hooks and the scripts it reads each record from,
 /// with a per-instance artifact path because tests run in parallel.
 contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
@@ -51,6 +54,6 @@ contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
         if (id == LibStoxMigrations.GOVERNANCE_TIMELOCK) return GOVERNANCE_TIMELOCK_SCRIPT;
         if (id == LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES) return EU_AUTHORISER_SCRIPT;
         if (id == LibStoxMigrations.ORCHESTRATOR_EMERGENCY) return ORCHESTRATOR_EMERGENCY_SCRIPT;
-        return address(0);
+        revert NoBackfillScript(id);
     }
 }

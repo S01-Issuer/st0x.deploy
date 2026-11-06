@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 
@@ -74,6 +74,24 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         LibTestRootLine.write(vm, address(safe), head, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5);
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, head));
         script.callPreflight();
+    }
+
+    function assertZeroAndGenesisRefusedOnto(bytes32 onto) internal {
+        vm.expectRevert(IMigrationRegistryV5.ZeroMigration.selector);
+        LibTestRootLine.write(vm, address(safe), bytes32(0), onto);
+        vm.expectRevert(IMigrationRegistryV5.GenesisMigration.selector);
+        LibTestRootLine.write(vm, address(safe), MIGRATION_HEAD_GENESIS, onto);
+    }
+
+    function testNoZeroOrGenesisRecordLandsOnTheBackfill() external {
+        assertZeroAndGenesisRefusedOnto(LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5);
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5);
+    }
+
+    function testNoZeroOrGenesisRecordLandsOnTheMove() external {
+        executeMove();
+        assertZeroAndGenesisRefusedOnto(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
     }
 
     function testExecutedMoveIsRecordedAtTheHeadOfTheRootLine() external {

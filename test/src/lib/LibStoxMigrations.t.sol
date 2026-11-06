@@ -9,6 +9,7 @@ import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/s
 import {IRegistryDelegatesV3} from "rain-deploy-0.1.30/src/interface/IRegistryDelegatesV3.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
 } from "rain-deploy-0.1.30/src/generated/candidate/MigrationRegistry.sol";
@@ -61,12 +62,13 @@ contract LibStoxMigrationsTest is Test {
         ext.governanceTimelockExecution(31337);
     }
 
-    function assertExecution(string memory network) internal {
-        vm.createSelectFork(network);
+    function assertExecution(SupportedNetwork memory network) internal {
+        (uint256 appliedAt, uint256 blockNumber) = LibStoxMigrations.governanceTimelockExecution(network.chainId);
+        vm.createSelectFork(network.name, blockNumber);
+        assertEq(block.chainid, network.chainId, network.name);
         LibMigrationRegistry.checkCodeHash();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        (uint256 appliedAt, uint256 blockNumber) = LibStoxMigrations.governanceTimelockExecution(block.chainid);
 
         bytes32[] memory topics = new bytes32[](3);
         topics[0] = keccak256("OwnershipTransferred(address,address)");
@@ -74,18 +76,15 @@ contract LibStoxMigrationsTest is Test {
         topics[2] = bytes32(uint256(uint160(timelock)));
         Vm.EthGetLogs[] memory logs =
             vm.eth_getLogs(blockNumber, blockNumber, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON, topics);
-        assertEq(logs.length, 1, string.concat(network, ": ownership transfers in the pinned block"));
-
-        // A fork at the pinned block reads its header; no state at that
-        // block is touched, so no archive node is needed.
-        vm.createSelectFork(network, blockNumber);
-        assertEq(block.timestamp, appliedAt, string.concat(network, ": timestamp"));
+        assertEq(logs.length, 1, string.concat(network.name, ": ownership transfers in the pinned block"));
+        assertEq(block.timestamp, appliedAt, string.concat(network.name, ": timestamp"));
     }
 
     /// @notice Every network ST0x deploys to has a pinned execution moment,
     /// and it is the chain's own record of the migration.
     function testGovernanceTimelockExecutionOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < networks.length; i++) {
             assertExecution(networks[i]);
         }
