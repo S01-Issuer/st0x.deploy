@@ -40,7 +40,7 @@ import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
-import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintCapKind, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.10/src/interface/ICloneableV2.sol";
@@ -180,12 +180,7 @@ contract ST0xOrchestrator is
     struct MainStorage {
         mapping(address token => uint256) nextBurnReceiptId;
         mapping(address to => mapping(bytes32 nonce => bool)) usedNonce;
-        /// Each minter's cap: its policy across every token and recipient,
-        /// and the bucket under it.
-        mapping(address minter => MintCapV1) minterMintCaps;
-        /// Each recipient's cap: its policy across every token and minter,
-        /// and the bucket under it.
-        mapping(address recipient => MintCapV1) recipientMintCaps;
+        mapping(MintCapKind kind => mapping(address account => MintCapV1)) mintCaps;
         /// The mint weighting: the one expression that converts every mint
         /// into the charge on both buckets. A zero interpreter is unset.
         EvaluableV4 mintWeighting;
@@ -345,16 +340,16 @@ contract ST0xOrchestrator is
         internal
     {
         MainStorage storage $ = _main();
-        MintCapV1 storage minterCap = $.minterMintCaps[_minter()];
-        MintCapV1 storage recipientCap = $.recipientMintCaps[to];
-        if (!minterCap.set) revert MinterMintLimitUnset(_minter());
-        if (!recipientCap.set) revert RecipientMintLimitUnset(to);
+        MintCapV1 storage minterCap = $.mintCaps[MintCapKind.Minter][msg.sender];
+        MintCapV1 storage recipientCap = $.mintCaps[MintCapKind.Recipient][to];
+        if (!minterCap.set) revert MintLimitUnset(MintCapKind.Minter, msg.sender);
+        if (!recipientCap.set) revert MintLimitUnset(MintCapKind.Recipient, to);
 
         // The buckets meter the weighted charge, never the raw amount.
         Float charge = _weighMint($, token, amount, signedContext);
         Float timestamp = _now();
-        _fillMintCap(minterCap, _minter(), timestamp, charge);
-        _fillMintCap(recipientCap, to, timestamp, charge);
+        _fillMintCap(minterCap, MintCapKind.Minter, msg.sender, timestamp, charge);
+        _fillMintCap(recipientCap, MintCapKind.Recipient, to, timestamp, charge);
     }
 
     /// @dev Evaluate the mint weighting over this mint and its signed context
@@ -411,40 +406,19 @@ contract ST0xOrchestrator is
         return Float.wrap(StackItem.unwrap(stack[0]));
     }
 
-    /// @dev The minter of the mint in progress.
-    function _minter() internal view returns (address) {
-        return msg.sender;
-    }
-
-    /// @dev Fill `account`'s bucket with `charge`, reverting with the minter
-    /// or recipient cap error when it does not fit. `mint` refuses a recipient
-    /// equal to the minter, so `account` names which bucket this is. Split out
-    /// of `_consumeMintCaps` to keep that frame within stack limits.
+    /// @dev Fill `account`'s `kind` bucket with `charge`, reverting
+    /// `MintCapExceeded` when it does not fit. Split out of `_consumeMintCaps`
+    /// to keep that frame within stack limits.
     // The bucket write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
-    function _fillMintCap(MintCapV1 storage cap, address account, Float timestamp, Float charge) internal {
+    function _fillMintCap(MintCapV1 storage cap, MintCapKind kind, address account, Float timestamp, Float charge)
+        internal
+    {
         LeakyBucket memory bucket = cap.bucket;
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
-        if (charge.gt(headroom)) {
-            if (account == _minter()) revert MinterMintCapExceeded(account, bucket.capacity, headroom, charge);
-            revert RecipientMintCapExceeded(account, bucket.capacity, headroom, charge);
-        }
+        if (charge.gt(headroom)) revert MintCapExceeded(kind, account, bucket.capacity, headroom, charge);
 
         (cap.bucket.level, cap.bucket.timestamp) = LibLeakyBucket.fill(bucket, timestamp, charge);
-    }
-
-    /// @dev Settle `cap`'s bucket at its stored rate up to now, then store the
-    /// new policy. An unset limit holds a zero rate, so a first limit starts
-    /// from the level the bucket already holds.
-    function _setMintLimit(MintCapV1 storage cap, Float capacity, Float leakRate) internal {
-        if (capacity.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitCapacity(capacity);
-        if (leakRate.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitLeakRate(leakRate);
-        cap.bucket = LibLeakyBucket.setPolicy(cap.bucket, _now(), capacity, leakRate);
-        cap.set = true;
-    }
-
-    function _mintLimit(MintCapV1 storage cap) internal view returns (MintLimitV1 memory) {
-        return MintLimitV1({capacity: cap.bucket.capacity, leakRate: cap.bucket.leakRate, set: cap.set});
     }
 
     /// @dev `block.timestamp` as the library's clock: seconds, at exponent
@@ -542,23 +516,19 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV2
     /// @dev The bucket is settled at the outgoing rate up to now, then the new
-    /// policy is written (`LibLeakyBucket.setPolicy`), so each rate is charged
-    /// only for the time it was in force. A lowered capacity binds
+    /// policy is written (`LibLeakyBucket.setPolicy`, which refuses a negative
+    /// capacity or leak rate), so each rate is charged only for the time it was
+    /// in force. An unset limit holds a zero rate, so a first limit starts from
+    /// the level the bucket already holds. A lowered capacity binds
     /// immediately against the settled level.
-    function setMinterMintLimit(address minter, Float capacity, Float leakRate) external onlyRole(MINT_ADMIN_ROLE) {
-        _setMintLimit(_main().minterMintCaps[minter], capacity, leakRate);
-        emit MinterMintLimitSet(minter, capacity, leakRate);
-    }
-
-    /// @inheritdoc IST0xOrchestratorV2
-    /// @dev Same terms as `setMinterMintLimit`: the bucket is settled at the
-    /// outgoing rate, then the new policy is written.
-    function setRecipientMintLimit(address recipient, Float capacity, Float leakRate)
+    function setMintLimit(MintCapKind kind, address account, Float capacity, Float leakRate)
         external
         onlyRole(MINT_ADMIN_ROLE)
     {
-        _setMintLimit(_main().recipientMintCaps[recipient], capacity, leakRate);
-        emit RecipientMintLimitSet(recipient, capacity, leakRate);
+        MintCapV1 storage cap = _main().mintCaps[kind][account];
+        cap.bucket = LibLeakyBucket.setPolicy(cap.bucket, _now(), capacity, leakRate);
+        cap.set = true;
+        emit MintLimitSet(kind, account, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -627,13 +597,9 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function minterMintLimit(address minter) external view returns (MintLimitV1 memory) {
-        return _mintLimit(_main().minterMintCaps[minter]);
-    }
-
-    /// @inheritdoc IST0xOrchestratorV2
-    function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory) {
-        return _mintLimit(_main().recipientMintCaps[recipient]);
+    function mintLimit(MintCapKind kind, address account) external view returns (MintLimitV1 memory) {
+        MintCapV1 storage cap = _main().mintCaps[kind][account];
+        return MintLimitV1({capacity: cap.bucket.capacity, leakRate: cap.bucket.leakRate, set: cap.set});
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -646,8 +612,8 @@ contract ST0xOrchestrator is
     /// limit admits nothing.
     function mintHeadroom(address minter, address recipient) external view returns (Float) {
         MainStorage storage $ = _main();
-        MintCapV1 storage minterCap = $.minterMintCaps[minter];
-        MintCapV1 storage recipientCap = $.recipientMintCaps[recipient];
+        MintCapV1 storage minterCap = $.mintCaps[MintCapKind.Minter][minter];
+        MintCapV1 storage recipientCap = $.mintCaps[MintCapKind.Recipient][recipient];
 
         if (!minterCap.set) return LibDecimalFloat.FLOAT_ZERO;
         if (!recipientCap.set) return LibDecimalFloat.FLOAT_ZERO;
@@ -660,15 +626,8 @@ contract ST0xOrchestrator is
     }
 
     /// @inheritdoc IST0xOrchestratorV2
-    function minterMintLevel(address minter) external view returns (Float) {
-        MintCapV1 storage cap = _main().minterMintCaps[minter];
-        return LibLeakyBucket.levelAt(cap.bucket, _now());
-    }
-
-    /// @inheritdoc IST0xOrchestratorV2
-    function recipientMintLevel(address recipient) external view returns (Float) {
-        MintCapV1 storage cap = _main().recipientMintCaps[recipient];
-        return LibLeakyBucket.levelAt(cap.bucket, _now());
+    function mintLevel(MintCapKind kind, address account) external view returns (Float) {
+        return LibLeakyBucket.levelAt(_main().mintCaps[kind][account].bucket, _now());
     }
 
     // ------------------------------------------------------------------ //
