@@ -222,9 +222,18 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         return (count, index, data);
     }
 
+    function _assertOnlyMigrationsOf(address account, Vm.Log[] memory logs) internal pure {
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == StoxReceiptVault.AccountMigrated.selector) {
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), account, "AccountMigrated for another account");
+            }
+        }
+    }
+
     /// On a fresh vault, mint `balance` to ALICE, complete one split
     /// (`num2 == 0`) or two, then touch ALICE twice: the first touch emits
-    /// exactly one `AccountMigrated` aggregating every completed split, the
+    /// exactly one `AccountMigrated`, and none for any other account, aggregating
+    /// every completed split, the
     /// second (cursor already at the latest split) emits none.
     function _assertSoleHolderMigrates(
         uint256 balance,
@@ -249,7 +258,9 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         vm.warp(3000);
         vm.recordLogs();
         vault.publicUpdate(ALICE, ALICE, 0);
-        (uint256 count,, bytes memory data) = _migrationsOf(ALICE, vm.getRecordedLogs());
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        _assertOnlyMigrationsOf(ALICE, logs);
+        (uint256 count,, bytes memory data) = _migrationsOf(ALICE, logs);
         assertEq(count, 1, "exactly one AccountMigrated per touch");
         assertEq(data, abi.encode(uint256(0), latest, balance, expected), "AccountMigrated fields");
         assertEq(vault.rawStoredBalance(ALICE), expected, "stored balance");
@@ -257,7 +268,9 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         vm.recordLogs();
         vault.publicUpdate(ALICE, ALICE, 0);
-        (count,,) = _migrationsOf(ALICE, vm.getRecordedLogs());
+        logs = vm.getRecordedLogs();
+        _assertOnlyMigrationsOf(ALICE, logs);
+        (count,,) = _migrationsOf(ALICE, logs);
         assertEq(count, 0, "no re-emit once at the latest split");
     }
 

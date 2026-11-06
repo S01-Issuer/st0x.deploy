@@ -562,10 +562,19 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         return (count, index, data);
     }
 
+    function _assertOnlyReceiptMigrationsOf(address account, uint256 id, Vm.Log[] memory logs) internal pure {
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (logs[i].topics.length > 2 && logs[i].topics[0] == StoxReceipt.ReceiptAccountMigrated.selector) {
+                assertEq(address(uint160(uint256(logs[i].topics[1]))), account, "migrated another account");
+                assertEq(uint256(logs[i].topics[2]), id, "migrated another id");
+            }
+        }
+    }
+
     /// On a fresh receipt, mint `balance` to `(ALICE, ID_A)`, complete one
     /// split (`num2 == 0`) or two, then touch the pair twice: the first
-    /// touch emits exactly one `ReceiptAccountMigrated` aggregating every
-    /// completed split, the second (cursor already at the latest split)
+    /// touch emits exactly one `ReceiptAccountMigrated`, and none for any other
+    /// pair, aggregating every completed split, the second (cursor already at the latest split)
     /// emits none.
     function _assertReceiptMigrates(
         uint256 balance,
@@ -585,7 +594,9 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         }
         vm.recordLogs();
         _transfer(ALICE, ALICE, ID_A, 0);
-        (uint256 count,, bytes memory data) = _receiptMigrationsOf(ALICE, ID_A, vm.getRecordedLogs());
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        _assertOnlyReceiptMigrationsOf(ALICE, ID_A, logs);
+        (uint256 count,, bytes memory data) = _receiptMigrationsOf(ALICE, ID_A, logs);
         assertEq(count, 1, "exactly one ReceiptAccountMigrated per touch");
         assertEq(data, abi.encode(uint256(0), latest, balance, expected), "ReceiptAccountMigrated fields");
         assertEq(receipt.rawStoredBalance(ALICE, ID_A), expected, "stored balance");
@@ -593,7 +604,9 @@ contract StoxReceiptRebaseIntegrationTest is Test {
 
         vm.recordLogs();
         _transfer(ALICE, ALICE, ID_A, 0);
-        (count,,) = _receiptMigrationsOf(ALICE, ID_A, vm.getRecordedLogs());
+        logs = vm.getRecordedLogs();
+        _assertOnlyReceiptMigrationsOf(ALICE, ID_A, logs);
+        (count,,) = _receiptMigrationsOf(ALICE, ID_A, logs);
         assertEq(count, 0, "no re-emit once at the latest split");
     }
 
