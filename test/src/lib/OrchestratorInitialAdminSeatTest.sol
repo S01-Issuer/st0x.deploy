@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
 import {LibStoxConfig, ZeroOrchestratorInitialAdmin} from "../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
@@ -63,11 +64,11 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
     /// The root authority's other st0x bindings do not stand in for it.
     function testSeatRefusesAnUnboundName() external {
         LibTestDeploy.etchConfigRegistry(vm);
-        LibTestDeploy.bindBeacons(vm, LibStoxConfig.ROOT_AUTHORITY);
+        LibTestDeploy.bindBeacons(vm, LibRegistryAuthority.ROOT_AUTHORITY);
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME
             )
         );
@@ -75,7 +76,7 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
     }
 
     function testFuzzSeatRefusesTheNameBoundUnderAnotherAuthority(address authority, address admin) external {
-        vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY && authority != address(0));
+        vm.assume(authority != LibRegistryAuthority.ROOT_AUTHORITY && authority != address(0));
         assumeNotForgeAddress(authority);
         vm.assume(admin != address(0));
         LibTestDeploy.etchConfigRegistry(vm);
@@ -83,7 +84,7 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME
             )
         );
@@ -96,7 +97,7 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
             vm,
-            LibStoxConfig.ROOT_AUTHORITY,
+            LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME,
             valueType,
             abi.encode(admin)
@@ -104,7 +105,7 @@ abstract contract OrchestratorInitialAdminSeatTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 LibConfigRegistry.ValueTypeMismatch.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME,
                 keccak256("address"),
                 keccak256(bytes(valueType))

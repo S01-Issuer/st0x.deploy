@@ -62,8 +62,9 @@ library LibStoxConfig {
     /// or the binding is unset, not an `address`, or zero.
     function orchestratorInitialAdmin() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) =
-            LibConfigRegistry.resolve(ROOT_AUTHORITY, ORCHESTRATOR_INITIAL_ADMIN_NAME, keccak256("address"));
+        (bytes memory value,) = LibConfigRegistry.resolve(
+            LibRegistryAuthority.ROOT_AUTHORITY, ORCHESTRATOR_INITIAL_ADMIN_NAME, keccak256("address")
+        );
         address admin = abi.decode(value, (address));
         if (admin == address(0)) revert ZeroOrchestratorInitialAdmin();
         return admin;

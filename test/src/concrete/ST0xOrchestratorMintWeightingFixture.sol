@@ -232,7 +232,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     function _decodeCapExceeded(bytes memory reason, bytes4 selector)
         internal
         pure
-        returns (address who, Float capacity, Float headroom, Float charge)
+        returns (address, Float, Float, Float)
     {
         // The truncation to the selector is intended.
         // forge-lint: disable-next-line(unsafe-typecast)
@@ -241,10 +241,8 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         for (uint256 i = 0; i < args.length; i++) {
             args[i] = reason[i + 4];
         }
-        bytes32 capacityWord;
-        bytes32 headroomWord;
-        bytes32 chargeWord;
-        (who, capacityWord, headroomWord, chargeWord) = abi.decode(args, (address, bytes32, bytes32, bytes32));
+        (address who, bytes32 capacityWord, bytes32 headroomWord, bytes32 chargeWord) =
+            abi.decode(args, (address, bytes32, bytes32, bytes32));
         return (who, Float.wrap(capacityWord), Float.wrap(headroomWord), Float.wrap(chargeWord));
     }
 
