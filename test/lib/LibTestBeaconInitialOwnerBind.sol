@@ -7,6 +7,7 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 
 import {StoxGovernanceTimelock} from "../../src/concrete/StoxGovernanceTimelock.sol";
@@ -20,10 +21,10 @@ library LibTestBeaconInitialOwnerBind {
     /// @notice Deploys the governance timelock with `safe` as its proposer.
     /// @return The deployed timelock.
     function deployTimelock(Vm vm, address safe) internal returns (address) {
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
             .registerV5(
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
                 "address",
                 abi.encode(safe),
@@ -34,7 +35,7 @@ library LibTestBeaconInitialOwnerBind {
 
     /// @notice The root approves `safe` to bind the beacon initial owner.
     function approveSafe(Vm vm, address safe) internal {
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
             .approveV5(LibStoxConfig.BEACON_INITIAL_OWNER_NAME, safe);
     }

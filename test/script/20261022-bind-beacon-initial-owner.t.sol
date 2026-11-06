@@ -12,6 +12,7 @@ import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.so
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
@@ -164,9 +165,13 @@ contract BindBeaconInitialOwnerTest is Test {
         address other = address(0xBEEF);
         (BindBeaconInitialOwnerHarness script,) = executedOnFork("other-timelock");
         vm.warp(block.timestamp + 1);
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         CONFIG_REGISTRY.registerV5(
-            LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(other), ""
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(other),
+            ""
         );
         vm.expectRevert(
             abi.encodeWithSelector(BeaconInitialOwnerBindingMismatch.selector, abi.encode(other), block.timestamp)
@@ -192,9 +197,9 @@ contract BindBeaconInitialOwnerTest is Test {
         (BindBeaconInitialOwnerHarness script,) = executedOnFork("record-block");
         uint256 recordedAt = block.timestamp;
         vm.warp(recordedAt + 1);
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         CONFIG_REGISTRY.registerV5(
-            LibStoxConfig.ROOT_AUTHORITY,
+            LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
             "address",
             abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK),
