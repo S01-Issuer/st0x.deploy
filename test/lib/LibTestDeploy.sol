@@ -103,7 +103,9 @@ library LibTestDeploy {
     /// initial owner to `owner`.
     function bindBeaconInitialOwner(Vm vm, address owner) internal {
         etchConfigRegistry(vm);
-        bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner));
+        bind(
+            vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner)
+        );
     }
 
     /// The pinned clone factory.

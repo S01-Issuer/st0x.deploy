@@ -46,9 +46,10 @@ over once it is ready. The live orchestrator and its beacon are not upgraded in
 place. The new one has its own beacon, because different code needs a different
 beacon.
 
-Its admin is read from the `ConfigRegistry` under `LibStoxConfig.ROOT_AUTHORITY`
-rather than compiled in or passed by the deployer, so the creation code is
-chain-invariant and no migration bundle moves admin power:
+Its admin is read from the `ConfigRegistry` under
+`LibRegistryAuthority.ROOT_AUTHORITY` rather than compiled in or passed by the
+deployer, so the creation code is chain-invariant and no migration bundle moves
+admin power:
 
 - **Beacon.** `ST0xOrchestratorBeacon` is a Zoltu-deployed `UpgradeableBeacon`
   serving `LibProdDeployCurrent.ST0X_ORCHESTRATOR`, owned by the registry-bound

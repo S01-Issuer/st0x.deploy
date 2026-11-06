@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyTarget
@@ -44,7 +45,7 @@ library LibTestOrchestratorDeploy {
         vm.etch(target.factory, CLONE_FACTORY_RUNTIME_CODE);
         LibTestDeploy.bind(
             vm,
-            LibStoxConfig.ROOT_AUTHORITY,
+            LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.ORCHESTRATOR_BEACON_NAME,
             "address",
             abi.encode(target.beacon)
