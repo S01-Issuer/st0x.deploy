@@ -16,7 +16,7 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title LibTestRootLine
 /// @notice A local `MigrationRegistry` and writes on the root line
-/// (`ROOT_AUTHORITY`, `LibStoxMigrations.NAMESPACE`).
+/// (`LibRegistryAuthority.ROOT_AUTHORITY`, `LibStoxMigrations.NAMESPACE`).
 library LibTestRootLine {
     function etchRegistry(Vm vm) internal {
         vm.etch(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, MIGRATION_REGISTRY_RUNTIME_CODE);

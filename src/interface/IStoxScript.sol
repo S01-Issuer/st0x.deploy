@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-/// @notice A script's record on the root line (`ROOT_AUTHORITY`,
+/// @notice A script's record on the root line (`LibRegistryAuthority.ROOT_AUTHORITY`,
 /// `LibStoxMigrations.NAMESPACE`): its id, the head it is applied onto, and
 /// whether it is recorded later as history.
 struct ScriptDeclaration {

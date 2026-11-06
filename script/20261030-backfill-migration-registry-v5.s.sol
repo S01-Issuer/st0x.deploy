@@ -109,7 +109,7 @@ struct BackfillRecord {
 
 /// @title BackfillMigrationRegistryV5
 /// @notice Authors the per-chain Safe Tx Builder bundle that writes the
-/// chain's history onto the V5 root line (`ROOT_AUTHORITY`,
+/// chain's history onto the V5 root line (`LibRegistryAuthority.ROOT_AUTHORITY`,
 /// `LibStoxMigrations.NAMESPACE`), each history record at its script's
 /// `IStoxHistoryMigration.executedAt`:
 ///
