@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
@@ -20,11 +21,19 @@ contract LibStoxConfigTest is Test {
 
     function testFuzzBeaconInitialOwnerFollowsBinding(address first, address second) external {
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(first)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(first)
         );
         assertEq(harness.beaconInitialOwner(), first);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(second)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(second)
         );
         assertEq(harness.beaconInitialOwner(), second);
     }
@@ -33,7 +42,7 @@ contract LibStoxConfigTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
@@ -41,14 +50,14 @@ contract LibStoxConfigTest is Test {
     }
 
     function testFuzzBeaconInitialOwnerIgnoresOtherAuthority(address authority, address owner) external {
-        vm.assume(authority != LibStoxConfig.ROOT_AUTHORITY);
+        vm.assume(authority != LibRegistryAuthority.ROOT_AUTHORITY);
         vm.prank(authority);
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
             .registerV5(authority, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner), "");
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
@@ -57,13 +66,13 @@ contract LibStoxConfigTest is Test {
 
     function testFuzzBeaconInitialOwnerIgnoresOtherName(bytes32 name, address owner) external {
         vm.assume(name != LibStoxConfig.BEACON_INITIAL_OWNER_NAME);
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .registerV5(LibStoxConfig.ROOT_AUTHORITY, name, "address", abi.encode(owner), "");
+            .registerV5(LibRegistryAuthority.ROOT_AUTHORITY, name, "address", abi.encode(owner), "");
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.BEACON_INITIAL_OWNER_NAME
             )
         );
