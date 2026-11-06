@@ -179,31 +179,40 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
-            uint256 id = nets[c].chainId;
             uint256 snapshot = vm.snapshotState();
-            LibLocalProdState.beacons(vm, id);
-            (address[] memory targets,, bytes[] memory payloads) = LibUnderlyingNamingRollout.beaconBatch(id);
+            LibLocalProdState.beacons(vm, nets[c].chainId);
+            (address[] memory targets,, bytes[] memory payloads) =
+                LibUnderlyingNamingRollout.beaconBatch(nets[c].chainId);
             vm.revertToState(snapshot);
             string memory list = string.concat(chain(nets[c]), ".beacons");
             uint256 upgraded = 0;
             for (uint256 i = 0; i < 4; i++) {
-                string memory row = index(list, i);
-                address beacon = vm.parseJsonAddress(json, string.concat(row, ".beacon"));
-                address renamed = vm.parseJsonAddress(json, string.concat(row, ".renamedImplementation"));
-                bool targeted = false;
-                for (uint256 k = 0; k < targets.length; k++) {
-                    if (targets[k] == beacon) {
-                        assertEq(payloads[k], abi.encodeCall(UpgradeableBeacon.upgradeTo, (renamed)));
-                        targeted = true;
-                        upgraded++;
-                    }
-                }
-                if (!targeted) {
-                    assertEq(renamed, vm.parseJsonAddress(json, string.concat(row, ".implementation")));
-                }
+                upgraded += assertRenamedImplementation(json, index(list, i), targets, payloads);
             }
             assertEq(upgraded, 2);
         }
+    }
+
+    /// The number of beacon batch calls that upgrade the row's beacon, each to its `renamedImplementation`.
+    function assertRenamedImplementation(
+        string memory json,
+        string memory row,
+        address[] memory targets,
+        bytes[] memory payloads
+    ) internal pure returns (uint256) {
+        address beacon = vm.parseJsonAddress(json, string.concat(row, ".beacon"));
+        address renamed = vm.parseJsonAddress(json, string.concat(row, ".renamedImplementation"));
+        uint256 upgrades = 0;
+        for (uint256 k = 0; k < targets.length; k++) {
+            if (targets[k] == beacon) {
+                assertEq(payloads[k], abi.encodeCall(UpgradeableBeacon.upgradeTo, (renamed)));
+                upgrades++;
+            }
+        }
+        if (upgrades == 0) {
+            assertEq(renamed, vm.parseJsonAddress(json, string.concat(row, ".implementation")));
+        }
+        return upgrades;
     }
 
     /// Every address is concrete: the zero address appears only as each chain's Safe guard.
