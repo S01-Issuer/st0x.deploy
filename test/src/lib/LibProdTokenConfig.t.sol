@@ -42,14 +42,14 @@ contract LibProdTokenConfigTest is Test {
         }
     }
 
-    /// Every row's symbol is "t" + its underlying key, so a `setUnderlying`
-    /// batch that takes the ticker from `underlying` leaves each receipt
-    /// vault's `symbol()` unchanged.
+    /// a `setUnderlying` batch that takes the ticker from `underlying` leaves
+    /// each receipt vault's `symbol()` unchanged.
     function testSymbolIsTPlusUnderlying() external pure {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         assertGt(configs.length, 0);
         for (uint256 rowIndex = 0; rowIndex < configs.length; rowIndex++) {
             assertGt(bytes(configs[rowIndex].underlying).length, 0, "empty underlying");
+            assertGt(bytes(configs[rowIndex].name).length, 0, configs[rowIndex].underlying);
             assertEq(
                 configs[rowIndex].symbol, string.concat("t", configs[rowIndex].underlying), configs[rowIndex].underlying
             );

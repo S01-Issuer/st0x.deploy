@@ -9,7 +9,7 @@ import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
-error GovernanceSafeMismatch(address bound, address expected);
+error TimelockInitialProposerMismatch(address bound, address expected);
 
 /// @title Deploy
 /// @notice `RainDeployBroadcast` over `StoxDeploySuites`: broadcasts the suite
@@ -22,10 +22,10 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         override
     {
         if (keccak256(bytes(suite.suite)) == keccak256(bytes(GOVERNANCE_TIMELOCK))) {
-            address bound = LibStoxConfig.governanceSafe();
+            address bound = LibStoxConfig.timelockInitialProposer();
             address expected = LibSafeInvariants.safeForChainId(block.chainid);
             if (bound != expected) {
-                revert GovernanceSafeMismatch(bound, expected);
+                revert TimelockInitialProposerMismatch(bound, expected);
             }
         }
     }

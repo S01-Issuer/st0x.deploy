@@ -121,7 +121,7 @@ library LibUnderlyingNamingRollout {
     bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = true;
 
     /// @notice How many leading rows of each chain's production token table
-    /// this rollout renames: every row today, on every chain. Fixed, so the
+    /// this rollout renames: tMSTR to tDIS, on every chain. Fixed, so the
     /// rename operation's id does not move when a table grows once the batch
     /// is scheduled; a token added later gets its own `setUnderlying`
     /// operation.
