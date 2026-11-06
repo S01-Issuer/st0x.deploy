@@ -40,7 +40,7 @@ import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
-import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintBucketV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
+import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.10/src/interface/ICloneableV2.sol";
@@ -191,15 +191,13 @@ contract ST0xOrchestrator is
         EvaluableV4 mintWeighting;
     }
 
-    /// @dev One cap: a policy and the bucket metered under it. A bucket is
-    /// two words, `(level, timestamp)`, and two zero words are an unused
-    /// bucket. Live storage holds the members in this order; they are never
-    /// reordered.
-    /// @param limit The policy, as set.
-    /// @param bucket The bucket under `limit`.
+    /// @dev One cap. Live storage holds the members in this order; they are
+    /// never reordered.
+    /// @param bucket The bucket and its policy, as `LibLeakyBucket` stores it.
+    /// @param set True once a limit has been written (see `MintLimitV1`).
     struct MintCapV1 {
-        MintLimitV1 limit;
-        MintBucketV1 bucket;
+        LeakyBucket bucket;
+        bool set;
     }
 
     // keccak256(abi.encode(uint256(keccak256("st0x.orchestrator.main")) - 1)) & ~bytes32(uint256(0xff))
@@ -349,16 +347,14 @@ contract ST0xOrchestrator is
         MainStorage storage $ = _main();
         MintCapV1 storage minterCap = $.minterMintCaps[_minter()];
         MintCapV1 storage recipientCap = $.recipientMintCaps[to];
-        MintLimitV1 memory minterLimit = minterCap.limit;
-        if (!minterLimit.set) revert MinterMintLimitUnset(_minter());
-        MintLimitV1 memory recipientLimit = recipientCap.limit;
-        if (!recipientLimit.set) revert RecipientMintLimitUnset(to);
+        if (!minterCap.set) revert MinterMintLimitUnset(_minter());
+        if (!recipientCap.set) revert RecipientMintLimitUnset(to);
 
         // The buckets meter the weighted charge, never the raw amount.
         Float charge = _weighMint($, token, amount, signedContext);
         Float timestamp = _now();
-        _fillMintCap(minterCap, minterLimit, _minter(), timestamp, charge);
-        _fillMintCap(recipientCap, recipientLimit, to, timestamp, charge);
+        _fillMintCap(minterCap, _minter(), timestamp, charge);
+        _fillMintCap(recipientCap, to, timestamp, charge);
     }
 
     /// @dev Evaluate the mint weighting over this mint and its signed context
@@ -426,22 +422,15 @@ contract ST0xOrchestrator is
     /// of `_consumeMintCaps` to keep that frame within stack limits.
     // The bucket write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
-    function _fillMintCap(
-        MintCapV1 storage cap,
-        MintLimitV1 memory limit,
-        address account,
-        Float timestamp,
-        Float charge
-    ) internal {
-        LeakyBucket memory bucket = _bucket(cap.bucket, limit);
+    function _fillMintCap(MintCapV1 storage cap, address account, Float timestamp, Float charge) internal {
+        LeakyBucket memory bucket = cap.bucket;
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
         if (charge.gt(headroom)) {
-            if (account == _minter()) revert MinterMintCapExceeded(account, limit.capacity, headroom, charge);
-            revert RecipientMintCapExceeded(account, limit.capacity, headroom, charge);
+            if (account == _minter()) revert MinterMintCapExceeded(account, bucket.capacity, headroom, charge);
+            revert RecipientMintCapExceeded(account, bucket.capacity, headroom, charge);
         }
 
-        (Float level, Float checkpoint) = LibLeakyBucket.fill(bucket, timestamp, charge);
-        cap.bucket = MintBucketV1({level: level, timestamp: checkpoint});
+        (cap.bucket.level, cap.bucket.timestamp) = LibLeakyBucket.fill(bucket, timestamp, charge);
     }
 
     /// @dev Settle `cap`'s bucket at its stored rate up to now, then store the
@@ -450,16 +439,12 @@ contract ST0xOrchestrator is
     function _setMintLimit(MintCapV1 storage cap, Float capacity, Float leakRate) internal {
         if (capacity.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitCapacity(capacity);
         if (leakRate.lt(LibDecimalFloat.FLOAT_ZERO)) revert NegativeMintLimitLeakRate(leakRate);
-        LeakyBucket memory bucket = LibLeakyBucket.setPolicy(_bucket(cap.bucket, cap.limit), _now(), capacity, leakRate);
-        cap.bucket = MintBucketV1({level: bucket.level, timestamp: bucket.timestamp});
-        cap.limit = MintLimitV1({capacity: bucket.capacity, leakRate: bucket.leakRate, set: true});
+        cap.bucket = LibLeakyBucket.setPolicy(cap.bucket, _now(), capacity, leakRate);
+        cap.set = true;
     }
 
-    /// @dev A stored bucket under a limit, as the library takes it.
-    function _bucket(MintBucketV1 memory stored, MintLimitV1 memory limit) internal pure returns (LeakyBucket memory) {
-        return LeakyBucket({
-            level: stored.level, timestamp: stored.timestamp, capacity: limit.capacity, leakRate: limit.leakRate
-        });
+    function _mintLimit(MintCapV1 storage cap) internal view returns (MintLimitV1 memory) {
+        return MintLimitV1({capacity: cap.bucket.capacity, leakRate: cap.bucket.leakRate, set: cap.set});
     }
 
     /// @dev `block.timestamp` as the library's clock: seconds, at exponent
@@ -643,12 +628,12 @@ contract ST0xOrchestrator is
 
     /// @inheritdoc IST0xOrchestratorV2
     function minterMintLimit(address minter) external view returns (MintLimitV1 memory) {
-        return _main().minterMintCaps[minter].limit;
+        return _mintLimit(_main().minterMintCaps[minter]);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
     function recipientMintLimit(address recipient) external view returns (MintLimitV1 memory) {
-        return _main().recipientMintCaps[recipient].limit;
+        return _mintLimit(_main().recipientMintCaps[recipient]);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -664,14 +649,12 @@ contract ST0xOrchestrator is
         MintCapV1 storage minterCap = $.minterMintCaps[minter];
         MintCapV1 storage recipientCap = $.recipientMintCaps[recipient];
 
-        MintLimitV1 memory minterLimit = minterCap.limit;
-        if (!minterLimit.set) return LibDecimalFloat.FLOAT_ZERO;
-        MintLimitV1 memory recipientLimit = recipientCap.limit;
-        if (!recipientLimit.set) return LibDecimalFloat.FLOAT_ZERO;
+        if (!minterCap.set) return LibDecimalFloat.FLOAT_ZERO;
+        if (!recipientCap.set) return LibDecimalFloat.FLOAT_ZERO;
 
         Float timestamp = _now();
-        Float minterHeadroom = LibLeakyBucket.headroomAt(_bucket(minterCap.bucket, minterLimit), timestamp);
-        Float recipientHeadroom = LibLeakyBucket.headroomAt(_bucket(recipientCap.bucket, recipientLimit), timestamp);
+        Float minterHeadroom = LibLeakyBucket.headroomAt(minterCap.bucket, timestamp);
+        Float recipientHeadroom = LibLeakyBucket.headroomAt(recipientCap.bucket, timestamp);
 
         return LibDecimalFloat.min(minterHeadroom, recipientHeadroom);
     }
@@ -679,13 +662,13 @@ contract ST0xOrchestrator is
     /// @inheritdoc IST0xOrchestratorV2
     function minterMintLevel(address minter) external view returns (Float) {
         MintCapV1 storage cap = _main().minterMintCaps[minter];
-        return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
+        return LibLeakyBucket.levelAt(cap.bucket, _now());
     }
 
     /// @inheritdoc IST0xOrchestratorV2
     function recipientMintLevel(address recipient) external view returns (Float) {
         MintCapV1 storage cap = _main().recipientMintCaps[recipient];
-        return LibLeakyBucket.levelAt(_bucket(cap.bucket, cap.limit), _now());
+        return LibLeakyBucket.levelAt(cap.bucket, _now());
     }
 
     // ------------------------------------------------------------------ //

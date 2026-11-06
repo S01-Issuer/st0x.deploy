@@ -23,16 +23,6 @@ struct MintLimitV1 {
     bool set;
 }
 
-/// @dev A mint bucket: the leaky-bucket state for one cap, two words. A zero
-/// level at a zero timestamp is an empty bucket at the epoch. The orchestrator
-/// stores both words on every fill.
-/// @param level The outstanding level at `timestamp`.
-/// @param timestamp When `level` was recorded, in seconds.
-struct MintBucketV1 {
-    Float level;
-    Float timestamp;
-}
-
 /// @title IST0xOrchestratorV2
 /// @notice Full external interface of the ST0x orchestrator, the singleton
 /// mint/burn proxy for the ST0x receipt-vault set. Supersedes
