@@ -17,8 +17,6 @@ import {
     ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
 } from "../../../src/concrete/ST0xOrchestrator.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
-import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {
     BeaconNotDeployed,
     BeaconCodehashMismatch,
@@ -29,26 +27,23 @@ import {
     LibOrchestratorInvariants,
     OrchestratorInstanceMissing,
     OrchestratorRoleMissing,
-    OrchestratorUnexpectedRoleHolder,
     OrchestratorRoleAdminUnexpected
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTestOrchestratorDeploy} from "../../lib/LibTestOrchestratorDeploy.sol";
 
-/// @title LibOrchestratorInvariantsTest
+/// @title LibOrchestratorInvariantsMintCapsTest
 /// @notice The mint-caps orchestrator invariants against a local deploy that
 /// matches production: the current-release orchestrator and its beacon
-/// Zoltu-deployed on Base, then the instance the production deploy step
-/// creates. Green on that deploy, and each holder, wiring or address
-/// deviation reverts with its own typed error.
+/// Zoltu-deployed, then the instance the production deploy step creates, the
+/// governance timelock bound as beacon initial owner and initial admin. Green
+/// on that deploy, and each expected-grant, wiring or address deviation
+/// reverts with its own typed error.
 contract LibOrchestratorInvariantsMintCapsTest is Test {
-    /// @notice Stand-in for the chain's token-owner Safe; the invariants only
-    /// read its role membership.
-    address internal constant SAFE = address(0x5aFe00000000000000000000000000000000aAaa);
-
     /// @notice OZ `AccessControlUpgradeable`'s ERC-7201 storage slot.
-    bytes32 internal constant ACCESS_CONTROL_SLOT = 0x02dd7bc7dec4dceedda775e58dd541e08a116c6c53815c0bd028192f7b626800;
+    bytes32 internal constant ACCESS_CONTROL_SLOT =
+        keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.AccessControl")) - 1)) & ~bytes32(uint256(0xff));
 
     LibOrchestratorInvariantsHarness internal harness;
     address internal timelock;
@@ -56,9 +51,9 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
     address internal deployedBeacon;
 
     function setUp() external {
-        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         harness = new LibOrchestratorInvariantsHarness();
-        timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
+        LibTestDeploy.bindBeaconInitialOwner(vm, timelock);
         LibTestDeploy.bindOrchestratorInitialAdmin(vm, timelock);
         deployKey = LibProdDeployCurrent.BEACON_INITIAL_OWNER;
 
@@ -132,6 +127,14 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         harness.callAssertMintCapsBeaconSet();
     }
 
+    function testAssertMintCapsBeaconSetRevertsOnRenouncedOwner() external {
+        address beacon = LibOrchestratorInvariants.mintCapsBeacon();
+        vm.prank(timelock);
+        UpgradeableBeacon(beacon).renounceOwnership();
+        vm.expectRevert(abi.encodeWithSelector(BeaconOwnerMismatch.selector, beacon, timelock, address(0)));
+        harness.callAssertMintCapsBeaconSet();
+    }
+
     function testAssertMintCapsBeaconSetRevertsOnOtherImplementation() external {
         address beacon = LibOrchestratorInvariants.mintCapsBeacon();
         address other = address(new ST0xOrchestrator());
@@ -147,23 +150,26 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
 
     function testAssertMintCapsInstancePasses() external {
         deployInstance();
-        harness.callAssertMintCapsInstance(SAFE);
+        harness.callAssertMintCapsInstance();
     }
 
-    /// @notice The Safe may hold `EMERGENCY_ROLE`: it is an operating role
-    /// the timelock can grant it.
-    function testAssertMintCapsInstanceAllowsSafeEmergencyRole() external {
+    /// @notice Expected-only: a grant beyond the expected pairs, of any role to
+    /// any account, does not fail.
+    function testFuzzAssertMintCapsInstanceIgnoresUnexpectedHolders(uint256 index, address holder) external {
         IAccessControl acl = deployInstance();
+        bytes32[4] memory admins = adminRoles();
+        bytes32[3] memory operating = operatingRoles();
+        bytes32[7] memory roles = [admins[0], admins[1], admins[2], admins[3], operating[0], operating[1], operating[2]];
         vm.prank(timelock);
-        acl.grantRole(ORCHESTRATOR_EMERGENCY_ROLE, SAFE);
-        harness.callAssertMintCapsInstance(SAFE);
+        acl.grantRole(roles[index % 7], holder);
+        harness.callAssertMintCapsInstance();
     }
 
     function testAssertMintCapsInstanceRevertsWhenMissing() external {
         vm.expectRevert(
             abi.encodeWithSelector(OrchestratorInstanceMissing.selector, LibOrchestratorInvariants.mintCapsInstance())
         );
-        harness.callAssertMintCapsInstance(SAFE);
+        harness.callAssertMintCapsInstance();
     }
 
     /// @notice The timelock losing any admin role fails, naming that role.
@@ -173,41 +179,7 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         vm.prank(timelock);
         acl.revokeRole(role, timelock);
         vm.expectRevert(abi.encodeWithSelector(OrchestratorRoleMissing.selector, address(acl), role, timelock));
-        harness.callAssertMintCapsInstance(SAFE);
-    }
-
-    /// @notice The Safe or the deploy key holding any admin role fails,
-    /// naming that holder and role.
-    function testFuzzAssertMintCapsInstanceRevertsOnOtherAdminHolder(uint256 index, bool safe) external {
-        IAccessControl acl = deployInstance();
-        bytes32 role = adminRoles()[index % 4];
-        address holder = safe ? SAFE : deployKey;
-        vm.prank(timelock);
-        acl.grantRole(role, holder);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorUnexpectedRoleHolder.selector, address(acl), role, holder));
-        harness.callAssertMintCapsInstance(SAFE);
-    }
-
-    /// @notice The timelock or the deploy key holding any operating role
-    /// fails, naming that holder and role.
-    function testFuzzAssertMintCapsInstanceRevertsOnOperatingRoleHolder(uint256 index, bool isTimelock) external {
-        IAccessControl acl = deployInstance();
-        bytes32 role = operatingRoles()[index % 3];
-        address holder = isTimelock ? timelock : deployKey;
-        vm.prank(timelock);
-        acl.grantRole(role, holder);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorUnexpectedRoleHolder.selector, address(acl), role, holder));
-        harness.callAssertMintCapsInstance(SAFE);
-    }
-
-    /// @notice The Safe holding `MINT_ROLE` or `BURN_ROLE` fails.
-    function testFuzzAssertMintCapsInstanceRevertsOnSafeMintOrBurn(bool mint) external {
-        IAccessControl acl = deployInstance();
-        bytes32 role = operatingRoles()[mint ? 0 : 1];
-        vm.prank(timelock);
-        acl.grantRole(role, SAFE);
-        vm.expectRevert(abi.encodeWithSelector(OrchestratorUnexpectedRoleHolder.selector, address(acl), role, SAFE));
-        harness.callAssertMintCapsInstance(SAFE);
+        harness.callAssertMintCapsInstance();
     }
 
     /// @notice Every role's admin is pinned: rewiring any one of the seven to
@@ -227,6 +199,6 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
                 OrchestratorRoleAdminUnexpected.selector, address(acl), roles[index], expected[index], wrongAdmin
             )
         );
-        harness.callAssertMintCapsInstance(SAFE);
+        harness.callAssertMintCapsInstance();
     }
 }

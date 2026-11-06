@@ -20,7 +20,7 @@ contract LibOrchestratorInvariantsHarness {
         LibOrchestratorInvariants.assertMintCapsBeaconSet();
     }
 
-    function callAssertMintCapsInstance(address chainSafe) external view {
-        LibOrchestratorInvariants.assertMintCapsInstance(chainSafe);
+    function callAssertMintCapsInstance() external view {
+        LibOrchestratorInvariants.assertMintCapsInstance();
     }
 }

@@ -98,6 +98,13 @@ library LibTestDeploy {
         );
     }
 
+    /// The pinned ConfigRegistry, with the root authority binding the beacon
+    /// initial owner to `owner`.
+    function bindBeaconInitialOwner(Vm vm, address owner) internal {
+        etchConfigRegistry(vm);
+        bind(vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, "address", abi.encode(owner));
+    }
+
     /// The pinned clone factory.
     function factory() internal pure returns (ICloneableFactoryV7) {
         return ICloneableFactoryV7(CLONE_FACTORY_ADDRESS);
