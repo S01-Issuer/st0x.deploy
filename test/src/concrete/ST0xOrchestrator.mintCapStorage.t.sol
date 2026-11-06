@@ -57,31 +57,18 @@ contract ST0xOrchestratorMintCapStorageTest is ST0xOrchestratorMintWeightingFixt
         return LibDecimalFloat.fromFixedDecimalLosslessPacked(block.timestamp, 0);
     }
 
-    /// After `setMintLimit` and a weighted mint, the cap's five words are the
-    /// bucket `LibLeakyBucket` computes, the policy `mintLimit` reports and a
-    /// set flag of one.
-    function testFuzzMintCapStorageLayout(
-        uint256 kindSeed,
+    /// Set `account`'s `kind` cap to `capacity` and `leakRate`, warp
+    /// `elapsed`, then mint `amount` with `account` on the `kind` side and
+    /// the other side unbounded. Returns the bucket `LibLeakyBucket` computes
+    /// for the same steps.
+    function _setAndMint(
+        MintCapKind kind,
         address account,
         uint256 amount,
-        uint256 spareCapacity,
-        uint256 leakRateUnits,
+        Float capacity,
+        Float leakRate,
         uint256 elapsed
-    ) external {
-        MintCapKind kind = _kind(kindSeed);
-        assumeNotPrecompile(account);
-        assumeNotForgeAddress(account);
-        vm.assume(account.code.length == 0);
-        vm.assume(account != MINTER);
-        amount = bound(amount, 1, 1e40);
-        spareCapacity = bound(spareCapacity, 0, 1e40);
-        leakRateUnits = bound(leakRateUnits, 0, 1e40);
-        elapsed = bound(elapsed, 0, 1e9);
-
-        Float capacity = LibDecimalFloat.packLossless(int256(amount + spareCapacity), -18);
-        Float leakRate = LibDecimalFloat.packLossless(int256(leakRateUnits), -18);
-        Float charge = LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, TOKEN_DECIMALS);
-
+    ) internal returns (LeakyBucket memory) {
         address minter = kind == MintCapKind.Minter ? account : MINTER;
         address to = kind == MintCapKind.Recipient ? account : address(recipient);
         if (kind == MintCapKind.Recipient) vm.etch(account, address(recipient).code);
@@ -107,13 +94,42 @@ contract ST0xOrchestratorMintCapStorageTest is ST0xOrchestratorMintWeightingFixt
         orchestrator.mint(
             TOKEN, to, amount, MintAuthV1({nonce: keccak256("pin"), signature: ""}), "", new SignedContextV2[](0)
         );
-        (expected.level, expected.timestamp) = LibLeakyBucket.fill(expected, _now(), charge);
+        (expected.level, expected.timestamp) = LibLeakyBucket.fill(
+            expected, _now(), LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, TOKEN_DECIMALS)
+        );
+        return expected;
+    }
 
+    /// After `setMintLimit` and a weighted mint, the cap's five words are the
+    /// bucket `LibLeakyBucket` computes, the policy `mintLimit` reports and a
+    /// set flag of one.
+    function testFuzzMintCapStorageLayout(
+        uint256 kindSeed,
+        address account,
+        uint256 amount,
+        uint256 spareCapacity,
+        uint256 leakRateUnits,
+        uint256 elapsed
+    ) external {
+        MintCapKind kind = _kind(kindSeed);
+        assumeNotPrecompile(account);
+        assumeNotForgeAddress(account);
+        vm.assume(account.code.length == 0);
+        vm.assume(account != MINTER);
+        amount = bound(amount, 1, 1e40);
+        Float capacity = LibDecimalFloat.packLossless(int256(amount + bound(spareCapacity, 0, 1e40)), -18);
+        Float leakRate = LibDecimalFloat.packLossless(int256(bound(leakRateUnits, 0, 1e40)), -18);
+
+        LeakyBucket memory expected = _setAndMint(kind, account, amount, capacity, leakRate, bound(elapsed, 0, 1e9));
         bytes32[5] memory words = _capWords(kind, account);
         MintLimitV1 memory limit = orchestrator.mintLimit(kind, account);
 
         assertEq(words[0], Float.unwrap(expected.level), "level is the library's fill");
-        _assertFloatEq(Float.wrap(words[0]), charge, "level is the charge");
+        _assertFloatEq(
+            Float.wrap(words[0]),
+            LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, TOKEN_DECIMALS),
+            "level is the charge"
+        );
         _assertFloatEq(Float.wrap(words[0]), orchestrator.mintLevel(kind, account), "level is mintLevel");
 
         assertEq(words[1], Float.unwrap(expected.timestamp), "timestamp is the library's fill");
