@@ -6,20 +6,17 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {ExecuteUnderlyingNaming} from "../../script/20261021-execute-underlying-naming.s.sol";
 
-/// @dev Exposes the script's hooks and gives each test its own artifact path.
+/// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
 contract ExecuteUnderlyingNamingHarness is ExecuteUnderlyingNaming {
     string internal sArtifactTag;
 
-    /// @param artifactTag Suffixes this instance's artifact path.
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
     }
 
     /// @inheritdoc ExecuteUnderlyingNaming
     function artifactPath() internal view override returns (string memory) {
-        return string.concat(
-            "out/20261021-execute-underlying-naming-record-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
-        );
+        return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
     }
 
     function callPreflight() external view {
@@ -30,11 +27,11 @@ contract ExecuteUnderlyingNamingHarness is ExecuteUnderlyingNaming {
         return authorBundle();
     }
 
-    function callArtifactPath() external view returns (string memory) {
-        return artifactPath();
-    }
-
     function callAssertPostState() external view {
         assertPostState();
+    }
+
+    function callArtifactPath() external view returns (string memory) {
+        return artifactPath();
     }
 }
