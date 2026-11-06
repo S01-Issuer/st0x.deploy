@@ -37,6 +37,9 @@ import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariant
 import {LibTokenMetadata} from "../../src/lib/LibTokenMetadata.sol";
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
+/// @notice No `zoltu` row carries the key.
+error ZoltuRowMissing(string key);
+
 contract BuildExpectedStateTest is Test {
     BuildExpectedState internal build = new BuildExpectedState();
 
@@ -314,7 +317,7 @@ contract BuildExpectedStateTest is Test {
             assertFalse(vm.keyExistsJson(json, index(list, tokens.length)));
             for (uint256 i = 0; i < tokens.length; i++) {
                 string memory row = index(list, i);
-                TokenConfig memory config = configOf(tokens[i].underlying);
+                TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".underlying")), tokens[i].underlying);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".name")), config.name);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".symbol")), config.symbol);
@@ -367,7 +370,10 @@ contract BuildExpectedStateTest is Test {
             string memory list = string.concat(chain(nets[c]), ".tokens");
             for (uint256 i = 0; i < tokens.length; i++) {
                 assertTokenMetadata(
-                    json, index(list, i), configOf(tokens[i].underlying), LibUnderlyingNamingRollout.renamesRow(i)
+                    json,
+                    index(list, i),
+                    LibProdTokenConfig.configOf(tokens[i].underlying),
+                    LibUnderlyingNamingRollout.renamesRow(i)
                 );
             }
         }
@@ -713,17 +719,7 @@ contract BuildExpectedStateTest is Test {
                 return vm.parseJsonAddress(json, string.concat(row, ".address"));
             }
         }
-        revert(string.concat("no zoltu row ", key));
-    }
-
-    function configOf(string memory underlying) internal pure returns (TokenConfig memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        for (uint256 i = 0; i < configs.length; i++) {
-            if (keccak256(bytes(configs[i].underlying)) == keccak256(bytes(underlying))) {
-                return configs[i];
-            }
-        }
-        revert("no config");
+        revert ZoltuRowMissing(key);
     }
 
     function assertKeys(string memory json, string memory at, string[] memory expected) internal view {
