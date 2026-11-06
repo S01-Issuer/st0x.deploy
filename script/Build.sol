@@ -101,10 +101,10 @@ contract Build is Script, StoxDeploySuites {
                 abi.encode(address(1)),
                 ""
             );
-        vm.prank(LibStoxConfig.ROOT_AUTHORITY);
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS)
             .registerV5(
-                LibStoxConfig.ROOT_AUTHORITY,
+                LibRegistryAuthority.ROOT_AUTHORITY,
                 LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
                 "address",
                 abi.encode(address(1)),

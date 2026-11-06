@@ -25,7 +25,7 @@ contract StoxDeploySnapshotTest is StoxDeploySuites, RainDeployVerifySnapshot {
         );
         LibTestDeploy.bind(
             vm,
-            LibStoxConfig.ROOT_AUTHORITY,
+            LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
             "address",
             abi.encode(address(0xBEAC0))
