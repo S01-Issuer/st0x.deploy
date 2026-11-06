@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {ERC1167_PREFIX, ERC1167_SUFFIX} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1167Proxy.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
@@ -52,7 +53,7 @@ contract LibProdDeployV4Test is Test {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
             vm,
-            LibStoxConfig.ROOT_AUTHORITY,
+            LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
             "address",
             abi.encode(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK)

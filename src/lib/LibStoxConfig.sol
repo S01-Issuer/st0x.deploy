@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
 error ZeroOrchestratorInitialAdmin();
 
@@ -11,9 +12,6 @@ error ZeroOrchestratorInitialAdmin();
 /// root authority: the same account on every chain, so a consumer's creation
 /// code is chain-invariant while each chain binds its own value.
 library LibStoxConfig {
-    /// @notice The authority every st0x binding is read under.
-    address internal constant ROOT_AUTHORITY = address(0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c);
-
     /// @notice `abi.encode(address)`: the beacon production tokens proxy.
     bytes32 internal constant VAULT_BEACON_NAME = keccak256("st0x.vault-beacon.v1");
 
@@ -33,8 +31,9 @@ library LibStoxConfig {
     /// @return The beacon initial owner.
     function beaconInitialOwner() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) =
-            LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_INITIAL_OWNER_NAME, keccak256("address"));
+        (bytes memory value,) = LibConfigRegistry.resolve(
+            LibRegistryAuthority.ROOT_AUTHORITY, BEACON_INITIAL_OWNER_NAME, keccak256("address")
+        );
         return abi.decode(value, (address));
     }
 
@@ -45,8 +44,9 @@ library LibStoxConfig {
     /// @return The timelock's initial proposer; reverts while unbound.
     function timelockInitialProposer() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) =
-            LibConfigRegistry.resolve(ROOT_AUTHORITY, TIMELOCK_INITIAL_PROPOSER_NAME, keccak256("address"));
+        (bytes memory value,) = LibConfigRegistry.resolve(
+            LibRegistryAuthority.ROOT_AUTHORITY, TIMELOCK_INITIAL_PROPOSER_NAME, keccak256("address")
+        );
         return abi.decode(value, (address));
     }
 
