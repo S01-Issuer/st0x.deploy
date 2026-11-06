@@ -61,13 +61,20 @@ contract StoxCorporateActionsFacetTest is Test {
         vm.warp(1000);
     }
 
-    /// completedActionCount returns 0 when no actions exist.
-    function testCompletedActionCountInitiallyZero() external view {
-        assertEq(facetViaHarness.completedActionCount(), 0);
+    /// Schedule a stock split as ALICE through the facet, so the node lands in
+    /// the storage namespace the facet's views read.
+    function _scheduleSplitViaFacet(Float multiplier, uint64 effectiveTime) internal returns (uint256) {
+        bytes memory parameters = LibStockSplit.encodeParametersV1(multiplier);
+        vm.prank(ALICE);
+        return facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
     }
 
-    /// Facet routing via delegatecall works.
-    function testFacetRoutingViaDelegatecall() external view {
+    function _scheduleSplitViaFacet(int256 multiplier, uint64 effectiveTime) internal returns (uint256) {
+        return _scheduleSplitViaFacet(LibDecimalFloat.packLossless(multiplier, 0), effectiveTime);
+    }
+
+    /// completedActionCount returns 0 when no actions exist.
+    function testCompletedActionCountInitiallyZero() external view {
         assertEq(facetViaHarness.completedActionCount(), 0);
     }
 
@@ -178,53 +185,33 @@ contract StoxCorporateActionsFacetTest is Test {
     // `FacetMustBeDelegatecalled` when invoked directly on the standalone
     // facet deployment (i.e. not via the vault's delegatecall).
 
-    /// Direct call to `completedActionCount` on the standalone facet reverts
-    /// with `FacetMustBeDelegatecalled`, even though the function is a pure
-    /// view and never reaches the authorizer lookup.
-    function testCompletedActionCountDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.completedActionCount();
-    }
-
-    /// Direct call to `scheduleCorporateAction` on the standalone facet
-    /// reverts with `FacetMustBeDelegatecalled` — the guard fires before the
-    /// authorizer lookup, so the order of checks matches the modifier.
-    function testScheduleCorporateActionDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, uint64(block.timestamp + 1), hex"");
-    }
-
-    /// Direct call to `cancelCorporateAction` on the standalone facet reverts
-    /// with `FacetMustBeDelegatecalled`.
-    function testCancelCorporateActionDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.cancelCorporateAction(1);
-    }
-
-    /// Direct call to `latestActionOfType` on the standalone facet reverts.
-    /// View getters over the traversal interface must carry the same guard
-    /// so the facet has no callable surface outside delegatecall context.
-    function testLatestActionOfTypeDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.latestActionOfType(type(uint256).max, CompletionFilter.ALL);
-    }
-
-    /// Direct call to `earliestActionOfType` on the standalone facet reverts.
-    function testEarliestActionOfTypeDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.earliestActionOfType(type(uint256).max, CompletionFilter.ALL);
-    }
-
-    /// Direct call to `nextOfType` on the standalone facet reverts.
-    function testNextOfTypeDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.nextOfType(NODE_NONE, type(uint256).max, CompletionFilter.ALL);
-    }
-
-    /// Direct call to `prevOfType` on the standalone facet reverts.
-    function testPrevOfTypeDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.prevOfType(NODE_NONE, type(uint256).max, CompletionFilter.ALL);
+    /// Every entry point, views included, reverts with
+    /// `FacetMustBeDelegatecalled` on the standalone facet, before any
+    /// authorizer lookup.
+    function testEveryEntryPointDirectCallReverts() external {
+        bytes[9] memory calls = [
+            abi.encodeWithSelector(StoxCorporateActionsFacet.completedActionCount.selector),
+            abi.encodeCall(
+                StoxCorporateActionsFacet.scheduleCorporateAction,
+                (STOCK_SPLIT_V1_TYPE_HASH, uint64(block.timestamp + 1), bytes(""))
+            ),
+            abi.encodeCall(StoxCorporateActionsFacet.cancelCorporateAction, (1)),
+            abi.encodeCall(StoxCorporateActionsFacet.latestActionOfType, (type(uint256).max, CompletionFilter.ALL)),
+            abi.encodeCall(StoxCorporateActionsFacet.earliestActionOfType, (type(uint256).max, CompletionFilter.ALL)),
+            abi.encodeCall(StoxCorporateActionsFacet.nextOfType, (NODE_NONE, type(uint256).max, CompletionFilter.ALL)),
+            abi.encodeCall(StoxCorporateActionsFacet.prevOfType, (NODE_NONE, type(uint256).max, CompletionFilter.ALL)),
+            abi.encodeCall(StoxCorporateActionsFacet.getActionParameters, (1)),
+            abi.encodeWithSelector(StoxCorporateActionsFacet.cumulativeBalanceMultiplierSinceGenesis.selector)
+        ];
+        for (uint256 i = 0; i < calls.length; i++) {
+            (bool success, bytes memory returnData) = address(facetImpl).call(calls[i]);
+            assertFalse(success, vm.toString(i));
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector),
+                vm.toString(i)
+            );
+        }
     }
 
     // -----------------------------------------------------------------------
@@ -1154,18 +1141,10 @@ contract StoxCorporateActionsFacetTest is Test {
     /// effective time. Asserts the public event API consumed by offchain
     /// indexers.
     function testScheduleCorporateActionEmitsEvent() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
-        uint64 effectiveTime = 1500;
-
         // Bootstrap occupies idx 0, so the user action lands at idx 1.
         vm.expectEmit(true, true, false, true, address(facetViaHarness));
-        emit ICorporateActionsV1.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT_V1, effectiveTime);
-
-        vm.prank(ALICE);
-        uint256 actionIndex =
-            facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
-        assertEq(actionIndex, 1);
+        emit ICorporateActionsV1.CorporateActionScheduled(ALICE, 1, ACTION_TYPE_STOCK_SPLIT_V1, 1500);
+        assertEq(_scheduleSplitViaFacet(2, 1500), 1);
     }
 
     /// `ensureBootstrap` is silent — it must not emit `CorporateActionScheduled`
@@ -1176,14 +1155,10 @@ contract StoxCorporateActionsFacetTest is Test {
     /// for, breaking any indexer that assumes one event per
     /// scheduleCorporateAction call.
     function testEnsureBootstrapDoesNotEmitScheduledEvent() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
-
         // Record every log emitted across the first scheduleCorporateAction
         // call (which fires `ensureBootstrap` plus the user action splice).
         vm.recordLogs();
-        vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
+        _scheduleSplitViaFacet(2, 1500);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         bytes32 sig = ICorporateActionsV1.CorporateActionScheduled.selector;
@@ -1197,25 +1172,13 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Audit P2-4: `cancelCorporateAction` emits `CorporateActionCancelled`
     /// with the right indexed sender and indexed actionIndex.
     function testCancelCorporateActionEmitsEvent() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
-
-        vm.prank(ALICE);
-        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
+        uint256 actionIndex = _scheduleSplitViaFacet(2, 1500);
 
         vm.expectEmit(true, true, false, false, address(facetViaHarness));
         emit ICorporateActionsV1.CorporateActionCancelled(ALICE, actionIndex);
 
         vm.prank(ALICE);
         facetViaHarness.cancelCorporateAction(actionIndex);
-    }
-
-    /// Helper: schedule a stock split via the facet (using the delegatecall
-    /// harness so the action lands in the harness's storage namespace).
-    function _scheduleSplitViaFacet(int256 multiplier, uint64 effectiveTime) internal {
-        bytes memory parameters = LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(multiplier, 0));
-        vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
     }
 
     /// The facet's external traversal getters take an explicit
@@ -1357,11 +1320,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// getActionParameters returns exactly the bytes written at schedule time.
     function testGetActionParametersRoundTrip() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
-
-        vm.prank(ALICE);
-        uint256 actionIndex = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+        uint256 actionIndex = _scheduleSplitViaFacet(2, 1500);
 
         bytes memory read = facetViaHarness.getActionParameters(actionIndex);
         assertEq(read, params, "getActionParameters must round-trip exactly");
@@ -1389,10 +1348,7 @@ contract StoxCorporateActionsFacetTest is Test {
     function testGetActionParametersBootstrapReturnsEmpty() external {
         // Schedule one user action so `ensureBootstrap` fires and the
         // bootstrap node lands at idx 0.
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
-        vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+        _scheduleSplitViaFacet(2, 1500);
 
         bytes memory bootstrapParams = facetViaHarness.getActionParameters(0);
         assertEq(bootstrapParams.length, 0, "bootstrap parameters are intentionally empty");
@@ -1411,10 +1367,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// storage-side clearing in `cancel()` and the gate on the facet
     /// getter — a regression in either surface fails this test.
     function testGetActionParametersRevertsForCancelledAction() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
-        vm.prank(ALICE);
-        uint256 actionId = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+        uint256 actionId = _scheduleSplitViaFacet(2, 1500);
         assertEq(facetViaHarness.getActionParameters(actionId), params, "scheduled payload readable before cancel");
 
         vm.prank(ALICE);
@@ -1430,22 +1383,12 @@ contract StoxCorporateActionsFacetTest is Test {
     /// allow reading past the array, which the existing `cursor = 999`
     /// test wouldn't catch (999 fails the next-bigger guard too).
     function testGetActionParametersExactBoundaryReverts() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
-        vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+        _scheduleSplitViaFacet(2, 1500);
 
         // Bootstrap (idx 0) + user action (idx 1) → nodes.length == 2.
         // Querying idx 2 must revert at the boundary.
         vm.expectRevert(abi.encodeWithSelector(ActionDoesNotExist.selector, uint256(2)));
         facetViaHarness.getActionParameters(2);
-    }
-
-    /// Direct call to getActionParameters on the standalone facet reverts
-    /// with FacetMustBeDelegatecalled, like every other entry point.
-    function testGetActionParametersDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.getActionParameters(1);
     }
 
     /// Fuzz: for any raw bytes passed at schedule time,
@@ -1463,8 +1406,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Authorizer receives the correct context for a real stock split schedule.
     function testScheduleStockSplitForwardsCorrectContext() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(2, 0));
         uint64 effectiveTime = 1500;
 
         vm.expectCall(
@@ -1477,8 +1419,7 @@ contract StoxCorporateActionsFacetTest is Test {
             )
         );
 
-        vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
+        _scheduleSplitViaFacet(2, effectiveTime);
 
         assertEq(mockAuthorizer.lastUser(), ALICE);
         assertEq(mockAuthorizer.lastPermission(), SCHEDULE_CORPORATE_ACTION);
@@ -1487,10 +1428,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Authorizer denial with valid stock split params still reverts.
     function testScheduleStockSplitAuthorizerDenied() external {
         mockAuthorizer.setDenyMode(true);
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
+        bytes memory parameters = LibStockSplit.encodeParametersV1(LibDecimalFloat.packLossless(2, 0));
 
-        vm.prank(ALICE);
         vm.expectRevert(
             abi.encodeWithSelector(
                 Unauthorized.selector,
@@ -1499,48 +1438,22 @@ contract StoxCorporateActionsFacetTest is Test {
                 abi.encode(STOCK_SPLIT_V1_TYPE_HASH, uint64(1500), parameters)
             )
         );
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
+        _scheduleSplitViaFacet(2, 1500);
     }
 
-    /// Fuzz: schedule random valid stock splits, actionIndex is sequential.
-    function testFuzzScheduleStockSplitsSequentialIndex(uint8 count) external {
-        count = uint8(bound(count, 1, 15));
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
-
-        // Bootstrap occupies idx 0, so user actions start at idx 1.
-        for (uint256 i = 0; i < count; i++) {
-            vm.prank(ALICE);
-            // count is bounded to <= 15 so 1001 + i * 100 fits easily in uint64.
-            // forge-lint: disable-next-line(unsafe-typecast)
-            uint64 effectiveTime = uint64(1001 + i * 100);
-            uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
-            assertEq(id, i + 1, "actionIndex must be sequential after the bootstrap");
+    /// Fifteen splits scheduled through the facet take sequential indices
+    /// after the bootstrap at idx 0.
+    function testScheduleStockSplitsSequentialIndex() external {
+        for (uint64 i = 0; i < 15; i++) {
+            assertEq(
+                _scheduleSplitViaFacet(2, 1001 + i * 100), i + 1, "actionIndex must be sequential after the bootstrap"
+            );
         }
-    }
-
-    /// Schedule returns the correct actionIndex.
-    function testScheduleViaFacetReturnsActionIndex() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
-
-        vm.prank(ALICE);
-        uint256 id1 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
-
-        vm.prank(ALICE);
-        uint256 id2 = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 2000, parameters);
-
-        assertEq(id1, 1);
-        assertEq(id2, 2);
     }
 
     /// completedActionCount reflects completed stock splits via the facet.
     function testCompletedActionCountViaFacet() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
-
-        vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
+        _scheduleSplitViaFacet(2, 1500);
 
         assertEq(facetViaHarness.completedActionCount(), 0);
 
@@ -1550,31 +1463,19 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// Schedule with invalid multiplier reverts through the facet.
     function testScheduleInvalidMultiplierRevertsViaFacet() external {
-        Float zero = LibDecimalFloat.packLossless(0, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(zero);
-
-        vm.prank(ALICE);
         vm.expectRevert(InvalidSplitMultiplier.selector);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
+        _scheduleSplitViaFacet(0, 1500);
     }
 
     /// Schedule with past effectiveTime reverts through the facet.
     function testSchedulePastTimeRevertsViaFacet() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
-
-        vm.prank(ALICE);
         vm.expectRevert(abi.encodeWithSelector(EffectiveTimeInPast.selector, uint64(500), block.timestamp));
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 500, parameters);
+        _scheduleSplitViaFacet(2, 500);
     }
 
     /// Cancel a completed action reverts through the facet.
     function testCancelCompletedRevertsViaFacet() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory parameters = LibStockSplit.encodeParametersV1(twoX);
-
-        vm.prank(ALICE);
-        uint256 id = facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, parameters);
+        uint256 id = _scheduleSplitViaFacet(2, 1500);
 
         vm.warp(2000);
 
@@ -1593,18 +1494,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Full lifecycle through the facet: schedule, verify pending, complete,
     /// verify completed, cancel a second pending action.
     function testFullLifecycleViaFacet() external {
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        Float threeX = LibDecimalFloat.packLossless(3, 0);
-
-        vm.prank(ALICE);
-        uint256 id1 = facetViaHarness.scheduleCorporateAction(
-            STOCK_SPLIT_V1_TYPE_HASH, 1500, LibStockSplit.encodeParametersV1(twoX)
-        );
-
-        vm.prank(ALICE);
-        uint256 id2 = facetViaHarness.scheduleCorporateAction(
-            STOCK_SPLIT_V1_TYPE_HASH, 3000, LibStockSplit.encodeParametersV1(threeX)
-        );
+        uint256 id1 = _scheduleSplitViaFacet(2, 1500);
+        uint256 id2 = _scheduleSplitViaFacet(3, 3000);
 
         assertEq(facetViaHarness.completedActionCount(), 0);
 
@@ -1851,10 +1742,7 @@ contract StoxCorporateActionsFacetTest is Test {
     function testGetActionParametersReturnsEmptyBytesForBootstrap() external {
         // Schedule a user action via the delegatecall path so bootstrap
         // exists in the same storage namespace the facet reads from.
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
-        vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+        _scheduleSplitViaFacet(2, 1500);
 
         bytes memory bootstrapParams = facetViaHarness.getActionParameters(0);
         assertEq(bootstrapParams.length, 0, "bootstrap parameters must be empty bytes via facet API");
@@ -1874,10 +1762,7 @@ contract StoxCorporateActionsFacetTest is Test {
     function testFacetNextOfTypeReturnsBootstrapForInitMaskFromNodeNone() external {
         // Schedule a user action via the delegatecall path so bootstrap
         // exists in the harness's storage namespace.
-        Float twoX = LibDecimalFloat.packLossless(2, 0);
-        bytes memory params = LibStockSplit.encodeParametersV1(twoX);
-        vm.prank(ALICE);
-        facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, 1500, params);
+        _scheduleSplitViaFacet(2, 1500);
 
         (uint256 actionId, uint256 actionType, uint64 effectiveTime) =
             facetViaHarness.nextOfType(NODE_NONE, ACTION_TYPE_INIT_V1, CompletionFilter.ALL);
@@ -1891,15 +1776,6 @@ contract StoxCorporateActionsFacetTest is Test {
     // every COMPLETED balance-migration multiplier, for external consumers
     // (e.g. the atomic bridge) converting genesis-denominated units. NOT a
     // balance-migration primitive: `LibRebase` never collapses multipliers.
-
-    /// Helper: schedule a stock split with an arbitrary Float multiplier via
-    /// the facet delegatecall path so the node lands in the harness's
-    /// storage namespace (the one the facet's views read from).
-    function scheduleFloatSplitViaFacet(Float multiplier, uint64 effectiveTime) internal returns (uint256) {
-        bytes memory parameters = LibStockSplit.encodeParametersV1(multiplier);
-        vm.prank(ALICE);
-        return facetViaHarness.scheduleCorporateAction(STOCK_SPLIT_V1_TYPE_HASH, effectiveTime, parameters);
-    }
 
     /// Helper: assert two Floats are numerically equal with a readable
     /// failure message showing the packed representations.
@@ -1932,7 +1808,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// (ACTION_TYPE_INIT_V1) is walked but contributes nothing, and the
     /// user-scheduled split is still pending so it is excluded.
     function testCumulativeMultiplierIdentityWhenOnlyBootstrapCompleted() external {
-        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
+        _scheduleSplitViaFacet(3, 1500);
         // No warp: block.timestamp = 1000 < 1500, so the split is pending;
         // only the bootstrap (effectiveTime = 1000) is completed.
         assertFloatEq(
@@ -1944,7 +1820,7 @@ contract StoxCorporateActionsFacetTest is Test {
 
     /// A single completed 3:1 split yields exactly Float 3.
     function testCumulativeMultiplierSingleSplit() external {
-        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
+        _scheduleSplitViaFacet(3, 1500);
         vm.warp(2000);
         assertFloatEq(
             facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
@@ -1956,8 +1832,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// A sequence of completed splits multiplies in chronological order:
     /// 3:1 (x3) then 1:2 reverse (x0.5) collapses to 1.5.
     function testCumulativeMultiplierSequenceOfSplits() external {
-        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
-        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(5, -1), 2000);
+        _scheduleSplitViaFacet(3, 1500);
+        _scheduleSplitViaFacet(LibDecimalFloat.packLossless(5, -1), 2000);
         vm.warp(2500);
         assertFloatEq(
             facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
@@ -1969,8 +1845,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Pending (future) splits are excluded: only the completed prefix of
     /// the list contributes to the product.
     function testCumulativeMultiplierExcludesPending() external {
-        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(2, 0), 1500); // completes
-        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 9000); // stays pending
+        _scheduleSplitViaFacet(2, 1500); // completes
+        _scheduleSplitViaFacet(3, 9000); // stays pending
         vm.warp(2000);
         assertFloatEq(
             facetViaHarness.cumulativeBalanceMultiplierSinceGenesis(),
@@ -1982,8 +1858,8 @@ contract StoxCorporateActionsFacetTest is Test {
     /// Cancelled splits are excluded: cancellation unlinks the node before
     /// its effectiveTime, so it never completes and never contributes.
     function testCumulativeMultiplierExcludesCancelled() external {
-        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(2, 0), 1500);
-        uint256 cancelledId = scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 2000);
+        _scheduleSplitViaFacet(2, 1500);
+        uint256 cancelledId = _scheduleSplitViaFacet(3, 2000);
 
         vm.prank(ALICE);
         facetViaHarness.cancelCorporateAction(cancelledId);
@@ -2009,7 +1885,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// collapses the product back to identity — this test catches it from
     /// both sides.
     function testCumulativeMultiplierBoundaryAtExactEffectiveTime() external {
-        scheduleFloatSplitViaFacet(LibDecimalFloat.packLossless(3, 0), 1500);
+        _scheduleSplitViaFacet(3, 1500);
 
         // One second before the effective time: the split is still pending
         // and excluded — only the bootstrap (identity) is completed.
@@ -2028,13 +1904,5 @@ contract StoxCorporateActionsFacetTest is Test {
             LibDecimalFloat.packLossless(3, 0),
             "split at exactly block.timestamp is completed (inclusive) and included"
         );
-    }
-
-    /// Direct call to `cumulativeBalanceMultiplierSinceGenesis` on the
-    /// standalone facet reverts with `FacetMustBeDelegatecalled`, like
-    /// every other entry point.
-    function testCumulativeMultiplierDirectCallReverts() external {
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facetImpl.cumulativeBalanceMultiplierSinceGenesis();
     }
 }
