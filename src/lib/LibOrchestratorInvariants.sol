@@ -46,13 +46,6 @@ error OrchestratorInstanceMissing(address instance);
 /// @param holder The address that must hold it.
 error OrchestratorRoleMissing(address instance, bytes32 role, address holder);
 
-/// @notice A principal that must not hold a role on an orchestrator instance
-/// holds it.
-/// @param instance The orchestrator instance inspected.
-/// @param role The role that must not be held.
-/// @param holder The principal that holds it.
-error OrchestratorUnexpectedRoleHolder(address instance, bytes32 role, address holder);
-
 /// @notice A role on an orchestrator instance is administered by a role
 /// other than the expected one.
 /// @param instance The orchestrator instance inspected.
@@ -182,62 +175,40 @@ library LibOrchestratorInvariants {
         );
     }
 
+    /// @notice The pairs the mint-caps orchestrator instance must carry.
+    /// @param timelock The chain's governance timelock.
+    /// @return The expected `(role, grantee)` pairs.
+    function mintCapsExpectedGrants(address timelock) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](4);
+        // DEFAULT_ADMIN_ROLE is 0x00 in OZ AccessControl.
+        grants[0] = RoleGrant(bytes32(0), timelock);
+        grants[1] = RoleGrant(ORCHESTRATOR_MINT_ADMIN_ROLE, timelock);
+        grants[2] = RoleGrant(ORCHESTRATOR_BURN_ADMIN_ROLE, timelock);
+        grants[3] = RoleGrant(ORCHESTRATOR_EMERGENCY_ADMIN_ROLE, timelock);
+        return grants;
+    }
+
     /// @notice Assert the mint-caps orchestrator instance on the active
-    /// chain:
-    ///
-    /// - it has code;
-    /// - the chain's governance timelock holds `DEFAULT_ADMIN_ROLE`,
-    ///   `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`, and
-    ///   no operating role;
-    /// - each operating role is administered by its admin role, each admin
-    ///   role by itself, and `DEFAULT_ADMIN_ROLE` by itself;
-    /// - `chainSafe` holds no admin role, `MINT_ROLE` or `BURN_ROLE`, and the
-    ///   deploy key holds no role at all.
-    ///
-    /// The Safe's `EMERGENCY_ROLE` is not asserted either way: it is an
-    /// operating role `EMERGENCY_ADMIN_ROLE` may grant it.
-    ///
-    /// The vault-logic lock is per token (`vaultLogicIsExpected(token)`), so
-    /// it is not a property of the instance and is not asserted here.
-    ///
-    /// Role membership is not enumerable on the orchestrator, so only these
-    /// three principals are checked.
-    /// @param chainSafe The chain's token-owner Safe.
-    function assertMintCapsInstance(address chainSafe) internal view {
+    /// chain has code, carries `mintCapsExpectedGrants`, and administers each
+    /// operating role by its admin role, each admin role by itself and
+    /// `DEFAULT_ADMIN_ROLE` by itself.
+    function assertMintCapsInstance() internal view {
         address instance = mintCapsInstance();
         if (instance.code.length == 0) {
             revert OrchestratorInstanceMissing(instance);
         }
 
         IAccessControl acl = IAccessControl(instance);
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        address deployKey = LibProdDeployCurrent.BEACON_INITIAL_OWNER;
-
-        bytes32[4] memory adminRoles = [
-            // DEFAULT_ADMIN_ROLE is 0x00 in OZ AccessControl.
-            bytes32(0), ORCHESTRATOR_MINT_ADMIN_ROLE, ORCHESTRATOR_BURN_ADMIN_ROLE, ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
-        ];
-        for (uint256 i = 0; i < adminRoles.length; i++) {
-            assertHolds(acl, adminRoles[i], timelock);
-            assertDoesNotHold(acl, adminRoles[i], chainSafe);
-            assertDoesNotHold(acl, adminRoles[i], deployKey);
+        RoleGrant[] memory grants = mintCapsExpectedGrants(LibTimelockInvariants.timelockForChainId(block.chainid));
+        for (uint256 i = 0; i < grants.length; i++) {
+            assertHolds(acl, grants[i].role, grants[i].grantee);
         }
 
-        bytes32 mintRole = ORCHESTRATOR_MINT_ROLE;
-        bytes32 burnRole = ORCHESTRATOR_BURN_ROLE;
-        bytes32 emergencyRole = ORCHESTRATOR_EMERGENCY_ROLE;
-        bytes32[3] memory operatingRoles = [mintRole, burnRole, emergencyRole];
+        assertAdministeredBy(acl, bytes32(0), bytes32(0));
+        bytes32[3] memory operatingRoles = [ORCHESTRATOR_MINT_ROLE, ORCHESTRATOR_BURN_ROLE, ORCHESTRATOR_EMERGENCY_ROLE];
         for (uint256 i = 0; i < operatingRoles.length; i++) {
-            assertDoesNotHold(acl, operatingRoles[i], timelock);
-            assertDoesNotHold(acl, operatingRoles[i], deployKey);
-        }
-        assertDoesNotHold(acl, mintRole, chainSafe);
-        assertDoesNotHold(acl, burnRole, chainSafe);
-
-        assertAdministeredBy(acl, adminRoles[0], adminRoles[0]);
-        for (uint256 i = 0; i < operatingRoles.length; i++) {
-            assertAdministeredBy(acl, operatingRoles[i], adminRoles[i + 1]);
-            assertAdministeredBy(acl, adminRoles[i + 1], adminRoles[i + 1]);
+            assertAdministeredBy(acl, operatingRoles[i], grants[i + 1].role);
+            assertAdministeredBy(acl, grants[i + 1].role, grants[i + 1].role);
         }
     }
 
@@ -248,16 +219,6 @@ library LibOrchestratorInvariants {
     function assertHolds(IAccessControl acl, bytes32 role, address holder) private view {
         if (!acl.hasRole(role, holder)) {
             revert OrchestratorRoleMissing(address(acl), role, holder);
-        }
-    }
-
-    /// @notice Revert if `holder` holds `role` on `acl`.
-    /// @param acl The orchestrator instance.
-    /// @param role The role.
-    /// @param holder The principal.
-    function assertDoesNotHold(IAccessControl acl, bytes32 role, address holder) private view {
-        if (acl.hasRole(role, holder)) {
-            revert OrchestratorUnexpectedRoleHolder(address(acl), role, holder);
         }
     }
 

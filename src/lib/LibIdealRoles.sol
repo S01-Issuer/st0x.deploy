@@ -19,13 +19,14 @@ struct ContractRoles {
 /// @title LibIdealRoles
 /// @notice The ideal role state of every role-bearing contract st0x runs, per chain.
 library LibIdealRoles {
-    /// @notice The V4 authoriser, EU authoriser, orchestrator and governance timelock on a chain, in that order.
+    /// @notice The V4 authoriser, EU authoriser, orchestrator, governance timelock
+    /// and mint-caps orchestrator on a chain, in that order.
     /// @param chainId The chain id.
     /// @return The contracts' ideal role state.
     function contractRoles(uint256 chainId) internal pure returns (ContractRoles[] memory) {
         address safe = LibSafeInvariants.safeForChainId(chainId);
         address timelock = LibTimelockInvariants.timelockForChainId(chainId);
-        ContractRoles[] memory roles = new ContractRoles[](4);
+        ContractRoles[] memory roles = new ContractRoles[](5);
         roles[0] = ContractRoles(
             LibAuthoriserInvariants.authoriserForChainId(chainId),
             LibAuthoriserInvariants.expectedGrants(safe, timelock)
@@ -41,6 +42,9 @@ library LibIdealRoles {
             LibOrchestratorInvariants.expectedGrants(safe, timelock)
         );
         roles[3] = ContractRoles(timelock, LibTimelockInvariants.expectedGrants(timelock, safe));
+        roles[4] = ContractRoles(
+            LibOrchestratorInvariants.mintCapsInstance(), LibOrchestratorInvariants.mintCapsExpectedGrants(timelock)
+        );
         return roles;
     }
 }
