@@ -426,9 +426,13 @@ contract ST0xOrchestrator is
     /// of `_consumeMintCaps` to keep that frame within stack limits.
     // The bucket write follows external calls under the entrypoint's `nonReentrant` lock.
     // slither-disable-next-line reentrancy-no-eth
-    function _fillMintCap(MintCapV1 storage cap, MintLimitV1 memory limit, address account, Float timestamp, Float charge)
-        internal
-    {
+    function _fillMintCap(
+        MintCapV1 storage cap,
+        MintLimitV1 memory limit,
+        address account,
+        Float timestamp,
+        Float charge
+    ) internal {
         LeakyBucket memory bucket = _bucket(cap.bucket, limit);
         Float headroom = LibLeakyBucket.headroomAt(bucket, timestamp);
         if (charge.gt(headroom)) {
