@@ -7,8 +7,8 @@ import {TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibTokenMetadata} from "../../../src/lib/LibTokenMetadata.sol";
 
 /// @title LibTokenMetadataTest
-/// @notice Offline coverage for the metadata states the live-fork pins
-/// accept, so the renamed branch is tested before any chain renames.
+/// @notice Offline coverage of the unrenamed and renamed name/symbol states
+/// `LibTokenMetadata` derives.
 contract LibTokenMetadataTest is Test {
     function config() internal pure returns (TokenConfig memory) {
         return TokenConfig({

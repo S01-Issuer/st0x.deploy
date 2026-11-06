@@ -415,8 +415,7 @@ contract UnderlyingNamingRolloutTest is Test {
         assertEq(IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).name(), "NVIDIA Corporation (ST0x)");
         mintAndBurn(orchestrator, LibTokenInvariants.NVDA_RECEIPT_VAULT);
 
-        // The live-fork name pins accept exactly this renamed state, for
-        // every renamed token.
+        // Every renamed token's receipt vault reports the renamed name.
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenInstance memory token = chainTokens[tokenIndex];

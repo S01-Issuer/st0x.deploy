@@ -371,9 +371,9 @@ library LibBeaconInvariants {
             : [address(0), address(0), address(0), address(0)];
     }
 
-    /// @notice The implementation each of the chain's beacons must serve today, index-aligned with
-    /// `prodBeaconsForChainId`. The receipt and receipt-vault beacons were moved onto 0.1.30 by
-    /// `20260825-upgrade-fleet-to-0-1-30`; the other two serve their bootstrap implementation.
+    /// @notice The implementation each of the chain's beacons serves, index-aligned with
+    /// `prodBeaconsForChainId`: the receipt and receipt-vault beacons serve 0.1.30; the other two serve their
+    /// bootstrap implementation.
     /// @param chainId The chain id.
     /// @return The four expected implementation addresses.
     function prodExpectedImplementationsForChainId(uint256 chainId) internal pure returns (address[4] memory) {
