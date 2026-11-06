@@ -152,7 +152,8 @@ the timelock's powers, so the script stays re-dispatchable and proven.
 
 ## Rehearsing the timelock
 
-The rehearsed operation (`LibTimelockRehearsal`) is
+The rehearsed operation (rain-deploy's `LibTimelockRehearsal`, salt
+`keccak256("st0x.timelock.rehearsal.20260813")`) is
 `timelock.updateDelay(TIMELOCK_MIN_DELAY)` — re-setting the delay to the value
 it already holds. It is a genuine no-op, it targets the timelock rather than any
 production contract, and OZ rejects `updateDelay` from any caller other than the
@@ -170,9 +171,9 @@ Each script's `run()` refuses on every chain. The backfill bundle
 (`20261030-backfill-migration-registry-v5`) writes their root-line records: on
 Base as history at each script's `executedAt`, elsewhere record-only.
 
-`REHEARSAL_SALT` is a constant, so the operation id is fixed per chain and OZ
-keeps the executed operation registered on Base; rehearsing again needs a new
-salt, i.e. a new dated rehearsal.
+The salt is fixed, so the operation id is fixed per chain and OZ keeps the
+executed operation registered on Base; rehearsing again needs a new salt, i.e. a
+new dated rehearsal.
 
 ## Operating under the timelock (future governance actions)
 
