@@ -134,18 +134,8 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(at, "instance", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
     }
 
-    function tokenConfig(string memory underlying) internal pure returns (TokenConfig memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        for (uint256 i = 0; i < configs.length; i++) {
-            if (keccak256(bytes(configs[i].underlying)) == keccak256(bytes(underlying))) {
-                return configs[i];
-            }
-        }
-        revert(string.concat("no token config for ", underlying));
-    }
-
     function tokenMetadataJson(string memory row, uint256 i, string memory underlying) internal {
-        TokenConfig memory config = tokenConfig(underlying);
+        TokenConfig memory config = LibProdTokenConfig.configOf(underlying);
         vm.serializeString(row, "underlying", underlying);
         bool renames = LibUnderlyingNamingRollout.renamesRow(i);
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
