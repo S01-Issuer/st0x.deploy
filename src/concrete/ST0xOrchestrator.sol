@@ -312,7 +312,7 @@ contract ST0xOrchestrator is
         SignedContextV2[] calldata signedContext
     ) external onlyRole(MINT_ROLE) onlyExpectedVaultLogic(token) nonReentrant {
         if (amount == 0) revert ZeroAmount();
-        if (to == msg.sender) revert SenderIsRecipient(msg.sender);
+        if (to == _minter()) revert SenderIsRecipient(_minter());
         _consumeMintCaps(token, to, amount, signedContext);
         _consumeMintAuth(token, to, amount, auth);
 
@@ -320,7 +320,7 @@ contract ST0xOrchestrator is
         uint256 assets = OffchainAssetReceiptVault(payable(token)).mint(amount, address(this), 0, receiptInformation);
         if (assets != amount) revert VaultAmountMismatch(amount, assets);
         IERC20(token).safeTransfer(to, amount);
-        emit Minted(msg.sender, token, to, amount, auth.nonce);
+        emit Minted(_minter(), token, to, amount, auth.nonce);
     }
 
     /// @dev Put a value on the mint with the mint weighting, then meter that
@@ -340,15 +340,15 @@ contract ST0xOrchestrator is
         internal
     {
         MainStorage storage $ = _main();
-        MintCapV1 storage minterCap = $.mintCaps[msg.sender][MintCapKind.Minter];
+        MintCapV1 storage minterCap = $.mintCaps[_minter()][MintCapKind.Minter];
         MintCapV1 storage recipientCap = $.mintCaps[to][MintCapKind.Recipient];
-        if (!minterCap.set) revert MintLimitUnset(MintCapKind.Minter, msg.sender);
+        if (!minterCap.set) revert MintLimitUnset(MintCapKind.Minter, _minter());
         if (!recipientCap.set) revert MintLimitUnset(MintCapKind.Recipient, to);
 
         // The buckets meter the weighted charge, never the raw amount.
         Float charge = _weighMint($, token, amount, signedContext);
         Float timestamp = _now();
-        _fillMintCap(minterCap, MintCapKind.Minter, msg.sender, timestamp, charge);
+        _fillMintCap(minterCap, MintCapKind.Minter, _minter(), timestamp, charge);
         _fillMintCap(recipientCap, MintCapKind.Recipient, to, timestamp, charge);
     }
 
@@ -384,7 +384,7 @@ contract ST0xOrchestrator is
             Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, decimals)),
             signedContext
         );
-        emit ContextV2(msg.sender, context);
+        emit ContextV2(_minter(), context);
 
         (StackItem[] memory stack, bytes32[] memory writes) = evaluable.interpreter
             .eval4(
@@ -404,6 +404,11 @@ contract ST0xOrchestrator is
         }
         // The stack top, the expression's last output, is item zero.
         return Float.wrap(StackItem.unwrap(stack[0]));
+    }
+
+    /// @dev The minter of the mint in progress.
+    function _minter() internal view returns (address) {
+        return msg.sender;
     }
 
     /// @dev Fill `account`'s `kind` bucket with `charge`, reverting
