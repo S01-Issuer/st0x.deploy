@@ -1329,15 +1329,17 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                            setBurnIndex()                          //
     // ------------------------------------------------------------------ //
 
-    function testFuzzSetBurnIndex(uint256 first, uint256 second) external {
-        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV2.BurnIndexSet(TOKEN, 0, first);
+    function testFuzzSetBurnIndex(address sender, uint256 first, uint256 second) external {
+        _grant(orchestrator.EMERGENCY_ROLE(), sender);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV2.BurnIndexSet(sender, TOKEN, 0, first);
+        vm.prank(sender);
         orchestrator.setBurnIndex(TOKEN, first);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), first);
 
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV2.BurnIndexSet(TOKEN, first, second);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV2.BurnIndexSet(sender, TOKEN, first, second);
+        vm.prank(sender);
         orchestrator.setBurnIndex(TOKEN, second);
         assertEq(orchestrator.nextBurnReceiptId(TOKEN), second);
     }
@@ -1346,16 +1348,16 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                       Emergency sweeps                             //
     // ------------------------------------------------------------------ //
 
-    function testFuzzWithdrawReceipt(uint256 id, uint256 amount, address to) external {
-        vm.assume(to != address(0));
-        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+    function testFuzzWithdrawReceipt(address sender, uint256 id, uint256 amount, address to) external {
+        _grant(orchestrator.EMERGENCY_ROLE(), sender);
         vm.mockCall(RECEIPT_ADDR, abi.encodeWithSelector(IERC1155.safeTransferFrom.selector), abi.encode());
         vm.expectCall(
             RECEIPT_ADDR,
             abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, "")
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV2.ReceiptsWithdrawn(TOKEN, to, id, amount);
+        emit IST0xOrchestratorV2.ReceiptsWithdrawn(sender, TOKEN, to, id, amount);
+        vm.prank(sender);
         orchestrator.withdrawReceipt(TOKEN, id, amount, to);
     }
 
@@ -1370,27 +1372,27 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.withdrawReceipt(TOKEN, 0, 1, BOB);
     }
 
-    function testFuzzWithdrawShares(uint256 amount, address to) external {
-        vm.assume(to != address(0));
-        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+    function testFuzzWithdrawShares(address sender, uint256 amount, address to) external {
+        _grant(orchestrator.EMERGENCY_ROLE(), sender);
         vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
         vm.expectCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector, to, amount));
-        vm.expectEmit(true, true, false, true, address(orchestrator));
-        emit IST0xOrchestratorV2.SharesWithdrawn(TOKEN, to, amount);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV2.SharesWithdrawn(sender, TOKEN, to, amount);
+        vm.prank(sender);
         orchestrator.withdrawShares(TOKEN, amount, to);
     }
 
-    function testFuzzSweepERC1155(address erc1155, uint256 id, uint256 amount, address to) external {
-        vm.assume(to != address(0));
+    function testFuzzSweepERC1155(address sender, address erc1155, uint256 id, uint256 amount, address to) external {
         vm.assume(erc1155.code.length == 0);
-        _grant(orchestrator.EMERGENCY_ROLE(), address(this));
+        _grant(orchestrator.EMERGENCY_ROLE(), sender);
         vm.mockCall(erc1155, abi.encodeWithSelector(IERC1155.safeTransferFrom.selector), abi.encode());
         vm.expectCall(
             erc1155,
             abi.encodeWithSelector(IERC1155.safeTransferFrom.selector, address(orchestrator), to, id, amount, "")
         );
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV2.ForeignERC1155Swept(erc1155, to, id, amount);
+        emit IST0xOrchestratorV2.ForeignERC1155Swept(sender, erc1155, to, id, amount);
+        vm.prank(sender);
         orchestrator.sweepERC1155(erc1155, id, amount, to);
     }
 
@@ -1465,8 +1467,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         _seedPointer(TOKEN, 10);
         _mockManager(RECEIPT_ADDR, TOKEN);
 
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 5);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV2.BurnIndexLowered(RECEIPT_ADDR, TOKEN, 10, 5);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155Received(address(this), BOB, 5, 1, "");
         assertEq(ret, IERC1155Receiver.onERC1155Received.selector);
@@ -1518,10 +1520,10 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         values[3] = 1;
 
         // Each qualifying id lowers in turn: 10 → 7 → 3.
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 7);
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 7, 3);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV2.BurnIndexLowered(RECEIPT_ADDR, TOKEN, 10, 7);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV2.BurnIndexLowered(RECEIPT_ADDR, TOKEN, 7, 3);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155BatchReceived(address(this), BOB, ids, values, "");
         assertEq(ret, IERC1155Receiver.onERC1155BatchReceived.selector);
@@ -1556,8 +1558,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         values[0] = 0;
         values[1] = 1;
 
-        vm.expectEmit(true, false, false, true, address(orchestrator));
-        emit IST0xOrchestratorV2.BurnIndexLowered(TOKEN, 10, 6);
+        vm.expectEmit(true, true, true, true, address(orchestrator));
+        emit IST0xOrchestratorV2.BurnIndexLowered(RECEIPT_ADDR, TOKEN, 10, 6);
         vm.prank(RECEIPT_ADDR);
         bytes4 ret = orchestrator.onERC1155BatchReceived(address(this), BOB, ids, values, "");
         assertEq(ret, IERC1155Receiver.onERC1155BatchReceived.selector);
@@ -2484,6 +2486,7 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     }
 
     function testFuzzSetMintLimitEmitsAndReads(
+        address sender,
         uint256 kindSeed,
         address account,
         int224 capacityCoefficient,
@@ -2494,10 +2497,11 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         MintCapKind kind = _kind(kindSeed);
         Float capacity = _nonNegative(capacityCoefficient, capacityExponent);
         Float leakRate = _nonNegative(leakRateCoefficient, leakRateExponent);
+        _grant(orchestrator.MINT_ADMIN_ROLE(), sender);
         bytes memory otherBefore = abi.encode(orchestrator.mintLimit(_otherKind(kind), account));
         vm.expectEmit(true, true, true, true, address(orchestrator));
-        emit IST0xOrchestratorV2.MintLimitSet(kind, account, capacity, leakRate);
-        vm.prank(OWNER);
+        emit IST0xOrchestratorV2.MintLimitSet(sender, kind, account, capacity, leakRate);
+        vm.prank(sender);
         orchestrator.setMintLimit(kind, account, capacity, leakRate);
 
         MintLimitV1 memory limit = orchestrator.mintLimit(kind, account);
