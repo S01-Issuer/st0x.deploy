@@ -29,8 +29,9 @@ library LibStoxConfig {
     /// @return The beacon initial owner.
     function beaconInitialOwner() internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) =
-            LibConfigRegistry.resolve(ROOT_AUTHORITY, BEACON_INITIAL_OWNER_NAME, keccak256("address"));
+        (bytes memory value,) = LibConfigRegistry.resolve(
+            LibRegistryAuthority.ROOT_AUTHORITY, BEACON_INITIAL_OWNER_NAME, keccak256("address")
+        );
         return abi.decode(value, (address));
     }
 
