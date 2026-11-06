@@ -20,6 +20,7 @@ import {ReceiptVault} from "rain-vats-0.2.18/src/abstract/ReceiptVault.sol";
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
+import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.4/src/lib/LibTOFUTokenDecimals.sol";
 import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV5,
@@ -369,7 +370,7 @@ contract ST0xOrchestrator is
     ///
     /// The context is the grid of `LibSt0xAttestContext`: the token's symbol
     /// as an `IntOrAString`, and the amount as a `Float` in whole tokens per
-    /// the token's `decimals()`. Building the grid verifies every
+    /// the token's decimals as the TOFU singleton first read them. Building the grid verifies every
     /// signed context entry's signature and reverts `InvalidSignature(i)` on the first
     /// that fails.
     ///
@@ -386,9 +387,10 @@ contract ST0xOrchestrator is
         string memory symbol = IERC20Metadata(token).symbol();
         // `fromStringV3` keeps the length mod 32, so a longer symbol would alias a shorter one.
         if (bytes(symbol).length > LENGTH_MASK_V3) revert MintSymbolTooLong(token, bytes(symbol).length);
+        uint8 decimals = LibTOFUTokenDecimals.safeDecimalsForToken(token);
         bytes32[][] memory context = LibSt0xAttestContext.build(
             bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(symbol))),
-            Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, IERC20Metadata(token).decimals())),
+            Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, decimals)),
             signedContext
         );
         emit ContextV2(msg.sender, context);
