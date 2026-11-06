@@ -77,9 +77,9 @@ contract OrchestratorAdminToTimelockTest is Test {
         // post-move state the invariants demand, at the time `run()` started,
         // and the artifact is dated then rather than after the proof's warp.
         LibOrchestratorInvariants.assertInstance();
-        assertEq(block.timestamp, runAt, "the governance proof's warp leaked");
+        assertEq(block.timestamp, runAt, string.concat(network, ": the governance proof's warp leaked"));
         assertEq(
-            vm.parseJsonUint(vm.readFile(script.callArtifactPath()), ".createdAt"),
+            vm.parseJsonUint(vm.readFile(script.callArtifactPath()), string.concat(network, ": .createdAt")),
             runAt * 1000,
             "artifact dated after the governance proof's warp"
         );
@@ -91,14 +91,24 @@ contract OrchestratorAdminToTimelockTest is Test {
         // The artifact a signer loads, executed by the owners as the Safe UI
         // executes it, not the bundle re-derived in memory.
         (, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(artifactPath));
-        assertEq(artifactSafe, safe, "artifact Safe");
+        assertEq(artifactSafe, safe, string.concat(network, ": artifact Safe"));
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
-        assertTrue(ORCHESTRATOR.hasRole(bytes32(0), timelock), "exec: timelock admin");
-        assertFalse(ORCHESTRATOR.hasRole(bytes32(0), safe), "exec: Safe admin");
-        assertTrue(ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), "exec: Safe EMERGENCY");
-        assertEq(LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK), block.timestamp);
-        assertEq(LibStoxMigrations.head(), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
+        assertTrue(ORCHESTRATOR.hasRole(bytes32(0), timelock), string.concat(network, ": exec: timelock admin"));
+        assertFalse(ORCHESTRATOR.hasRole(bytes32(0), safe), string.concat(network, ": exec: Safe admin"));
+        assertTrue(
+            ORCHESTRATOR.hasRole(ORCHESTRATOR.EMERGENCY_ROLE(), safe), string.concat(network, ": exec: Safe EMERGENCY")
+        );
+        assertEq(
+            LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK),
+            block.timestamp,
+            string.concat(network, ": record stamped")
+        );
+        assertEq(
+            LibStoxMigrations.head(),
+            LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+            string.concat(network, ": record heads the line")
+        );
         LibOrchestratorInvariants.assertInstance();
 
         // The Safe can no longer grant directly.
@@ -115,24 +125,11 @@ contract OrchestratorAdminToTimelockTest is Test {
         script.callPreflight();
     }
 
-    function testMoveBundleBase() external {
-        assertBundle(LibRainDeploy.BASE);
-    }
-
-    function testMoveBundleEthereum() external {
-        assertBundle(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testMoveBundleHyperEvm() external {
-        assertBundle(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testMoveBundleRobinhood() external {
-        assertBundle(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testMoveBundleBsc() external {
-        assertBundle(LibStoxDeployNetworks.BSC);
+    function testMoveBundleOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertBundle(networks[i]);
+        }
     }
 
     /// @notice `verify` refuses an artifact that hands admin to an address

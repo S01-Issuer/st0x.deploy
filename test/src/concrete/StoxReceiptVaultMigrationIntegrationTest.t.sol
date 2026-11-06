@@ -196,18 +196,44 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(BOB), 150);
     }
 
-    /// AccountMigrated event fires with correct values when a non-zero
-    /// account is migrated through a completed split.
-    function testAccountMigratedEventEmitted() external {
-        vault.publicUpdate(address(0), BOB, 100);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
-        vm.warp(2000);
-
+    /// On a fresh vault, mint `balance` to ALICE, complete one split
+    /// (`num2 == 0`) or two, then touch ALICE once.
+    function _assertSoleHolderMigrates(
+        uint256 balance,
+        int256 num1,
+        int256 den1,
+        int256 num2,
+        int256 den2,
+        uint256 expected
+    ) internal {
+        setUp();
+        vault.publicUpdate(address(0), ALICE, balance);
+        vault.publicSchedule(
+            ACTION_TYPE_STOCK_SPLIT_V1, 1500, den1 == 1 ? _splitParams(num1) : _fractionalParams(num1, den1)
+        );
+        uint256 latest = 1;
+        if (num2 != 0) {
+            vault.publicSchedule(
+                ACTION_TYPE_STOCK_SPLIT_V1, 2500, den2 == 1 ? _splitParams(num2) : _fractionalParams(num2, den2)
+            );
+            latest = 2;
+        }
+        vm.warp(3000);
         vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.AccountMigrated(BOB, 0, 1, 100, 200);
-        // Touch Bob to trigger migration. fromCursor=0 (= bootstrap idx 0),
-        // toCursor=1 (the completed split).
-        vault.publicUpdate(BOB, BOB, 0);
+        emit StoxReceiptVault.AccountMigrated(ALICE, 0, latest, balance, expected);
+        vault.publicUpdate(ALICE, ALICE, 0);
+        assertEq(vault.rawStoredBalance(ALICE), expected, "stored balance");
+        assertEq(vault.migrationCursor(ALICE), latest, "cursor at the latest split");
+    }
+
+    /// One touch emits one `AccountMigrated` and stores the rasterized
+    /// balance, also when truncation (1 x1.5, 10 x1.09) or a round trip
+    /// (4 x2 x1/2) leaves it unchanged.
+    function testAccountMigratedRasterizesStoredBalance() external {
+        _assertSoleHolderMigrates(100, 2, 1, 0, 0, 200);
+        _assertSoleHolderMigrates(1, 3, 2, 0, 0, 1);
+        _assertSoleHolderMigrates(4, 2, 1, 1, 2, 4);
+        _assertSoleHolderMigrates(10, 109, 100, 0, 0, 10);
     }
 
     /// `AccountMigrated` must fire exactly once per `_update`, aggregating
@@ -266,68 +292,6 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
 
         // Confirm the cursor actually advanced.
         assertEq(vault.migrationCursor(ALICE), 1, "alice cursor must have advanced");
-    }
-
-    /// Phenomenon 2 (single-step truncation collision): a stored balance of
-    /// 1 through a 1.5x multiplier rasterizes to `trunc(1.5) == 1`. The
-    /// cursor advances; the stored balance is unchanged; the event still
-    /// fires.
-    function testAccountMigratedFiresOnTruncationCollision() external {
-        vault.publicUpdate(address(0), ALICE, 1);
-        // Multiplier 3/2 = 1.5 — `trunc(1 * 1.5) == 1`.
-        Float oneAndAHalf = LibDecimalFloat.div(LibDecimalFloat.packLossless(3, 0), LibDecimalFloat.packLossless(2, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(oneAndAHalf));
-        vm.warp(2000);
-
-        vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 1, 1, 1);
-        vault.publicUpdate(ALICE, ALICE, 0);
-
-        assertEq(vault.rawStoredBalance(ALICE), 1, "stored balance unchanged after truncation collision");
-        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor advanced past the split");
-    }
-
-    /// Phenomenon 3 (multi-step round-trip): a balance of 4 through `[2x,
-    /// 1/2x]` rasterizes `4 -> 8 -> 4`. The intermediate value differs
-    /// from the start but the final equals it. (Rain Float represents 1/2
-    /// exactly in base 10, so this sequence round-trips for any even
-    /// balance — `1/3` would not, since the Float representation of 1/3
-    /// is slightly less than exact 1/3 and `trunc(3 * 1/3_float) = 0`.)
-    /// The cursor jumps two splits in a single `_update`; the event fires
-    /// once with `oldBalance == newBalance == 4`.
-    function testAccountMigratedFiresOnMultiStepRoundTrip() external {
-        vault.publicUpdate(address(0), ALICE, 4);
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, _splitParams(2));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 2500, _fractionalParams(1, 2));
-        vm.warp(3000);
-
-        vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 2, 4, 4);
-        vault.publicUpdate(ALICE, ALICE, 0);
-
-        assertEq(vault.rawStoredBalance(ALICE), 4, "stored balance round-tripped to itself");
-        // Bootstrap at idx 0, splits at idx 1 and 2 — alice walks past both.
-        assertEq(vault.migrationCursor(ALICE), 2, "alice cursor advanced past both splits");
-    }
-
-    /// Phenomenon 4 (balance-specific identity): a balance of 10 through a
-    /// 1.09x multiplier rasterizes to `trunc(10.9) == 10`. Same multiplier
-    /// applied to a larger balance produces a real change; the no-op here
-    /// is balance-specific. The event still fires.
-    function testAccountMigratedFiresOnBalanceSpecificIdentity() external {
-        vault.publicUpdate(address(0), ALICE, 10);
-        // 1.09 = 109/100 — `trunc(10 * 1.09) = trunc(10.9) == 10`.
-        Float oneOhNine =
-            LibDecimalFloat.div(LibDecimalFloat.packLossless(109, 0), LibDecimalFloat.packLossless(100, 0));
-        vault.publicSchedule(ACTION_TYPE_STOCK_SPLIT_V1, 1500, LibStockSplit.encodeParametersV1(oneOhNine));
-        vm.warp(2000);
-
-        vm.expectEmit(true, false, false, true, address(vault));
-        emit StoxReceiptVault.AccountMigrated(ALICE, 0, 1, 10, 10);
-        vault.publicUpdate(ALICE, ALICE, 0);
-
-        assertEq(vault.rawStoredBalance(ALICE), 10, "stored balance unchanged for this specific balance / multiplier");
-        assertEq(vault.migrationCursor(ALICE), 1, "alice cursor advanced");
     }
 
     /// Transfer path with both `from` and `to` stale: both ends migrate
