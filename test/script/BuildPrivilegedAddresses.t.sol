@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {BuildPrivilegedAddresses} from "../../script/BuildPrivilegedAddresses.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
@@ -74,6 +74,10 @@ contract BuildPrivilegedAddressesTest is Test {
                 vm.parseJsonAddress(json, string.concat(at, ".authoriser")),
                 LibAuthoriserInvariants.authoriserForChainId(id)
             );
+            assertEq(
+                vm.parseJsonAddress(json, string.concat(at, ".euAuthoriser")),
+                LibAuthoriserInvariants.euAuthoriserForChainId(id)
+            );
         }
     }
 
@@ -141,12 +145,11 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    function testRunWritesTheRender() external {
-        vm.removeFile("privileged-addresses.json");
-        build.run();
-        assertEq(
-            keccak256(vm.parseJson(vm.readFile("privileged-addresses.json"))), keccak256(vm.parseJson(build.render()))
-        );
+    function testWriteWritesTheRender() external {
+        string memory path = string.concat(vm.projectRoot(), "/out/privileged-addresses.test.json");
+        if (vm.exists(path)) vm.removeFile(path);
+        build.write(path);
+        assertEq(keccak256(vm.parseJson(vm.readFile(path))), keccak256(vm.parseJson(build.render())));
     }
 
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {

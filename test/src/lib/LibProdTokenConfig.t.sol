@@ -4,9 +4,10 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.29/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibProdTokenConfig, TokenConfig, Region, UnknownUnderlying} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibTestTokenMetadata} from "../../lib/LibTestTokenMetadata.sol";
 
 /// @title LibProdTokenConfigTest
 /// @notice Pins the deploy-input token config against two sources of truth:
@@ -52,16 +53,23 @@ contract LibProdTokenConfigTest is Test {
 
     /// Every config's name/symbol equals the live Base receipt vault's —
     /// the exact-match guarantee that lets the new chain reproduce Base.
-    /// Runs on a Base fork.
+    /// The underlying-naming rename (`LibUnderlyingNamingRollout`) moves a
+    /// vault's name to `underlyingName + " (ST0x)"` and keeps its symbol, so
+    /// a renamed vault's name is held to that value instead, and
+    /// `TokenConfig.name` is then only the initialized value. Runs on a Base
+    /// fork.
     function testConfigMatchesLiveBase() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
         for (uint256 i = 0; i < tokens.length; i++) {
             IERC20Metadata vault = IERC20Metadata(tokens[i].receiptVault);
-            assertEq(
-                configs[i].name, vault.name(), string.concat(configs[i].underlying, ": config name != live Base name")
-            );
+            string memory liveName = vault.name();
+            if (!LibTestTokenMetadata.vaultRenamed(configs[i], liveName)) {
+                assertEq(
+                    configs[i].name, liveName, string.concat(configs[i].underlying, ": config name != live Base name")
+                );
+            }
             assertEq(
                 configs[i].symbol,
                 vault.symbol(),
@@ -70,38 +78,41 @@ contract LibProdTokenConfigTest is Test {
         }
     }
 
-    /// The wrapped vault's derived name/symbol on Base are exactly
-    /// `"Wrapped " + name` / `"w" + symbol` — the derivation that applies
-    /// while the receipt vault's underlying ticker and name are unset. The
-    /// wrapped leg takes no name/symbol input, so this pins that the config
-    /// table alone reproduces Base's wrapped tokens in that state.
+    /// The wrapped vault's name/symbol on Base follow the receipt vault's
+    /// state: `"Wrapped " + name` / `"w" + symbol` while the underlying
+    /// ticker and name are unset, and `underlyingName + " (ST0x)"` /
+    /// `underlying + "s"` once the rename has set them. The wrapped leg takes
+    /// no name/symbol input, so this pins that the config table alone
+    /// reproduces Base's wrapped tokens in either state.
     function testWrappedDerivationHoldsOnBase() external {
         vm.createSelectFork(LibRainDeploy.BASE);
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
         for (uint256 i = 0; i < tokens.length; i++) {
             IERC20Metadata wrapped = IERC20Metadata(tokens[i].wrappedTokenVault);
+            bool renamed = LibTestTokenMetadata.vaultRenamed(configs[i], IERC20Metadata(tokens[i].receiptVault).name());
             assertEq(
                 wrapped.name(),
-                string.concat("Wrapped ", configs[i].name),
+                renamed ? LibTestTokenMetadata.renamedName(configs[i]) : string.concat("Wrapped ", configs[i].name),
                 string.concat(configs[i].underlying, ": wrapped name derivation drift")
             );
             assertEq(
                 wrapped.symbol(),
-                string.concat("w", configs[i].symbol),
+                renamed ? LibTestTokenMetadata.renamedWrappedSymbol(configs[i]) : string.concat("w", configs[i].symbol),
                 string.concat(configs[i].underlying, ": wrapped symbol derivation drift")
             );
         }
     }
 
-    /// Every row's symbol is "t" + its underlying key, so a `setUnderlying`
-    /// batch that takes the ticker from `underlying` leaves each receipt
-    /// vault's `symbol()` unchanged.
+    /// Every row is filled in and its symbol is "t" + its underlying key, so
+    /// a `setUnderlying` batch that takes the ticker from `underlying` leaves
+    /// each receipt vault's `symbol()` unchanged.
     function testSymbolIsTPlusUnderlying() external pure {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         assertGt(configs.length, 0);
         for (uint256 rowIndex = 0; rowIndex < configs.length; rowIndex++) {
             assertGt(bytes(configs[rowIndex].underlying).length, 0, "empty underlying");
+            assertGt(bytes(configs[rowIndex].name).length, 0, configs[rowIndex].underlying);
             assertEq(
                 configs[rowIndex].symbol, string.concat("t", configs[rowIndex].underlying), configs[rowIndex].underlying
             );

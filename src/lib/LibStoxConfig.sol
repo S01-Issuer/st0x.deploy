@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
+import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
+
 /// @title LibStoxConfig
 /// @notice st0x's bindings in rain-deploy's `ConfigRegistry` V3, all under the
 /// root authority: the same account on every chain, so a consumer's creation
@@ -18,4 +20,16 @@ library LibStoxConfig {
 
     /// @notice `abi.encode(address)`: the beacon production wrappers proxy.
     bytes32 internal constant WRAPPER_BEACON_NAME = keccak256("st0x.wrapper-beacon.v1");
+
+    /// @notice `abi.encode(address)`: the timelock's initial proposer and
+    /// canceller, read once at its construction.
+    bytes32 internal constant TIMELOCK_INITIAL_PROPOSER_NAME = keccak256("st0x.timelock-initial-proposer.v1");
+
+    /// @return The timelock's initial proposer; reverts while unbound.
+    function timelockInitialProposer() internal view returns (address) {
+        // slither-disable-next-line unused-return
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(ROOT_AUTHORITY, TIMELOCK_INITIAL_PROPOSER_NAME, keccak256("address"));
+        return abi.decode(value, (address));
+    }
 }
