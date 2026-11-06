@@ -17,6 +17,7 @@ import {
     ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
 } from "../../../src/concrete/ST0xOrchestrator.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {
     BeaconNotDeployed,
     BeaconCodehashMismatch,
@@ -55,7 +56,7 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
         timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         LibTestDeploy.bindBeaconInitialOwner(vm, timelock);
         LibTestDeploy.bindOrchestratorInitialAdmin(vm, timelock);
-        deployKey = LibProdDeployCurrent.BEACON_INITIAL_OWNER;
+        deployKey = LibProdDeployV4.BEACON_INITIAL_OWNER;
 
         LibRainDeploy.etchZoltuFactory(vm);
         deployedBeacon = LibTestOrchestratorDeploy.deployBeacon();
