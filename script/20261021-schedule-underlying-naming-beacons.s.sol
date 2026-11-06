@@ -45,20 +45,6 @@ error OperationNotPendingInsideDelay(bytes32 id);
 /// @param actual The beacon's implementation.
 error BeaconNotUpgraded(address beacon, address expected, address actual);
 
-/// @notice The root line is not at the record this migration is applied onto.
-/// @param head The line's head.
-error ScheduleBeaconsUnexpectedMigrationLine(bytes32 head);
-
-/// @notice After the bundle this migration's record is not stamped at the
-/// fork's block.
-/// @param expected The fork's block timestamp.
-/// @param actual The recorded moment.
-error ScheduleBeaconsRecordMismatch(uint256 expected, uint256 actual);
-
-/// @notice After the bundle the root line's head is not this migration.
-/// @param head The line's head.
-error ScheduleBeaconsLineHeadMismatch(bytes32 head);
-
 /// @notice This script's declaration: the Safe's record, after orchestrator-admin-to-timelock.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
@@ -139,10 +125,7 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        bytes32 head = LibStoxMigrations.head();
-        if (head != scheduleUnderlyingNamingBeaconsDeclaration().onto) {
-            revert ScheduleBeaconsUnexpectedMigrationLine(head);
-        }
+        LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), chainSafe);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
         assertDeployed(LibUnderlyingNamingRollout.FACET, LibUnderlyingNamingRollout.FACET_CODEHASH);
@@ -177,9 +160,7 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
             data: LibUnderlyingNamingRollout.scheduleBeaconCalldata(block.chainid),
             operation: Enum.Operation.Call
         });
-        (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(scheduleUnderlyingNamingBeaconsDeclaration());
-        txs[1] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
+        txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingBeaconsDeclaration());
         return txs;
     }
 
@@ -192,18 +173,7 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert OperationNotPendingInsideDelay(id);
         }
-        // The registry stamps the block the record lands in, which on the
-        // fork is this block.
-        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (record != block.timestamp) {
-            // forge-lint: disable-next-line(block-timestamp)
-            revert ScheduleBeaconsRecordMismatch(block.timestamp, record);
-        }
-        bytes32 head = LibStoxMigrations.head();
-        if (head != scheduleUnderlyingNamingBeaconsDeclaration().id) {
-            revert ScheduleBeaconsLineHeadMismatch(head);
-        }
+        LibStoxMigrations.assertRecorded(scheduleUnderlyingNamingBeaconsDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript

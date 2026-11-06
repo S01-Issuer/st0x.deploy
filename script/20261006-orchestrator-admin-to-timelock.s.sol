@@ -18,23 +18,6 @@ import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
-/// @notice The root line is not at the migration-registry-v5 backfill record,
-/// which this migration is applied onto.
-/// @param head The line's head.
-error UnexpectedMigrationLine(bytes32 head);
-
-/// @notice After the bundle, the migration's record is not the one the
-/// bundle wrote.
-/// @param migration The migration.
-/// @param expected The moment the bundle records.
-/// @param actual The moment the registry answers.
-error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
-
-/// @notice After the bundle, the root line does not end at this script's
-/// record.
-/// @param head The line's head.
-error LineHeadMismatch(bytes32 head);
-
 /// @notice `holder` does not hold `role` on the orchestrator.
 /// @param role The role.
 /// @param holder The address that must hold it.
@@ -181,17 +164,14 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
-    /// pins, the Safe's registry line is at the V5 backfill, and the Safe
-    /// holds `EMERGENCY_ROLE`.
+    /// pins, the root line is at the V5 backfill, the Safe may write it, and
+    /// the Safe holds `EMERGENCY_ROLE`.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
         LibOrchestratorInvariants.assertBeaconSet();
 
-        bytes32 head = LibStoxMigrations.head();
-        if (head != orchestratorAdminToTimelockDeclaration().onto) {
-            revert UnexpectedMigrationLine(head);
-        }
+        LibStoxMigrations.assertNext(orchestratorAdminToTimelockDeclaration(), chainSafe);
         assertHolds(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe);
         LibOrchestratorInvariants.assertInstance();
     }
@@ -222,9 +202,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
             data: abi.encodeCall(IAccessControl.renounceRole, (bytes32(0), chainSafe)),
             operation: Enum.Operation.Call
         });
-        (address recordTo, bytes memory recordData) =
-            LibStoxMigrations.recordCall(orchestratorAdminToTimelockDeclaration());
-        txs[2] = SafeTx({to: recordTo, value: 0, data: recordData, operation: Enum.Operation.Call});
+        txs[2] = LibStoxMigrations.recordTx(orchestratorAdminToTimelockDeclaration());
         return txs;
     }
 
@@ -234,18 +212,7 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
     /// still carries the token-owner policy.
     function assertPostState() internal view override {
         address chainSafe = address(safe());
-        // The registry stamps the block the record lands in, which on the
-        // fork is this block: an equality with a known value, not a window.
-        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (record != block.timestamp) {
-            // forge-lint: disable-next-line(block-timestamp)
-            revert RecordMismatch(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, block.timestamp, record);
-        }
-        bytes32 head = LibStoxMigrations.head();
-        if (head != orchestratorAdminToTimelockDeclaration().id) {
-            revert LineHeadMismatch(head);
-        }
+        LibStoxMigrations.assertRecorded(orchestratorAdminToTimelockDeclaration());
         assertHolds(bytes32(0), timelock());
         assertHolds(ORCHESTRATOR.EMERGENCY_ROLE(), chainSafe);
         LibOrchestratorInvariants.assertInstance();

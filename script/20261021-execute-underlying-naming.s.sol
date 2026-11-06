@@ -6,7 +6,6 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
@@ -40,20 +39,6 @@ error UnderlyingNamingNotExecuted(bytes32 renameId);
 /// @notice The root line already holds this script's record.
 /// @param id The migration id.
 error ExecuteUnderlyingNamingRecorded(bytes32 id);
-
-/// @notice The root line is not at the record this migration is applied onto.
-/// @param head The line's head.
-error ExecuteUnderlyingNamingUnexpectedMigrationLine(bytes32 head);
-
-/// @notice After the bundle this migration's record is not stamped at the
-/// fork's block.
-/// @param expected The fork's block timestamp.
-/// @param actual The recorded moment.
-error ExecuteUnderlyingNamingRecordMismatch(uint256 expected, uint256 actual);
-
-/// @notice After the bundle the root line's head is not this migration.
-/// @param head The line's head.
-error ExecuteUnderlyingNamingLineHeadMismatch(bytes32 head);
 
 /// @notice This script's declaration on the root line: after the rename schedule.
 /// @return The declaration.
@@ -149,7 +134,7 @@ contract ExecuteUnderlyingNaming is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function preflight() internal view override {
-        LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
         if (!TimelockController(payable(timelock)).isOperationDone(renameId)) {
@@ -157,29 +142,18 @@ contract ExecuteUnderlyingNaming is SafeBundleScript, IStoxScript {
         }
         bytes32 id = LibStoxMigrations.EXECUTE_UNDERLYING_NAMING;
         if (LibStoxMigrations.applied(id) != 0) revert ExecuteUnderlyingNamingRecorded(id);
-        bytes32 head = LibStoxMigrations.head();
-        if (head != executeUnderlyingNamingDeclaration().onto) {
-            revert ExecuteUnderlyingNamingUnexpectedMigrationLine(head);
-        }
+        LibStoxMigrations.assertNext(executeUnderlyingNamingDeclaration(), chainSafe);
     }
 
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        (address registry, bytes memory data) = LibStoxMigrations.recordCall(executeUnderlyingNamingDeclaration());
         SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = SafeTx({to: registry, value: 0, data: data, operation: Enum.Operation.Call});
+        txs[0] = LibStoxMigrations.recordTx(executeUnderlyingNamingDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
-        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (record != block.timestamp) {
-            // forge-lint: disable-next-line(block-timestamp)
-            revert ExecuteUnderlyingNamingRecordMismatch(block.timestamp, record);
-        }
-        bytes32 head = LibStoxMigrations.head();
-        if (head != LibStoxMigrations.EXECUTE_UNDERLYING_NAMING) revert ExecuteUnderlyingNamingLineHeadMismatch(head);
+        LibStoxMigrations.assertRecorded(executeUnderlyingNamingDeclaration());
     }
 }
