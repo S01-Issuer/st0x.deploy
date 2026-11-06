@@ -515,7 +515,7 @@ contract ST0xOrchestrator is
         MainStorage storage $ = _main();
         uint256 old = $.nextBurnReceiptId[token];
         $.nextBurnReceiptId[token] = newIndex;
-        emit BurnIndexSet(token, old, newIndex);
+        emit BurnIndexSet(msg.sender, token, old, newIndex);
     }
 
     // ------------------------------------------------------------------ //
@@ -536,7 +536,7 @@ contract ST0xOrchestrator is
         MintCapV1 storage cap = _main().mintCaps[account][kind];
         cap.bucket = LibLeakyBucket.setPolicy(cap.bucket, _now(), capacity, leakRate);
         cap.set = true;
-        emit MintLimitSet(kind, account, capacity, leakRate);
+        emit MintLimitSet(msg.sender, kind, account, capacity, leakRate);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -561,7 +561,7 @@ contract ST0xOrchestrator is
     {
         IERC1155(address(OffchainAssetReceiptVault(payable(token)).receipt()))
             .safeTransferFrom(address(this), to, id, amount, "");
-        emit ReceiptsWithdrawn(token, to, id, amount);
+        emit ReceiptsWithdrawn(msg.sender, token, to, id, amount);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -574,7 +574,7 @@ contract ST0xOrchestrator is
         nonReentrant
     {
         IERC1155(erc1155).safeTransferFrom(address(this), to, id, amount, "");
-        emit ForeignERC1155Swept(erc1155, to, id, amount);
+        emit ForeignERC1155Swept(msg.sender, erc1155, to, id, amount);
     }
 
     /// @inheritdoc IST0xOrchestratorV2
@@ -582,7 +582,7 @@ contract ST0xOrchestrator is
     /// or rebase-truncation dust after fractional splits).
     function withdrawShares(address token, uint256 amount, address to) external onlyRole(EMERGENCY_ROLE) nonReentrant {
         IERC20(token).safeTransfer(to, amount);
-        emit SharesWithdrawn(token, to, amount);
+        emit SharesWithdrawn(msg.sender, token, to, amount);
     }
 
     // ------------------------------------------------------------------ //
@@ -723,7 +723,7 @@ contract ST0xOrchestrator is
         uint256 old = $.nextBurnReceiptId[vault];
         if (id < old) {
             $.nextBurnReceiptId[vault] = id;
-            emit BurnIndexLowered(vault, old, id);
+            emit BurnIndexLowered(msg.sender, vault, old, id);
         }
     }
 

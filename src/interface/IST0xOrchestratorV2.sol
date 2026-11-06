@@ -37,35 +37,41 @@ enum MintCapKind {
 /// reads, and every mint is metered by the minter and recipient mint caps.
 interface IST0xOrchestratorV2 {
     event Minted(
-        address indexed caller, address indexed token, address indexed recipient, uint256 amount, bytes32 nonce
+        address indexed sender, address indexed token, address indexed recipient, uint256 amount, bytes32 nonce
     );
     /// @param firstReceiptId `nextBurnReceiptId[token]` at the start of the call.
     /// @param nextBurnReceiptIdAfter The pointer at the end of the call. The
     /// walk only ever moves forward within a burn, so `[firstReceiptId,
     /// nextBurnReceiptIdAfter)` is the consumed id range.
     event Burned(
-        address indexed caller,
+        address indexed sender,
         address indexed token,
         uint256 amount,
         uint256 firstReceiptId,
         uint256 nextBurnReceiptIdAfter
     );
     /// @notice `EMERGENCY_ROLE` manually overrode `token`'s burn pointer.
-    event BurnIndexSet(address indexed token, uint256 oldIndex, uint256 newIndex);
+    event BurnIndexSet(address indexed sender, address indexed token, uint256 oldIndex, uint256 newIndex);
     /// @notice A production receipt arrived at an id below `token`'s burn
     /// pointer and the receiver hook lowered the pointer to it.
-    event BurnIndexLowered(address indexed token, uint256 oldIndex, uint256 newIndex);
-    event ReceiptsWithdrawn(address indexed token, address indexed to, uint256 indexed id, uint256 amount);
-    event SharesWithdrawn(address indexed token, address indexed to, uint256 amount);
+    event BurnIndexLowered(address indexed sender, address indexed token, uint256 oldIndex, uint256 newIndex);
+    event ReceiptsWithdrawn(
+        address indexed sender, address indexed token, address indexed to, uint256 id, uint256 amount
+    );
+    event SharesWithdrawn(address indexed sender, address indexed token, address indexed to, uint256 amount);
     /// @notice A foreign ERC-1155 (not a production receipt) was swept out via
     /// `sweepERC1155`.
-    event ForeignERC1155Swept(address indexed erc1155, address indexed to, uint256 indexed id, uint256 amount);
+    event ForeignERC1155Swept(
+        address indexed sender, address indexed erc1155, address indexed to, uint256 id, uint256 amount
+    );
     /// @notice `MINT_ADMIN_ROLE` set `account`'s `kind` mint limit.
     /// @param kind Which bucket.
     /// @param account The minter or recipient the limit applies to.
     /// @param capacity The burst.
     /// @param leakRate The sustained rate per second.
-    event MintLimitSet(MintCapKind indexed kind, address indexed account, Float capacity, Float leakRate);
+    event MintLimitSet(
+        address indexed sender, MintCapKind indexed kind, address indexed account, Float capacity, Float leakRate
+    );
     /// @notice `MINT_ADMIN_ROLE` set the mint weighting: the one expression
     /// that converts every mint, on every token, into the charge on both
     /// buckets.
