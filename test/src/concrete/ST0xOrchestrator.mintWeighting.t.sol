@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
 import {
@@ -14,6 +15,7 @@ import {
 import {StateNamespace} from "rainlang-0.2.32/src/interface/IInterpreterStoreV3.sol";
 import {LibNamespace} from "rainlang-0.2.32/src/lib/ns/LibNamespace.sol";
 import {InvalidSignature} from "rainlang-0.2.32/src/lib/caller/LibContext.sol";
+import {ITOFUTokenDecimals, TOFUOutcome} from "rain-tofu-erc20-decimals-0.1.4/src/interface/ITOFUTokenDecimals.sol";
 
 import {IST0xOrchestratorV2, MintAuthV1, Digest} from "src/interface/IST0xOrchestratorV2.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";
@@ -338,6 +340,31 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _setWeighting("_: mint-amount();");
         _mint(2.5e18, keccak256("whole"), new SignedContextV2[](0));
         _assertFloatEq(_headroom(), _f(9975, -1), "charged 2.5");
+    }
+
+    /// The first weighted mint fixes the token's decimals; a later `decimals()` that differs is refused.
+    function testFuzzMintRevertsWhenTokenDecimalsChangeAfterTheFirstMint(uint8 changedDecimals) external {
+        vm.assume(changedDecimals != TOKEN_DECIMALS);
+        _setLimits(CAPACITY, CAPACITY);
+        _setWeighting("_: mint-amount();");
+        _mint(AMOUNT, keccak256("first"), new SignedContextV2[](0));
+
+        vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(changedDecimals));
+        _mockVaultMint(AMOUNT);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ITOFUTokenDecimals.TokenDecimalsReadFailure.selector, TOKEN, TOFUOutcome.Inconsistent
+            )
+        );
+        vm.prank(MINTER);
+        orchestrator.mint(
+            TOKEN,
+            address(recipient),
+            AMOUNT,
+            MintAuthV1({nonce: keccak256("second"), signature: ""}),
+            "",
+            new SignedContextV2[](0)
+        );
     }
 
     /// The last output is the charge, whatever else the expression leaves.
