@@ -27,8 +27,15 @@ on:
           # record (executed scripts refuse re-dispatch in pre-flight, and
           # pins record what landed) — this dropdown is a registry of *which*
           # scripts exist, not *whether* they've run.
-          - 20260813-execute-timelock-operations
           - 20261021-execute-underlying-naming
+      sig:
+        description: 'Entrypoint to dispatch (default: run())'
+        required: true
+        type: choice
+        default: 'run()'
+        options:
+          - 'run()'
+          - 'execute()'
       network:
         description: 'Network to broadcast against (default: base)'
         required: true
@@ -108,6 +115,7 @@ jobs:
           # into the command, so the dispatched values are used as literal
           # arguments and cannot inject shell.
           SCRIPT: ${{ inputs.script }}
+          SIG: ${{ inputs.sig }}
           NETWORK: ${{ inputs.network }}
           LEGACY: ${{ inputs.legacy }}
           RPC_THROTTLE: ${{ inputs.rpc_throttle }}
@@ -135,7 +143,7 @@ jobs:
           nix develop --command forge script "script/${SCRIPT}.s.sol" \
             "${LEGACY_ARGS[@]}" \
             "${THROTTLE_ARGS[@]}" \
-            --sig 'run()' \
+            --sig "${SIG}" \
             --rpc-url "${NETWORK}" \
             --no-storage-caching \
             --slow \
