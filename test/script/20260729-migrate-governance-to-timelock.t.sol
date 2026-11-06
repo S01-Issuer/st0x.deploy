@@ -26,6 +26,7 @@ import {HistoryMigrationScriptTest} from "../lib/HistoryMigrationScriptTest.sol"
 import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
+import {LibTestTamperedArtifact} from "../lib/LibTestTamperedArtifact.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -534,25 +535,25 @@ contract MigrateGovernanceToTimelockTest is Test {
         selectBaseFork();
         address timelock = pinnedTimelock();
         new MigrateGovernanceToTimelockHarness(timelock).run();
-        string memory path =
-            string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json");
+        string memory json = vm.readFile(
+            string.concat("out/20260729-governance-timelock-migration-", vm.toString(block.chainid), ".json")
+        );
 
         // Fresh fork: authoring mutated the previous fork's state; the live
         // chain a signer verifies against is untouched.
         selectBaseFork();
         assertEq(pinnedTimelock(), timelock, "derived timelock must be stable across forks");
-        MigrateGovernanceToTimelockHarness verifier = new MigrateGovernanceToTimelockHarness(timelock);
-        verifier.verify(path);
-
-        // Tamper one call's payload and re-emit: verify pinpoints the field.
-        (,, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(path));
+        (,, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, json);
         txs[0].data = abi.encodeCall(IAccessControl.grantRole, (bytes32(uint256(1)), address(0xBAD)));
-        vm.writeFile(
-            "out/tampered-migration.json",
-            LibSafeTxBuilderJson.toJson(vm, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs)
+        string memory tampered =
+            LibSafeTxBuilderJson.toJson(vm, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, block.chainid, "tampered", txs);
+        LibTestTamperedArtifact.assertVerifyRefusesTamper(
+            vm,
+            address(new MigrateGovernanceToTimelockHarness(timelock)),
+            json,
+            tampered,
+            "20260729-governance-timelock"
         );
-        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
-        verifier.verify("out/tampered-migration.json");
     }
 
     /// @notice One governance-loop leg: schedule the call on the timelock

@@ -115,73 +115,28 @@ contract MigrateMultisigThresholdTest is Test {
         script.run();
     }
 
-    /// @notice Inverted: `verify()` rejects an artifact with a wrong
-    /// `chainId`. We forge a minimal JSON with a bogus chain id and
-    /// assert the typed `VerifyMismatch("chainId")` revert.
-    function testVerifyRejectsWrongChainId() external {
-        selectBaseFork();
-        // Build a minimal-shape Tx Builder JSON with a deliberately-wrong
-        // chainId. Tx Builder schema serialises `chainId` as a decimal
-        // string.
-        SafeTx memory txn = SafeTx({
-            to: address(safe),
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(3))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        // Emit a bundle that claims to be for a different chain id by
-        // bypassing the live `block.chainid` and passing `block.chainid + 1`.
-        string memory json =
-            LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid + 1, "safe-verify-wrong-chain", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-chain.json");
-        vm.writeFile(path, json);
-
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "chainId"));
-        script.verify(path);
-    }
-
-    /// @notice Inverted: `verify()` rejects an artifact whose first tx
-    /// targets a different Safe.
-    function testVerifyRejectsWrongSafeAddress() external {
+    /// @notice Inverted: `verify()` names the field an artifact gets wrong:
+    /// its chain id, the Safe it targets, or the threshold its calldata sets.
+    function testVerifyRejectsAWrongField() external {
         selectBaseFork();
         address impostor = address(0xCAFEBABE);
-        SafeTx memory txn = SafeTx({
-            to: impostor,
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(3))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        string memory json = LibSafeTxBuilderJson.toJson(vm, impostor, block.chainid, "safe-verify-wrong-safe", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-safe.json");
-        vm.writeFile(path, json);
-
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "safeAddress"));
-        script.verify(path);
-    }
-
-    /// @notice Inverted: `verify()` rejects an artifact whose tx
-    /// calldata encodes a different threshold.
-    function testVerifyRejectsWrongThresholdData() external {
-        selectBaseFork();
-        SafeTx memory txn = SafeTx({
-            to: address(safe),
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(4))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        string memory json =
-            LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid, "safe-verify-wrong-threshold", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-threshold.json");
-        vm.writeFile(path, json);
-
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "data"));
-        script.verify(path);
+        address[3] memory safes = [address(safe), impostor, address(safe)];
+        uint256[3] memory chainIds = [block.chainid + 1, block.chainid, block.chainid];
+        uint256[3] memory thresholds = [uint256(3), 3, 4];
+        string[3] memory fields = ["chainId", "safeAddress", "data"];
+        for (uint256 i = 0; i < fields.length; i++) {
+            SafeTx[] memory txs = new SafeTx[](1);
+            txs[0] = SafeTx({
+                to: safes[i],
+                value: 0,
+                data: abi.encodeCall(OwnerManager.changeThreshold, (thresholds[i])),
+                operation: Enum.Operation.Call
+            });
+            string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-", fields[i], ".json");
+            vm.writeFile(path, LibSafeTxBuilderJson.toJson(vm, safes[i], chainIds[i], fields[i], txs));
+            vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, fields[i]));
+            script.verify(path);
+        }
     }
 
     function chains() internal pure returns (uint256[5] memory) {

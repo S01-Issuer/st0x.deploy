@@ -36,6 +36,7 @@ import {
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
+import {LibTestTamperedArtifact} from "../lib/LibTestTamperedArtifact.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -118,6 +119,10 @@ contract BackfillMigrationRegistryV5Test is Test {
         );
     }
 
+    function onChain(string memory message) internal view returns (string memory) {
+        return string.concat(vm.toString(block.chainid), ": ", message);
+    }
+
     /// @dev The bundle once V5 holds the line's first `held` records.
     function expectedBundle(BackfillMigrationRegistryV5Harness script, uint256 held)
         internal
@@ -135,13 +140,13 @@ contract BackfillMigrationRegistryV5Test is Test {
         return expected;
     }
 
-    function assertBundle(SafeTx[] memory txs, bytes[] memory expected) internal pure {
-        assertEq(txs.length, expected.length, "bundle length");
+    function assertBundle(SafeTx[] memory txs, bytes[] memory expected) internal view {
+        assertEq(txs.length, expected.length, onChain("bundle length"));
         for (uint256 i = 0; i < txs.length; i++) {
-            assertEq(txs[i].to, V5, "to the V5 registry");
-            assertEq(txs[i].value, 0, "no value");
-            assertEq(uint8(txs[i].operation), uint8(Enum.Operation.Call), "call");
-            assertEq(txs[i].data, expected[i], "calldata");
+            assertEq(txs[i].to, V5, onChain("to the V5 registry"));
+            assertEq(txs[i].value, 0, onChain("no value"));
+            assertEq(uint8(txs[i].operation), uint8(Enum.Operation.Call), onChain("call"));
+            assertEq(txs[i].data, expected[i], onChain("calldata"));
         }
     }
 
@@ -164,22 +169,22 @@ contract BackfillMigrationRegistryV5Test is Test {
         LineRecord[] memory all = line(block.chainid);
         for (uint256 i = 0; i < all.length; i++) {
             uint256 at = LibStoxMigrations.applied(all[i].id);
-            assertTrue(at != 0, "V5 holds the record");
-            if (all[i].history) assertEq(at, momentOf(script, all[i].id), "history at its script's moment");
-            assertEq(LibMigrationRegistry.appliedOntoV5(ROOT, NS, all[i].id), ontoAt(all, i), "onto the line");
-            assertEq(LibMigrationRegistry.appliedByV5(ROOT, NS, all[i].id), safe, "written by the Safe");
+            assertTrue(at != 0, onChain("V5 holds the record"));
+            if (all[i].history) assertEq(at, momentOf(script, all[i].id), onChain("history at its script's moment"));
+            assertEq(LibMigrationRegistry.appliedOntoV5(ROOT, NS, all[i].id), ontoAt(all, i), onChain("onto the line"));
+            assertEq(LibMigrationRegistry.appliedByV5(ROOT, NS, all[i].id), safe, onChain("written by the Safe"));
         }
         V2Record[] memory v2 = v2Records();
         for (uint256 i = 0; i < v2.length; i++) {
             assertEq(
                 LibStoxMigrations.applied(v2[i].id),
                 V2.applied(safe, v2[i].v2Namespace, v2[i].v2Id),
-                "V5 moment is the V2 moment"
+                onChain("V5 moment is the V2 moment")
             );
         }
-        assertTrue(LibStoxMigrations.applied(OWN) != 0, "own record");
-        assertEq(LibMigrationRegistry.appliedOntoV5(ROOT, NS, OWN), all[all.length - 1].id, "own record last");
-        assertEq(LibMigrationRegistry.appliedByV5(ROOT, NS, OWN), safe, "own record by the Safe");
+        assertTrue(LibStoxMigrations.applied(OWN) != 0, onChain("own record"));
+        assertEq(LibMigrationRegistry.appliedOntoV5(ROOT, NS, OWN), all[all.length - 1].id, onChain("own record last"));
+        assertEq(LibMigrationRegistry.appliedByV5(ROOT, NS, OWN), safe, onChain("own record by the Safe"));
     }
 
     function assertBackfill(string memory network) internal {
@@ -187,7 +192,7 @@ contract BackfillMigrationRegistryV5Test is Test {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         BackfillMigrationRegistryV5Harness script = new BackfillMigrationRegistryV5Harness(network);
 
-        assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS, "root line starts at genesis");
+        assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS, onChain("root line starts at genesis"));
         assertBundle(script.callAuthorBundle(), expectedBundle(script, 0));
 
         uint256 preRun = vm.snapshotState();
@@ -200,38 +205,27 @@ contract BackfillMigrationRegistryV5Test is Test {
         script.verify(artifactPath);
 
         (, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, json);
-        assertEq(artifactSafe, safe, "artifact Safe");
+        assertEq(artifactSafe, safe, onChain("artifact Safe"));
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), txs);
 
         assertLine(script, safe);
         LineRecord[] memory all = line(block.chainid);
         for (uint256 i = 0; i < all.length; i++) {
-            if (!all[i].history) assertEq(LibStoxMigrations.applied(all[i].id), block.timestamp, "record-only, live");
+            if (!all[i].history) {
+                assertEq(LibStoxMigrations.applied(all[i].id), block.timestamp, onChain("record-only, live"));
+            }
         }
-        assertEq(LibStoxMigrations.applied(OWN), block.timestamp, "own record live");
-        assertEq(LibStoxMigrations.head(), OWN, "root line head");
-        assertEq(script.callAuthorBundle().length, 0, "re-authoring after execution is empty");
+        assertEq(LibStoxMigrations.applied(OWN), block.timestamp, onChain("own record live"));
+        assertEq(LibStoxMigrations.head(), OWN, onChain("root line head"));
+        assertEq(script.callAuthorBundle().length, 0, onChain("re-authoring after execution is empty"));
         script.callAssertPostState();
     }
 
-    function testBackfillBundleBase() external {
-        assertBackfill(LibRainDeploy.BASE);
-    }
-
-    function testBackfillBundleEthereum() external {
-        assertBackfill(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testBackfillBundleHyperEvm() external {
-        assertBackfill(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testBackfillBundleRobinhood() external {
-        assertBackfill(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testBackfillBundleBsc() external {
-        assertBackfill(LibStoxDeployNetworks.BSC);
+    function testBackfillBundleOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertBackfill(networks[i]);
+        }
     }
 
     function setUpFork(string memory network) internal returns (BackfillMigrationRegistryV5Harness, address) {
@@ -254,16 +248,15 @@ contract BackfillMigrationRegistryV5Test is Test {
         }
         holdPrefix(script, safe, count);
         LibTestRootLine.write(vm, safe, OWN, line(block.chainid)[count - 1].id);
-        assertEq(script.callAuthorBundle().length, 0, "V5 holds every record");
+        assertEq(script.callAuthorBundle().length, 0, onChain("V5 holds every record"));
         script.callAssertPostState();
     }
 
-    function testBundleSkipsRecordsV5HoldsBase() external {
-        assertBundleSkipsHeldRecords(LibRainDeploy.BASE);
-    }
-
-    function testBundleSkipsRecordsV5HoldsEthereum() external {
-        assertBundleSkipsHeldRecords(LibStoxDeployNetworks.ETHEREUM);
+    function testBundleSkipsRecordsV5HoldsOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertBundleSkipsHeldRecords(networks[i]);
+        }
     }
 
     function testDeclarationIsLiveOntoTheChainsLastBackfilledRecord() external {
@@ -453,10 +446,6 @@ contract BackfillMigrationRegistryV5Test is Test {
         (BackfillMigrationRegistryV5Harness script, address safe) = setUpBase();
         string memory json =
             LibSafeTxBuilderJson.toJson(vm, safe, block.chainid, "tamper test", script.callAuthorBundle());
-        string memory cleanPath =
-            string.concat("out/20261030-backfill-migration-registry-v5-clean-", vm.toString(block.chainid), ".json");
-        vm.writeFile(cleanPath, json);
-        script.verify(cleanPath);
         bytes32 threshold = LibStoxMigrations.MULTISIG_THRESHOLD;
         uint256 at = momentOf(script, threshold);
         string memory tampered = vm.replace(
@@ -464,12 +453,9 @@ contract BackfillMigrationRegistryV5Test is Test {
             vm.toString(historyData(threshold, at, MIGRATION_HEAD_GENESIS)),
             vm.toString(historyData(threshold, at - 1, MIGRATION_HEAD_GENESIS))
         );
-        assertTrue(keccak256(bytes(tampered)) != keccak256(bytes(json)), "tamper did not apply");
-        string memory tamperedPath =
-            string.concat("out/20261030-backfill-migration-registry-v5-tampered-", vm.toString(block.chainid), ".json");
-        vm.writeFile(tamperedPath, tampered);
-        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "data"));
-        script.verify(tamperedPath);
+        LibTestTamperedArtifact.assertVerifyRefusesTamper(
+            vm, address(script), json, tampered, "20261030-backfill-migration-registry-v5"
+        );
     }
 
     function testPostStateRefusesUnwrittenLine() external {
