@@ -21,6 +21,7 @@ import {ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
+import {LibTestPreBackfillFork} from "../../lib/LibTestPreBackfillFork.sol";
 
 /// @title LibStoxMigrationsTest
 /// @notice The pinned execution moment of the governance-timelock migration is the chain's own record of
@@ -66,7 +67,6 @@ contract LibStoxMigrationsTest is Test {
         (uint256 appliedAt, uint256 blockNumber) = LibStoxMigrations.governanceTimelockExecution(network.chainId);
         vm.createSelectFork(network.name, blockNumber);
         assertEq(block.chainid, network.chainId, network.name);
-        LibMigrationRegistry.checkCodeHash();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
 
@@ -78,6 +78,9 @@ contract LibStoxMigrationsTest is Test {
             vm.eth_getLogs(blockNumber, blockNumber, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON, topics);
         assertEq(logs.length, 1, string.concat(network.name, ": ownership transfers in the pinned block"));
         assertEq(block.timestamp, appliedAt, string.concat(network.name, ": timestamp"));
+
+        LibTestPreBackfillFork.select(vm, network.name);
+        LibMigrationRegistry.checkCodeHash();
     }
 
     /// @notice Every network ST0x deploys to has a pinned execution moment,
