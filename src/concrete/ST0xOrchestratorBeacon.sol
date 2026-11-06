@@ -9,11 +9,11 @@ import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 /// @title ST0xOrchestratorBeacon
 /// @notice The `UpgradeableBeacon` behind the orchestrator's registry beacon
 /// proxy, Zoltu-deployed. Implementation is `LibProdDeployCurrent.ST0X_ORCHESTRATOR`;
-/// owner is the governance timelock bound in the `ConfigRegistry`, so the
+/// owner is the beacon initial owner bound in the `ConfigRegistry`, so the
 /// creation code is chain-invariant and the deploy key never owns the beacon.
 /// @dev Reverts until the root authority binds a nonzero
-/// `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME`, and until the implementation has
+/// `LibStoxConfig.BEACON_INITIAL_OWNER_NAME`, and until the implementation has
 /// code.
 contract ST0xOrchestratorBeacon is
-    UpgradeableBeacon(LibProdDeployCurrent.ST0X_ORCHESTRATOR, LibStoxConfig.orchestratorInitialAdmin())
+    UpgradeableBeacon(LibProdDeployCurrent.ST0X_ORCHESTRATOR, LibStoxConfig.beaconInitialOwner())
 {}
