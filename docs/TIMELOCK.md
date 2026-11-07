@@ -53,7 +53,7 @@ admin power:
 
 - **Beacon.** `ST0xOrchestratorBeacon` is a Zoltu-deployed `UpgradeableBeacon`
   serving `LibProdDeployCurrent.ST0X_ORCHESTRATOR`, owned by the registry-bound
-  `LibStoxConfig.orchestratorInitialAdmin()`. The deploy key never owns it, and
+  `LibStoxConfig.beaconInitialOwner()`. The deploy key never owns it, and
   with the governance timelock bound, `upgradeTo` is delay-gated. Its
   constructor reverts while the binding is unset or zero.
 - **Instance.** A rain-factory registry beacon proxy over the beacon bound under
