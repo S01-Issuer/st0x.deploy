@@ -205,11 +205,12 @@ library LibOrchestratorInvariants {
         }
 
         assertAdministeredBy(acl, bytes32(0), bytes32(0));
-        bytes32[3] memory operatingRoles = [ORCHESTRATOR_MINT_ROLE, ORCHESTRATOR_BURN_ROLE, ORCHESTRATOR_EMERGENCY_ROLE];
-        for (uint256 i = 0; i < operatingRoles.length; i++) {
-            assertAdministeredBy(acl, operatingRoles[i], grants[i + 1].role);
-            assertAdministeredBy(acl, grants[i + 1].role, grants[i + 1].role);
-        }
+        assertAdministeredBy(acl, ORCHESTRATOR_MINT_ROLE, ORCHESTRATOR_MINT_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_MINT_ADMIN_ROLE, ORCHESTRATOR_MINT_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_BURN_ROLE, ORCHESTRATOR_BURN_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_BURN_ADMIN_ROLE, ORCHESTRATOR_BURN_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_EMERGENCY_ROLE, ORCHESTRATOR_EMERGENCY_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_EMERGENCY_ADMIN_ROLE, ORCHESTRATOR_EMERGENCY_ADMIN_ROLE);
     }
 
     /// @notice Revert unless `holder` holds `role` on `acl`.
