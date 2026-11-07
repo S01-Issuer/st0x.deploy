@@ -99,7 +99,7 @@ guidance, and `docs/GLOSSARY.md` for domain terms.
 ### Mint weighting
 
 `ST0xOrchestrator` charges its mint-cap buckets with the value a Rainlang
-weighting puts on each mint, evaluated over the attestations the minter
+weighting puts on each mint, evaluated over the signed context the minter
 supplies. Governance installs the weighting with `setMintWeighting`; the
 orchestrator holds no opinion on what it is.
 
