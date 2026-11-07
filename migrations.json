@@ -187,23 +187,23 @@
       "chains": {
         "1": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6"
         },
         "4663": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6"
         },
         "56": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6"
         },
         "8453": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6"
         },
         "999": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6"
         }
       },
       "id": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651",
@@ -286,6 +286,32 @@
       },
       "id": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
       "script": "script/20261021-schedule-underlying-naming-rename.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        }
+      },
+      "id": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6",
+      "script": "script/20261022-bind-beacon-initial-owner.s.sol"
     },
     {
       "chains": {

@@ -362,8 +362,15 @@ records imply:
    while it still administers the orchestrator directly; it ran before V5, so
    the backfill records it as history on the root line.
 2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
-   the Safe to the timelock, recorded on the root line after step 1, so the
+   the Safe to the timelock, recorded on the root line after
+   `20261022-bind-beacon-initial-owner`, which follows the backfill, so the
    registry refuses it on a chain where step 1 has not executed.
+
+The root line runs, after the backfill: `20261022-bind-beacon-initial-owner` →
+`20261006-orchestrator-admin-to-timelock` →
+`20261021-schedule-underlying-naming-beacons` →
+`20261021-schedule-underlying-naming-rename` →
+`20261021-execute-underlying-naming`.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over
