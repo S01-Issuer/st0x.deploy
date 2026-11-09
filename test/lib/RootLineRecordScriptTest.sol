@@ -88,11 +88,17 @@ abstract contract RootLineRecordScriptTest is Test {
         executeBundlePrefix(sScript.callAuthorBundle().length);
     }
 
+    function ownRecordPreflightRefusal() internal pure virtual returns (bytes memory) {
+        return abi.encodeWithSelector(UnexpectedMigrationLine.selector, declaredId());
+    }
+
+    function assumeUnrecorded(bytes32 record) internal view {
+        vm.assume(record != bytes32(0) && record != MIGRATION_HEAD_GENESIS && LibStoxMigrations.applied(record) == 0);
+    }
+
     function assumeForeign(bytes32 record) internal view {
-        vm.assume(
-            record != bytes32(0) && record != MIGRATION_HEAD_GENESIS && record != declaredId()
-                && LibStoxMigrations.applied(record) == 0
-        );
+        assumeUnrecorded(record);
+        vm.assume(record != declaredId());
     }
 
     function testDeclarationIsItsRootLineRecord(uint256 chainId) external view {
@@ -111,10 +117,14 @@ abstract contract RootLineRecordScriptTest is Test {
     }
 
     function testPreflightRefusesALineMovedPastItsOnto(bytes32 next) external {
-        assumeForeign(next);
+        assumeUnrecorded(next);
         sScript.callPreflight();
         LibTestRootLine.write(vm, safeAddress(), next, declaredOnto());
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, next));
+        vm.expectRevert(
+            next == declaredId()
+                ? ownRecordPreflightRefusal()
+                : abi.encodeWithSelector(UnexpectedMigrationLine.selector, next)
+        );
         sScript.callPreflight();
     }
 

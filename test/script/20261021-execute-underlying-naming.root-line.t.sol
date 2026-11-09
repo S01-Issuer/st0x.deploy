@@ -54,6 +54,10 @@ contract ExecuteUnderlyingNamingRootLineTest is UnderlyingNamingRolloutFixture, 
         );
     }
 
+    function ownRecordPreflightRefusal() internal pure override returns (bytes memory) {
+        return abi.encodeWithSelector(ExecuteUnderlyingNamingRecorded.selector, declaredId());
+    }
+
     function testBundleIsTheRecordOnly() external view {
         assertEq(sScript.callAuthorBundle().length, 1, "record only");
     }
