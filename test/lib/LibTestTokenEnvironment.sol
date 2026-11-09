@@ -12,16 +12,13 @@ import {
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     CREATION_CODE as CLONE_FACTORY_V8_CREATION_CODE
-} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.6/src/concrete/CloneFactory.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
+} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.8/src/concrete/CloneFactory.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.18/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
-import {
-    OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.18/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.20/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 
 import {StoxCorporateActionsFacet} from "../../src/concrete/StoxCorporateActionsFacet.sol";
 import {
@@ -63,14 +60,12 @@ library LibTestTokenEnvironment {
         return (receiptBeacon, vaultBeacon);
     }
 
-    function newAuthorizer(address admin) internal returns (IAuthorizeV1) {
+    function newAuthorizer(Vm vm, address admin) internal returns (IAuthorizeV1) {
         StoxOffchainAssetReceiptVaultAuthorizerV1 impl = new StoxOffchainAssetReceiptVaultAuthorizerV1();
         return IAuthorizeV1(
             new CloneFactory()
                 .cloneDeterministic(
-                    address(impl),
-                    abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: admin})),
-                    bytes32(uint256(uint160(admin)))
+                    address(impl), LibTestDeploy.authorizerData(vm, admin), bytes32(uint256(uint160(admin)))
                 )
         );
     }
@@ -92,8 +87,8 @@ library LibTestTokenEnvironment {
     {
         (address receiptBeacon, address vaultBeacon) = deployBeacons(vm, beaconInitialOwner);
         LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
-        IAuthorizeV1 usAuthorizer = newAuthorizer(usOwner);
-        IAuthorizeV1 euAuthorizer = newAuthorizer(euOwner);
+        IAuthorizeV1 usAuthorizer = newAuthorizer(vm, usOwner);
+        IAuthorizeV1 euAuthorizer = newAuthorizer(vm, euOwner);
         LibTestDeploy.bind(
             vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.VAULT_BEACON_NAME, "address", abi.encode(vaultBeacon)
         );

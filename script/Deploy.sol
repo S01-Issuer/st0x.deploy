@@ -11,12 +11,12 @@ import {
     LibOffchainAssetReceiptVaultRbac,
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
-} from "rain-vats-0.2.18/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.20/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
-import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
+import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
@@ -67,8 +67,8 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
 
     function checkToken(Region region) internal view {
         address vaultBeacon = boundAddress(LibStoxConfig.VAULT_BEACON_NAME);
-        if (vaultBeacon != LibProdTokenTargets.vaultBeacon()) {
-            revert VaultBeaconMismatch(vaultBeacon, LibProdTokenTargets.vaultBeacon());
+        if (vaultBeacon != LibProdTokenParams.vaultBeacon()) {
+            revert VaultBeaconMismatch(vaultBeacon, LibProdTokenParams.vaultBeacon());
         }
         address receiptBeacon = boundAddress(LibStoxConfig.RECEIPT_BEACON_NAME);
         if (receiptBeacon != LibProdDeployCurrent.STOX_RECEIPT_BEACON) {
