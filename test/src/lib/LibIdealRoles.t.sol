@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibIdealRoles, ContractRoles} from "../../../src/lib/LibIdealRoles.sol";
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -81,6 +82,21 @@ contract LibIdealRolesTest is Test {
             push("CANCELLER_ROLE", safe);
             want.push(RoleGrant(bytes32(0), timelock));
             push("EXECUTOR_ROLE", address(0));
+            assertWant(roles.expected);
+        }
+    }
+
+    function testMintCapsOrchestratorLists() external {
+        SupportedNetwork[] memory nets = networks();
+        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
+        for (uint256 c = 0; c < nets.length; c++) {
+            ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[4];
+            assertEq(roles.target, LibOrchestratorInvariants.mintCapsInstance());
+
+            want.push(RoleGrant(bytes32(0), timelock));
+            push("MINT_ADMIN", timelock);
+            push("BURN_ADMIN", timelock);
+            push("EMERGENCY_ADMIN", timelock);
             assertWant(roles.expected);
         }
     }

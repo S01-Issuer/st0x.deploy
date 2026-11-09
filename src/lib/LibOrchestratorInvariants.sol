@@ -5,12 +5,23 @@ pragma solidity ^0.8.25;
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
+import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
+import {LibProdOrchestratorParams} from "./LibProdOrchestratorParams.sol";
+import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
 import {IST0xOrchestratorV1} from "../interface/deprecated/IST0xOrchestratorV1.sol";
-import {ST0xOrchestrator} from "../concrete/ST0xOrchestrator.sol";
+import {
+    ST0xOrchestrator,
+    ORCHESTRATOR_MINT_ROLE,
+    ORCHESTRATOR_MINT_ADMIN_ROLE,
+    ORCHESTRATOR_BURN_ROLE,
+    ORCHESTRATOR_BURN_ADMIN_ROLE,
+    ORCHESTRATOR_EMERGENCY_ROLE,
+    ORCHESTRATOR_EMERGENCY_ADMIN_ROLE
+} from "../concrete/ST0xOrchestrator.sol";
 
 /// @notice The orchestrator beacon-set deployer has no runtime code at its
 /// pinned 0.1.30 address on the active chain.
@@ -28,12 +39,20 @@ error OrchestratorBeaconMismatch(address expected, address actual);
 /// @param instance The pinned instance address.
 error OrchestratorInstanceMissing(address instance);
 
-/// @notice An operating role on the orchestrator is administered by a role
-/// other than `DEFAULT_ADMIN_ROLE`.
+/// @notice A principal that must hold a role on an orchestrator instance
+/// does not.
 /// @param instance The orchestrator instance inspected.
-/// @param role The operating role.
-/// @param adminRole The role that administers it.
-error OrchestratorRoleAdminUnexpected(address instance, bytes32 role, bytes32 adminRole);
+/// @param role The role.
+/// @param holder The address that must hold it.
+error OrchestratorRoleMissing(address instance, bytes32 role, address holder);
+
+/// @notice A role on an orchestrator instance is administered by a role
+/// other than the expected one.
+/// @param instance The orchestrator instance inspected.
+/// @param role The role whose admin was read.
+/// @param expected The role that must administer it.
+/// @param actual The role `getRoleAdmin` returned.
+error OrchestratorRoleAdminUnexpected(address instance, bytes32 role, bytes32 expected, bytes32 actual);
 
 /// @notice The orchestrator instance's vault-logic version lock does not
 /// pass: the OARV beacon-set deployer it was built against reports
@@ -110,10 +129,10 @@ library LibOrchestratorInvariants {
         }
 
         IAccessControl acl = IAccessControl(instance);
-        assertAdministeredByDefaultAdmin(acl, bytes32(0));
-        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).MINT_ROLE());
-        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).BURN_ROLE());
-        assertAdministeredByDefaultAdmin(acl, ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE());
+        assertAdministeredBy(acl, bytes32(0), bytes32(0));
+        assertAdministeredBy(acl, ST0xOrchestrator(payable(instance)).MINT_ROLE(), bytes32(0));
+        assertAdministeredBy(acl, ST0xOrchestrator(payable(instance)).BURN_ROLE(), bytes32(0));
+        assertAdministeredBy(acl, ST0xOrchestrator(payable(instance)).EMERGENCY_ROLE(), bytes32(0));
     }
 
     /// @notice The pairs the orchestrator instance must carry.
@@ -129,21 +148,96 @@ library LibOrchestratorInvariants {
         return grants;
     }
 
-    /// @notice Revert unless `role` is administered by `DEFAULT_ADMIN_ROLE`.
-    /// @param acl The instance's access-control surface.
-    /// @param role The operating role.
-    function assertAdministeredByDefaultAdmin(IAccessControl acl, bytes32 role) private view {
-        bytes32 adminRole = acl.getRoleAdmin(role);
-        if (adminRole != bytes32(0)) {
-            revert OrchestratorRoleAdminUnexpected(address(acl), role, adminRole);
+    /// @return The mint-caps orchestrator beacon.
+    function mintCapsBeacon() internal pure returns (address) {
+        return LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON;
+    }
+
+    /// @notice The mint-caps orchestrator instance: the registry beacon proxy
+    /// `LibProdOrchestratorParams.orchestratorParams()` deploys.
+    /// @return The mint-caps orchestrator instance.
+    function mintCapsInstance() internal pure returns (address) {
+        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(
+            LibProdOrchestratorParams.orchestratorParams()
+        );
+    }
+
+    /// @notice Assert the mint-caps orchestrator beacon on the active chain:
+    /// it has the `ST0xOrchestratorBeacon` codehash, points at the
+    /// current-release orchestrator and is owned by the governance
+    /// timelock.
+    function assertMintCapsBeaconSet() internal view {
+        LibBeaconInvariants.assertBeaconInvariants(
+            mintCapsBeacon(),
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.ST0X_ORCHESTRATOR,
+            LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH
+        );
+    }
+
+    /// @notice The pairs the mint-caps orchestrator instance must carry.
+    /// @param timelock The chain's governance timelock.
+    /// @return The expected `(role, grantee)` pairs.
+    function mintCapsExpectedGrants(address timelock) internal pure returns (RoleGrant[] memory) {
+        RoleGrant[] memory grants = new RoleGrant[](4);
+        // DEFAULT_ADMIN_ROLE is 0x00 in OZ AccessControl.
+        grants[0] = RoleGrant(bytes32(0), timelock);
+        grants[1] = RoleGrant(ORCHESTRATOR_MINT_ADMIN_ROLE, timelock);
+        grants[2] = RoleGrant(ORCHESTRATOR_BURN_ADMIN_ROLE, timelock);
+        grants[3] = RoleGrant(ORCHESTRATOR_EMERGENCY_ADMIN_ROLE, timelock);
+        return grants;
+    }
+
+    /// @notice Assert the mint-caps orchestrator instance on the active
+    /// chain has code, carries `mintCapsExpectedGrants`, and administers each
+    /// operating role by its admin role, each admin role by itself and
+    /// `DEFAULT_ADMIN_ROLE` by itself.
+    function assertMintCapsInstance() internal view {
+        address instance = mintCapsInstance();
+        if (instance.code.length == 0) {
+            revert OrchestratorInstanceMissing(instance);
+        }
+
+        IAccessControl acl = IAccessControl(instance);
+        RoleGrant[] memory grants = mintCapsExpectedGrants(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+        for (uint256 i = 0; i < grants.length; i++) {
+            assertHolds(acl, grants[i].role, grants[i].grantee);
+        }
+
+        assertAdministeredBy(acl, bytes32(0), bytes32(0));
+        assertAdministeredBy(acl, ORCHESTRATOR_MINT_ROLE, ORCHESTRATOR_MINT_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_MINT_ADMIN_ROLE, ORCHESTRATOR_MINT_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_BURN_ROLE, ORCHESTRATOR_BURN_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_BURN_ADMIN_ROLE, ORCHESTRATOR_BURN_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_EMERGENCY_ROLE, ORCHESTRATOR_EMERGENCY_ADMIN_ROLE);
+        assertAdministeredBy(acl, ORCHESTRATOR_EMERGENCY_ADMIN_ROLE, ORCHESTRATOR_EMERGENCY_ADMIN_ROLE);
+    }
+
+    /// @notice Revert unless `holder` holds `role` on `acl`.
+    /// @param acl The orchestrator instance.
+    /// @param role The role.
+    /// @param holder The principal.
+    function assertHolds(IAccessControl acl, bytes32 role, address holder) private view {
+        if (!acl.hasRole(role, holder)) {
+            revert OrchestratorRoleMissing(address(acl), role, holder);
+        }
+    }
+
+    /// @notice Revert unless `role` is administered by `adminRole` on `acl`.
+    /// @param acl The orchestrator instance.
+    /// @param role The role whose admin is read.
+    /// @param adminRole The role that must administer it.
+    function assertAdministeredBy(IAccessControl acl, bytes32 role, bytes32 adminRole) private view {
+        bytes32 actual = acl.getRoleAdmin(role);
+        if (actual != adminRole) {
+            revert OrchestratorRoleAdminUnexpected(address(acl), role, adminRole, actual);
         }
     }
 }
 
-/// @dev Local mirror of the set deployer's `iOrchestratorBeacon` immutable
-/// getter — `IST0xOrchestratorBeaconSetDeployerV1` carries only the
-/// `deploy` surface, and the getter is a concrete-contract detail the
-/// interface deliberately omits.
+/// @dev Local mirror of the 0.1.30 set deployer's `iOrchestratorBeacon`
+/// immutable getter; `IST0xOrchestratorBeaconSetDeployerV1` carries only the
+/// `deploy` surface.
 interface ST0xOrchestratorBeaconSetDeployerLike {
     function iOrchestratorBeacon() external view returns (IBeacon);
 }
