@@ -338,8 +338,8 @@ order on every chain:
    `scheduleBatch` of `revokeRole(DEPOSIT, signer)` and
    `revokeRole(WITHDRAW, signer)` on the chain's authoriser, then the Safe's
    root-line record. Its pre-flight requires the timelock to hold both admin
-   roles, the signer to hold both roles, and the batch not to be on the
-   timelock already.
+   roles, the signer to hold both roles, and the batch not to be on the timelock
+   already.
 2. Execute the matured batch with
    `20261109-execute-revoke-service-signer-deposit-withdraw` `execute()` from
    the CI deploy key, then dispatch the same script's `run()` through
