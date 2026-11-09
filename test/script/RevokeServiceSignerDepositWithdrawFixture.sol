@@ -8,13 +8,13 @@ import {executeUnderlyingNamingDeclaration} from "../../script/20261021-execute-
 import {
     scheduleUnderlyingNamingBeaconsDeclaration
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
-import {
-    scheduleUnderlyingNamingRenameDeclaration
-} from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
+import {scheduleUnderlyingNamingRenameDeclaration} from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {
     scheduleRevokeServiceSignerDeclaration
 } from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
-import {ScheduleRevokeServiceSignerDepositWithdrawHarness} from "./ScheduleRevokeServiceSignerDepositWithdrawHarness.sol";
+import {
+    ScheduleRevokeServiceSignerDepositWithdrawHarness
+} from "./ScheduleRevokeServiceSignerDepositWithdrawHarness.sol";
 import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";

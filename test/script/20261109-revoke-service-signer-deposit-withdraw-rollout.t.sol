@@ -23,7 +23,9 @@ import {
     TimelockLacksAdminRole
 } from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
 import {ExecuteRevokeServiceSignerDepositWithdrawHarness} from "./ExecuteRevokeServiceSignerDepositWithdrawHarness.sol";
-import {ScheduleRevokeServiceSignerDepositWithdrawHarness} from "./ScheduleRevokeServiceSignerDepositWithdrawHarness.sol";
+import {
+    ScheduleRevokeServiceSignerDepositWithdrawHarness
+} from "./ScheduleRevokeServiceSignerDepositWithdrawHarness.sol";
 import {RevokeServiceSignerDepositWithdrawFixture} from "./RevokeServiceSignerDepositWithdrawFixture.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {AuthoriserNotReady, LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
