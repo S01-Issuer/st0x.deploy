@@ -7,7 +7,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
-import {LibProdOrchestratorTarget} from "./LibProdOrchestratorTarget.sol";
+import {LibProdOrchestratorParams} from "./LibProdOrchestratorParams.sol";
 import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
@@ -154,11 +154,11 @@ library LibOrchestratorInvariants {
     }
 
     /// @notice The mint-caps orchestrator instance: the registry beacon proxy
-    /// `LibProdOrchestratorTarget.orchestratorTarget()` deploys.
+    /// `LibProdOrchestratorParams.orchestratorParams()` deploys.
     /// @return The mint-caps orchestrator instance.
     function mintCapsInstance() internal pure returns (address) {
         return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(
-            LibProdOrchestratorTarget.orchestratorTarget()
+            LibProdOrchestratorParams.orchestratorParams()
         );
     }
 

@@ -11,10 +11,10 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthor
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
 
-library LibProdOrchestratorTarget {
+library LibProdOrchestratorParams {
     string constant ORCHESTRATOR = "stox-orchestrator";
 
-    function orchestratorTarget() internal pure returns (RegistryBeaconProxyTarget memory) {
+    function orchestratorParams() internal pure returns (RegistryBeaconProxyTarget memory) {
         return RegistryBeaconProxyTarget({
             factory: CLONE_FACTORY_V8_ADDRESS,
             registry: CONFIG_REGISTRY_ADDRESS,

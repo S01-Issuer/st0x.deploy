@@ -43,7 +43,7 @@ import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
 import {LibProdTokenConfig, TokenConfig} from "../lib/LibProdTokenConfig.sol";
 import {LibProdTokenTargets} from "../lib/LibProdTokenTargets.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
-import {LibProdOrchestratorTarget} from "../lib/LibProdOrchestratorTarget.sol";
+import {LibProdOrchestratorParams} from "../lib/LibProdOrchestratorParams.sol";
 import {LibST0xOrchestratorProxy} from "../generated/LibST0xOrchestratorProxy.sol";
 
 /// @title StoxDeploySuites
@@ -62,7 +62,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant RECEIPT_VAULT_BEACON = "stox-receipt-vault-beacon";
     string constant AUTHORIZER = "stox-offchain-asset-receipt-vault-authorizer";
     string constant PAYMENT_MINT_AUTHORIZER = "stox-offchain-asset-receipt-vault-payment-mint-authorizer";
-    string constant ORCHESTRATOR = LibProdOrchestratorTarget.ORCHESTRATOR;
+    string constant ORCHESTRATOR = LibProdOrchestratorParams.ORCHESTRATOR;
     string constant EU_AUTHORISER = "stox-eu-assets-authoriser";
     string constant UNIFIED_DEPLOYER = "stox-unified-deployer";
     string constant WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = "stox-wrapped-token-vault-beacon-set-deployer";
@@ -353,7 +353,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     }
 
     function orchestratorProxySuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
-        RegistryBeaconProxyTarget memory target = LibProdOrchestratorTarget.orchestratorTarget();
+        RegistryBeaconProxyTarget memory params = LibProdOrchestratorParams.orchestratorParams();
         DeployDependency[] memory dependencies = new DeployDependency[](3);
         dependencies[0] =
             DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
@@ -366,13 +366,13 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](1);
         suites[0] = RegistryBeaconProxyDeploy({
             suite: ORCHESTRATOR_PROXY,
-            factory: target.factory,
-            registry: target.registry,
-            authority: target.authority,
-            beaconName: target.beaconName,
-            beacon: target.beacon,
-            data: target.data,
-            salt: target.salt,
+            factory: params.factory,
+            registry: params.registry,
+            authority: params.authority,
+            beaconName: params.beaconName,
+            beacon: params.beacon,
+            data: params.data,
+            salt: params.salt,
             dependencies: dependencies,
             runtimeCode: LibST0xOrchestratorProxy.RUNTIME_CODE
         });

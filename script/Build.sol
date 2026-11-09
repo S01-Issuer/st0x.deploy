@@ -37,7 +37,7 @@ import {LibSt0xAttestSubParser, PARSE_META_BUILD_DEPTH} from "../src/lib/LibSt0x
 import {StoxReceiptBeacon} from "../src/concrete/StoxReceiptBeacon.sol";
 import {StoxReceiptVaultBeacon} from "../src/concrete/StoxReceiptVaultBeacon.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
-import {LibProdOrchestratorTarget} from "../src/lib/LibProdOrchestratorTarget.sol";
+import {LibProdOrchestratorParams} from "../src/lib/LibProdOrchestratorParams.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
@@ -170,11 +170,11 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genOrchestratorProxy() internal {
-        RegistryBeaconProxyTarget memory target = LibProdOrchestratorTarget.orchestratorTarget();
-        target.beacon = LibRainDeploy.zoltuAddress(type(ST0xOrchestratorBeacon).creationCode);
+        RegistryBeaconProxyTarget memory params = LibProdOrchestratorParams.orchestratorParams();
+        params.beacon = LibRainDeploy.zoltuAddress(type(ST0xOrchestratorBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
             Vm(address(vm)),
-            target,
+            params,
             LibRainDeploy.zoltuAddress(type(ST0xOrchestrator).creationCode),
             address(new ST0xOrchestrator()).code
         );
