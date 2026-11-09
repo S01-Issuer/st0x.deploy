@@ -28,6 +28,7 @@ on:
           # pins record what landed) — this dropdown is a registry of *which*
           # scripts exist, not *whether* they've run.
           - 20261021-execute-underlying-naming
+          - 20261109-execute-revoke-service-signer-deposit-withdraw
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true

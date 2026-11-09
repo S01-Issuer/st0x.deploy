@@ -729,16 +729,14 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigrati
     /// walk also proves undersigned attempts are rejected with `GS020`),
     /// the operation is pending-but-not-ready inside the 48h window, and
     /// after the delay the Safe executes it the same way, leaving the
-    /// operation `Done`. The operation — re-granting `DEPOSIT` to the
-    /// service signer — is a no-op on live state, so the proof leaves no
+    /// operation `Done`. The operation — re-granting `DEPOSIT` to the Safe
+    /// — is a no-op on live state, so the proof leaves no
     /// residue beyond consumed Safe nonces (simulation-only anyway).
     /// @param safe The chain's token-owner Safe.
     /// @param timelock The chain's governance timelock.
     /// @param authoriser The chain's authoriser clone.
     function _proveGovernanceLoop(Safe safe, address timelock, address authoriser) internal {
-        bytes memory adminAction = abi.encodeCall(
-            IAccessControl.grantRole, (keccak256("DEPOSIT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C)
-        );
+        bytes memory adminAction = abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), address(safe)));
         TimelockController controller = TimelockController(payable(timelock));
         bytes32 id = controller.hashOperation(authoriser, 0, adminAction, bytes32(0), LOOP_PROOF_SALT);
 
