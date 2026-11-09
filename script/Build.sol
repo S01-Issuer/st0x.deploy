@@ -170,7 +170,7 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genOrchestratorProxy() internal {
-        RegistryBeaconProxyTarget memory params = LibProdOrchestratorParams.orchestratorParams();
+        RegistryBeaconProxyParams memory params = LibProdOrchestratorParams.orchestratorParams();
         params.beacon = LibRainDeploy.zoltuAddress(type(ST0xOrchestratorBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
             Vm(address(vm)),
