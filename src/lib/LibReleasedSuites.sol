@@ -48,6 +48,8 @@ import {LibStoxReceiptBeaconReleased} from "./LibStoxReceiptBeaconReleased.sol";
 
 import {LibStoxReceiptVaultBeaconReleased} from "./LibStoxReceiptVaultBeaconReleased.sol";
 
+import {LibST0xOrchestratorBeaconReleased} from "./LibST0xOrchestratorBeaconReleased.sol";
+
 /// @title LibReleasedSuites
 /// @notice Every frozen release this repo has cut, of every contract it
 /// deploys: the per-contract released libs concatenated, in the order the
@@ -65,7 +67,7 @@ library LibReleasedSuites {
     /// Every released suite, in the order the build script lists them.
     /// @return The released suites.
     function releasedSuites() internal pure returns (DeploySuite[] memory) {
-        DeploySuite[][] memory released = new DeploySuite[][](16);
+        DeploySuite[][] memory released = new DeploySuite[][](17);
         released[0] = LibStoxReceiptReleased.releasedSuites();
         released[1] = LibStoxReceiptVaultReleased.releasedSuites();
         released[2] = LibStoxWrappedTokenVaultReleased.releasedSuites();
@@ -82,6 +84,7 @@ library LibReleasedSuites {
         released[13] = LibStoxGovernanceTimelockReleased.releasedSuites();
         released[14] = LibStoxReceiptBeaconReleased.releasedSuites();
         released[15] = LibStoxReceiptVaultBeaconReleased.releasedSuites();
+        released[16] = LibST0xOrchestratorBeaconReleased.releasedSuites();
         return LibDeploySuiteConcat.concat(released);
     }
 }
