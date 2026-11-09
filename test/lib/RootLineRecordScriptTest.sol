@@ -18,7 +18,6 @@ import {
     SafeNotApprovedWriter,
     UnexpectedMigrationLine
 } from "../../src/lib/LibStoxMigrations.sol";
-import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestRootLine} from "./LibTestRootLine.sol";
 
 /// @dev The hooks a record script's harness exposes.
@@ -56,6 +55,10 @@ abstract contract RootLineRecordScriptTest is Test {
     /// pins to the landing block.
     function restampAtThisMoment() internal virtual {}
 
+    function latestRecordAge() internal pure virtual returns (uint256) {
+        return type(uint32).max;
+    }
+
     function setUp() public virtual {
         landBeforeOnto();
         sScript = newScript();
@@ -85,11 +88,17 @@ abstract contract RootLineRecordScriptTest is Test {
         executeBundlePrefix(sScript.callAuthorBundle().length);
     }
 
+    function ownRecordPreflightRefusal() internal pure virtual returns (bytes memory) {
+        return abi.encodeWithSelector(UnexpectedMigrationLine.selector, declaredId());
+    }
+
+    function assumeUnrecorded(bytes32 record) internal view {
+        vm.assume(record != bytes32(0) && record != MIGRATION_HEAD_GENESIS && LibStoxMigrations.applied(record) == 0);
+    }
+
     function assumeForeign(bytes32 record) internal view {
-        vm.assume(
-            record != bytes32(0) && record != MIGRATION_HEAD_GENESIS && record != declaredId()
-                && LibStoxMigrations.applied(record) == 0
-        );
+        assumeUnrecorded(record);
+        vm.assume(record != declaredId());
     }
 
     function testDeclarationIsItsRootLineRecord(uint256 chainId) external view {
@@ -108,10 +117,14 @@ abstract contract RootLineRecordScriptTest is Test {
     }
 
     function testPreflightRefusesALineMovedPastItsOnto(bytes32 next) external {
-        assumeForeign(next);
+        assumeUnrecorded(next);
         sScript.callPreflight();
         LibTestRootLine.write(vm, safeAddress(), next, declaredOnto());
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, next));
+        vm.expectRevert(
+            next == declaredId()
+                ? ownRecordPreflightRefusal()
+                : abi.encodeWithSelector(UnexpectedMigrationLine.selector, next)
+        );
         sScript.callPreflight();
     }
 
@@ -145,10 +158,8 @@ abstract contract RootLineRecordScriptTest is Test {
         sScript.callAssertPostState();
     }
 
-    /// @dev Within the timelock delay, so a scheduled operation is still
-    /// pending and the record is what the post-state refuses.
     function testPostStateRefusesARecordFromAnotherMoment(uint256 later) external {
-        later = bound(later, 1, LibTimelockInvariants.TIMELOCK_MIN_DELAY - 1);
+        later = bound(later, 1, latestRecordAge());
         executeBundle();
         uint256 recorded = block.timestamp;
         vm.warp(recorded + later);

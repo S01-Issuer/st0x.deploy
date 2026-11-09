@@ -31,20 +31,34 @@ abstract contract HistoryMigrationScriptTest is Test {
         vm.makePersistent(sHistoryScript);
     }
 
+    function deploymentNetworks() internal pure returns (SupportedNetwork[] memory) {
+        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+    }
+
     function onDeploymentChain(uint256 chainId) internal pure returns (bool) {
-        SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        SupportedNetwork[] memory networks = deploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             if (networks[i].chainId == chainId) return true;
         }
         return false;
     }
 
-    function testDeclarationIsItsHistoryRecord(uint256 chainId) external view {
+    function assertDeclaration(uint256 chainId) internal view {
         ScriptDeclaration memory declared = IStoxScript(sHistoryScript).declaration(chainId);
         assertEq(declared.id, declaredId(), "id");
         assertEq(declared.onto, declaredOnto(chainId), "onto");
         assertEq(declared.history, declaredHistory(chainId), "history");
+    }
+
+    function testDeclarationIsItsHistoryRecord(uint256 chainId) external view {
+        assertDeclaration(chainId);
+    }
+
+    function testDeclarationIsItsHistoryRecordOnEveryDeploymentChain() external view {
+        SupportedNetwork[] memory networks = deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertDeclaration(networks[i].chainId);
+        }
     }
 
     function testExecutedAtRefusesChainsItDidNotRunOn(uint256 chainId) external {

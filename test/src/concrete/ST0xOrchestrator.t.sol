@@ -563,10 +563,8 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
                 ST0xOrchestrator.setMintLimit, (_kind(kindSeed), account, Float.wrap(capacity), Float.wrap(leakRate))
             )
         ];
-        for (uint256 i = 0; i < roles.length; i++) {
-            vm.assume(!orchestrator.hasRole(roles[i], caller));
-        }
         for (uint256 i = 0; i < calls.length; i++) {
+            if (orchestrator.hasRole(roles[i], caller)) continue;
             vm.prank(caller);
             (bool success, bytes memory returnData) = address(orchestrator).call(calls[i]);
             assertFalse(success, vm.toString(i));
