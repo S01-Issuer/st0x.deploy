@@ -9,14 +9,14 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthor
 import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS
-} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
-import {ICloneableFactoryV7} from "rain-factory-0.2.10/src/interface/ICloneableFactoryV7.sol";
+} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.11/src/interface/ICloneableFactoryV7.sol";
 import {
     LibRainDeployCloneMechanism,
     REGISTRY_BEACON_PROXY_MECHANISM
-} from "rain-factory-0.2.10/src/lib/LibRainDeployCloneMechanism.sol";
-import {RegistryBeaconProxyTarget} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
+} from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
+import {RegistryBeaconProxyParams} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
@@ -54,8 +54,8 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
         return string.concat(token.key, "-wrapper");
     }
 
-    function paramsOf(DeploySuite memory suite) internal pure returns (RegistryBeaconProxyTarget memory) {
-        return LibRainDeployCloneMechanism.registryBeaconProxyTarget(suite);
+    function paramsOf(DeploySuite memory suite) internal pure returns (RegistryBeaconProxyParams memory) {
+        return LibRainDeployCloneMechanism.registryBeaconProxyParams(suite);
     }
 
     function dependencyCodeHash(DeploySuite memory suite, address dependency) internal pure returns (bytes32) {
@@ -77,7 +77,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
         for (uint256 i = 0; i < tokens.length; i++) {
             DeploySuite memory suite = suiteByName(declared, tokens[i].key);
             assertEq(mechanismIdOf(suite), REGISTRY_BEACON_PROXY_MECHANISM, tokens[i].key);
-            RegistryBeaconProxyTarget memory params = paramsOf(suite);
+            RegistryBeaconProxyParams memory params = paramsOf(suite);
             assertEq(params.factory, CLONE_FACTORY_V8_ADDRESS, tokens[i].key);
             assertEq(params.registry, CONFIG_REGISTRY_ADDRESS, tokens[i].key);
             assertEq(params.authority, LibRegistryAuthority.ROOT_AUTHORITY, tokens[i].key);
@@ -93,7 +93,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
             DeploySuite memory token = suiteByName(declared, tokens[i].key);
             DeploySuite memory wrapper = suiteByName(declared, wrapperKey(tokens[i]));
             assertEq(mechanismIdOf(wrapper), REGISTRY_BEACON_PROXY_MECHANISM, wrapper.suite);
-            RegistryBeaconProxyTarget memory params = paramsOf(wrapper);
+            RegistryBeaconProxyParams memory params = paramsOf(wrapper);
             assertEq(params.factory, CLONE_FACTORY_V8_ADDRESS, wrapper.suite);
             assertEq(params.registry, CONFIG_REGISTRY_ADDRESS, wrapper.suite);
             assertEq(params.authority, LibRegistryAuthority.ROOT_AUTHORITY, wrapper.suite);

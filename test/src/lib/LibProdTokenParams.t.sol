@@ -47,7 +47,7 @@ contract LibProdTokenParamsTest is Test {
 
     function testEachParamsIsARegistryBeaconProxyOfItsRowOverTheRootVaultBeacon() external pure {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams();
+        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         assertEq(params.length, configs.length, "one params per row");
         for (uint256 i = 0; i < params.length; i++) {
             assertEq(params[i].factory, CLONE_FACTORY_V8_ADDRESS, configs[i].underlying);
@@ -61,7 +61,7 @@ contract LibProdTokenParamsTest is Test {
 
     function testEachParamsDataIsTheCanonicalV3ConfigOfItsRow() external pure {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams();
+        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < params.length; i++) {
             (bytes32 tag, OffchainAssetReceiptVaultConfigV3 memory config) =
                 abi.decode(params[i].data, (bytes32, OffchainAssetReceiptVaultConfigV3));
@@ -81,7 +81,8 @@ contract LibProdTokenParamsTest is Test {
     }
 
     function testEveryRowLandsAtItsOwnAddress() external pure {
-        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams();
+        RegistryBeaconProxyParams[] memory params =
+            LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs());
         for (uint256 i = 0; i < params.length; i++) {
             address proxy = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]);
             for (uint256 j = 0; j < i; j++) {
@@ -91,12 +92,17 @@ contract LibProdTokenParamsTest is Test {
     }
 
     function testParamsAreTheSameOnEveryDeploymentNetwork() external {
-        bytes memory baseline = abi.encode(LibProdTokenParams.tokenParams());
+        bytes memory baseline =
+            abi.encode(LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs()));
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 n = 0; n < networks.length; n++) {
             vm.chainId(networks[n].chainId);
-            assertEq(abi.encode(LibProdTokenParams.tokenParams()), baseline, networks[n].name);
+            assertEq(
+                abi.encode(LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs())),
+                baseline,
+                networks[n].name
+            );
         }
     }
 
@@ -117,7 +123,7 @@ contract LibProdTokenParamsTest is Test {
             LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
 
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams();
+        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < params.length; i++) {
             address deployed = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(
                 vm, "base", DEPLOYER, abi.encode(params[i])

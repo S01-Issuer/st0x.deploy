@@ -27,8 +27,8 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     address internal constant DEPLOYER = address(uint160(uint256(keccak256("st0x.test.token-suites.deployer"))));
     address internal constant TIMELOCK = address(uint160(uint256(keccak256("st0x.test.token-suites.timelock"))));
 
-    /// Every registry beacon proxy suite but the orchestrator instance, released and candidate alike, so a token
-    /// declared as a release is counted.
+    /// Every registry beacon proxy suite but the orchestrator instance and the test tokens and their wrappers,
+    /// released and candidate alike, so a token declared as a release is counted.
     function declaredTokenSuites(DeployDeclaration memory declared) internal pure returns (DeploySuite[] memory) {
         DeploySuite[] memory found = new DeploySuite[](declared.released.length + declared.candidates.length);
         uint256 count = 0;
@@ -50,7 +50,21 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
 
     function isTokenSuite(DeploySuite memory suite) internal pure returns (bool) {
         return mechanismIdOf(suite) == REGISTRY_BEACON_PROXY_MECHANISM
-            && keccak256(bytes(suite.suite)) != keccak256(bytes(ORCHESTRATOR_PROXY));
+            && keccak256(bytes(suite.suite)) != keccak256(bytes(ORCHESTRATOR_PROXY)) && !isTestTokenSuite(suite);
+    }
+
+    function isTestTokenSuite(DeploySuite memory suite) internal pure returns (bool) {
+        TokenConfig[] memory configs = LibProdTokenConfig.testTokenConfigs();
+        for (uint256 i = 0; i < configs.length; i++) {
+            string memory token = string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol));
+            if (
+                keccak256(bytes(suite.suite)) == keccak256(bytes(token))
+                    || keccak256(bytes(suite.suite)) == keccak256(bytes(string.concat(token, WRAPPER_SUFFIX)))
+            ) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /// @return The index of the one config whose underlying salts `suite`'s params.
@@ -85,7 +99,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     function testEachTokenSuiteIsKeyedByAndDeploysItsUnderlyingsToken() external view {
         DeploySuite[] memory suites = declaredTokenSuites(declaration());
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams();
+        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < suites.length; i++) {
             uint256 j = configIndexOf(configs, suites[i]);
             RegistryBeaconProxyParams memory suiteParams =
