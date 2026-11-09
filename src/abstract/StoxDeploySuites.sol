@@ -43,6 +43,7 @@ import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
 import {LibProdTokenConfig, TokenConfig} from "../lib/LibProdTokenConfig.sol";
 import {LibProdTokenTargets} from "../lib/LibProdTokenTargets.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
+import {LibStoxWrapperProxy} from "../generated/LibStoxWrapperProxy.sol";
 import {LibProdOrchestratorParams} from "../lib/LibProdOrchestratorParams.sol";
 import {LibST0xOrchestratorProxy} from "../generated/LibST0xOrchestratorProxy.sol";
 
@@ -72,6 +73,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant ORCHESTRATOR_PROXY = "stox-orchestrator-proxy";
     string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
     string constant TOKEN_PREFIX = "stox-token-";
+    string constant WRAPPER_SUFFIX = "-wrapper";
     string constant GOVERNANCE_TIMELOCK = "stox-governance-timelock";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
@@ -108,7 +110,9 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites());
+        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites(LibProdTokenConfig.productionTokenConfigs()));
+        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites(LibProdTokenConfig.testTokenConfigs()));
+        LibCloneCandidates.addRegistryBeaconProxies(declared, wrapperSuites(LibProdTokenConfig.testTokenConfigs()));
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;
     }
@@ -331,9 +335,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return string(out);
     }
 
-    function tokenSuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+    function tokenSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {
+        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets(configs);
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](targets.length);
         for (uint256 i = 0; i < targets.length; i++) {
             suites[i] = RegistryBeaconProxyDeploy({
@@ -347,6 +350,26 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 salt: targets[i].salt,
                 dependencies: LibProdTokenTargets.tokenDependencies(),
                 runtimeCode: LibStoxTokenProxy.RUNTIME_CODE
+            });
+        }
+        return suites;
+    }
+
+    function wrapperSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {
+        RegistryBeaconProxyTarget[] memory params = LibProdTokenTargets.wrapperParams(configs);
+        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](params.length);
+        for (uint256 i = 0; i < params.length; i++) {
+            suites[i] = RegistryBeaconProxyDeploy({
+                suite: string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol), WRAPPER_SUFFIX),
+                factory: params[i].factory,
+                registry: params[i].registry,
+                authority: params[i].authority,
+                beaconName: params[i].beaconName,
+                beacon: params[i].beacon,
+                data: params[i].data,
+                salt: params[i].salt,
+                dependencies: LibProdTokenTargets.wrapperDependencies(abi.decode(params[i].data, (address))),
+                runtimeCode: LibStoxWrapperProxy.RUNTIME_CODE
             });
         }
         return suites;

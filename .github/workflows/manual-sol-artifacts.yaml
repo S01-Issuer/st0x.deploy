@@ -80,6 +80,10 @@ on:
           - stox-token-twmt
           - stox-token-tmc
           - stox-token-tdis
+          - stox-token-tustest
+          - stox-token-tustest-wrapper
+          - stox-token-teutest
+          - stox-token-teutest-wrapper
           - stox-token-tifx
           - stox-token-tsoi
           - stox-token-ttpro
