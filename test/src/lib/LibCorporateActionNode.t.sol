@@ -109,6 +109,8 @@ contract LibCorporateActionNodeTest is Test {
         h.earliest(mask, CompletionFilter.ALL);
         h.nextOf(NODE_NONE, mask, CompletionFilter.ALL);
         h.prevOf(NODE_NONE, mask, CompletionFilter.ALL);
+        h.nextOf(0, mask, CompletionFilter.ALL);
+        h.prevOf(0, mask, CompletionFilter.ALL);
 
         (uint256 cursor,,) = h.latest(ACTION_TYPE_STOCK_SPLIT_V1 | (1 << 3), CompletionFilter.ALL);
         assertEq(cursor, id, "valid bit in mask matches node with that bit set");
@@ -448,6 +450,10 @@ contract LibCorporateActionNodeTest is Test {
         h.nextOf(NODE_NONE, mask, CompletionFilter.ALL);
         vm.expectRevert(InvalidMask.selector);
         h.prevOf(NODE_NONE, mask, CompletionFilter.ALL);
+        vm.expectRevert(InvalidMask.selector);
+        h.nextOf(0, mask, CompletionFilter.ALL);
+        vm.expectRevert(InvalidMask.selector);
+        h.prevOf(0, mask, CompletionFilter.ALL);
     }
 
     /// Walks forward from `earliest` asserting the visit order is `expected`,
