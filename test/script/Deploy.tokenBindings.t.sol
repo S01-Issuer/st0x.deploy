@@ -359,7 +359,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTestTokenWrappersRefuseOtherWrapperBeacon(address wrong) external {
-        vm.assume(wrong != LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON);
+        vm.assume(wrong != LibProdTokenTargets.wrapperBeacon());
         DeploySuite[] memory wrappers = declaredTestTokenWrappers();
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -368,9 +368,7 @@ contract DeployTokenBindingsTest is Test {
             bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, wrong);
             for (uint256 j = 0; j < wrappers.length; j++) {
                 vm.expectRevert(
-                    abi.encodeWithSelector(
-                        WrapperBeaconMismatch.selector, wrong, LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON
-                    )
+                    abi.encodeWithSelector(WrapperBeaconMismatch.selector, wrong, LibProdTokenTargets.wrapperBeacon())
                 );
                 harness.exposedPreDeployCheck(wrappers[j], networks[i]);
             }
@@ -381,7 +379,7 @@ contract DeployTokenBindingsTest is Test {
     function testTestTokenWrappersAcceptPinnedWrapperBeacon() external {
         DeploySuite[] memory wrappers = declaredTestTokenWrappers();
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
-        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenTargets.wrapperBeacon());
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             for (uint256 j = 0; j < wrappers.length; j++) {
