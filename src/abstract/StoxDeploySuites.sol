@@ -190,7 +190,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_CANDIDATE,
                 V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_CANDIDATE,
                 AUTHORIZER_PATH,
-                new DeployDependency[](0)
+                one(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE)
             )
         );
         candidates[6] = anchored(
