@@ -2581,17 +2581,22 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         ];
         for (uint256 i = 0; i < selectors.length; i++) {
             bytes memory limitArgs = i == 0 ? abi.encode(ZERO, NO_LEAK) : bytes("");
-            vm.prank(OWNER);
-            (bool success, bytes memory returnData) = address(orchestrator)
-                .call(bytes.concat(abi.encodeWithSelector(selectors[i], uint256(2), MINTER_A), limitArgs));
+            (bool success, bytes memory returnData) =
+                _callKind(i == 0, bytes.concat(abi.encodeWithSelector(selectors[i], uint256(2), MINTER_A), limitArgs));
             assertFalse(success, string.concat("kind 2 reverts ", vm.toString(i)));
             assertEq(returnData.length, 0, string.concat("with no data ", vm.toString(i)));
 
-            vm.prank(OWNER);
-            (success,) = address(orchestrator)
-                .call(bytes.concat(abi.encodeWithSelector(selectors[i], uint256(1), MINTER_A), limitArgs));
+            (success,) =
+                _callKind(i == 0, bytes.concat(abi.encodeWithSelector(selectors[i], uint256(1), MINTER_A), limitArgs));
             assertTrue(success, string.concat("kind 1 succeeds ", vm.toString(i)));
         }
+    }
+
+    /// @dev The setter as its admin; a view as a staticcall from anyone.
+    function _callKind(bool setter, bytes memory data) internal returns (bool, bytes memory) {
+        if (!setter) return address(orchestrator).staticcall(data);
+        vm.prank(OWNER);
+        return address(orchestrator).call(data);
     }
 
     /// Every non-negative capacity is a policy the bucket enforces, whatever
