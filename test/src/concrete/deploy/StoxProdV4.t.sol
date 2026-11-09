@@ -13,253 +13,56 @@ import {
 } from "rain-vats-0.2.18/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 
 /// @title StoxProdV4Test
-/// @notice Fork test verifying every V4 Zoltu deployment exists on-chain at its
-/// pinned address with the expected runtime codehash.
-///
-/// The two production networks carry different sets:
-/// - Base carries the full accumulated set — the audited 0.1.1 contracts plus
-///   the later orchestrator and rebuilds that the rolling `candidate` snapshot
-///   tracks — deployed incrementally over those releases.
-/// - Ethereum mainnet carries only the audited 0.1.1 production set, shipped by
-///   `script/DeployProdV4_0_1_1.sol` from the stored 0.1.1 creation code. The
-///   orchestrator and the later rebuilds are Base-only.
-///
-/// The codehash pins are the same literals `LibProdDeployV4Test` checks against
-/// the generated pointer files and against a fresh Zoltu redeploy. This test
-/// closes the loop by asserting the *live on-chain* code at each deterministic
-/// address matches those pins, proving the production deploy landed the audited
-/// bytecode at the address the source expects.
+/// @notice Fork test of the V4 beacons' wiring and ownership on every
+/// deployment network. That the audited 0.1.1 set is live at its pinned
+/// addresses with its pinned code is `StoxDeployChainTest`'s
+/// `testSuitesLiveOnEverySupportedNetwork`, over every released suite.
 ///
 /// `STOX_PROD_AUTHORISER_V4_CLONE` (hydrated from the 2026-07 broadcast) is
 /// not checked here; `LibProdDeployV4Test.testAuthoriserV4ClonePin` asserts
 /// the literal + codehash derivation, and `StoxProdV4PostSwap.t.sol` checks
 /// the live on-chain clone.
 contract StoxProdV4Test is Test {
-    /// Asserts the audited 0.1.1 production set is present at its pinned
-    /// addresses with the pinned codehashes; that the wrapped-token-vault beacon
-    /// points at the 0.1.1 vault implementation; and that the
-    /// offchain-asset-receipt-vault beacon-set deployer's two beacons point at
-    /// the 0.1.1 receipt and receipt vault implementations. This is the exact
-    /// set shipped to Ethereum mainnet, and a subset of Base.
+    /// The wrapped-token-vault beacon points at the 0.1.1 vault
+    /// implementation, and the offchain-asset-receipt-vault beacon-set
+    /// deployer's two beacons point at the receipt and receipt vault
+    /// implementations: on Base an unadopted deploy artifact frozen at the
+    /// 0.1.1 impls its constructor baked (production runs on the V1-address
+    /// beacons); everywhere else the in-use beacons, which the fleet upgrade
+    /// (`20260825-upgrade-fleet-to-0-1-30`) moved onto the 0.1.30 impls.
     ///
-    /// Deliberately says nothing about beacon OWNERSHIP: that is live
-    /// operational state, and it only matters for the beacons production
-    /// tokens actually run on — asserted per chain via
-    /// `LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock` in the network
-    /// tests. On Base the 0.1.1-address beacons checked here are an unadopted
-    /// deploy artifact whose owner is irrelevant; on Ethereum they ARE the
-    /// in-use beacons and the per-chain assert covers them.
-    function checkProd_0_1_1OnChain(bool oarvBeaconsAreInUse) internal view {
-        assertTrue(LibProdDeployV4.STOX_RECEIPT_0_1_1.code.length > 0, "V4 StoxReceipt not deployed");
-        assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.codehash, LibProdDeployV4.STOX_RECEIPT_CODEHASH_0_1_1);
-        assertEq(LibProdDeployV4.STOX_RECEIPT_0_1_1.code, LibProdDeployV4.STOX_RECEIPT_RUNTIME_CODE_0_1_1);
-
-        assertTrue(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.code.length > 0, "V4 StoxReceiptVault not deployed");
-        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.codehash, LibProdDeployV4.STOX_RECEIPT_VAULT_CODEHASH_0_1_1);
-        assertEq(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1.code, LibProdDeployV4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1);
-
-        assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1.code.length > 0, "V4 StoxWrappedTokenVault not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1.codehash,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1.code,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1
-        );
-
-        assertTrue(LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1.code.length > 0, "V4 StoxUnifiedDeployer not deployed");
-        assertEq(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1.codehash, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_UNIFIED_DEPLOYER_0_1_1.code, LibProdDeployV4.STOX_UNIFIED_DEPLOYER_RUNTIME_CODE_0_1_1
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1.code.length > 0,
-            "V4 StoxWrappedTokenVaultBeacon not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1.codehash,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1.code,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_0_1_1
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1.code.length > 0,
-            "V4 StoxWrappedTokenVaultBeaconSetDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1.codehash,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_0_1_1.code,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1.code.length > 0,
-            "V4 StoxOffchainAssetReceiptVaultBeaconSetDeployer not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1.code,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_RUNTIME_CODE_0_1_1
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1.code.length > 0,
-            "V4 StoxOffchainAssetReceiptVaultAuthorizerV1 not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1.code,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1.code.length > 0,
-            "V4 StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1 not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1.codehash,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_0_1_1.code,
-            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1
-        );
-
-        assertTrue(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.code.length > 0,
-            "V4 StoxCorporateActionsFacet not deployed"
-        );
-        assertEq(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.codehash,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_0_1_1
-        );
-        assertEq(
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_0_1_1.code,
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_0_1_1
-        );
-
-        // The wrapped-token-vault beacon points at the 0.1.1 vault
-        // implementation — constructor wiring of the deploy artifact.
+    /// Beacon OWNERSHIP is asserted only for the beacons production tokens
+    /// run on, via `LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`.
+    function checkProd_0_1_1OnChain(string memory network) internal {
+        vm.createSelectFork(network);
+        bool oarvBeaconsAreInUse = keccak256(bytes(network)) != keccak256(bytes(LibRainDeploy.BASE));
         assertEq(
             IBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).implementation(),
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
-            "V4 beacon implementation mismatch"
+            string.concat(network, ": V4 beacon implementation mismatch")
         );
 
-        // The offchain-asset-receipt-vault beacon-set deployer creates two
-        // beacons in its constructor: the receipt beacon points at the 0.1.1
-        // receipt implementation and the offchain-asset-receipt-vault beacon
-        // points at the 0.1.1 receipt vault implementation.
         IOffchainAssetReceiptVaultBeaconSetDeployerV2 oarvDeployer = IOffchainAssetReceiptVaultBeaconSetDeployerV2(
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
         );
+        assertEq(
+            oarvDeployer.iReceiptBeacon().implementation(),
+            oarvBeaconsAreInUse ? LibProdDeployV4.STOX_RECEIPT_0_1_30 : LibProdDeployV4.STOX_RECEIPT_0_1_1,
+            string.concat(network, ": V4 OARV receipt beacon implementation mismatch")
+        );
+        assertEq(
+            oarvDeployer.iOffchainAssetReceiptVaultBeacon().implementation(),
+            oarvBeaconsAreInUse ? LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30 : LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
+            string.concat(network, ": V4 OARV vault beacon implementation mismatch")
+        );
 
-        IBeacon receiptBeacon = oarvDeployer.iReceiptBeacon();
-        IBeacon vaultBeacon = oarvDeployer.iOffchainAssetReceiptVaultBeacon();
-        if (oarvBeaconsAreInUse) {
-            // On the bootstrap chains these ARE the in-use production
-            // beacons, and the fleet upgrade
-            // (`20260825-upgrade-fleet-to-0-1-30`) has moved every one of
-            // them onto the 0.1.30 impls.
-            assertEq(
-                receiptBeacon.implementation(),
-                LibProdDeployV4.STOX_RECEIPT_0_1_30,
-                "V4 OARV receipt beacon implementation mismatch"
-            );
-            assertEq(
-                vaultBeacon.implementation(),
-                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
-                "V4 OARV vault beacon implementation mismatch"
-            );
-        } else {
-            // On Base these beacons are unadopted deploy artifacts
-            // (production runs on the V1-address beacons) — never
-            // repointed, frozen at the 0.1.1 impls their constructor baked.
-            assertEq(
-                receiptBeacon.implementation(),
-                LibProdDeployV4.STOX_RECEIPT_0_1_1,
-                "V4 OARV receipt beacon implementation mismatch"
-            );
-            assertEq(
-                vaultBeacon.implementation(),
-                LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_1,
-                "V4 OARV vault beacon implementation mismatch"
-            );
+        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
+    }
+
+    function testProdDeployV4OnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            checkProd_0_1_1OnChain(networks[i]);
         }
-    }
-
-    /// The Base fork verifies only the frozen audited 0.1.1 set — that is what
-    /// the in-use Base production beacons (the V1-generation addresses) actually
-    /// adopt on-chain. The rolling `candidate` snapshot regenerates from source
-    /// and is NEVER a deploy target, so its addresses are not checked on any fork;
-    /// `testCandidateSelfConsistent` verifies candidate == current source locally
-    /// instead. The in-use beacons MUST be owned by Base's governance timelock.
-    function testProdDeployBaseV4() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        checkProd_0_1_1OnChain(false);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
-    }
-
-    /// Only the audited 0.1.1 production set is shipped to Ethereum mainnet (the
-    /// orchestrator and candidate rebuilds are Base-only), so the Ethereum fork is
-    /// checked against the 0.1.1 set alone. On Ethereum the 0.1.1 beacons ARE
-    /// the in-use production beacons, owned by Ethereum's governance
-    /// timelock — asserted via the per-chain in-use pin.
-    function testProdDeployEthereumV4() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
-        checkProd_0_1_1OnChain(true);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
-    }
-
-    /// Only the audited 0.1.1 production set ships to HyperEVM (the RAI-1511
-    /// bootstrap), mirroring Ethereum. The fork runs unconditionally: CI
-    /// supplies `HYPEREVM_RPC_URL` to the shared rainix test workflow from the
-    /// `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC fails at fork time
-    /// rather than passing having asserted nothing. RED if the audited 0.1.1
-    /// suite is absent from HyperEVM or its in-use beacons are not owned by
-    /// the HyperEVM governance timelock; green otherwise, catching later drift.
-    function testProdDeployHyperEvmV4() external {
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
-        checkProd_0_1_1OnChain(true);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
-    }
-
-    /// Only the audited 0.1.1 production set ships to Robinhood Chain (the
-    /// RAI-2285 bootstrap), mirroring HyperEVM. Forks unconditionally from
-    /// the `RPC_URL_ROBINHOOD_FORK` secret. RED until the audited 0.1.1
-    /// suite lands on Robinhood Chain and its in-use beacons are owned by
-    /// the Robinhood Chain governance timelock; green thereafter, catching
-    /// later drift.
-    function testProdDeployRobinhoodV4() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
-        checkProd_0_1_1OnChain(true);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
-    }
-
-    /// Same pin for BNB Smart Chain (RAI-2312): RED until the audited 0.1.1
-    /// suite lands there and its in-use beacons are owned by the BNB Smart
-    /// Chain governance timelock.
-    function testProdDeployBscV4() external {
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
-        checkProd_0_1_1OnChain(true);
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
     }
 }

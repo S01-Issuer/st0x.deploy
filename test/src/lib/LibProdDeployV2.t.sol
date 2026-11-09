@@ -8,108 +8,88 @@ import {LibProdDeployV2} from "../../../src/lib/LibProdDeployV2.sol";
 
 /// @title LibProdDeployV2Test
 /// @notice Validates that V2's frozen creation-bytecode constants are the
-/// authentic historical code. Each test deploys the frozen `hex` literal
-/// through the Zoltu factory and asserts the deterministic address and runtime
-/// codehash equal the V2 pins. Crucially these deploy the frozen constants, not
+/// authentic historical code. Each frozen `hex` literal deploys through the
+/// Zoltu factory to the deterministic address and runtime codehash of its V2
+/// pins. Crucially these deploy the frozen constants, not
 /// `type(X).creationCode`, so the assertions are independent of the current
 /// compiler/optimizer settings: a legacy version is a historical audit trail,
 /// never a recompile target (that role belongs to the latest version's test).
-/// Contracts whose constructor reads a dependency's code (the beacon, the set
-/// deployers) deploy that dependency's frozen creation code first, exactly as
-/// the original Zoltu deployment ordering required.
 contract LibProdDeployV2Test is Test {
-    function testV2CreationCodeStoxReceipt() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        address deployed = LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_RECEIPT_CREATION_BYTECODE_V2);
-        assertEq(deployed, LibProdDeployV2.STOX_RECEIPT);
-        assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_RECEIPT_CODEHASH);
+    /// A frozen V2 creation code and the pins it must deploy to.
+    struct V2Contract {
+        string name;
+        bytes creationCode;
+        address expectedAddress;
+        bytes32 expectedCodehash;
     }
 
-    function testV2CreationCodeStoxReceiptVault() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        address deployed = LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V2);
-        assertEq(deployed, LibProdDeployV2.STOX_RECEIPT_VAULT);
-        assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_RECEIPT_VAULT_CODEHASH);
-    }
-
-    function testV2CreationCodeStoxWrappedTokenVault() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        address deployed = LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_CREATION_BYTECODE_V2);
-        assertEq(deployed, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT);
-        assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_CODEHASH);
-    }
-
-    function testV2CreationCodeStoxUnifiedDeployer() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        address deployed = LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_UNIFIED_DEPLOYER_CREATION_BYTECODE_V2);
-        assertEq(deployed, LibProdDeployV2.STOX_UNIFIED_DEPLOYER);
-        assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH);
-    }
-
-    /// The beacon constructor reverts unless the implementation it points at
-    /// already has code, so deploy the V2 wrapped token vault first.
-    function testV2CreationCodeStoxWrappedTokenVaultBeacon() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_CREATION_BYTECODE_V2);
-        address deployed =
-            LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_BYTECODE_V2);
-        assertEq(deployed, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON);
-        assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH);
-    }
-
-    /// The offchain set deployer reads the receipt and receipt vault
-    /// implementations in its constructor, so deploy those first.
-    function testV2CreationCodeStoxOffchainAssetReceiptVaultBeaconSetDeployer() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_RECEIPT_CREATION_BYTECODE_V2);
-        LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V2);
-        address deployed = LibRainDeploy.deployZoltu(
-            LibProdDeployV2.PROD_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_BYTECODE_V2
+    /// Deployed in dependency order on one EVM, as the original Zoltu
+    /// deployment required: the beacon constructor needs the wrapped token
+    /// vault's code, the offchain set deployer the receipt and receipt vault,
+    /// the wrapped token vault set deployer the beacon.
+    function testV2CreationCodeDeploysToPins() external {
+        V2Contract[] memory contracts = new V2Contract[](9);
+        contracts[0] = V2Contract(
+            "STOX_RECEIPT",
+            LibProdDeployV2.PROD_STOX_RECEIPT_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_RECEIPT,
+            LibProdDeployV2.STOX_RECEIPT_CODEHASH
         );
-        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-        assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH);
-    }
+        contracts[1] = V2Contract(
+            "STOX_RECEIPT_VAULT",
+            LibProdDeployV2.PROD_STOX_RECEIPT_VAULT_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_RECEIPT_VAULT,
+            LibProdDeployV2.STOX_RECEIPT_VAULT_CODEHASH
+        );
+        contracts[2] = V2Contract(
+            "STOX_WRAPPED_TOKEN_VAULT",
+            LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_CODEHASH
+        );
+        contracts[3] = V2Contract(
+            "STOX_UNIFIED_DEPLOYER",
+            LibProdDeployV2.PROD_STOX_UNIFIED_DEPLOYER_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_UNIFIED_DEPLOYER,
+            LibProdDeployV2.STOX_UNIFIED_DEPLOYER_CODEHASH
+        );
+        contracts[4] = V2Contract(
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON",
+            LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH
+        );
+        contracts[5] = V2Contract(
+            "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER",
+            LibProdDeployV2.PROD_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CODEHASH
+        );
+        contracts[6] = V2Contract(
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER",
+            LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH
+        );
+        contracts[7] = V2Contract(
+            "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1",
+            LibProdDeployV2.PROD_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH
+        );
+        contracts[8] = V2Contract(
+            "STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1",
+            LibProdDeployV2.PROD_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_BYTECODE_V2,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1,
+            LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
+        );
 
-    /// The wrapped token vault set deployer reads the beacon in its
-    /// constructor, which in turn needs the wrapped token vault, so deploy
-    /// both first in order.
-    function testV2CreationCodeStoxWrappedTokenVaultBeaconSetDeployer() external {
         LibRainDeploy.etchZoltuFactory(vm);
-        LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_CREATION_BYTECODE_V2);
-        LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_BYTECODE_V2);
-        address deployed = LibRainDeploy.deployZoltu(
-            LibProdDeployV2.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CREATION_BYTECODE_V2
-        );
-        assertEq(deployed, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
-        assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_CODEHASH);
-    }
-
-    function testV2CreationCodeStoxOffchainAssetReceiptVaultAuthorizerV1() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        address deployed = LibRainDeploy.deployZoltu(
-            LibProdDeployV2.PROD_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CREATION_BYTECODE_V2
-        );
-        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1);
-        assertTrue(deployed.code.length > 0);
-        assertEq(deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CODEHASH);
-    }
-
-    function testV2CreationCodeStoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1() external {
-        LibRainDeploy.etchZoltuFactory(vm);
-        address deployed = LibRainDeploy.deployZoltu(
-            LibProdDeployV2.PROD_STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CREATION_BYTECODE_V2
-        );
-        assertEq(deployed, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1);
-        assertTrue(deployed.code.length > 0);
-        assertEq(
-            deployed.codehash, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH
-        );
+        for (uint256 i = 0; i < contracts.length; i++) {
+            address deployed = LibRainDeploy.deployZoltu(contracts[i].creationCode);
+            assertEq(deployed, contracts[i].expectedAddress, string.concat(contracts[i].name, " address"));
+            assertTrue(deployed.code.length > 0, string.concat(contracts[i].name, " has no code"));
+            assertEq(deployed.codehash, contracts[i].expectedCodehash, string.concat(contracts[i].name, " codehash"));
+        }
     }
 }
