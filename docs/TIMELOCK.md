@@ -326,6 +326,27 @@ from the CI deploy key, one operation per dispatch. On HyperEVM the rename batch
 needs more gas than a small block holds, so enable big blocks for the deploy key
 (`manual-hyperevm-big-blocks`) before executing it there.
 
+**Revoking the service signer's vault roles.** The service signer
+(`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) loses `DEPOSIT` and `WITHDRAW`
+on the chain's authoriser and keeps `CERTIFY`. The timelock holds
+`DEPOSIT_ADMIN` and `WITHDRAW_ADMIN`, so the revoke goes through it.
+`LibServiceSignerRevoke` reconstructs the timelock operation. It runs in this
+order on every chain:
+
+1. Schedule the revoke batch
+   (`20261109-schedule-revoke-service-signer-deposit-withdraw`): one
+   `scheduleBatch` of `revokeRole(DEPOSIT, signer)` and
+   `revokeRole(WITHDRAW, signer)` on the chain's authoriser, then the Safe's
+   root-line record. Its pre-flight requires the timelock to hold both admin
+   roles, the signer to hold both roles, and the batch not to be on the
+   timelock already.
+2. Execute the matured batch with
+   `20261109-execute-revoke-service-signer-deposit-withdraw` `execute()` from
+   the CI deploy key, then dispatch the same script's `run()` through
+   `run-script` for the record-only Safe bundle. **Precondition:** do not
+   execute until the service signer's minting and redemption run through the
+   orchestrator; the scripts do not check it.
+
 ## Invariants
 
 - `LibTimelockInvariants.assertTimelockState(timelock, safe)` — rain-deploy's
@@ -370,7 +391,9 @@ The root line runs, after the backfill: `20261022-bind-beacon-initial-owner` →
 `20261006-orchestrator-admin-to-timelock` →
 `20261021-schedule-underlying-naming-beacons` →
 `20261021-schedule-underlying-naming-rename` →
-`20261021-execute-underlying-naming`.
+`20261021-execute-underlying-naming` →
+`20261109-schedule-revoke-service-signer-deposit-withdraw` →
+`20261109-execute-revoke-service-signer-deposit-withdraw`.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over
