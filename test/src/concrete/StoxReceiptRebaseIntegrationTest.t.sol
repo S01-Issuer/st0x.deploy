@@ -641,11 +641,17 @@ contract StoxReceiptRebaseIntegrationTest is Test {
     /// Indexers rely on this ordering to compute pre-transfer rasterized
     /// balances from the migration log.
     function testReceiptAccountMigratedFiresForBothEndsBeforeTransferSingle() external {
+        _assertBothEndsMigrateBeforeTransferSingle(0);
+        _assertBothEndsMigrateBeforeTransferSingle(50);
+    }
+
+    function _assertBothEndsMigrateBeforeTransferSingle(uint256 amount) internal {
+        setUp();
         _mint(ALICE, ID_A, 100);
         _splitParams(2);
 
         vm.recordLogs();
-        _transfer(ALICE, BOB, ID_A, 50);
+        _transfer(ALICE, BOB, ID_A, amount);
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
         (uint256 aliceCount, uint256 aliceIdx, bytes memory aliceData) = _receiptMigrationsOf(ALICE, ID_A, logs);
