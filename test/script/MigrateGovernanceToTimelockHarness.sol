@@ -21,4 +21,8 @@ contract MigrateGovernanceToTimelockHarness is MigrateGovernanceToTimelock {
     function activeChainTimelock() internal view override returns (address) {
         return I_TIMELOCK;
     }
+
+    function loopProofSalt() external pure returns (bytes32) {
+        return LOOP_PROOF_SALT;
+    }
 }

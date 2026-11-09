@@ -177,6 +177,39 @@ contract MigrateGovernanceToTimelockTest is Test {
         }
     }
 
+    /// @notice With the service signer's `DEPOSIT` and `WITHDRAW` revoked, the
+    /// governance-loop proof passes on every deployment network through its
+    /// `DEPOSIT` re-grant to the Safe, and leaves the signer revoked.
+    function testGovernanceLoopProofLeavesARevokedServiceSignerRevoked() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            selectRewoundFork(networks[i]);
+            address safe = LibSafeInvariants.safeForChainId(block.chainid);
+            address timelock = pinnedTimelock();
+            IAccessControl authoriser = IAccessControl(_activeChainAuthoriser());
+            address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
+            vm.startPrank(safe);
+            authoriser.revokeRole(keccak256("DEPOSIT"), signer);
+            authoriser.revokeRole(keccak256("WITHDRAW"), signer);
+            vm.stopPrank();
+
+            MigrateGovernanceToTimelockHarness migration = new MigrateGovernanceToTimelockHarness(timelock);
+            migration.run();
+
+            bytes32 probe = TimelockController(payable(timelock))
+                .hashOperation(
+                    address(authoriser),
+                    0,
+                    abi.encodeCall(IAccessControl.grantRole, (keccak256("DEPOSIT"), safe)),
+                    bytes32(0),
+                    migration.loopProofSalt()
+                );
+            assertTrue(TimelockController(payable(timelock)).isOperationDone(probe), onChain("loop proof done"));
+            assertFalse(authoriser.hasRole(keccak256("DEPOSIT"), signer), onChain("signer DEPOSIT stays revoked"));
+            assertFalse(authoriser.hasRole(keccak256("WITHDRAW"), signer), onChain("signer WITHDRAW stays revoked"));
+        }
+    }
+
     function onChain(string memory message) internal view returns (string memory) {
         return string.concat(vm.toString(block.chainid), ": ", message);
     }

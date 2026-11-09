@@ -8,12 +8,7 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
-import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
     ExecuteUnderlyingNaming,
@@ -296,21 +291,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
             string.concat(network, ": line at the execution")
         );
-    }
-
-    /// @notice `run()` authors and proves the bundle on a snapshot, `verify`
-    /// holds the artifact to the live re-derivation, and the artifact is then
-    /// executed by the owners as the Safe UI would.
-    function authorVerifyExecute(address script, string memory artifactPath) internal {
-        uint256 preRun = vm.snapshotState();
-        SafeBundleScript(script).run();
-        vm.revertToState(preRun);
-        SafeBundleScript(script).verify(artifactPath);
-        (, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(artifactPath));
-        assertEq(artifactSafe, LibSafeInvariants.safeForChainId(block.chainid), "artifact Safe");
-        uint256 gasBefore = gasleft();
-        LibSafeFork.executeBundle(vm, Safe(payable(artifactSafe)), txs);
-        console2.log("Safe bundle execution gas (upper bound, includes signing):", gasBefore - gasleft());
     }
 
     /// @notice Logs the gas the rename batch's `executeBatch` alone takes, on a
