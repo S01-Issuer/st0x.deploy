@@ -539,11 +539,11 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         else _fractionalParams(num, denom);
     }
 
-    /// Returns the number of `ReceiptAccountMigrated` logs for
-    /// `(account, id)` in `logs`, the index of the last one and its data.
+    /// Returns the number of `ReceiptAccountMigrated` logs `receipt` emitted
+    /// for `(account, id)` in `logs`, the index of the last one and its data.
     function _receiptMigrationsOf(address account, uint256 id, Vm.Log[] memory logs)
         internal
-        pure
+        view
         returns (uint256, uint256, bytes memory)
     {
         uint256 count;
@@ -551,7 +551,8 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         bytes memory data;
         for (uint256 i = 0; i < logs.length; i++) {
             if (
-                logs[i].topics.length > 2 && logs[i].topics[0] == StoxReceipt.ReceiptAccountMigrated.selector
+                logs[i].emitter == address(receipt) && logs[i].topics.length > 2
+                    && logs[i].topics[0] == StoxReceipt.ReceiptAccountMigrated.selector
                     && address(uint160(uint256(logs[i].topics[1]))) == account && uint256(logs[i].topics[2]) == id
             ) {
                 count++;
