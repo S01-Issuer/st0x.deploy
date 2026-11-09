@@ -110,9 +110,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites(LibProdTokenConfig.productionTokenConfigs()));
-        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites(LibProdTokenConfig.testTokenConfigs()));
-        LibCloneCandidates.addRegistryBeaconProxies(declared, wrapperSuites(LibProdTokenConfig.testTokenConfigs()));
+        addTokenSuites(declared, LibProdTokenConfig.productionTokenConfigs());
+        addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;
     }
@@ -333,6 +332,11 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             out[i] = c >= "A" && c <= "Z" ? bytes1(uint8(c) + 32) : c;
         }
         return string(out);
+    }
+
+    function addTokenSuites(DeployDeclaration memory declared, TokenConfig[] memory configs) internal pure {
+        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites(configs));
+        LibCloneCandidates.addRegistryBeaconProxies(declared, wrapperSuites(configs));
     }
 
     function tokenSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {

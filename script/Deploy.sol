@@ -56,24 +56,19 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
         } else {
-            checkTokenSuite(name, LibProdTokenConfig.productionTokenConfigs());
-            checkTokenSuite(name, LibProdTokenConfig.testTokenConfigs());
-            checkWrapperSuite(name, LibProdTokenConfig.testTokenConfigs());
+            checkTokenSuites(name, LibProdTokenConfig.productionTokenConfigs());
+            checkTokenSuites(name, LibProdTokenConfig.testTokenConfigs());
         }
     }
 
-    function checkTokenSuite(bytes32 name, TokenConfig[] memory configs) internal view {
+    function checkTokenSuites(bytes32 name, TokenConfig[] memory configs) internal view {
         for (uint256 i = 0; i < configs.length; i++) {
-            if (name == keccak256(bytes(string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol))))) {
+            string memory token = string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol));
+            if (name == keccak256(bytes(token))) {
                 checkToken(configs[i].region);
                 return;
             }
-        }
-    }
-
-    function checkWrapperSuite(bytes32 name, TokenConfig[] memory configs) internal view {
-        for (uint256 i = 0; i < configs.length; i++) {
-            if (name == keccak256(bytes(string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol), WRAPPER_SUFFIX)))) {
+            if (name == keccak256(bytes(string.concat(token, WRAPPER_SUFFIX)))) {
                 checkWrapper();
                 return;
             }

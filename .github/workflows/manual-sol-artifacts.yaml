@@ -25,68 +25,127 @@ on:
           - stox-governance-timelock
           - stox-eu-assets-authoriser
           - stox-token-tmstr
+          - stox-token-tmstr-wrapper
           - stox-token-ttsla
+          - stox-token-ttsla-wrapper
           - stox-token-tcoin
+          - stox-token-tcoin-wrapper
           - stox-token-tspym
+          - stox-token-tspym-wrapper
           - stox-token-tsivr
+          - stox-token-tsivr-wrapper
           - stox-token-tcrcl
+          - stox-token-tcrcl-wrapper
           - stox-token-tnvda
+          - stox-token-tnvda-wrapper
           - stox-token-tiau
+          - stox-token-tiau-wrapper
           - stox-token-tpplt
+          - stox-token-tpplt-wrapper
           - stox-token-tamzn
+          - stox-token-tamzn-wrapper
           - stox-token-tbmnr
+          - stox-token-tbmnr-wrapper
           - stox-token-tibhg
+          - stox-token-tibhg-wrapper
           - stox-token-tsgov
+          - stox-token-tsgov-wrapper
           - stox-token-tqqqm
+          - stox-token-tqqqm-wrapper
           - stox-token-tvwo
+          - stox-token-tvwo-wrapper
           - stox-token-tarkk
+          - stox-token-tarkk-wrapper
           - stox-token-tspcx
+          - stox-token-tspcx-wrapper
           - stox-token-tceg
+          - stox-token-tceg-wrapper
           - stox-token-tdram
+          - stox-token-tdram-wrapper
           - stox-token-ttsm
+          - stox-token-ttsm-wrapper
           - stox-token-tskhy
+          - stox-token-tskhy-wrapper
           - stox-token-tasml
+          - stox-token-tasml-wrapper
           - stox-token-tmu
+          - stox-token-tmu-wrapper
           - stox-token-tamd
+          - stox-token-tamd-wrapper
           - stox-token-tavgo
+          - stox-token-tavgo-wrapper
           - stox-token-tamat
+          - stox-token-tamat-wrapper
           - stox-token-tlrcx
+          - stox-token-tlrcx-wrapper
           - stox-token-tttwo
+          - stox-token-tttwo-wrapper
           - stox-token-trklb
+          - stox-token-trklb-wrapper
           - stox-token-tgoogl
+          - stox-token-tgoogl-wrapper
           - stox-token-taapl
+          - stox-token-taapl-wrapper
           - stox-token-tmsft
+          - stox-token-tmsft-wrapper
           - stox-token-tlly
+          - stox-token-tlly-wrapper
           - stox-token-tpty
+          - stox-token-tpty-wrapper
           - stox-token-tintc
+          - stox-token-tintc-wrapper
           - stox-token-thood
+          - stox-token-thood-wrapper
           - stox-token-torcl
+          - stox-token-torcl-wrapper
           - stox-token-tsmci
+          - stox-token-tsmci-wrapper
           - stox-token-tbaba
+          - stox-token-tbaba-wrapper
           - stox-token-ttqqq
+          - stox-token-ttqqq-wrapper
           - stox-token-tftf
+          - stox-token-tftf-wrapper
           - stox-token-tcbrs
+          - stox-token-tcbrs-wrapper
           - stox-token-tmcd
+          - stox-token-tmcd-wrapper
           - stox-token-tnke
+          - stox-token-tnke-wrapper
           - stox-token-tgrnd
+          - stox-token-tgrnd-wrapper
           - stox-token-tdnut
+          - stox-token-tdnut-wrapper
           - stox-token-tplby
+          - stox-token-tplby-wrapper
           - stox-token-ttr
+          - stox-token-ttr-wrapper
           - stox-token-twen
+          - stox-token-twen-wrapper
           - stox-token-tfgi
+          - stox-token-tfgi-wrapper
           - stox-token-tbird
+          - stox-token-tbird-wrapper
           - stox-token-tspy
+          - stox-token-tspy-wrapper
           - stox-token-tsnes
+          - stox-token-tsnes-wrapper
           - stox-token-twmt
+          - stox-token-twmt-wrapper
           - stox-token-tmc
+          - stox-token-tmc-wrapper
           - stox-token-tdis
+          - stox-token-tdis-wrapper
           - stox-token-tustest
           - stox-token-tustest-wrapper
           - stox-token-teutest
           - stox-token-teutest-wrapper
           - stox-token-tifx
+          - stox-token-tifx-wrapper
           - stox-token-tsoi
+          - stox-token-tsoi-wrapper
           - stox-token-ttpro
+          - stox-token-ttpro-wrapper
           - stox-corporate-actions-facet@0_1_1
           - stox-receipt@0_1_1
           - stox-receipt-vault@0_1_1
