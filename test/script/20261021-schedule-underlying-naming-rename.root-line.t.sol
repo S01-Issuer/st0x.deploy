@@ -40,6 +40,11 @@ contract ScheduleUnderlyingNamingRenameRootLineTest is UnderlyingNamingRolloutFi
         landBeaconScheduleAndHandOver(ScheduleUnderlyingNamingRenameHarness(address(sScript)));
     }
 
+    /// @dev Past the delay the post-state refuses the ready operation before the record.
+    function latestRecordAge() internal pure override returns (uint256) {
+        return LibTimelockInvariants.TIMELOCK_MIN_DELAY - 1;
+    }
+
     function testBundleIsTheScheduleThenTheRecord() external view {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         SafeTx[] memory txs = sScript.callAuthorBundle();

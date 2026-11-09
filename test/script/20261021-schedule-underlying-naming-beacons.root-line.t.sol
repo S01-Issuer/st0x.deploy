@@ -38,6 +38,11 @@ contract ScheduleUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutF
         advanceRootLineToBeaconSchedule();
     }
 
+    /// @dev Past the delay the post-state refuses the ready operation before the record.
+    function latestRecordAge() internal pure override returns (uint256) {
+        return LibTimelockInvariants.TIMELOCK_MIN_DELAY - 1;
+    }
+
     function testBundleIsTheScheduleThenTheRecord() external view {
         SafeTx[] memory txs = sScript.callAuthorBundle();
         assertEq(txs.length, 2, "schedule then record");

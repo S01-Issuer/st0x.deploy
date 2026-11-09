@@ -18,7 +18,6 @@ import {
     SafeNotApprovedWriter,
     UnexpectedMigrationLine
 } from "../../src/lib/LibStoxMigrations.sol";
-import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestRootLine} from "./LibTestRootLine.sol";
 
 /// @dev The hooks a record script's harness exposes.
@@ -55,6 +54,10 @@ abstract contract RootLineRecordScriptTest is Test {
     /// @dev Re-stamps now any state besides the record that the post-state
     /// pins to the landing block.
     function restampAtThisMoment() internal virtual {}
+
+    function latestRecordAge() internal pure virtual returns (uint256) {
+        return type(uint32).max;
+    }
 
     function setUp() public virtual {
         landBeforeOnto();
@@ -145,10 +148,8 @@ abstract contract RootLineRecordScriptTest is Test {
         sScript.callAssertPostState();
     }
 
-    /// @dev Within the timelock delay, so a scheduled operation is still
-    /// pending and the record is what the post-state refuses.
     function testPostStateRefusesARecordFromAnotherMoment(uint256 later) external {
-        later = bound(later, 1, LibTimelockInvariants.TIMELOCK_MIN_DELAY - 1);
+        later = bound(later, 1, latestRecordAge());
         executeBundle();
         uint256 recorded = block.timestamp;
         vm.warp(recorded + later);
