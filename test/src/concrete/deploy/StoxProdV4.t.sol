@@ -10,7 +10,7 @@ import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV2
-} from "rain-vats-0.2.18/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
+} from "rain-vats-0.2.20/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV2.sol";
 
 /// @title StoxProdV4Test
 /// @notice Fork test of the V4 beacons' wiring and ownership on every

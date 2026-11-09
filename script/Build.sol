@@ -13,11 +13,11 @@ import {
 } from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
-    RegistryBeaconProxyTarget
-} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+    RegistryBeaconProxyParams
+} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdTokenConfig} from "../src/lib/LibProdTokenConfig.sol";
-import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
+import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
@@ -155,12 +155,12 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genTokenProxy() internal {
-        RegistryBeaconProxyTarget memory target =
-            LibProdTokenTargets.tokenTargets(LibProdTokenConfig.productionTokenConfigs())[0];
+        RegistryBeaconProxyParams memory params =
+            LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs())[0];
         // The generated vault beacon constant is from the previous compile.
-        target.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
+        params.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
-            Vm(address(vm)), target, V4.STOX_RECEIPT_VAULT_0_1_1, V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
+            Vm(address(vm)), params, V4.STOX_RECEIPT_VAULT_0_1_1, V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_0_1_1
         );
         writeGeneratedHeader(GEN_TOKEN_PROXY_PATH);
         vm.writeLine(GEN_TOKEN_PROXY_PATH, "");
@@ -173,8 +173,8 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genWrapperProxy() internal {
-        RegistryBeaconProxyTarget memory params =
-            LibProdTokenTargets.wrapperParams(LibProdTokenConfig.testTokenConfigs())[0];
+        RegistryBeaconProxyParams memory params =
+            LibProdTokenParams.wrapperParams(LibProdTokenConfig.testTokenConfigs())[0];
         params.beacon = LibRainDeploy.zoltuAddress(type(StoxWrappedTokenVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
             Vm(address(vm)), params, V4.STOX_WRAPPED_TOKEN_VAULT_0_1_1, V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1
@@ -190,7 +190,7 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genOrchestratorProxy() internal {
-        RegistryBeaconProxyTarget memory params = LibProdOrchestratorParams.orchestratorParams();
+        RegistryBeaconProxyParams memory params = LibProdOrchestratorParams.orchestratorParams();
         params.beacon = LibRainDeploy.zoltuAddress(type(ST0xOrchestratorBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
             Vm(address(vm)),

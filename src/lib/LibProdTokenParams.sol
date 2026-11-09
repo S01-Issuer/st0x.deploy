@@ -6,12 +6,12 @@ import {DeployDependency} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
-    RegistryBeaconProxyTarget
-} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+    RegistryBeaconProxyParams
+} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
@@ -19,18 +19,18 @@ import {
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
 import {Region, TokenConfig} from "./LibProdTokenConfig.sol";
 
-library LibProdTokenTargets {
-    function tokenTargets(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyTarget[] memory) {
-        RegistryBeaconProxyTarget[] memory targets = new RegistryBeaconProxyTarget[](configs.length);
+library LibProdTokenParams {
+    function tokenParams(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyParams[] memory) {
+        RegistryBeaconProxyParams[] memory params = new RegistryBeaconProxyParams[](configs.length);
         address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
-            targets[i] = RegistryBeaconProxyTarget({
+            params[i] = RegistryBeaconProxyParams({
                 factory: CLONE_FACTORY_V8_ADDRESS,
                 registry: CONFIG_REGISTRY_ADDRESS,
                 authority: LibRegistryAuthority.ROOT_AUTHORITY,
@@ -40,7 +40,7 @@ library LibProdTokenTargets {
                 salt: keccak256(bytes(configs[i].underlying))
             });
         }
-        return targets;
+        return params;
     }
 
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {
@@ -73,8 +73,8 @@ library LibProdTokenTargets {
         return dependencies;
     }
 
-    function wrapperParams(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyTarget[] memory) {
-        RegistryBeaconProxyTarget[] memory params = tokenTargets(configs);
+    function wrapperParams(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyParams[] memory) {
+        RegistryBeaconProxyParams[] memory params = tokenParams(configs);
         for (uint256 i = 0; i < params.length; i++) {
             address token = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]);
             params[i].beaconName = LibStoxConfig.WRAPPER_BEACON_NAME;
