@@ -124,11 +124,14 @@ library LibTestDeploy {
     function authorizerData(Vm vm, address admin) internal returns (bytes memory) {
         etchConfigRegistry(vm);
         bind(vm, LibRegistryAuthority.ROOT_AUTHORITY, AUTHORIZER_INITIAL_ADMIN_NAME, "address", abi.encode(admin));
+        return authorizerConfig(LibRegistryAuthority.ROOT_AUTHORITY, AUTHORIZER_INITIAL_ADMIN_NAME);
+    }
+
+    /// The authorizer init data naming `name` under `authority`.
+    function authorizerConfig(address authority, bytes32 name) internal pure returns (bytes memory) {
         return abi.encode(
             OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG,
-            OffchainAssetReceiptVaultAuthorizerV1ConfigV2({
-                authority: LibRegistryAuthority.ROOT_AUTHORITY, initialAdminName: AUTHORIZER_INITIAL_ADMIN_NAME
-            })
+            OffchainAssetReceiptVaultAuthorizerV1ConfigV2({authority: authority, initialAdminName: name})
         );
     }
 
