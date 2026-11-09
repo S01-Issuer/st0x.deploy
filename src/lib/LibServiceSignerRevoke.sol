@@ -44,7 +44,7 @@ library LibServiceSignerRevoke {
     /// @param timelock The timelock.
     /// @param chainId The chain id.
     /// @return The batch's operation id.
-    function operationId(address timelock, uint256 chainId) internal view returns (bytes32) {
+    function operationId(address timelock, uint256 chainId) internal pure returns (bytes32) {
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = batch(chainId);
         return TimelockController(payable(timelock)).hashOperationBatch(targets, values, payloads, bytes32(0), SALT);
     }
