@@ -199,11 +199,11 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         assertEq(vault.balanceOf(BOB), 150);
     }
 
-    /// Returns the number of `AccountMigrated` logs for `account` in `logs`,
-    /// the index of the last one and its data.
+    /// Returns the number of `AccountMigrated` logs `vault` emitted for
+    /// `account` in `logs`, the index of the last one and its data.
     function _migrationsOf(address account, Vm.Log[] memory logs)
         internal
-        pure
+        view
         returns (uint256, uint256, bytes memory)
     {
         uint256 count;
@@ -211,7 +211,8 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         bytes memory data;
         for (uint256 i = 0; i < logs.length; i++) {
             if (
-                logs[i].topics.length > 1 && logs[i].topics[0] == StoxReceiptVault.AccountMigrated.selector
+                logs[i].emitter == address(vault) && logs[i].topics.length > 1
+                    && logs[i].topics[0] == StoxReceiptVault.AccountMigrated.selector
                     && address(uint160(uint256(logs[i].topics[1]))) == account
             ) {
                 count++;
