@@ -73,15 +73,15 @@ library LibProdTokenTargets {
         return dependencies;
     }
 
-    function wrapperTargets(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyTarget[] memory) {
-        RegistryBeaconProxyTarget[] memory targets = tokenTargets(configs);
-        for (uint256 i = 0; i < targets.length; i++) {
-            address token = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(targets[i]);
-            targets[i].beaconName = LibStoxConfig.WRAPPER_BEACON_NAME;
-            targets[i].beacon = wrapperBeacon();
-            targets[i].data = abi.encode(token);
+    function wrapperParams(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyTarget[] memory) {
+        RegistryBeaconProxyTarget[] memory params = tokenTargets(configs);
+        for (uint256 i = 0; i < params.length; i++) {
+            address token = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]);
+            params[i].beaconName = LibStoxConfig.WRAPPER_BEACON_NAME;
+            params[i].beacon = wrapperBeacon();
+            params[i].data = abi.encode(token);
         }
-        return targets;
+        return params;
     }
 
     function wrapperBeacon() internal pure returns (address) {

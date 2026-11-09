@@ -173,11 +173,11 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genWrapperProxy() internal {
-        RegistryBeaconProxyTarget memory target =
-            LibProdTokenTargets.wrapperTargets(LibProdTokenConfig.testTokenConfigs())[0];
-        target.beacon = LibRainDeploy.zoltuAddress(type(StoxWrappedTokenVaultBeacon).creationCode);
+        RegistryBeaconProxyTarget memory params =
+            LibProdTokenTargets.wrapperParams(LibProdTokenConfig.testTokenConfigs())[0];
+        params.beacon = LibRainDeploy.zoltuAddress(type(StoxWrappedTokenVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
-            Vm(address(vm)), target, V4.STOX_WRAPPED_TOKEN_VAULT_0_1_1, V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1
+            Vm(address(vm)), params, V4.STOX_WRAPPED_TOKEN_VAULT_0_1_1, V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1
         );
         writeGeneratedHeader(GEN_WRAPPER_PROXY_PATH);
         vm.writeLine(GEN_WRAPPER_PROXY_PATH, "");

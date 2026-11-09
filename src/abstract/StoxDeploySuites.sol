@@ -356,19 +356,19 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     }
 
     function wrapperSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.wrapperTargets(configs);
-        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](targets.length);
-        for (uint256 i = 0; i < targets.length; i++) {
+        RegistryBeaconProxyTarget[] memory params = LibProdTokenTargets.wrapperParams(configs);
+        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](params.length);
+        for (uint256 i = 0; i < params.length; i++) {
             suites[i] = RegistryBeaconProxyDeploy({
                 suite: string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol), WRAPPER_SUFFIX),
-                factory: targets[i].factory,
-                registry: targets[i].registry,
-                authority: targets[i].authority,
-                beaconName: targets[i].beaconName,
-                beacon: targets[i].beacon,
-                data: targets[i].data,
-                salt: targets[i].salt,
-                dependencies: LibProdTokenTargets.wrapperDependencies(abi.decode(targets[i].data, (address))),
+                factory: params[i].factory,
+                registry: params[i].registry,
+                authority: params[i].authority,
+                beaconName: params[i].beaconName,
+                beacon: params[i].beacon,
+                data: params[i].data,
+                salt: params[i].salt,
+                dependencies: LibProdTokenTargets.wrapperDependencies(abi.decode(params[i].data, (address))),
                 runtimeCode: LibStoxWrapperProxy.RUNTIME_CODE
             });
         }
