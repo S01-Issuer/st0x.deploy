@@ -665,9 +665,12 @@ contract StoxReceiptRebaseIntegrationTest is Test {
         uint256 transferIdx;
         bytes32 transferSig = keccak256("TransferSingle(address,address,address,uint256,uint256)");
         for (uint256 i = 0; i < logs.length; i++) {
-            if (logs[i].topics.length > 0 && logs[i].topics[0] == transferSig) transferIdx = i;
+            if (logs[i].topics.length > 0 && logs[i].topics[0] == transferSig) {
+                transferIdx = i;
+                break;
+            }
         }
-        assertLt(bobIdx, transferIdx, "both ReceiptAccountMigrated precede TransferSingle");
+        assertLt(bobIdx, transferIdx, "both ReceiptAccountMigrated precede the first TransferSingle");
     }
 
     /// Global receipt-side invariant: across a random balance and a
