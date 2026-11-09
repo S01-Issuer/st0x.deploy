@@ -13,18 +13,22 @@ import {
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
-import {ICloneableFactoryV7} from "rain-factory-0.2.10/src/interface/ICloneableFactoryV7.sol";
+} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.11/src/interface/ICloneableFactoryV7.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.18/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.20/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
     OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
+import {
+    OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG,
+    OffchainAssetReceiptVaultAuthorizerV1ConfigV2
+} from "rain-vats-0.2.20/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -109,6 +113,22 @@ library LibTestDeploy {
             LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
             "address",
             abi.encode(owner)
+        );
+    }
+
+    bytes32 internal constant AUTHORIZER_INITIAL_ADMIN_NAME = keccak256("st0x.test.authorizer-initial-admin");
+
+    /// The pinned ConfigRegistry, with the root authority binding the
+    /// authorizer initial admin to `admin`.
+    /// @return The authorizer init data naming that binding.
+    function authorizerData(Vm vm, address admin) internal returns (bytes memory) {
+        etchConfigRegistry(vm);
+        bind(vm, LibRegistryAuthority.ROOT_AUTHORITY, AUTHORIZER_INITIAL_ADMIN_NAME, "address", abi.encode(admin));
+        return abi.encode(
+            OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG,
+            OffchainAssetReceiptVaultAuthorizerV1ConfigV2({
+                authority: LibRegistryAuthority.ROOT_AUTHORITY, initialAdminName: AUTHORIZER_INITIAL_ADMIN_NAME
+            })
         );
     }
 

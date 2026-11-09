@@ -7,11 +7,11 @@ import {DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.18/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.20/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     VaultBeaconMismatch,
     ReceiptBeaconMismatch,
@@ -21,7 +21,7 @@ import {
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
-import {LibProdTokenTargets} from "../../src/lib/LibProdTokenTargets.sol";
+import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {DeployPreDeployCheckHarness} from "./DeployPreDeployCheckHarness.sol";
@@ -49,7 +49,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function bindPinnedBeacons() internal {
-        bindAddress(LibStoxConfig.VAULT_BEACON_NAME, LibProdTokenTargets.vaultBeacon());
+        bindAddress(LibStoxConfig.VAULT_BEACON_NAME, LibProdTokenParams.vaultBeacon());
         bindAddress(LibStoxConfig.RECEIPT_BEACON_NAME, LibProdDeployCurrent.STOX_RECEIPT_BEACON);
     }
 
@@ -100,7 +100,7 @@ contract DeployTokenBindingsTest is Test {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
-        bindAddress(LibStoxConfig.VAULT_BEACON_NAME, LibProdTokenTargets.vaultBeacon());
+        bindAddress(LibStoxConfig.VAULT_BEACON_NAME, LibProdTokenParams.vaultBeacon());
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             for (uint256 j = 0; j < tokens.length; j++) {
@@ -162,7 +162,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseOtherVaultBeacon(address wrong, uint256 usSeed, uint256 euSeed) external {
-        vm.assume(wrong != LibProdTokenTargets.vaultBeacon());
+        vm.assume(wrong != LibProdTokenParams.vaultBeacon());
         DeploySuite[] memory tokens = harness.declaredTokenSuites(oneRowPerRegion(usSeed, euSeed));
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -171,7 +171,7 @@ contract DeployTokenBindingsTest is Test {
             bindAddress(LibStoxConfig.VAULT_BEACON_NAME, wrong);
             for (uint256 j = 0; j < tokens.length; j++) {
                 vm.expectRevert(
-                    abi.encodeWithSelector(VaultBeaconMismatch.selector, wrong, LibProdTokenTargets.vaultBeacon())
+                    abi.encodeWithSelector(VaultBeaconMismatch.selector, wrong, LibProdTokenParams.vaultBeacon())
                 );
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
             }
