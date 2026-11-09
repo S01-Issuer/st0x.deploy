@@ -16,14 +16,6 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
-/// @dev `script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol`.
-bytes32 constant SCHEDULE_REVOKE_SERVICE_SIGNER =
-    keccak256("script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol");
-
-/// @dev `script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol`.
-bytes32 constant EXECUTE_REVOKE_SERVICE_SIGNER =
-    keccak256("script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol");
-
 /// @notice The timelock does not hold the admin role of `role`.
 /// @param timelock The timelock.
 /// @param adminRole The admin role.
@@ -109,7 +101,7 @@ library LibServiceSignerRevoke {
 /// @return The declaration.
 function scheduleRevokeServiceSignerDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: SCHEDULE_REVOKE_SERVICE_SIGNER,
+        id: LibStoxMigrations.SCHEDULE_REVOKE_SERVICE_SIGNER,
         onto: LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
         history: false
     });

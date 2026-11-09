@@ -123,6 +123,14 @@ library LibStoxMigrations {
     /// @notice `script/20261021-execute-underlying-naming.s.sol`.
     bytes32 internal constant EXECUTE_UNDERLYING_NAMING = keccak256("script/20261021-execute-underlying-naming.s.sol");
 
+    /// @notice `script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol`.
+    bytes32 internal constant SCHEDULE_REVOKE_SERVICE_SIGNER =
+        keccak256("script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol");
+
+    /// @notice `script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol`.
+    bytes32 internal constant EXECUTE_REVOKE_SERVICE_SIGNER =
+        keccak256("script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol");
+
     /// @notice What `declared` is recorded after on the root line.
     /// @param declared The declaration.
     /// @return The prerequisites.

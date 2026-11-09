@@ -14,11 +14,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {
-    LibServiceSignerRevoke,
-    SCHEDULE_REVOKE_SERVICE_SIGNER,
-    EXECUTE_REVOKE_SERVICE_SIGNER
-} from "./20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
+import {LibServiceSignerRevoke} from "./20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
 
 /// @notice The broadcasting key holds `EXECUTOR_ROLE`, so an execution would
 /// prove nothing about permissionless execution.
@@ -47,7 +43,11 @@ error ExecuteRevokeServiceSignerRecorded(bytes32 id);
 /// @notice This script's declaration on the root line: after the revoke schedule.
 /// @return The declaration.
 function executeRevokeServiceSignerDeclaration() pure returns (ScriptDeclaration memory) {
-    return ScriptDeclaration({id: EXECUTE_REVOKE_SERVICE_SIGNER, onto: SCHEDULE_REVOKE_SERVICE_SIGNER, history: false});
+    return ScriptDeclaration({
+        id: LibStoxMigrations.EXECUTE_REVOKE_SERVICE_SIGNER,
+        onto: LibStoxMigrations.SCHEDULE_REVOKE_SERVICE_SIGNER,
+        history: false
+    });
 }
 
 /// @title ExecuteRevokeServiceSignerDepositWithdraw
@@ -117,7 +117,7 @@ contract ExecuteRevokeServiceSignerDepositWithdraw is SafeBundleScript, IStoxScr
         bytes32 revokeId = LibServiceSignerRevoke.operationId(timelock, block.chainid);
         if (!TimelockController(payable(timelock)).isOperationDone(revokeId)) revert RevokeNotExecuted(revokeId);
         LibServiceSignerRevoke.assertRevoked(LibAuthoriserInvariants.authoriserForChainId(block.chainid));
-        bytes32 id = EXECUTE_REVOKE_SERVICE_SIGNER;
+        bytes32 id = LibStoxMigrations.EXECUTE_REVOKE_SERVICE_SIGNER;
         if (LibStoxMigrations.applied(id) != 0) revert ExecuteRevokeServiceSignerRecorded(id);
         LibStoxMigrations.assertNext(executeRevokeServiceSignerDeclaration(), chainSafe);
     }
