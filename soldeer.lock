@@ -168,10 +168,10 @@ integrity = "f2bcbeb84854cb1f628e2f3cd79cce0444ee21010b4dc368c0410acd17261074"
 
 [[dependencies]]
 name = "rainlang"
-version = "0.2.32"
-url = "https://soldeer-revisions.s3.amazonaws.com/rainlang/0_2_32_03-11-2026_20:22:27_rainlang.zip"
-checksum = "7f39b294357953782144016c9d7087fa54bba9bd27a0e6a46054cd261bdac6db"
-integrity = "05e346821c6ffcc3ff77a1b4e0ba4ebf17068678efb88e232a3f45bc438d4a1e"
+version = "0.2.33"
+url = "https://soldeer-revisions.s3.amazonaws.com/rainlang/0_2_33_09-11-2026_15:09:28_rainlang.zip"
+checksum = "26ce4e181a5fb7167635e711dd445b6bdde5ad77bf157145405bcb43e5da224e"
+integrity = "0d832b613ab426c87355e9771762c191aca350672dee976226115dc4be9bb1bf"
 
 [[dependencies]]
 name = "rainlang-deploy"
