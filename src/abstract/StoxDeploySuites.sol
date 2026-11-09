@@ -11,13 +11,13 @@ import {
 } from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.30/src/lib/LibRainDeployDeclaration.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.30/src/lib/LibRainDeployZoltuMechanism.sol";
-import {CloneDeploy} from "rain-factory-0.2.10/src/lib/LibRainDeployClone.sol";
-import {LibCloneCandidates} from "rain-factory-0.2.10/src/lib/LibCloneCandidates.sol";
-import {LibRainDeployCloneMechanism} from "rain-factory-0.2.10/src/lib/LibRainDeployCloneMechanism.sol";
+import {CloneDeploy} from "rain-factory-0.2.11/src/lib/LibRainDeployClone.sol";
+import {LibCloneCandidates} from "rain-factory-0.2.11/src/lib/LibCloneCandidates.sol";
+import {LibRainDeployCloneMechanism} from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
 import {
     RegistryBeaconProxyDeploy,
-    RegistryBeaconProxyTarget
-} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+    RegistryBeaconProxyParams
+} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
@@ -41,7 +41,7 @@ import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserCl
 import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
 import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
 import {LibProdTokenConfig, TokenConfig} from "../lib/LibProdTokenConfig.sol";
-import {LibProdTokenTargets} from "../lib/LibProdTokenTargets.sol";
+import {LibProdTokenParams} from "../lib/LibProdTokenParams.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 
 /// @title StoxDeploySuites
@@ -311,19 +311,19 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     function tokenSuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
-        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](targets.length);
-        for (uint256 i = 0; i < targets.length; i++) {
+        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams();
+        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](params.length);
+        for (uint256 i = 0; i < params.length; i++) {
             suites[i] = RegistryBeaconProxyDeploy({
                 suite: string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol)),
-                factory: targets[i].factory,
-                registry: targets[i].registry,
-                authority: targets[i].authority,
-                beaconName: targets[i].beaconName,
-                beacon: targets[i].beacon,
-                data: targets[i].data,
-                salt: targets[i].salt,
-                dependencies: LibProdTokenTargets.tokenDependencies(),
+                factory: params[i].factory,
+                registry: params[i].registry,
+                authority: params[i].authority,
+                beaconName: params[i].beaconName,
+                beacon: params[i].beacon,
+                data: params[i].data,
+                salt: params[i].salt,
+                dependencies: LibProdTokenParams.tokenDependencies(),
                 runtimeCode: LibStoxTokenProxy.RUNTIME_CODE
             });
         }

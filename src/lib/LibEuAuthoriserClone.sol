@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibICloneableFactoryV5} from "rain-factory-0.2.10/src/lib/LibICloneableFactoryV5.sol";
+import {LibICloneableFactoryV5} from "rain-factory-0.2.11/src/lib/LibICloneableFactoryV5.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS
 } from "rain-factory-deploy-0.2.6/src/generated/0_1_15/CloneFactory.sol";

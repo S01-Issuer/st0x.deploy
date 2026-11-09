@@ -43,7 +43,7 @@ import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/li
 import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintCapKind, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
-import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.10/src/interface/ICloneableV2.sol";
+import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.11/src/interface/ICloneableV2.sol";
 
 /// @dev The orchestrator's role ids at file level, so a library can name them:
 /// a contract's `public constant` is not reachable as `ST0xOrchestrator.X`.
