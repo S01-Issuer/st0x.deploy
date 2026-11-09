@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {
     MigrateMultisigThreshold,
     VerifyMismatch,
-    VerifyExpectedSingleTx
+    MultisigThresholdAlreadyApplied
 } from "../../script/20260619-migrate-multisig-threshold.s.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
@@ -16,6 +16,10 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
 import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
+import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
@@ -30,11 +34,10 @@ contract MigrateMultisigThresholdTest is Test {
     /// @notice Live Safe handle.
     Safe internal safe;
 
-    /// @notice Selects the Base fork at chain head — deliberately
-    /// unpinned. Same precedent as
-    /// `StoxProdV2.t.sol::testProdDeployBaseV2`.
+    /// @notice Selects Base at its pinned pre-backfill block, where the
+    /// threshold migration is not yet recorded.
     function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         script = new MigrateMultisigThreshold();
         safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
     }
@@ -109,72 +112,96 @@ contract MigrateMultisigThresholdTest is Test {
         script.run();
     }
 
-    /// @notice Inverted: `verify()` rejects an artifact with a wrong
-    /// `chainId`. We forge a minimal JSON with a bogus chain id and
-    /// assert the typed `VerifyMismatch("chainId")` revert.
-    function testVerifyRejectsWrongChainId() external {
-        selectBaseFork();
-        // Build a minimal-shape Tx Builder JSON with a deliberately-wrong
-        // chainId. Tx Builder schema serialises `chainId` as a decimal
-        // string.
-        SafeTx memory txn = SafeTx({
-            to: address(safe),
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(3))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        // Emit a bundle that claims to be for a different chain id by
-        // bypassing the live `block.chainid` and passing `block.chainid + 1`.
-        string memory json =
-            LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid + 1, "safe-verify-wrong-chain", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-chain.json");
-        vm.writeFile(path, json);
-
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "chainId"));
-        script.verify(path);
-    }
-
-    /// @notice Inverted: `verify()` rejects an artifact whose first tx
-    /// targets a different Safe.
-    function testVerifyRejectsWrongSafeAddress() external {
+    /// @notice Inverted: `verify()` names the field an artifact gets wrong:
+    /// its chain id, the Safe it targets, or the threshold its calldata sets.
+    function testVerifyRejectsAWrongField() external {
         selectBaseFork();
         address impostor = address(0xCAFEBABE);
-        SafeTx memory txn = SafeTx({
-            to: impostor,
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(3))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        string memory json = LibSafeTxBuilderJson.toJson(vm, impostor, block.chainid, "safe-verify-wrong-safe", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-safe.json");
-        vm.writeFile(path, json);
-
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "safeAddress"));
-        script.verify(path);
+        address[3] memory safes = [address(safe), impostor, address(safe)];
+        uint256[3] memory chainIds = [block.chainid + 1, block.chainid, block.chainid];
+        uint256[3] memory thresholds = [uint256(3), 3, 4];
+        string[3] memory fields = ["chainId", "safeAddress", "data"];
+        for (uint256 i = 0; i < fields.length; i++) {
+            SafeTx[] memory txs = new SafeTx[](1);
+            txs[0] = SafeTx({
+                to: safes[i],
+                value: 0,
+                data: abi.encodeCall(OwnerManager.changeThreshold, (thresholds[i])),
+                operation: Enum.Operation.Call
+            });
+            string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-", fields[i], ".json");
+            vm.writeFile(path, LibSafeTxBuilderJson.toJson(vm, safes[i], chainIds[i], fields[i], txs));
+            vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, fields[i]));
+            script.verify(path);
+        }
     }
 
-    /// @notice Inverted: `verify()` rejects an artifact whose tx
-    /// calldata encodes a different threshold.
-    function testVerifyRejectsWrongThresholdData() external {
-        selectBaseFork();
-        SafeTx memory txn = SafeTx({
-            to: address(safe),
-            value: 0,
-            data: abi.encodeCall(OwnerManager.changeThreshold, (uint256(4))),
-            operation: Enum.Operation.Call
-        });
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = txn;
-        string memory json =
-            LibSafeTxBuilderJson.toJson(vm, address(safe), block.chainid, "safe-verify-wrong-threshold", txs);
-        string memory path = string.concat(vm.projectRoot(), "/out/safe-verify-wrong-threshold.json");
-        vm.writeFile(path, json);
+    function chains() internal pure returns (uint256[5] memory) {
+        return [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+    }
 
-        vm.expectRevert(abi.encodeWithSelector(VerifyMismatch.selector, "data"));
-        script.verify(path);
+    function testHistoryAtExecutedAtOpensTheRootLine(uint256 index) external {
+        uint256 chainId = chains()[bound(index, 0, 4)];
+        MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
+        uint256 executedAt = migration.executedAt(chainId);
+        address writer = LibSafeInvariants.safeForChainId(chainId);
+        LibTestRootLine.etchRegistry(vm);
+        LibTestRootLine.approve(vm, writer);
+        vm.warp(executedAt + 1 days);
+
+        (address to, bytes memory data) = LibStoxMigrations.historyCall(migration.declaration(chainId), executedAt);
+        vm.prank(writer);
+        (bool ok,) = to.call(data);
+        assertTrue(ok);
+
+        assertEq(LibStoxMigrations.applied(LibStoxMigrations.MULTISIG_THRESHOLD), executedAt);
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.MULTISIG_THRESHOLD);
+    }
+
+    function assertThresholdChangedAt(
+        MigrateMultisigThreshold migration,
+        string memory network,
+        uint256 chainId,
+        uint256 blockNumber
+    ) internal {
+        // A fork at the change's block reads its header and logs; no state at
+        // that block is touched, so no archive node is needed.
+        vm.createSelectFork(network, blockNumber);
+        assertEq(block.chainid, chainId, network);
+
+        bytes32[] memory topics = new bytes32[](1);
+        topics[0] = keccak256("ChangedThreshold(uint256)");
+        Vm.EthGetLogs[] memory logs =
+            vm.eth_getLogs(blockNumber, blockNumber, LibSafeInvariants.safeForChainId(chainId), topics);
+        assertEq(logs.length, 1, string.concat(network, ": the Safe changes its threshold in the block"));
+        assertEq(logs[0].data, abi.encode(uint256(3)), string.concat(network, ": to 3"));
+        assertEq(migration.executedAt(chainId), block.timestamp, string.concat(network, ": executedAt"));
+    }
+
+    function testExecutedAtIsTheThresholdChangeBlockOnEveryChain() external {
+        MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
+        vm.makePersistent(address(migration));
+        assertThresholdChangedAt(migration, LibRainDeploy.BASE, LibSafeInvariants.BASE_CHAIN_ID, 47725937);
+        assertThresholdChangedAt(migration, LibRainDeploy.ETHEREUM, LibSafeInvariants.ETHEREUM_CHAIN_ID, 25552949);
+        assertThresholdChangedAt(migration, LibRainDeploy.HYPEREVM, LibSafeInvariants.HYPEREVM_CHAIN_ID, 41323887);
+        assertThresholdChangedAt(migration, LibRainDeploy.ROBINHOOD, LibSafeInvariants.ROBINHOOD_CHAIN_ID, 59658260);
+        assertThresholdChangedAt(migration, LibRainDeploy.BSC, LibSafeInvariants.BSC_CHAIN_ID, 121126994);
+    }
+
+    function testRunRefusesWhenAlreadyRecorded() external {
+        address writer = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
+        LibTestRootLine.etchRegistry(vm);
+        LibTestRootLine.approve(vm, writer);
+        LibTestRootLine.write(vm, writer, LibStoxMigrations.MULTISIG_THRESHOLD, MIGRATION_HEAD_GENESIS);
+
+        MigrateMultisigThreshold migration = new MigrateMultisigThreshold();
+        vm.expectRevert(MultisigThresholdAlreadyApplied.selector);
+        migration.run();
     }
 }

@@ -77,7 +77,11 @@ contract LibOrchestratorInvariantsTest is Test {
             );
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    OrchestratorRoleAdminUnexpected.selector, address(orchestrator), roles[i], keccak256("OTHER_ADMIN")
+                    OrchestratorRoleAdminUnexpected.selector,
+                    address(orchestrator),
+                    roles[i],
+                    bytes32(0),
+                    keccak256("OTHER_ADMIN")
                 )
             );
             harness.callAssertInstance();

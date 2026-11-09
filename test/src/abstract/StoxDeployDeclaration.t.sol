@@ -21,6 +21,10 @@ import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
 } from "rain-tofu-erc20-decimals-deploy-0.1.4/src/generated/0_1_0/TOFUTokenDecimals.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
+} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
@@ -28,6 +32,8 @@ import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxWrappedTokenVaultBeacon} from "../../../src/concrete/StoxWrappedTokenVaultBeacon.sol";
+import {StoxReceiptBeacon} from "../../../src/concrete/StoxReceiptBeacon.sol";
+import {StoxReceiptVaultBeacon} from "../../../src/concrete/StoxReceiptVaultBeacon.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -35,6 +41,7 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestratorBeacon} from "../../../src/concrete/ST0xOrchestratorBeacon.sol";
 import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
 import {StoxGovernanceTimelock} from "../../../src/concrete/StoxGovernanceTimelock.sol";
 
@@ -60,11 +67,14 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
         if (key == keccak256(bytes(RECEIPT_VAULT))) return type(StoxReceiptVault).creationCode;
         if (key == keccak256(bytes(WRAPPED_TOKEN_VAULT))) return type(StoxWrappedTokenVault).creationCode;
         if (key == keccak256(bytes(WRAPPED_TOKEN_VAULT_BEACON))) return type(StoxWrappedTokenVaultBeacon).creationCode;
+        if (key == keccak256(bytes(RECEIPT_BEACON))) return type(StoxReceiptBeacon).creationCode;
+        if (key == keccak256(bytes(RECEIPT_VAULT_BEACON))) return type(StoxReceiptVaultBeacon).creationCode;
         if (key == keccak256(bytes(AUTHORIZER))) return type(StoxOffchainAssetReceiptVaultAuthorizerV1).creationCode;
         if (key == keccak256(bytes(PAYMENT_MINT_AUTHORIZER))) {
             return type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
         }
         if (key == keccak256(bytes(ORCHESTRATOR))) return type(ST0xOrchestrator).creationCode;
+        if (key == keccak256(bytes(ORCHESTRATOR_BEACON))) return type(ST0xOrchestratorBeacon).creationCode;
         if (key == keccak256(bytes(ATTEST_SUB_PARSER))) return type(St0xAttestSubParser).creationCode;
         if (key == keccak256(bytes(GOVERNANCE_TIMELOCK))) return type(StoxGovernanceTimelock).creationCode;
         revert(string.concat("no source for suite: ", suite));

@@ -23,6 +23,11 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
+/// The 0.1.30 orchestrator's initializer, which seats an owner.
+interface IST0xOrchestrator0130Initialize {
+    function initialize(address owner) external;
+}
+
 /// @title LocalBaseOrchestratorFixture
 /// @notice A local Base at the pinned addresses, without a fork: the
 /// registry, a v1.4.1 Safe in the token-owner policy, the timelock, the
@@ -64,6 +69,14 @@ abstract contract LocalBaseOrchestratorFixture is Test {
 
         LibRainDeploy.etchZoltuFactory(vm);
         timelock = LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(address(safe)));
+        // The 0.1.30 orchestrator's initializer reads the 0.1.30 vault beacon
+        // set deployer, whose constructor beacons the 0.1.30 implementations.
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CREATION_CODE_0_1_30);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_30);
+        LibRainDeploy.deployZoltu(LibProdDeployV4.STOX_RECEIPT_VAULT_CREATION_CODE_0_1_30);
+        LibRainDeploy.deployZoltu(
+            LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30
+        );
         LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_CREATION_CODE_0_1_30);
         address setDeployer =
             LibRainDeploy.deployZoltu(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_CREATION_CODE_0_1_30);
@@ -71,8 +84,8 @@ abstract contract LocalBaseOrchestratorFixture is Test {
         vm.prank(beacon.owner());
         beacon.transferOwnership(timelock);
 
-        vm.etch(address(ORCHESTRATOR), address(new ST0xOrchestrator()).code);
-        ORCHESTRATOR.initialize(address(safe));
+        vm.etch(address(ORCHESTRATOR), LibProdDeployV4.ST0X_ORCHESTRATOR_RUNTIME_CODE_0_1_30);
+        IST0xOrchestrator0130Initialize(address(ORCHESTRATOR)).initialize(address(safe));
         vm.mockCall(
             address(ORCHESTRATOR), abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()), abi.encode(true)
         );

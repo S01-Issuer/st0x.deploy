@@ -77,6 +77,7 @@ rain-tofu-erc20-decimals-deploy = "0.1.4"
 "rain-vats" = "0.2.18"
 "rain-verify-interface" = "0.1.0"
 "rain-intorastring" = "0.1.4"
+"rain-lib-leakybucket" = "0.5.3"
 "rain-lib-memkv" = "0.2.0"
 "rain-lib-typecast" = "0.1.4"
 "rain-math-binary" = "0.1.4"
@@ -84,6 +85,7 @@ rain-tofu-erc20-decimals-deploy = "0.1.4"
 "rain-metadata" = "0.1.45"
 "rain-string" = "0.3.9"
 rainlang = "0.2.32"
+rainlang-deploy = "0.1.12"
 
 [soldeer]
 recursive_deps = false
