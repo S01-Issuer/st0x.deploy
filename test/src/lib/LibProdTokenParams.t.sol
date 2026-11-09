@@ -24,14 +24,16 @@ import {
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxTokenProxy} from "../../../src/generated/LibStoxTokenProxy.sol";
-import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
+import {LibTestTokenRows} from "../../lib/LibTestTokenRows.sol";
 
 /// @title LibProdTokenParamsTest
-/// @notice One V8 registry beacon proxy per production token row; each row's deploy step lands its token.
+/// @notice One V8 registry beacon proxy per token row, production and test alike; each row's deploy step lands its
+/// token.
 contract LibProdTokenParamsTest is Test {
     address internal constant US_OWNER = address(uint160(uint256(keccak256("st0x.test.token-params.us-owner"))));
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.token-params.eu-owner"))));
@@ -46,7 +48,7 @@ contract LibProdTokenParamsTest is Test {
     }
 
     function testEachParamsIsARegistryBeaconProxyOfItsRowOverTheRootVaultBeacon() external pure {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         assertEq(params.length, configs.length, "one params per row");
         for (uint256 i = 0; i < params.length; i++) {
@@ -60,7 +62,7 @@ contract LibProdTokenParamsTest is Test {
     }
 
     function testEachParamsDataIsTheCanonicalV3ConfigOfItsRow() external pure {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < params.length; i++) {
             (bytes32 tag, OffchainAssetReceiptVaultConfigV3 memory config) =
@@ -81,8 +83,7 @@ contract LibProdTokenParamsTest is Test {
     }
 
     function testEveryRowLandsAtItsOwnAddress() external pure {
-        RegistryBeaconProxyParams[] memory params =
-            LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs());
+        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(LibTestTokenRows.allRows());
         for (uint256 i = 0; i < params.length; i++) {
             address proxy = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]);
             for (uint256 j = 0; j < i; j++) {
@@ -92,16 +93,12 @@ contract LibProdTokenParamsTest is Test {
     }
 
     function testParamsAreTheSameOnEveryDeploymentNetwork() external {
-        bytes memory baseline = abi.encode(LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs()));
+        bytes memory baseline = abi.encode(LibProdTokenParams.tokenParams(LibTestTokenRows.allRows()));
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 n = 0; n < networks.length; n++) {
             vm.chainId(networks[n].chainId);
-            assertEq(
-                abi.encode(LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs())),
-                baseline,
-                networks[n].name
-            );
+            assertEq(abi.encode(LibProdTokenParams.tokenParams(LibTestTokenRows.allRows())), baseline, networks[n].name);
         }
     }
 
@@ -121,7 +118,7 @@ contract LibProdTokenParamsTest is Test {
         (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) =
             LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
 
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < params.length; i++) {
             address deployed = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(

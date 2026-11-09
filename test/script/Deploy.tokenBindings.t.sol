@@ -21,10 +21,11 @@ import {
 } from "../../script/Deploy.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
+import {LibTestTokenRows} from "../lib/LibTestTokenRows.sol";
 import {DeployPreDeployCheckHarness} from "./DeployPreDeployCheckHarness.sol";
 
 contract DeployTokenBindingsTest is Test {
@@ -78,21 +79,8 @@ contract DeployTokenBindingsTest is Test {
             : LibAuthoriserInvariants.euAuthoriserForChainId(chainId);
     }
 
-    function productionAndTestTokenConfigs() internal pure returns (TokenConfig[] memory) {
-        TokenConfig[] memory production = LibProdTokenConfig.productionTokenConfigs();
-        TokenConfig[] memory test = LibProdTokenConfig.testTokenConfigs();
-        TokenConfig[] memory configs = new TokenConfig[](production.length + test.length);
-        for (uint256 i = 0; i < production.length; i++) {
-            configs[i] = production[i];
-        }
-        for (uint256 i = 0; i < test.length; i++) {
-            configs[production.length + i] = test[i];
-        }
-        return configs;
-    }
-
     function testTokensRefuseUnboundVaultBeacon() external {
-        TokenConfig[] memory configs = productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -111,7 +99,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseUnboundReceiptBeacon() external {
-        TokenConfig[] memory configs = productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         bindAddress(LibStoxConfig.VAULT_BEACON_NAME, LibProdTokenParams.vaultBeacon());
@@ -131,7 +119,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseUnboundRegionRbac() external {
-        TokenConfig[] memory configs = productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         bindPinnedBeacons();
@@ -150,10 +138,8 @@ contract DeployTokenBindingsTest is Test {
         }
     }
 
-    /// One production token per region, then every test token.
     function oneRowPerRegion(uint256 usSeed, uint256 euSeed) internal pure returns (TokenConfig[] memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        TokenConfig[] memory test = LibProdTokenConfig.testTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         uint256 usCount = 0;
         for (uint256 i = 0; i < configs.length; i++) {
             if (configs[i].region == Region.US) {
@@ -162,7 +148,7 @@ contract DeployTokenBindingsTest is Test {
         }
         uint256 usPick = bound(usSeed, 0, usCount - 1);
         uint256 euPick = bound(euSeed, 0, configs.length - usCount - 1);
-        TokenConfig[] memory sample = new TokenConfig[](2 + test.length);
+        TokenConfig[] memory sample = new TokenConfig[](2);
         uint256 usSeen = 0;
         uint256 euSeen = 0;
         for (uint256 i = 0; i < configs.length; i++) {
@@ -173,9 +159,6 @@ contract DeployTokenBindingsTest is Test {
             } else if (euSeen++ == euPick) {
                 sample[1] = configs[i];
             }
-        }
-        for (uint256 i = 0; i < test.length; i++) {
-            sample[2 + i] = test[i];
         }
         return sample;
     }
@@ -270,7 +253,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensRefuseOtherRegionAuthoriser() external {
-        TokenConfig[] memory configs = productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -304,7 +287,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensIgnoreOtherRegionRbac() external {
-        TokenConfig[] memory configs = productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -320,7 +303,7 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function testTokensAcceptPinnedBindings() external {
-        TokenConfig[] memory configs = productionAndTestTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -332,15 +315,8 @@ contract DeployTokenBindingsTest is Test {
         }
     }
 
-    function declaredTestTokenWrappers() internal view returns (DeploySuite[] memory) {
-        DeploySuite[] memory wrappers = new DeploySuite[](2);
-        wrappers[0] = harness.declaredSuite("stox-token-tustest-wrapper");
-        wrappers[1] = harness.declaredSuite("stox-token-teutest-wrapper");
-        return wrappers;
-    }
-
-    function testTestTokenWrappersRefuseUnboundWrapperBeacon() external {
-        DeploySuite[] memory wrappers = declaredTestTokenWrappers();
+    function testWrappersRefuseUnboundWrapperBeacon() external {
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibTestTokenRows.allRows());
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
@@ -358,9 +334,9 @@ contract DeployTokenBindingsTest is Test {
         }
     }
 
-    function testTestTokenWrappersRefuseOtherWrapperBeacon(address wrong) external {
+    function testWrappersRefuseOtherWrapperBeacon(address wrong, uint256 usSeed, uint256 euSeed) external {
         vm.assume(wrong != LibProdTokenParams.wrapperBeacon());
-        DeploySuite[] memory wrappers = declaredTestTokenWrappers();
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(oneRowPerRegion(usSeed, euSeed));
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
@@ -376,8 +352,8 @@ contract DeployTokenBindingsTest is Test {
     }
 
     /// The wrapper beacon is the only binding a wrapper reads, so the token bindings stay unbound.
-    function testTestTokenWrappersAcceptPinnedWrapperBeacon() external {
-        DeploySuite[] memory wrappers = declaredTestTokenWrappers();
+    function testWrappersAcceptPinnedWrapperBeacon() external {
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibTestTokenRows.allRows());
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
         for (uint256 i = 0; i < networks.length; i++) {

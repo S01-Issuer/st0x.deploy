@@ -4,6 +4,13 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
+import {
+    DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS
+} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.11/src/interface/ICloneableFactoryV7.sol";
 import {
     LibRainDeployCloneMechanism,
     REGISTRY_BEACON_PROXY_MECHANISM
@@ -14,31 +21,39 @@ import {OffchainAssetReceiptVaultConfigV3} from "rain-vats-0.2.20/src/interface/
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
-import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
+import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
+import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
+import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
+import {LibTestTokenRows} from "../../lib/LibTestTokenRows.sol";
 
 /// @title StoxDeploySuitesTokenSuitesTest
-/// @notice Every production token is exactly one declared registry beacon proxy suite, keyed by its symbol, deploying
-/// the params its underlying salts, and landing at its stored address with its stored runtime code.
+/// @notice Every token row, production and test alike, is exactly one declared token suite and one declared wrapper
+/// suite, keyed by its symbol, deploying the params its underlying salts, and landing at its stored address with its
+/// stored runtime code on every deployment network.
 contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     address internal constant US_OWNER = address(uint160(uint256(keccak256("st0x.test.token-suites.us-owner"))));
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.token-suites.eu-owner"))));
     address internal constant DEPLOYER = address(uint160(uint256(keccak256("st0x.test.token-suites.deployer"))));
     address internal constant TIMELOCK = address(uint160(uint256(keccak256("st0x.test.token-suites.timelock"))));
 
-    /// Every registry beacon proxy suite but the orchestrator instance and the test tokens and their wrappers,
-    /// released and candidate alike, so a token declared as a release is counted.
-    function declaredTokenSuites(DeployDeclaration memory declared) internal pure returns (DeploySuite[] memory) {
+    /// Released and candidate alike, so a suite declared as a release is counted.
+    function declaredSuitesWhere(
+        DeployDeclaration memory declared,
+        function(DeploySuite memory) internal pure returns (bool) keep
+    ) internal pure returns (DeploySuite[] memory) {
         DeploySuite[] memory found = new DeploySuite[](declared.released.length + declared.candidates.length);
         uint256 count = 0;
         for (uint256 i = 0; i < declared.released.length; i++) {
-            if (isTokenSuite(declared.released[i])) {
+            if (keep(declared.released[i])) {
                 found[count++] = declared.released[i];
             }
         }
         for (uint256 i = 0; i < declared.candidates.length; i++) {
-            if (isTokenSuite(declared.candidates[i].snapshot)) {
+            if (keep(declared.candidates[i].snapshot)) {
                 found[count++] = declared.candidates[i].snapshot;
             }
         }
@@ -48,23 +63,20 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         return found;
     }
 
-    function isTokenSuite(DeploySuite memory suite) internal pure returns (bool) {
+    function isWrapperSuite(DeploySuite memory suite) internal pure returns (bool) {
         return mechanismIdOf(suite) == REGISTRY_BEACON_PROXY_MECHANISM
-            && keccak256(bytes(suite.suite)) != keccak256(bytes(ORCHESTRATOR_PROXY)) && !isTestTokenSuite(suite);
+            && LibRainDeployCloneMechanism.registryBeaconProxyParams(suite).beaconName
+                == LibStoxConfig.WRAPPER_BEACON_NAME;
     }
 
-    function isTestTokenSuite(DeploySuite memory suite) internal pure returns (bool) {
-        TokenConfig[] memory configs = LibProdTokenConfig.testTokenConfigs();
-        for (uint256 i = 0; i < configs.length; i++) {
-            string memory token = string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol));
-            if (
-                keccak256(bytes(suite.suite)) == keccak256(bytes(token))
-                    || keccak256(bytes(suite.suite)) == keccak256(bytes(string.concat(token, WRAPPER_SUFFIX)))
-            ) {
-                return true;
-            }
-        }
-        return false;
+    /// Every registry beacon proxy suite but the orchestrator instance and the wrappers.
+    function isTokenSuite(DeploySuite memory suite) internal pure returns (bool) {
+        return mechanismIdOf(suite) == REGISTRY_BEACON_PROXY_MECHANISM
+            && keccak256(bytes(suite.suite)) != keccak256(bytes(ORCHESTRATOR_PROXY)) && !isWrapperSuite(suite);
+    }
+
+    function tokenKey(TokenConfig memory config) internal pure returns (string memory) {
+        return string.concat(TOKEN_PREFIX, lowercase(config.symbol));
     }
 
     /// @return The index of the one config whose underlying salts `suite`'s params.
@@ -82,10 +94,22 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         return index;
     }
 
-    function testEveryProductionTokenIsExactlyOneDeclaredSuite() external view {
-        DeploySuite[] memory suites = declaredTokenSuites(declaration());
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        assertEq(suites.length, configs.length, "one suite per token");
+    function dependencyCodeHash(DeploySuite memory suite, address dependency) internal pure returns (bytes32) {
+        uint256 matches = 0;
+        bytes32 codeHash;
+        for (uint256 i = 0; i < suite.dependencies.length; i++) {
+            if (suite.dependencies[i].deployedAddress == dependency) {
+                matches++;
+                codeHash = keccak256(suite.dependencies[i].runtimeCode);
+            }
+        }
+        assertEq(matches, 1, suite.suite);
+        return codeHash;
+    }
+
+    function assertOneSuitePerRow(DeploySuite[] memory suites) internal pure {
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        assertEq(suites.length, configs.length, "one suite per row");
         uint256[] memory hits = new uint256[](configs.length);
         for (uint256 i = 0; i < suites.length; i++) {
             hits[configIndexOf(configs, suites[i])]++;
@@ -95,10 +119,18 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         }
     }
 
+    function testEveryTokenRowIsExactlyOneDeclaredTokenSuite() external view {
+        assertOneSuitePerRow(declaredSuitesWhere(declaration(), isTokenSuite));
+    }
+
+    function testEveryTokenRowIsExactlyOneDeclaredWrapperSuite() external view {
+        assertOneSuitePerRow(declaredSuitesWhere(declaration(), isWrapperSuite));
+    }
+
     /// The key is held to the symbol case-insensitively; its alphabet is the framework's key check.
     function testEachTokenSuiteIsKeyedByAndDeploysItsUnderlyingsToken() external view {
-        DeploySuite[] memory suites = declaredTokenSuites(declaration());
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        DeploySuite[] memory suites = declaredSuitesWhere(declaration(), isTokenSuite);
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < suites.length; i++) {
             uint256 j = configIndexOf(configs, suites[i]);
@@ -117,50 +149,142 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         }
     }
 
+    function testEachWrapperSuiteIsKeyedByAndWrapsItsUnderlyingsToken() external view {
+        DeployDeclaration memory declared = declaration();
+        DeploySuite[] memory wrappers = declaredSuitesWhere(declared, isWrapperSuite);
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        for (uint256 i = 0; i < wrappers.length; i++) {
+            TokenConfig memory config = configs[configIndexOf(configs, wrappers[i])];
+            DeploySuite memory token = suiteByName(declared, tokenKey(config));
+            assertEq(
+                vm.toLowercase(wrappers[i].suite),
+                vm.toLowercase(string.concat(TOKEN_PREFIX, config.symbol, WRAPPER_SUFFIX)),
+                config.underlying
+            );
+            RegistryBeaconProxyParams memory params = LibRainDeployCloneMechanism.registryBeaconProxyParams(wrappers[i]);
+            assertEq(params.factory, CLONE_FACTORY_V8_ADDRESS, config.underlying);
+            assertEq(params.registry, CONFIG_REGISTRY_ADDRESS, config.underlying);
+            assertEq(params.authority, LibRegistryAuthority.ROOT_AUTHORITY, config.underlying);
+            assertEq(params.data, abi.encode(token.storedDeployedAddress), config.underlying);
+            assertTrue(wrappers[i].storedDeployedAddress != token.storedDeployedAddress, config.underlying);
+        }
+    }
+
     function testEachTokenSuiteProxiesAndDependsOnTheReceiptVaultBeaconSuite() external view {
         DeployDeclaration memory declared = declaration();
         (DeploySuite memory beacon, bool found) = candidateOf(declared, RECEIPT_VAULT_BEACON);
         assertTrue(found, RECEIPT_VAULT_BEACON);
-        DeploySuite[] memory suites = declaredTokenSuites(declared);
+        DeploySuite[] memory suites = declaredSuitesWhere(declared, isTokenSuite);
         for (uint256 i = 0; i < suites.length; i++) {
             assertEq(
                 LibRainDeployCloneMechanism.registryBeaconProxyParams(suites[i]).beacon,
                 beacon.storedDeployedAddress,
                 suites[i].suite
             );
-            uint256 matches = 0;
-            for (uint256 j = 0; j < suites[i].dependencies.length; j++) {
-                if (suites[i].dependencies[j].deployedAddress == beacon.storedDeployedAddress) {
-                    matches++;
-                    assertEq(
-                        keccak256(suites[i].dependencies[j].runtimeCode), beacon.storedBytecodeHash, suites[i].suite
-                    );
-                }
-            }
-            assertEq(matches, 1, suites[i].suite);
+            assertEq(
+                dependencyCodeHash(suites[i], beacon.storedDeployedAddress), beacon.storedBytecodeHash, suites[i].suite
+            );
         }
     }
 
-    function testEachTokenSuiteDeploysAtItsStoredAddressWithItsStoredRuntimeCode() external {
+    function testEachWrapperSuiteProxiesAndDependsOnTheWrappedTokenVaultBeaconSuiteAndItsToken() external view {
+        DeployDeclaration memory declared = declaration();
+        (DeploySuite memory beacon, bool found) = candidateOf(declared, WRAPPED_TOKEN_VAULT_BEACON);
+        assertTrue(found, WRAPPED_TOKEN_VAULT_BEACON);
+        DeploySuite[] memory wrappers = declaredSuitesWhere(declared, isWrapperSuite);
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        for (uint256 i = 0; i < wrappers.length; i++) {
+            DeploySuite memory token = suiteByName(declared, tokenKey(configs[configIndexOf(configs, wrappers[i])]));
+            assertEq(
+                LibRainDeployCloneMechanism.registryBeaconProxyParams(wrappers[i]).beacon,
+                beacon.storedDeployedAddress,
+                wrappers[i].suite
+            );
+            assertEq(
+                dependencyCodeHash(wrappers[i], beacon.storedDeployedAddress),
+                beacon.storedBytecodeHash,
+                wrappers[i].suite
+            );
+            assertEq(
+                dependencyCodeHash(wrappers[i], token.storedDeployedAddress),
+                token.storedBytecodeHash,
+                wrappers[i].suite
+            );
+        }
+    }
+
+    function deploySuite(DeployDeclaration memory declared, string memory key, SupportedNetwork memory network)
+        internal
+        returns (address)
+    {
+        DeploySuite memory suite = suiteByName(declared, key);
+        address deployed =
+            deployStep(declared, suite)(vm, network.name, DEPLOYER, deployStepData(declared, suite, network.chainId));
+        string memory label = string.concat(key, " on ", network.name);
+        assertEq(deployed, suite.storedDeployedAddress, label);
+        assertEq(deployed.code, suite.storedRuntimeCode, label);
+        assertEq(deployed.codehash, suite.storedBytecodeHash, label);
+        return deployed;
+    }
+
+    function assertToken(
+        StoxReceiptVault token,
+        TokenConfig memory config,
+        IAuthorizeV1 authorizer,
+        string memory label
+    ) internal view {
+        bool us = config.region == Region.US;
+        assertEq(token.name(), config.name, label);
+        assertEq(token.symbol(), config.symbol, label);
+        assertEq(token.owner(), us ? US_OWNER : EU_OWNER, label);
+        assertEq(address(token.authorizer()), address(authorizer), label);
+        assertEq(
+            address(token.receipt()),
+            ICloneableFactoryV7(CLONE_FACTORY_V8_ADDRESS)
+                .predictRegistryBeaconProxyAddress(
+                    CONFIG_REGISTRY_ADDRESS,
+                    LibRegistryAuthority.ROOT_AUTHORITY,
+                    LibStoxConfig.RECEIPT_BEACON_NAME,
+                    abi.encode(address(token)),
+                    bytes32(0)
+                ),
+            label
+        );
+        assertEq(token.receipt().manager(), address(token), label);
+    }
+
+    function testEveryTokenAndWrapperSuiteLandsAtItsStoredAddressOnEveryNetwork() external {
         (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) =
             LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
+        address wrapperBeacon = LibRainDeploy.deployZoltu(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_CANDIDATE);
+        LibTestDeploy.bind(
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.WRAPPER_BEACON_NAME,
+            "address",
+            abi.encode(wrapperBeacon)
+        );
         DeployDeclaration memory declared = declaration();
-        DeploySuite[] memory suites = declaredTokenSuites(declared);
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        for (uint256 i = 0; i < suites.length; i++) {
-            DeploySuite memory suite = suites[i];
-            address deployed =
-                deployStep(declared, suite)(vm, "base", DEPLOYER, deployStepData(declared, suite, block.chainid));
-            assertEq(deployed, suite.storedDeployedAddress, suite.suite);
-            assertEq(deployed.code, suite.storedRuntimeCode, suite.suite);
-            assertEq(deployed.codehash, suite.storedBytecodeHash, suite.suite);
-
-            TokenConfig memory config = configs[configIndexOf(configs, suite)];
-            StoxReceiptVault token = StoxReceiptVault(payable(deployed));
-            bool us = config.region == Region.US;
-            assertEq(token.symbol(), config.symbol, suite.suite);
-            assertEq(token.owner(), us ? US_OWNER : EU_OWNER, suite.suite);
-            assertEq(address(token.authorizer()), address(us ? usAuthorizer : euAuthorizer), suite.suite);
+        SupportedNetwork[] memory networks = LibRainDeploy.declaredNetworkConfigs(declared.deployNetworks);
+        assertTrue(networks.length > 0, "networks");
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        for (uint256 i = 0; i < networks.length; i++) {
+            uint256 preDeploy = vm.snapshotState();
+            vm.chainId(networks[i].chainId);
+            for (uint256 j = 0; j < configs.length; j++) {
+                string memory key = tokenKey(configs[j]);
+                string memory label = string.concat(key, " on ", networks[i].name);
+                address token = deploySuite(declared, key, networks[i]);
+                assertToken(
+                    StoxReceiptVault(payable(token)),
+                    configs[j],
+                    configs[j].region == Region.US ? usAuthorizer : euAuthorizer,
+                    label
+                );
+                address wrapper = deploySuite(declared, string.concat(key, WRAPPER_SUFFIX), networks[i]);
+                assertEq(StoxWrappedTokenVault(wrapper).asset(), token, label);
+            }
+            assertTrue(vm.revertToState(preDeploy), networks[i].name);
         }
     }
 }
