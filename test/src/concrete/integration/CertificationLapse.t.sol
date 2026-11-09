@@ -7,7 +7,7 @@ import {CertificationExpired} from "rain-vats-0.2.18/src/concrete/authorize/Offc
 
 import {MintAuthV1} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.33/src/interface/IInterpreterCallerV5.sol";
 
 /// @title CertificationLapseTest
 /// @notice Workflow: once certification lapses, the orchestrator halts

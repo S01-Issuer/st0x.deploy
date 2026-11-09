@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.33/src/interface/IInterpreterCallerV5.sol";
 
 import {
     CONTEXT_ATTESTATION_ROWS,
@@ -79,6 +79,15 @@ contract MintWeightingEvalTest is WeightingEvalTest {
             signed[i] = signUnder(attestations[i].key, attestations[i].domain, context);
         }
         return signed;
+    }
+
+    function signedAt(string memory ticker, Float time) internal pure override returns (SignedContextV2[] memory) {
+        Attestation[] memory attestations = quorum();
+        for (uint256 i = 0; i < attestations.length; i++) {
+            attestations[i].attestedSymbol = symbol(ticker);
+            attestations[i].time = time;
+        }
+        return signAll(attestations);
     }
 
     function accepted(string memory vaultSymbol, Float amount, SignedContextV2[] memory signed, Float value)
@@ -275,6 +284,77 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         both[1].domain = other;
         both[2].domain = other;
         refused(both, "Attestor domain mismatch");
+    }
+
+    function testAnySourceButTheLeadSourceForTheLeadIsRefused(bytes32 priceSource) external {
+        vm.assume(priceSource != symbol(LEAD_SOURCE));
+        Attestation[] memory attestations = quorum();
+        attestations[0].priceSource = priceSource;
+        refused(attestations, "Lead source mismatch");
+    }
+
+    function testAnUnlistedSourceInEitherPoolSeatIsRefused(bytes32 priceSource) external {
+        vm.assume(priceSource != symbol(POOL_SOURCE_0) && priceSource != symbol(POOL_SOURCE_1));
+        for (uint256 seat = 1; seat < 3; seat++) {
+            Attestation[] memory attestations = quorum();
+            attestations[seat].priceSource = priceSource;
+            refused(attestations, "Pool source not allowlisted");
+        }
+    }
+
+    function testANearMissSourceInAnySeatIsRefused() external {
+        bytes32[6] memory sources = [
+            symbol(POOL_SOURCE_0),
+            symbol("Alpaca"),
+            symbol("alpaca "),
+            symbol("yaho"),
+            symbol(""),
+            bytes32(0)
+        ];
+        for (uint256 i = 0; i < sources.length; i++) {
+            Attestation[] memory attestations = quorum();
+            attestations[0].priceSource = sources[i];
+            refused(attestations, "Lead source mismatch");
+            if (i == 0) continue;
+            for (uint256 seat = 1; seat < 3; seat++) {
+                attestations = quorum();
+                attestations[seat].priceSource = sources[i];
+                refused(attestations, "Pool source not allowlisted");
+            }
+        }
+    }
+
+    function testEitherListedSourceInEitherPoolSeatIsAccepted() external view {
+        bytes32[2] memory sources = [symbol(POOL_SOURCE_0), symbol(POOL_SOURCE_1)];
+        for (uint256 i = 0; i < sources.length; i++) {
+            for (uint256 j = 0; j < sources.length; j++) {
+                Attestation[] memory attestations = quorum();
+                attestations[1].priceSource = sources[i];
+                attestations[2].priceSource = sources[j];
+                accepted(attestations, decimal(AMOUNT * PRICE, 0));
+            }
+        }
+    }
+
+    function testANonUsdCurrencyInAnySeatIsRefused() external {
+        bytes32[7] memory currencies =
+            [symbol("EUR"), symbol("usd"), symbol("USDT"), symbol("US"), symbol("USD "), symbol(""), bytes32(0)];
+        for (uint256 i = 0; i < currencies.length; i++) {
+            for (uint256 seat = 0; seat < 3; seat++) {
+                Attestation[] memory attestations = quorum();
+                attestations[seat].currency = currencies[i];
+                refused(attestations, "Price not in USD");
+            }
+        }
+    }
+
+    function testAnyCurrencyButUsdInAnySeatIsRefused(bytes32 currency) external {
+        vm.assume(currency != symbol("USD"));
+        for (uint256 seat = 0; seat < 3; seat++) {
+            Attestation[] memory attestations = quorum();
+            attestations[seat].currency = currency;
+            refused(attestations, "Price not in USD");
+        }
     }
 
     function testATickerOfAnyLengthIsAccepted() external view {

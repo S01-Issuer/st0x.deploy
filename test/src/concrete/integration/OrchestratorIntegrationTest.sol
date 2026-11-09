@@ -20,7 +20,7 @@ import {
 } from "rain-vats-0.2.18/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ReceiptVaultConfigV2} from "rain-vats-0.2.18/src/abstract/ReceiptVault.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
-import {EvaluableV4} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {EvaluableV4} from "rainlang-0.2.33/src/interface/IInterpreterCallerV5.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";

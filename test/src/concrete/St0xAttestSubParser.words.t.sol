@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
-import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.33/src/interface/IInterpreterCallerV5.sol";
 
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
