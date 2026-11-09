@@ -15,6 +15,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {LibServiceSignerRevoke} from "../src/lib/LibServiceSignerRevoke.sol";
 
 /// @notice The timelock does not hold the admin role of `role`.
 /// @param timelock The timelock.
@@ -25,10 +26,6 @@ error TimelockLacksAdminRole(address timelock, bytes32 adminRole);
 /// @param role The role.
 error ServiceSignerLacksRole(bytes32 role);
 
-/// @notice The service signer still holds `role` after the revoke executed.
-/// @param role The role.
-error ServiceSignerStillHoldsRole(bytes32 role);
-
 /// @notice The revoke batch is already registered on the timelock.
 /// @param id The operation id.
 error RevokeAlreadyScheduled(bytes32 id);
@@ -36,66 +33,6 @@ error RevokeAlreadyScheduled(bytes32 id);
 /// @notice After the bundle the operation is not pending, or is ready inside its delay.
 /// @param id The operation id.
 error RevokeNotPendingInsideDelay(bytes32 id);
-
-/// @title LibServiceSignerRevoke
-/// @notice The timelock batch revoking `DEPOSIT` and `WITHDRAW` from the
-/// service signer on the chain's authoriser.
-library LibServiceSignerRevoke {
-    bytes32 internal constant SALT = keccak256("st0x.revoke-service-signer-deposit-withdraw");
-
-    /// @param chainId The chain id.
-    /// @return targets The authoriser, twice.
-    /// @return values Zero, twice.
-    /// @return payloads The two `revokeRole` calls.
-    function batch(uint256 chainId)
-        internal
-        pure
-        returns (address[] memory targets, uint256[] memory values, bytes[] memory payloads)
-    {
-        address authoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
-        targets = new address[](2);
-        targets[0] = authoriser;
-        targets[1] = authoriser;
-        values = new uint256[](2);
-        payloads = new bytes[](2);
-        payloads[0] = abi.encodeCall(
-            IAccessControl.revokeRole, (keccak256("DEPOSIT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C)
-        );
-        payloads[1] = abi.encodeCall(
-            IAccessControl.revokeRole, (keccak256("WITHDRAW"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C)
-        );
-    }
-
-    /// @param timelock The timelock.
-    /// @param chainId The chain id.
-    /// @return The batch's operation id.
-    function operationId(address timelock, uint256 chainId) internal view returns (bytes32) {
-        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = batch(chainId);
-        return TimelockController(payable(timelock)).hashOperationBatch(targets, values, payloads, bytes32(0), SALT);
-    }
-
-    /// @param chainId The chain id.
-    /// @return The `scheduleBatch` calldata.
-    function scheduleCalldata(uint256 chainId) internal pure returns (bytes memory) {
-        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = batch(chainId);
-        return abi.encodeCall(
-            TimelockController.scheduleBatch,
-            (targets, values, payloads, bytes32(0), SALT, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
-        );
-    }
-
-    /// @notice Reverts unless the service signer holds neither role.
-    /// @param authoriser The authoriser.
-    function assertRevoked(address authoriser) internal view {
-        address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
-        if (IAccessControl(authoriser).hasRole(keccak256("DEPOSIT"), signer)) {
-            revert ServiceSignerStillHoldsRole(keccak256("DEPOSIT"));
-        }
-        if (IAccessControl(authoriser).hasRole(keccak256("WITHDRAW"), signer)) {
-            revert ServiceSignerStillHoldsRole(keccak256("WITHDRAW"));
-        }
-    }
-}
 
 /// @notice This script's declaration: the Safe's record, after the naming execute.
 /// @return The declaration.

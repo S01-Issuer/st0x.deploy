@@ -14,7 +14,7 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {LibServiceSignerRevoke} from "./20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
+import {LibServiceSignerRevoke} from "../src/lib/LibServiceSignerRevoke.sol";
 
 /// @notice The broadcasting key holds `EXECUTOR_ROLE`, so an execution would
 /// prove nothing about permissionless execution.
