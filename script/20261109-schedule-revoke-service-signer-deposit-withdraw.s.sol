@@ -109,7 +109,9 @@ library LibServiceSignerRevoke {
 /// @return The declaration.
 function scheduleRevokeServiceSignerDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: SCHEDULE_REVOKE_SERVICE_SIGNER, onto: LibStoxMigrations.EXECUTE_UNDERLYING_NAMING, history: false
+        id: SCHEDULE_REVOKE_SERVICE_SIGNER,
+        onto: LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
+        history: false
     });
 }
 
