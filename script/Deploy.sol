@@ -24,6 +24,7 @@ error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
+error WrapperBeaconMismatch(address bound, address expected);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
 error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 
@@ -55,13 +56,29 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
         } else {
-            TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-            for (uint256 i = 0; i < configs.length; i++) {
-                if (name == keccak256(bytes(string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol))))) {
-                    checkToken(configs[i].region);
-                    return;
-                }
+            checkTokenSuites(name, LibProdTokenConfig.productionTokenConfigs());
+            checkTokenSuites(name, LibProdTokenConfig.testTokenConfigs());
+        }
+    }
+
+    function checkTokenSuites(bytes32 name, TokenConfig[] memory configs) internal view {
+        for (uint256 i = 0; i < configs.length; i++) {
+            string memory token = string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol));
+            if (name == keccak256(bytes(token))) {
+                checkToken(configs[i].region);
+                return;
             }
+            if (name == keccak256(bytes(string.concat(token, WRAPPER_SUFFIX)))) {
+                checkWrapper();
+                return;
+            }
+        }
+    }
+
+    function checkWrapper() internal view {
+        address wrapperBeacon = boundAddress(LibStoxConfig.WRAPPER_BEACON_NAME);
+        if (wrapperBeacon != LibProdTokenParams.wrapperBeacon()) {
+            revert WrapperBeaconMismatch(wrapperBeacon, LibProdTokenParams.wrapperBeacon());
         }
     }
 
