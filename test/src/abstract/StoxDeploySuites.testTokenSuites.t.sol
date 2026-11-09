@@ -54,7 +54,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
         return string.concat(token.key, "-wrapper");
     }
 
-    function targetOf(DeploySuite memory suite) internal pure returns (RegistryBeaconProxyTarget memory) {
+    function paramsOf(DeploySuite memory suite) internal pure returns (RegistryBeaconProxyTarget memory) {
         return LibRainDeployCloneMechanism.registryBeaconProxyTarget(suite);
     }
 
@@ -77,12 +77,12 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
         for (uint256 i = 0; i < tokens.length; i++) {
             DeploySuite memory suite = suiteByName(declared, tokens[i].key);
             assertEq(mechanismIdOf(suite), REGISTRY_BEACON_PROXY_MECHANISM, tokens[i].key);
-            RegistryBeaconProxyTarget memory target = targetOf(suite);
-            assertEq(target.factory, CLONE_FACTORY_V8_ADDRESS, tokens[i].key);
-            assertEq(target.registry, CONFIG_REGISTRY_ADDRESS, tokens[i].key);
-            assertEq(target.authority, LibRegistryAuthority.ROOT_AUTHORITY, tokens[i].key);
-            assertEq(target.beaconName, LibStoxConfig.VAULT_BEACON_NAME, tokens[i].key);
-            assertEq(target.beacon, V4.STOX_RECEIPT_VAULT_BEACON_CANDIDATE, tokens[i].key);
+            RegistryBeaconProxyTarget memory params = paramsOf(suite);
+            assertEq(params.factory, CLONE_FACTORY_V8_ADDRESS, tokens[i].key);
+            assertEq(params.registry, CONFIG_REGISTRY_ADDRESS, tokens[i].key);
+            assertEq(params.authority, LibRegistryAuthority.ROOT_AUTHORITY, tokens[i].key);
+            assertEq(params.beaconName, LibStoxConfig.VAULT_BEACON_NAME, tokens[i].key);
+            assertEq(params.beacon, V4.STOX_RECEIPT_VAULT_BEACON_CANDIDATE, tokens[i].key);
         }
     }
 
@@ -93,13 +93,13 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
             DeploySuite memory token = suiteByName(declared, tokens[i].key);
             DeploySuite memory wrapper = suiteByName(declared, wrapperKey(tokens[i]));
             assertEq(mechanismIdOf(wrapper), REGISTRY_BEACON_PROXY_MECHANISM, wrapper.suite);
-            RegistryBeaconProxyTarget memory target = targetOf(wrapper);
-            assertEq(target.factory, CLONE_FACTORY_V8_ADDRESS, wrapper.suite);
-            assertEq(target.registry, CONFIG_REGISTRY_ADDRESS, wrapper.suite);
-            assertEq(target.authority, LibRegistryAuthority.ROOT_AUTHORITY, wrapper.suite);
-            assertEq(target.beaconName, LibStoxConfig.WRAPPER_BEACON_NAME, wrapper.suite);
-            assertEq(target.beacon, V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE, wrapper.suite);
-            assertEq(target.data, abi.encode(token.storedDeployedAddress), wrapper.suite);
+            RegistryBeaconProxyTarget memory params = paramsOf(wrapper);
+            assertEq(params.factory, CLONE_FACTORY_V8_ADDRESS, wrapper.suite);
+            assertEq(params.registry, CONFIG_REGISTRY_ADDRESS, wrapper.suite);
+            assertEq(params.authority, LibRegistryAuthority.ROOT_AUTHORITY, wrapper.suite);
+            assertEq(params.beaconName, LibStoxConfig.WRAPPER_BEACON_NAME, wrapper.suite);
+            assertEq(params.beacon, V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE, wrapper.suite);
+            assertEq(params.data, abi.encode(token.storedDeployedAddress), wrapper.suite);
             assertTrue(wrapper.storedDeployedAddress != token.storedDeployedAddress, wrapper.suite);
         }
     }
@@ -129,7 +129,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
             if (mechanismIdOf(suites[i]) != REGISTRY_BEACON_PROXY_MECHANISM) {
                 continue;
             }
-            if (targetOf(suites[i]).beaconName != LibStoxConfig.WRAPPER_BEACON_NAME) {
+            if (paramsOf(suites[i]).beaconName != LibStoxConfig.WRAPPER_BEACON_NAME) {
                 continue;
             }
             wrappers++;
