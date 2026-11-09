@@ -3,7 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {
@@ -12,6 +14,7 @@ import {
 import {RevokeServiceSignerDepositWithdrawFixture} from "./RevokeServiceSignerDepositWithdrawFixture.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibServiceSignerRevoke} from "../../src/lib/LibServiceSignerRevoke.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
@@ -56,5 +59,18 @@ contract ScheduleRevokeServiceSignerDepositWithdrawRootLineTest is
         assertEq(txs[0].value, 0, "schedule value");
         assertEq(txs[0].data, LibServiceSignerRevoke.scheduleCalldata(block.chainid), "schedule calldata");
         assertEq(uint8(txs[0].operation), uint8(Enum.Operation.Call), "schedule operation");
+    }
+
+    function testPreflightRefusesASafeOffPolicy() external {
+        vm.mockCall(safeAddress(), abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibSafe.SafeThresholdMismatch.selector,
+                safeAddress(),
+                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD,
+                1
+            )
+        );
+        sScript.callPreflight();
     }
 }

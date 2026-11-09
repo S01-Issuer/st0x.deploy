@@ -2,7 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
+import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 
 import {
     ExecuteRevokeServiceSignerDepositWithdraw,
@@ -13,6 +15,7 @@ import {RevokeServiceSignerDepositWithdrawFixture} from "./RevokeServiceSignerDe
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
@@ -66,6 +69,19 @@ contract ExecuteRevokeServiceSignerDepositWithdrawRootLineTest is
         vm.expectRevert(
             abi.encodeWithSelector(
                 ExecuteRevokeServiceSignerRecorded.selector, LibStoxMigrations.EXECUTE_REVOKE_SERVICE_SIGNER
+            )
+        );
+        sScript.callPreflight();
+    }
+
+    function testPreflightRefusesASafeOffPolicy() external {
+        vm.mockCall(safeAddress(), abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibSafe.SafeThresholdMismatch.selector,
+                safeAddress(),
+                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD,
+                1
             )
         );
         sScript.callPreflight();

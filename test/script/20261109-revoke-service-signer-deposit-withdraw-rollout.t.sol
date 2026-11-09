@@ -5,7 +5,9 @@ pragma solidity =0.8.25;
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
@@ -14,6 +16,7 @@ import {
     ExecuteRevokeServiceSignerDepositWithdraw,
     RevokeExecutorHoldsRole,
     RevokeNotExecuted,
+    RevokeOperationNotDone,
     RevokeOperationNotReady
 } from "../../script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol";
 import {
@@ -28,7 +31,11 @@ import {
 } from "./ScheduleRevokeServiceSignerDepositWithdrawHarness.sol";
 import {RevokeServiceSignerDepositWithdrawFixture} from "./RevokeServiceSignerDepositWithdrawFixture.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
-import {AuthoriserNotReady, LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {
+    AuthoriserNotReady,
+    ExpectedGrantMissing,
+    LibAuthoriserInvariants
+} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibServiceSignerRevoke, ServiceSignerStillHoldsRole} from "../../src/lib/LibServiceSignerRevoke.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
@@ -264,13 +271,117 @@ contract RevokeServiceSignerDepositWithdrawRolloutTest is RevokeServiceSignerDep
         schedule.callAssertPostState();
     }
 
-    /// @notice The executor refuses a key that holds the timelock's executor
-    /// role, with the batch ready.
-    function testExecuteRefusesAKeyHoldingTheExecutorRole() external {
-        scheduleOnBase();
+    /// @notice The schedule pre-flight refuses an executed batch, with both
+    /// roles granted again.
+    function testSchedulePreflightRefusesAnExecutedBatch() external {
+        ScheduleRevokeServiceSignerDepositWithdrawHarness schedule = batchReadyOnBase();
+        new ExecuteRevokeServiceSignerDepositWithdraw().execute();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        IAccessControl authoriser = IAccessControl(LibAuthoriserInvariants.authoriserForChainId(block.chainid));
+        bytes32[2] memory roles = revokedRoles();
+        vm.startPrank(timelock);
+        for (uint256 roleIndex = 0; roleIndex < roles.length; roleIndex++) {
+            authoriser.grantRole(roles[roleIndex], LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
+        }
+        vm.stopPrank();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RevokeAlreadyScheduled.selector, LibServiceSignerRevoke.operationId(timelock, block.chainid)
+            )
+        );
+        schedule.callPreflight();
+    }
+
+    /// @notice The schedule run refuses a revoke that leaves the authoriser
+    /// without an expected grant.
+    function testScheduleRunRefusesARevokeLeavingAnExpectedGrantMissing() external {
+        ScheduleRevokeServiceSignerDepositWithdrawHarness schedule = scheduleOnBase();
+        address authoriser = LibAuthoriserInvariants.authoriserForChainId(block.chainid);
+        address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
+        vm.prank(LibTimelockInvariants.timelockForChainId(block.chainid));
+        IAccessControl(authoriser).revokeRole(keccak256("CERTIFY"), signer);
+        vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, authoriser, keccak256("CERTIFY"), signer));
+        schedule.run();
+    }
+
+    /// @notice The schedule run refuses a revoke whose execution leaves the
+    /// service signer holding its roles.
+    function testScheduleRunRefusesARevokeLeavingTheSignerHoldingItsRoles() external {
+        ScheduleRevokeServiceSignerDepositWithdrawHarness schedule = scheduleOnBase();
+        vm.mockCall(LibAuthoriserInvariants.authoriserForChainId(block.chainid), IAccessControl.revokeRole.selector, "");
+        vm.expectRevert(abi.encodeWithSelector(ServiceSignerStillHoldsRole.selector, keccak256("DEPOSIT")));
+        schedule.run();
+    }
+
+    /// @notice Base with the revoke batch registered and past its delay.
+    function batchReadyOnBase() internal returns (ScheduleRevokeServiceSignerDepositWithdrawHarness schedule) {
+        schedule = scheduleOnBase();
         scheduleRevokeBatch();
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+    }
+
+    /// @notice The executor refuses a Safe off its pinned policy, with the
+    /// batch ready.
+    function testExecuteRefusesASafeOffPolicy() external {
+        batchReadyOnBase();
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        ExecuteRevokeServiceSignerDepositWithdraw executor = new ExecuteRevokeServiceSignerDepositWithdraw();
+        vm.mockCall(safe, abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(1)));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibSafe.SafeThresholdMismatch.selector, safe, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD, 1
+            )
+        );
+        executor.execute();
+    }
+
+    /// @notice The executor refuses a timelock not in its pinned state, with
+    /// the batch ready.
+    function testExecuteRefusesATimelockNotInItsPinnedState() external {
+        batchReadyOnBase();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        ExecuteRevokeServiceSignerDepositWithdraw executor = new ExecuteRevokeServiceSignerDepositWithdraw();
+        vm.prank(timelock);
+        TimelockController(payable(timelock)).revokeRole(LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE, safe);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockMissingRole.selector,
+                timelock,
+                LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE,
+                safe
+            )
+        );
+        executor.execute();
+    }
+
+    /// @notice The executor refuses an execution the timelock does not report
+    /// done.
+    function testExecuteRefusesAnOperationNotDoneAfterExecution() external {
+        batchReadyOnBase();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        bytes32 id = LibServiceSignerRevoke.operationId(timelock, block.chainid);
+        ExecuteRevokeServiceSignerDepositWithdraw executor = new ExecuteRevokeServiceSignerDepositWithdraw();
+        vm.mockCall(timelock, abi.encodeCall(TimelockController.isOperationDone, (id)), abi.encode(false));
+        vm.expectRevert(abi.encodeWithSelector(RevokeOperationNotDone.selector, id));
+        executor.execute();
+    }
+
+    /// @notice The executor refuses an execution that leaves the service
+    /// signer holding its roles.
+    function testExecuteRefusesARevokeLeavingTheSignerHoldingItsRoles() external {
+        batchReadyOnBase();
+        ExecuteRevokeServiceSignerDepositWithdraw executor = new ExecuteRevokeServiceSignerDepositWithdraw();
+        vm.mockCall(LibAuthoriserInvariants.authoriserForChainId(block.chainid), IAccessControl.revokeRole.selector, "");
+        vm.expectRevert(abi.encodeWithSelector(ServiceSignerStillHoldsRole.selector, keccak256("DEPOSIT")));
+        executor.execute();
+    }
+
+    /// @notice The executor refuses a key that holds the timelock's executor
+    /// role, with the batch ready.
+    function testExecuteRefusesAKeyHoldingTheExecutorRole() external {
+        batchReadyOnBase();
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         ExecuteRevokeServiceSignerDepositWithdraw executor = new ExecuteRevokeServiceSignerDepositWithdraw();
         bytes32 executorRole = LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE;
