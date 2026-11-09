@@ -92,8 +92,7 @@ contract LibProdTokenParamsTest is Test {
     }
 
     function testParamsAreTheSameOnEveryDeploymentNetwork() external {
-        bytes memory baseline =
-            abi.encode(LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs()));
+        bytes memory baseline = abi.encode(LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs()));
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 n = 0; n < networks.length; n++) {
