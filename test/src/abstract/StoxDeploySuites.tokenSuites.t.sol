@@ -75,6 +75,12 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             && keccak256(bytes(suite.suite)) != keccak256(bytes(ORCHESTRATOR_PROXY)) && !isWrapperSuite(suite);
     }
 
+    function suiteNamed(DeploySuite[] memory all, string memory key) internal pure returns (DeploySuite memory) {
+        uint256 index = suiteIndex(all, key);
+        assertLt(index, all.length, key);
+        return all[index];
+    }
+
     function tokenKey(TokenConfig memory config) internal pure returns (string memory) {
         return string.concat(TOKEN_PREFIX, lowercase(config.symbol));
     }
@@ -151,11 +157,12 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
 
     function testEachWrapperSuiteIsKeyedByAndWrapsItsUnderlyingsToken() external view {
         DeployDeclaration memory declared = declaration();
+        DeploySuite[] memory all = allSuites(declared);
         DeploySuite[] memory wrappers = declaredSuitesWhere(declared, isWrapperSuite);
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
         for (uint256 i = 0; i < wrappers.length; i++) {
             TokenConfig memory config = configs[configIndexOf(configs, wrappers[i])];
-            DeploySuite memory token = suiteByName(declared, tokenKey(config));
+            DeploySuite memory token = suiteNamed(all, tokenKey(config));
             assertEq(
                 vm.toLowercase(wrappers[i].suite),
                 vm.toLowercase(string.concat(TOKEN_PREFIX, config.symbol, WRAPPER_SUFFIX)),
@@ -191,10 +198,11 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         DeployDeclaration memory declared = declaration();
         (DeploySuite memory beacon, bool found) = candidateOf(declared, WRAPPED_TOKEN_VAULT_BEACON);
         assertTrue(found, WRAPPED_TOKEN_VAULT_BEACON);
+        DeploySuite[] memory all = allSuites(declared);
         DeploySuite[] memory wrappers = declaredSuitesWhere(declared, isWrapperSuite);
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
         for (uint256 i = 0; i < wrappers.length; i++) {
-            DeploySuite memory token = suiteByName(declared, tokenKey(configs[configIndexOf(configs, wrappers[i])]));
+            DeploySuite memory token = suiteNamed(all, tokenKey(configs[configIndexOf(configs, wrappers[i])]));
             assertEq(
                 LibRainDeployCloneMechanism.registryBeaconProxyParams(wrappers[i]).beacon,
                 beacon.storedDeployedAddress,
@@ -213,11 +221,13 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         }
     }
 
-    function deploySuite(DeployDeclaration memory declared, string memory key, SupportedNetwork memory network)
-        internal
-        returns (address)
-    {
-        DeploySuite memory suite = suiteByName(declared, key);
+    function deploySuite(
+        DeployDeclaration memory declared,
+        DeploySuite[] memory all,
+        string memory key,
+        SupportedNetwork memory network
+    ) internal returns (address) {
+        DeploySuite memory suite = suiteNamed(all, key);
         address deployed =
             deployStep(declared, suite)(vm, network.name, DEPLOYER, deployStepData(declared, suite, network.chainId));
         string memory label = string.concat(key, " on ", network.name);
@@ -265,6 +275,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             abi.encode(wrapperBeacon)
         );
         DeployDeclaration memory declared = declaration();
+        DeploySuite[] memory all = allSuites(declared);
         SupportedNetwork[] memory networks = LibRainDeploy.declaredNetworkConfigs(declared.deployNetworks);
         assertTrue(networks.length > 0, "networks");
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
@@ -274,14 +285,14 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             for (uint256 j = 0; j < configs.length; j++) {
                 string memory key = tokenKey(configs[j]);
                 string memory label = string.concat(key, " on ", networks[i].name);
-                address token = deploySuite(declared, key, networks[i]);
+                address token = deploySuite(declared, all, key, networks[i]);
                 assertToken(
                     StoxReceiptVault(payable(token)),
                     configs[j],
                     configs[j].region == Region.US ? usAuthorizer : euAuthorizer,
                     label
                 );
-                address wrapper = deploySuite(declared, string.concat(key, WRAPPER_SUFFIX), networks[i]);
+                address wrapper = deploySuite(declared, all, string.concat(key, WRAPPER_SUFFIX), networks[i]);
                 assertEq(StoxWrappedTokenVault(wrapper).asset(), token, label);
             }
             assertTrue(vm.revertToState(preDeploy), networks[i].name);
