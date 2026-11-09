@@ -6,17 +6,15 @@ using-words-from 0x28Df1347eae93f7d85bCBe4b6605034a2F6F1cBD
   "Lead attestation missing"
 ),
 
-eip712-domain-typehash: 0xb03948446334eb9b2196d5eb166f69b9d49403eb4a12f36de8d3f9f3cb8e15c3,
+price-domain: [eip712-domain-separator name "prices" version "1"],
 :ensure(
-  binary-equal-to(
-    lead-domain()
-    hash(
-      eip712-domain-typehash
-      utf8-hash("proof-of-reserves.org/prices/" lead-source() "/" lead-currency())
-      utf8-hash("1")
-    )
-  )
+  binary-equal-to(lead-domain() price-domain)
   "Lead domain mismatch"
+),
+
+:ensure(
+  binary-equal-to(lead-source() "alpaca")
+  "Lead source mismatch"
 ),
 
 vault-symbol: mint-symbol(),
@@ -45,6 +43,13 @@ ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
   )
   "Times disagree"
 ),
+
+lead-time-key: hash("lead-time" ticker),
+:ensure(
+  greater-than-or-equal-to(lead-time() get(lead-time-key))
+  "Lead time went backwards"
+),
+:set(lead-time-key lead-time()),
 
 :ensure(
   less-than-or-equal-to(100 lead-price() 1000)

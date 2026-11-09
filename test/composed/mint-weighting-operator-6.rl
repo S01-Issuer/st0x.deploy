@@ -14,13 +14,26 @@ using-words-from 0x28Df1347eae93f7d85bCBe4b6605034a2F6F1cBD
   "Attestor not allowlisted"
 ),
 
+price-domain: [eip712-domain-separator name "prices" version "1"],
 :ensure(
-  binary-equal-to(lead-domain() 0xc23e03b8e370e7074e76ef373e5a1ecbc29b068eecf84659d7edece1eca36dce)
+  binary-equal-to(lead-domain() price-domain)
   "Lead domain mismatch"
 ),
 :ensure(
-  binary-equal-to(attestor-domain<0>() attestor-domain<1>() 0xb2e727971b41fa60b090ec02bc512d40294834ede62834104b6369b7b8ff4355)
+  binary-equal-to(attestor-domain<0>() attestor-domain<1>() price-domain)
   "Attestor domain mismatch"
+),
+
+:ensure(
+  binary-equal-to(lead-source() "alpaca")
+  "Lead source mismatch"
+),
+:ensure(
+  binary-in<2>(
+    attested-source<0>() attested-source<1>()
+    "yahoo" "alpaca"
+  )
+  "Pool source not allowlisted"
 ),
 
 :ensure(
@@ -47,12 +60,27 @@ ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
 ),
 
 :ensure(
+  binary-equal-to(
+    lead-currency() attested-currency<0>() attested-currency<1>()
+    "USD"
+  )
+  "Price not in USD"
+),
+
+:ensure(
   agree(
     600 0
     now() lead-time() attested-time<0>() attested-time<1>()
   )
   "Times disagree"
 ),
+
+lead-time-key: hash("lead-time" ticker),
+:ensure(
+  greater-than-or-equal-to(lead-time() get(lead-time-key))
+  "Lead time went backwards"
+),
+:set(lead-time-key lead-time()),
 
 :ensure(
   agree(

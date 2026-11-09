@@ -303,14 +303,8 @@ contract MintWeightingEvalTest is WeightingEvalTest {
     }
 
     function testANearMissSourceInAnySeatIsRefused() external {
-        bytes32[6] memory sources = [
-            symbol(POOL_SOURCE_0),
-            symbol("Alpaca"),
-            symbol("alpaca "),
-            symbol("yaho"),
-            symbol(""),
-            bytes32(0)
-        ];
+        bytes32[6] memory sources =
+            [symbol(POOL_SOURCE_0), symbol("Alpaca"), symbol("alpaca "), symbol("yaho"), symbol(""), bytes32(0)];
         for (uint256 i = 0; i < sources.length; i++) {
             Attestation[] memory attestations = quorum();
             attestations[0].priceSource = sources[i];
