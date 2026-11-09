@@ -6,6 +6,7 @@ import {RainDeployBroadcast} from "rain-deploy-0.1.30/src/abstract/RainDeployBro
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     LibOffchainAssetReceiptVaultRbac,
     OffchainAssetReceiptVaultRbacV1,
@@ -20,7 +21,7 @@ import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxTestTokens} from "../src/lib/LibStoxTestTokens.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
-error GovernanceSafeMismatch(address bound, address expected);
+error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
@@ -42,10 +43,10 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
     {
         bytes32 name = keccak256(bytes(suite.suite));
         if (name == keccak256(bytes(GOVERNANCE_TIMELOCK))) {
-            address bound = LibStoxConfig.governanceSafe();
+            address bound = LibStoxConfig.timelockInitialProposer();
             address expected = LibSafeInvariants.safeForChainId(block.chainid);
             if (bound != expected) {
-                revert GovernanceSafeMismatch(bound, expected);
+                revert TimelockInitialProposerMismatch(bound, expected);
             }
         } else if (
             name == keccak256(bytes(RECEIPT_BEACON)) || name == keccak256(bytes(RECEIPT_VAULT_BEACON))
@@ -96,10 +97,10 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             : LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
         // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(
-            LibStoxConfig.ROOT_AUTHORITY, rbacName, OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
+            LibRegistryAuthority.ROOT_AUTHORITY, rbacName, OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
         );
         OffchainAssetReceiptVaultRbacV1 memory rbac =
-            LibOffchainAssetReceiptVaultRbac.decodeCanonical(LibStoxConfig.ROOT_AUTHORITY, rbacName, value);
+            LibOffchainAssetReceiptVaultRbac.decodeCanonical(LibRegistryAuthority.ROOT_AUTHORITY, rbacName, value);
         if (rbac.owner != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
             revert RbacOwnerMismatch(rbacName, rbac.owner, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
         }
@@ -110,7 +111,8 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
 
     function boundAddress(bytes32 name) internal view returns (address) {
         // slither-disable-next-line unused-return
-        (bytes memory value,) = LibConfigRegistry.resolve(LibStoxConfig.ROOT_AUTHORITY, name, keccak256("address"));
+        (bytes memory value,) =
+            LibConfigRegistry.resolve(LibRegistryAuthority.ROOT_AUTHORITY, name, keccak256("address"));
         return abi.decode(value, (address));
     }
 }

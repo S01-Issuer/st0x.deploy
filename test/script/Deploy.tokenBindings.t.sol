@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
@@ -37,13 +38,13 @@ contract DeployTokenBindingsTest is Test {
     }
 
     function bindAddress(bytes32 name, address value) internal {
-        LibTestDeploy.bind(vm, LibStoxConfig.ROOT_AUTHORITY, name, "address", abi.encode(value));
+        LibTestDeploy.bind(vm, LibRegistryAuthority.ROOT_AUTHORITY, name, "address", abi.encode(value));
     }
 
     function bindRbac(bytes32 name, address owner, address authorizer) internal {
         LibTestDeploy.bind(
             vm,
-            LibStoxConfig.ROOT_AUTHORITY,
+            LibRegistryAuthority.ROOT_AUTHORITY,
             name,
             OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE,
             abi.encode(OffchainAssetReceiptVaultRbacV1({owner: owner, authorizer: IAuthorizeV1(authorizer)}))
@@ -89,7 +90,7 @@ contract DeployTokenBindingsTest is Test {
                 vm.expectRevert(
                     abi.encodeWithSelector(
                         IConfigRegistryV5.NameNotRegistered.selector,
-                        LibStoxConfig.ROOT_AUTHORITY,
+                        LibRegistryAuthority.ROOT_AUTHORITY,
                         LibStoxConfig.VAULT_BEACON_NAME
                     )
                 );
@@ -109,7 +110,7 @@ contract DeployTokenBindingsTest is Test {
                 vm.expectRevert(
                     abi.encodeWithSelector(
                         IConfigRegistryV5.NameNotRegistered.selector,
-                        LibStoxConfig.ROOT_AUTHORITY,
+                        LibRegistryAuthority.ROOT_AUTHORITY,
                         LibStoxConfig.RECEIPT_BEACON_NAME
                     )
                 );
@@ -129,7 +130,7 @@ contract DeployTokenBindingsTest is Test {
                 vm.expectRevert(
                     abi.encodeWithSelector(
                         IConfigRegistryV5.NameNotRegistered.selector,
-                        LibStoxConfig.ROOT_AUTHORITY,
+                        LibRegistryAuthority.ROOT_AUTHORITY,
                         rbacName(configs[j].region)
                     )
                 );

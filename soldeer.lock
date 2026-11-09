@@ -62,6 +62,13 @@ checksum = "653feaa47d7b05b10fad3daf7346a1d47b42755b310d2c0c5f8fa64da9e44a0c"
 integrity = "30ca2e895ebcb79303897b53010793d9357b2c98210aba40014db69a304b8231"
 
 [[dependencies]]
+name = "rain-lib-leakybucket"
+version = "0.5.3"
+url = "https://soldeer-revisions.s3.amazonaws.com/rain-lib-leakybucket/0_5_3_27-10-2026_00:10:31_rain.lib.zip"
+checksum = "48bf852fa69f631298012d0923c3f42244f2f6f5c25b6238c597b70fce085460"
+integrity = "f86bcf887f4587205f2fb63996104fbc3a20b30577ac1c75e7ad467afe79bbb5"
+
+[[dependencies]]
 name = "rain-lib-memkv"
 version = "0.2.0"
 url = "https://soldeer-revisions.s3.amazonaws.com/rain-lib-memkv/0_2_0_18-09-2026_21:06:03_rain.lib.zip"
@@ -165,6 +172,13 @@ version = "0.2.32"
 url = "https://soldeer-revisions.s3.amazonaws.com/rainlang/0_2_32_03-11-2026_20:22:27_rainlang.zip"
 checksum = "7f39b294357953782144016c9d7087fa54bba9bd27a0e6a46054cd261bdac6db"
 integrity = "05e346821c6ffcc3ff77a1b4e0ba4ebf17068678efb88e232a3f45bc438d4a1e"
+
+[[dependencies]]
+name = "rainlang-deploy"
+version = "0.1.12"
+url = "https://soldeer-revisions.s3.amazonaws.com/rainlang-deploy/0_1_12_02-11-2026_15:07:32_rainlang.zip"
+checksum = "29cf4f9165b63f0fc3914fe9bc81fb6afdfee3cdbbe93ed386e3dd5db0f38547"
+integrity = "6221c002a6b584a5148b0c8b960324f7becd28efba5cd318ca5f85ee895c32dc"
 
 [[dependencies]]
 name = "safe-global-safe-smart-account"

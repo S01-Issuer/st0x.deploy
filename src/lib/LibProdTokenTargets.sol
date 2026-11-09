@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {DeployDependency} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {RegistryBeaconProxyTarget} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
@@ -34,7 +35,7 @@ library LibProdTokenTargets {
         return RegistryBeaconProxyTarget({
             factory: CLONE_FACTORY_V8_ADDRESS,
             registry: CONFIG_REGISTRY_ADDRESS,
-            authority: LibStoxConfig.ROOT_AUTHORITY,
+            authority: LibRegistryAuthority.ROOT_AUTHORITY,
             beaconName: LibStoxConfig.VAULT_BEACON_NAME,
             beacon: vaultBeacon(),
             data: tokenData(config),
@@ -48,7 +49,7 @@ library LibProdTokenTargets {
             OffchainAssetReceiptVaultConfigV3({
                 name: config.name,
                 symbol: config.symbol,
-                authority: LibStoxConfig.ROOT_AUTHORITY,
+                authority: LibRegistryAuthority.ROOT_AUTHORITY,
                 rbacName: config.region == Region.US ? LibStoxConfig.RBAC_US_NAME : LibStoxConfig.RBAC_EU_NAME,
                 receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,
                 metadata: ""

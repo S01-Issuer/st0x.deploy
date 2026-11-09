@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {DeployDependency} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyTarget
@@ -51,7 +52,7 @@ library LibStoxTestTokens {
         return RegistryBeaconProxyTarget({
             factory: CLONE_FACTORY_V8_ADDRESS,
             registry: CONFIG_REGISTRY_ADDRESS,
-            authority: LibStoxConfig.ROOT_AUTHORITY,
+            authority: LibRegistryAuthority.ROOT_AUTHORITY,
             beaconName: LibStoxConfig.WRAPPER_BEACON_NAME,
             beacon: wrapperBeacon(),
             data: abi.encode(tokenAddress(config)),

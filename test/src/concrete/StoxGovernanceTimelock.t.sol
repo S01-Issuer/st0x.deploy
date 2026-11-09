@@ -7,6 +7,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 
 import {StoxGovernanceTimelock} from "../../../src/concrete/StoxGovernanceTimelock.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -18,13 +19,17 @@ contract StoxGovernanceTimelockTest is Test {
     function deployTimelock(address safe) internal returns (TimelockController) {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(safe)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
+            "address",
+            abi.encode(safe)
         );
         LibRainDeploy.etchZoltuFactory(vm);
         return TimelockController(payable(LibRainDeploy.deployZoltu(type(StoxGovernanceTimelock).creationCode)));
     }
 
-    function testProposerAndCancellerAreTheBoundGovernanceSafe(address safe) external {
+    function testProposerAndCancellerAreTheBoundTimelockInitialProposer(address safe) external {
         TimelockController timelock = deployTimelock(safe);
         assertTrue(timelock.hasRole(timelock.PROPOSER_ROLE(), safe), "proposer");
         assertTrue(timelock.hasRole(timelock.CANCELLER_ROLE(), safe), "canceller");
@@ -81,17 +86,17 @@ contract StoxGovernanceTimelockTest is Test {
         assertEq(deployTimelock(safe).getMinDelay(), LibTimelockInvariants.TIMELOCK_MIN_DELAY);
     }
 
-    function testDeployRevertsWhileTheRootAuthorityHasNotBoundTheGovernanceSafe() external {
+    function testDeployRevertsWhileTheRootAuthorityHasNotBoundTheTimelockInitialProposer() external {
         LibTestDeploy.etchConfigRegistry(vm);
         LibTestDeploy.bind(
-            vm, address(0xA11CE), LibStoxConfig.GOVERNANCE_SAFE_NAME, "address", abi.encode(address(0x5AFE))
+            vm, address(0xA11CE), LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME, "address", abi.encode(address(0x5AFE))
         );
         // Plain CREATE: the Zoltu factory drops the constructor's revert data.
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
-                LibStoxConfig.ROOT_AUTHORITY,
-                LibStoxConfig.GOVERNANCE_SAFE_NAME
+                LibRegistryAuthority.ROOT_AUTHORITY,
+                LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME
             )
         );
         new StoxGovernanceTimelock();

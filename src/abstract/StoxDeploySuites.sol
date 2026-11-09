@@ -45,6 +45,8 @@ import {LibProdTokenTargets} from "../lib/LibProdTokenTargets.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxWrapperProxy} from "../generated/LibStoxWrapperProxy.sol";
 import {LibStoxTestTokens} from "../lib/LibStoxTestTokens.sol";
+import {LibProdOrchestratorParams} from "../lib/LibProdOrchestratorParams.sol";
+import {LibST0xOrchestratorProxy} from "../generated/LibST0xOrchestratorProxy.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -62,12 +64,14 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant RECEIPT_VAULT_BEACON = "stox-receipt-vault-beacon";
     string constant AUTHORIZER = "stox-offchain-asset-receipt-vault-authorizer";
     string constant PAYMENT_MINT_AUTHORIZER = "stox-offchain-asset-receipt-vault-payment-mint-authorizer";
-    string constant ORCHESTRATOR = "stox-orchestrator";
+    string constant ORCHESTRATOR = LibProdOrchestratorParams.ORCHESTRATOR;
     string constant EU_AUTHORISER = "stox-eu-assets-authoriser";
     string constant UNIFIED_DEPLOYER = "stox-unified-deployer";
     string constant WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = "stox-wrapped-token-vault-beacon-set-deployer";
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer";
+    string constant ORCHESTRATOR_BEACON = "stox-orchestrator-beacon";
+    string constant ORCHESTRATOR_PROXY = "stox-orchestrator-proxy";
     string constant ATTEST_SUB_PARSER = "stox-attest-sub-parser";
     string constant TOKEN_PREFIX = "stox-token-";
     string constant WRAPPER_SUFFIX = "-wrapper";
@@ -93,6 +97,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         "src/concrete/deploy/StoxOffchainAssetReceiptVaultBeaconSetDeployer.sol:StoxOffchainAssetReceiptVaultBeaconSetDeployer";
     string constant ORCHESTRATOR_BEACON_SET_DEPLOYER_PATH =
         "src/concrete/deploy/ST0xOrchestratorBeaconSetDeployer.sol:ST0xOrchestratorBeaconSetDeployer";
+    string constant ORCHESTRATOR_BEACON_PATH = "src/concrete/ST0xOrchestratorBeacon.sol:ST0xOrchestratorBeacon";
     string constant ATTEST_SUB_PARSER_PATH = "src/concrete/St0xAttestSubParser.sol:St0xAttestSubParser";
     string constant GOVERNANCE_TIMELOCK_PATH = "src/concrete/StoxGovernanceTimelock.sol:StoxGovernanceTimelock";
 
@@ -108,11 +113,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
         LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites());
         LibCloneCandidates.addRegistryBeaconProxies(declared, testTokenSuites());
+        LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;
     }
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
-        DeployCandidate[] memory candidates = new DeployCandidate[](12);
+        DeployCandidate[] memory candidates = new DeployCandidate[](13);
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -210,11 +216,15 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.ST0X_ORCHESTRATOR_CODEHASH_CANDIDATE,
                 V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
                 ORCHESTRATOR_PATH,
-                two(
+                four(
                     V4.STOX_RECEIPT_CANDIDATE,
                     V4.STOX_RECEIPT_RUNTIME_CODE_CANDIDATE,
                     V4.STOX_RECEIPT_VAULT_CANDIDATE,
-                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
+                    V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    TOFU_DECIMALS_ADDRESS,
+                    TOFU_DECIMALS_RUNTIME_CODE
                 )
             )
         );
@@ -269,6 +279,22 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                     CONFIG_REGISTRY_RUNTIME_CODE,
                     V4.STOX_RECEIPT_VAULT_CANDIDATE,
                     V4.STOX_RECEIPT_VAULT_RUNTIME_CODE_CANDIDATE
+                )
+            )
+        );
+        candidates[12] = anchored(
+            zoltu(
+                ORCHESTRATOR_BEACON,
+                V4.ST0X_ORCHESTRATOR_BEACON_CREATION_CODE_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_CODEHASH_CANDIDATE,
+                V4.ST0X_ORCHESTRATOR_BEACON_RUNTIME_CODE_CANDIDATE,
+                ORCHESTRATOR_BEACON_PATH,
+                two(
+                    V4.ST0X_ORCHESTRATOR_CANDIDATE,
+                    V4.ST0X_ORCHESTRATOR_RUNTIME_CODE_CANDIDATE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE
                 )
             )
         );
@@ -365,6 +391,33 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return suites;
     }
 
+    function orchestratorProxySuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
+        RegistryBeaconProxyTarget memory params = LibProdOrchestratorParams.orchestratorParams();
+        DeployDependency[] memory dependencies = new DeployDependency[](3);
+        dependencies[0] =
+            DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
+        dependencies[1] =
+            DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
+        dependencies[2] = DeployDependency({
+            deployedAddress: V4.ST0X_ORCHESTRATOR_BEACON_CANDIDATE,
+            runtimeCode: V4.ST0X_ORCHESTRATOR_BEACON_RUNTIME_CODE_CANDIDATE
+        });
+        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](1);
+        suites[0] = RegistryBeaconProxyDeploy({
+            suite: ORCHESTRATOR_PROXY,
+            factory: params.factory,
+            registry: params.registry,
+            authority: params.authority,
+            beaconName: params.beaconName,
+            beacon: params.beacon,
+            data: params.data,
+            salt: params.salt,
+            dependencies: dependencies,
+            runtimeCode: LibST0xOrchestratorProxy.RUNTIME_CODE
+        });
+        return suites;
+    }
+
     function zoltu(
         string memory suite,
         bytes memory creationCode,
@@ -421,6 +474,24 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
         deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
         deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
+        return deps;
+    }
+
+    function four(
+        address a,
+        bytes memory aRuntimeCode,
+        address b,
+        bytes memory bRuntimeCode,
+        address c,
+        bytes memory cRuntimeCode,
+        address d,
+        bytes memory dRuntimeCode
+    ) internal pure returns (DeployDependency[] memory) {
+        DeployDependency[] memory deps = new DeployDependency[](4);
+        deps[0] = DeployDependency({deployedAddress: a, runtimeCode: aRuntimeCode});
+        deps[1] = DeployDependency({deployedAddress: b, runtimeCode: bRuntimeCode});
+        deps[2] = DeployDependency({deployedAddress: c, runtimeCode: cRuntimeCode});
+        deps[3] = DeployDependency({deployedAddress: d, runtimeCode: dRuntimeCode});
         return deps;
     }
 }

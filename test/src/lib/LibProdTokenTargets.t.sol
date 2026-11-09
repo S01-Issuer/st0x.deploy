@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {DeployDependency, LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS
@@ -51,7 +52,7 @@ contract LibProdTokenTargetsTest is Test {
         for (uint256 i = 0; i < targets.length; i++) {
             assertEq(targets[i].factory, CLONE_FACTORY_V8_ADDRESS, configs[i].underlying);
             assertEq(targets[i].registry, CONFIG_REGISTRY_ADDRESS, configs[i].underlying);
-            assertEq(targets[i].authority, LibStoxConfig.ROOT_AUTHORITY, configs[i].underlying);
+            assertEq(targets[i].authority, LibRegistryAuthority.ROOT_AUTHORITY, configs[i].underlying);
             assertEq(targets[i].beaconName, LibStoxConfig.VAULT_BEACON_NAME, configs[i].underlying);
             assertEq(targets[i].beacon, LibProdTokenTargets.vaultBeacon(), configs[i].underlying);
             assertEq(targets[i].salt, keccak256(bytes(configs[i].underlying)), configs[i].underlying);
@@ -68,7 +69,7 @@ contract LibProdTokenTargetsTest is Test {
             assertEq(tag, OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG, "tag");
             assertEq(config.name, configs[i].name, "name");
             assertEq(config.symbol, configs[i].symbol, "symbol");
-            assertEq(config.authority, LibStoxConfig.ROOT_AUTHORITY, "authority");
+            assertEq(config.authority, LibRegistryAuthority.ROOT_AUTHORITY, "authority");
             assertEq(
                 config.rbacName,
                 configs[i].region == Region.US ? LibStoxConfig.RBAC_US_NAME : LibStoxConfig.RBAC_EU_NAME,

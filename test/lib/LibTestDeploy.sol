@@ -5,6 +5,7 @@ pragma solidity ^0.8.25;
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
@@ -83,6 +84,32 @@ library LibTestDeploy {
     /// The pinned ConfigRegistry at its address.
     function etchConfigRegistry(Vm vm) internal {
         vm.etch(CONFIG_REGISTRY_ADDRESS, CONFIG_REGISTRY_RUNTIME_CODE);
+    }
+
+    /// The pinned ConfigRegistry, with the root authority binding the
+    /// orchestrator initial admin to `admin`.
+    function bindOrchestratorInitialAdmin(Vm vm, address admin) internal {
+        etchConfigRegistry(vm);
+        bind(
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME,
+            "address",
+            abi.encode(admin)
+        );
+    }
+
+    /// The pinned ConfigRegistry, with the root authority binding the beacon
+    /// initial owner to `owner`.
+    function bindBeaconInitialOwner(Vm vm, address owner) internal {
+        etchConfigRegistry(vm);
+        bind(
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.BEACON_INITIAL_OWNER_NAME,
+            "address",
+            abi.encode(owner)
+        );
     }
 
     /// The pinned clone factory.

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -104,6 +103,9 @@ error BeaconImplementationMoved(address beacon, address expected, address actual
 /// which is never meaningful.
 error NothingToMigrate();
 
+/// @notice The governance migration is already recorded on the root line.
+error GovernanceTimelockAlreadyApplied();
+
 /// @notice The migration work selected from live chain state, grouped so
 /// `run()` carries one local for the whole selection rather than four.
 /// @dev Grouping is load-bearing, not cosmetic: `via_ir` is off for this
@@ -128,13 +130,18 @@ struct MigrationTargets {
 /// @param id The timelock operation id that failed to complete.
 error GovernanceLoopNotProven(bytes32 id);
 
-/// @notice This script's declaration: the Safe's first record in this repo's
-/// namespace, written later as history by the orchestrator EMERGENCY bundle.
+/// @notice This script's declaration: history on every chain; on Base, onto
+/// the rehearsal execute; elsewhere, onto the multisig threshold migration.
+/// @param chainId The chain id.
 /// @return The declaration.
-function migrateGovernanceToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibStoxMigrations.safeMigrationOnto(
-        LibStoxMigrations.NAMESPACE, LibStoxMigrations.GOVERNANCE_TIMELOCK, MIGRATION_HEAD_GENESIS, true
-    );
+function migrateGovernanceToTimelockDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
+    return ScriptDeclaration({
+        id: LibStoxMigrations.GOVERNANCE_TIMELOCK,
+        onto: chainId == LibSafeInvariants.BASE_CHAIN_ID
+            ? LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS
+            : LibStoxMigrations.MULTISIG_THRESHOLD,
+        history: true
+    });
 }
 
 /// @title MigrateGovernanceToTimelock
@@ -217,8 +224,8 @@ function migrateGovernanceToTimelockDeclaration() pure returns (ScriptDeclaratio
 ///    author a bundle that locks governance out.
 contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigration {
     /// @inheritdoc IStoxScript
-    function declaration() external pure returns (ScriptDeclaration memory) {
-        return migrateGovernanceToTimelockDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return migrateGovernanceToTimelockDeclaration(chainId);
     }
 
     /// @inheritdoc IStoxHistoryMigration
@@ -297,6 +304,9 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigrati
     /// against the post-migration state. Does not broadcast — execution
     /// happens via the Safe UI using the emitted artifact.
     function run() external {
+        if (LibStoxMigrations.applied(LibStoxMigrations.GOVERNANCE_TIMELOCK) != 0) {
+            revert GovernanceTimelockAlreadyApplied();
+        }
         // --- Pre-flight ---------------------------------------------------
 
         Safe safe = Safe(payable(LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid)));
