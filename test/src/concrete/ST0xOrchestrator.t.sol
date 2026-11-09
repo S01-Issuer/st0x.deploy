@@ -530,48 +530,50 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertFalse(orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), OWNER), "owner holds emergency");
     }
 
-    function testFuzzMintUnauthorized(address caller) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.MINT_ROLE(), caller));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.MINT_ROLE()
+    /// Every operating call and the cap setter refuse a caller without its
+    /// role.
+    function testFuzzOperatingCallsRequireTheirRole(
+        address caller,
+        uint256 newIndex,
+        uint256 kindSeed,
+        address account,
+        bytes32 capacity,
+        bytes32 leakRate
+    ) external {
+        bytes32 emergency = orchestrator.EMERGENCY_ROLE();
+        bytes32[7] memory roles = [
+            orchestrator.MINT_ROLE(),
+            orchestrator.BURN_ROLE(),
+            emergency,
+            emergency,
+            emergency,
+            emergency,
+            orchestrator.MINT_ADMIN_ROLE()
+        ];
+        bytes[7] memory calls = [
+            abi.encodeCall(
+                ST0xOrchestrator.mint, (TOKEN, BOB, 1, _auth("", bytes32(0)), bytes(""), new SignedContextV2[](0))
+            ),
+            abi.encodeCall(ST0xOrchestrator.burn, (TOKEN, 1, bytes(""))),
+            abi.encodeCall(ST0xOrchestrator.setBurnIndex, (TOKEN, newIndex)),
+            abi.encodeCall(ST0xOrchestrator.withdrawShares, (TOKEN, 1, BOB)),
+            abi.encodeCall(ST0xOrchestrator.withdrawReceipt, (TOKEN, 0, 1, BOB)),
+            abi.encodeCall(ST0xOrchestrator.sweepERC1155, (RECEIPT_ADDR, 0, 1, BOB)),
+            abi.encodeCall(
+                ST0xOrchestrator.setMintLimit, (_kind(kindSeed), account, Float.wrap(capacity), Float.wrap(leakRate))
             )
-        );
-        vm.prank(caller);
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
-    }
-
-    function testFuzzBurnUnauthorized(address caller) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.BURN_ROLE(), caller));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.BURN_ROLE()
-            )
-        );
-        vm.prank(caller);
-        orchestrator.burn(TOKEN, 1, "");
-    }
-
-    function testFuzzSetBurnIndexUnauthorized(address caller, uint256 newIndex) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), caller));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.EMERGENCY_ROLE()
-            )
-        );
-        vm.prank(caller);
-        orchestrator.setBurnIndex(TOKEN, newIndex);
-    }
-
-    function testFuzzWithdrawSharesUnauthorized(address caller) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), caller));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.EMERGENCY_ROLE()
-            )
-        );
-        vm.prank(caller);
-        orchestrator.withdrawShares(TOKEN, 1, BOB);
+        ];
+        for (uint256 i = 0; i < calls.length; i++) {
+            if (orchestrator.hasRole(roles[i], caller)) continue;
+            vm.prank(caller);
+            (bool success, bytes memory returnData) = address(orchestrator).call(calls[i]);
+            assertFalse(success, vm.toString(i));
+            assertEq(
+                returnData,
+                abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, caller, roles[i]),
+                vm.toString(i)
+            );
+        }
     }
 
     function testAdminCanGrantAndRevokeEachRole() external {
@@ -1024,52 +1026,62 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertTrue(orchestrator.nonceUsed(carol, nonce));
     }
 
-    function testMintVaultGuardFailReverts() external {
+    /// A broken vault-logic guard reports the token unexpected and refuses
+    /// both mint and burn with `err`.
+    function _assertVaultLogicRefused(address token, bytes memory err) internal {
         _grant(orchestrator.MINT_ROLE(), address(this));
+        _grant(orchestrator.BURN_ROLE(), address(this));
+        assertFalse(orchestrator.vaultLogicIsExpected(token), "vaultLogicIsExpected");
+        vm.expectRevert(err);
+        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
+        vm.expectRevert(err);
+        orchestrator.burn(token, 1, "");
+    }
+
+    function testVaultImplMismatchRefusesMintAndBurn() external {
         _makeGuardFailVault();
-        vm.expectRevert(
+        _assertVaultLogicRefused(
+            TOKEN,
             abi.encodeWithSelector(
                 IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
             )
         );
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
-    function testMintReceiptGuardFailReverts() external {
-        _grant(orchestrator.MINT_ROLE(), address(this));
+    function testReceiptImplMismatchRefusesMintAndBurn() external {
         _makeGuardFailReceipt();
-        vm.expectRevert(
+        _assertVaultLogicRefused(
+            TOKEN,
             abi.encodeWithSelector(
                 IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
             )
         );
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
     }
 
-    function testMintNonProxyTokenReverts() external {
-        _grant(orchestrator.MINT_ROLE(), address(this));
+    function testNonProxyTokenRefusesMintAndBurn() external {
         address token = address(0x70CE4);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, token));
-        orchestrator.mint(token, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
+        _assertVaultLogicRefused(
+            token, abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, token)
+        );
     }
 
-    /// A token whose code differs from a registry beacon proxy in one byte
-    /// reverts, even though its beacon word names the expected beacon.
-    function testMintAlteredProxyTokenReverts() external {
-        _grant(orchestrator.MINT_ROLE(), address(this));
+    /// A token whose code differs from a registry beacon proxy in one byte is
+    /// refused, even though its beacon word names the expected beacon.
+    function testAlteredProxyTokenRefusesMintAndBurn() external {
         bytes memory code = TOKEN.code;
         code[0] = 0x00;
         vm.etch(TOKEN, code);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, TOKEN));
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
+        _assertVaultLogicRefused(
+            TOKEN, abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, TOKEN)
+        );
     }
 
-    function testMintNonProxyReceiptReverts() external {
-        _grant(orchestrator.MINT_ROLE(), address(this));
+    function testNonProxyReceiptRefusesMintAndBurn() external {
         address receipt_ = address(0x4EC1E7);
         _mockVaultTopology(TOKEN, receipt_, "tAA17");
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, receipt_));
-        orchestrator.mint(TOKEN, BOB, 1, _auth("", bytes32(0)), "", new SignedContextV2[](0));
+        _assertVaultLogicRefused(
+            TOKEN, abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, receipt_)
+        );
     }
 
     /// Mint never touches the burn pointer — no seeding, no walk.
@@ -1271,43 +1283,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.burn(TOKEN, amount, "");
     }
 
-    function testBurnVaultGuardFailReverts() external {
-        _grant(orchestrator.BURN_ROLE(), address(this));
-        _makeGuardFailVault();
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IST0xOrchestratorV2.VaultLogicMismatch.selector, EXPECTED_VAULT_IMPL, address(0xDEAD)
-            )
-        );
-        orchestrator.burn(TOKEN, 1, "");
-    }
-
-    function testBurnReceiptGuardFailReverts() external {
-        _grant(orchestrator.BURN_ROLE(), address(this));
-        _makeGuardFailReceipt();
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IST0xOrchestratorV2.ReceiptLogicMismatch.selector, EXPECTED_RECEIPT_IMPL, address(0xDEAD)
-            )
-        );
-        orchestrator.burn(TOKEN, 1, "");
-    }
-
-    function testBurnNonProxyTokenReverts() external {
-        _grant(orchestrator.BURN_ROLE(), address(this));
-        address token = address(0x70CE4);
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, token));
-        orchestrator.burn(token, 1, "");
-    }
-
-    function testBurnNonProxyReceiptReverts() external {
-        _grant(orchestrator.BURN_ROLE(), address(this));
-        address receipt_ = address(0x4EC1E7);
-        _mockVaultTopology(TOKEN, receipt_, "tAA17");
-        vm.expectRevert(abi.encodeWithSelector(IST0xOrchestratorV2.NotRegistryBeaconProxy.selector, receipt_));
-        orchestrator.burn(TOKEN, 1, "");
-    }
-
     /// Single receipt exact drain: pointer advances by 1. The shares are
     /// pulled from the caller via transferFrom.
     function testBurnSingleReceiptExactDrain() external {
@@ -1504,17 +1479,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         orchestrator.withdrawReceipt(TOKEN, id, amount, to);
     }
 
-    function testFuzzWithdrawReceiptUnauthorized(address caller) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), caller));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.EMERGENCY_ROLE()
-            )
-        );
-        vm.prank(caller);
-        orchestrator.withdrawReceipt(TOKEN, 0, 1, BOB);
-    }
-
     function testFuzzWithdrawShares(address sender, uint256 amount, address to) external {
         _grant(orchestrator.EMERGENCY_ROLE(), sender);
         vm.mockCall(TOKEN, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
@@ -1537,17 +1501,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         emit IST0xOrchestratorV2.ForeignERC1155Swept(sender, erc1155, to, id, amount);
         vm.prank(sender);
         orchestrator.sweepERC1155(erc1155, id, amount, to);
-    }
-
-    function testFuzzSweepERC1155Unauthorized(address caller) external {
-        vm.assume(!orchestrator.hasRole(orchestrator.EMERGENCY_ROLE(), caller));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                IAccessControl.AccessControlUnauthorizedAccount.selector, caller, orchestrator.EMERGENCY_ROLE()
-            )
-        );
-        vm.prank(caller);
-        orchestrator.sweepERC1155(RECEIPT_ADDR, 0, 1, BOB);
     }
 
     // ------------------------------------------------------------------ //
@@ -1745,25 +1698,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
 
     function testVaultLogicIsExpectedTrue() external view {
         assertTrue(orchestrator.vaultLogicIsExpected(TOKEN));
-    }
-
-    function testVaultLogicIsExpectedFalseOnVaultImpl() external {
-        _makeGuardFailVault();
-        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
-    }
-
-    function testVaultLogicIsExpectedFalseOnReceiptImpl() external {
-        _makeGuardFailReceipt();
-        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
-    }
-
-    function testVaultLogicIsExpectedFalseOnNonProxyToken() external view {
-        assertFalse(orchestrator.vaultLogicIsExpected(address(0x70CE4)));
-    }
-
-    function testVaultLogicIsExpectedFalseOnNonProxyReceipt() external {
-        _mockVaultTopology(TOKEN, address(0x4EC1E7), "tAA17");
-        assertFalse(orchestrator.vaultLogicIsExpected(TOKEN));
     }
 
     /// `burnInfo` is forwarded verbatim to `vault.redeem` as
@@ -2590,23 +2524,6 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
     //                        Mint-cap setters                            //
     // ------------------------------------------------------------------ //
 
-    function testFuzzSetMintLimitUnauthorized(
-        address caller,
-        uint256 kindSeed,
-        address account,
-        bytes32 capacity,
-        bytes32 leakRate
-    ) external {
-        MintCapKind kind = _kind(kindSeed);
-        bytes32 mintAdminRole = orchestrator.MINT_ADMIN_ROLE();
-        vm.assume(!orchestrator.hasRole(mintAdminRole, caller));
-        vm.expectRevert(
-            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, caller, mintAdminRole)
-        );
-        vm.prank(caller);
-        orchestrator.setMintLimit(kind, account, Float.wrap(capacity), Float.wrap(leakRate));
-    }
-
     /// `MINT_ROLE` is not `MINT_ADMIN_ROLE`: the key the caps exist to bound
     /// can raise neither its own cap nor a recipient's.
     function testMintRoleCannotSetItsOwnCap() external {
@@ -2654,45 +2571,32 @@ contract ST0xOrchestratorTest is St0xAttestSubParserTest {
         assertEq(abi.encode(orchestrator.mintLimit(_otherKind(kind), account)), otherBefore, "other kind untouched");
     }
 
-    /// A `kind` outside `MintCapKind` is refused before the setter runs; the
-    /// same call with an in-range kind succeeds.
-    function testSetMintLimitOutOfRangeKindReverts() external {
-        vm.prank(OWNER);
-        (bool success, bytes memory returnData) = address(orchestrator)
-            .call(
-                abi.encodeWithSelector(IST0xOrchestratorV2.setMintLimit.selector, uint256(2), MINTER_A, ZERO, NO_LEAK)
-            );
-        assertFalse(success, "kind 2 reverts");
-        assertEq(returnData.length, 0, "with no data");
+    /// A `kind` outside `MintCapKind` is refused with no data by the setter
+    /// and both views; the same call with an in-range kind succeeds.
+    function testOutOfRangeKindRevertsWithNoData() external {
+        bytes4[3] memory selectors = [
+            IST0xOrchestratorV2.setMintLimit.selector,
+            IST0xOrchestratorV2.mintLimit.selector,
+            IST0xOrchestratorV2.mintLevel.selector
+        ];
+        for (uint256 i = 0; i < selectors.length; i++) {
+            bytes memory limitArgs = i == 0 ? abi.encode(ZERO, NO_LEAK) : bytes("");
+            (bool success, bytes memory returnData) =
+                _callKind(i == 0, bytes.concat(abi.encodeWithSelector(selectors[i], uint256(2), MINTER_A), limitArgs));
+            assertFalse(success, string.concat("kind 2 reverts ", vm.toString(i)));
+            assertEq(returnData.length, 0, string.concat("with no data ", vm.toString(i)));
 
-        vm.prank(OWNER);
-        (success,) = address(orchestrator)
-            .call(
-                abi.encodeWithSelector(IST0xOrchestratorV2.setMintLimit.selector, uint256(1), MINTER_A, ZERO, NO_LEAK)
-            );
-        assertTrue(success, "kind 1 succeeds");
+            (success,) =
+                _callKind(i == 0, bytes.concat(abi.encodeWithSelector(selectors[i], uint256(1), MINTER_A), limitArgs));
+            assertTrue(success, string.concat("kind 1 succeeds ", vm.toString(i)));
+        }
     }
 
-    function testMintLimitOutOfRangeKindReverts() external view {
-        (bool success, bytes memory returnData) = address(orchestrator)
-            .staticcall(abi.encodeWithSelector(IST0xOrchestratorV2.mintLimit.selector, uint256(2), MINTER_A));
-        assertFalse(success, "kind 2 reverts");
-        assertEq(returnData.length, 0, "with no data");
-
-        (success,) = address(orchestrator)
-            .staticcall(abi.encodeWithSelector(IST0xOrchestratorV2.mintLimit.selector, uint256(1), MINTER_A));
-        assertTrue(success, "kind 1 succeeds");
-    }
-
-    function testMintLevelOutOfRangeKindReverts() external view {
-        (bool success, bytes memory returnData) = address(orchestrator)
-            .staticcall(abi.encodeWithSelector(IST0xOrchestratorV2.mintLevel.selector, uint256(2), MINTER_A));
-        assertFalse(success, "kind 2 reverts");
-        assertEq(returnData.length, 0, "with no data");
-
-        (success,) = address(orchestrator)
-            .staticcall(abi.encodeWithSelector(IST0xOrchestratorV2.mintLevel.selector, uint256(1), MINTER_A));
-        assertTrue(success, "kind 1 succeeds");
+    /// @dev The setter as its admin; a view as a staticcall from anyone.
+    function _callKind(bool setter, bytes memory data) internal returns (bool, bytes memory) {
+        if (!setter) return address(orchestrator).staticcall(data);
+        vm.prank(OWNER);
+        return address(orchestrator).call(data);
     }
 
     /// Every non-negative capacity is a policy the bucket enforces, whatever

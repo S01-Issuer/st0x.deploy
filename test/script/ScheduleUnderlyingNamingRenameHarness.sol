@@ -6,20 +6,33 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {ScheduleUnderlyingNamingRename} from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 
-/// @dev Exposes the script's hooks and gives each test its own artifact path.
+/// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
 contract ScheduleUnderlyingNamingRenameHarness is ScheduleUnderlyingNamingRename {
     string internal sArtifactTag;
 
-    /// @param artifactTag Suffixes this instance's artifact path.
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
     }
 
     /// @inheritdoc ScheduleUnderlyingNamingRename
     function artifactPath() internal view override returns (string memory) {
-        return string.concat(
-            "out/20261021-schedule-underlying-naming-rename-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
-        );
+        return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
+    }
+
+    function callPreflight() external view {
+        preflight();
+    }
+
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
+        return authorBundle();
+    }
+
+    function callAssertPostState() external view {
+        assertPostState();
+    }
+
+    function callArtifactPath() external view returns (string memory) {
+        return artifactPath();
     }
 
     /// @inheritdoc ScheduleUnderlyingNamingRename
@@ -33,22 +46,6 @@ contract ScheduleUnderlyingNamingRenameHarness is ScheduleUnderlyingNamingRename
     /// @dev The tests run the rename as if the services were ready.
     function downstreamReady() internal pure override returns (bool) {
         return true;
-    }
-
-    function callPreflight() external view {
-        preflight();
-    }
-
-    function callAuthorBundle() external view returns (SafeTx[] memory) {
-        return authorBundle();
-    }
-
-    function callArtifactPath() external view returns (string memory) {
-        return artifactPath();
-    }
-
-    function callAssertPostState() external view {
-        assertPostState();
     }
 
     function callAssertRenamed(uint256 chainId) external view {

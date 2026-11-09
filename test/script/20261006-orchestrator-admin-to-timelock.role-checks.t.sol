@@ -3,32 +3,34 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 
-import {OrchestratorAdminToTimelock, RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
+import {RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {LocalBaseOrchestratorFixture} from "./LocalBaseOrchestratorFixture.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
+import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
-import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
-import {
-    LibStoxMigrations,
-    LineHeadMismatch,
-    RecordMismatch,
-    SafeNotApprovedWriter,
-    UnexpectedMigrationLine
-} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title OrchestratorAdminToTimelockLocalTest
 /// @notice The move on a local Base whose root line is at the beacon-initial-owner
 /// bind, after the V5 backfill, so it runs whatever the live chains have
 /// recorded.
-contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
-    OrchestratorAdminToTimelockHarness internal script;
+contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, RootLineRecordScriptTest {
+    function newScript() internal override returns (IRecordScriptHooks) {
+        return IRecordScriptHooks(address(new OrchestratorAdminToTimelockHarness("local")));
+    }
 
-    function setUp() external {
+    function declaredId() internal pure override returns (bytes32) {
+        return LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK;
+    }
+
+    function declaredOnto() internal pure override returns (bytes32) {
+        return LibStoxMigrations.BIND_BEACON_INITIAL_OWNER;
+    }
+
+    function landBeforeOnto() internal override {
         buildLocalBase();
         LibTestRootLine.approve(vm, address(safe));
         bytes32 emergency = ORCHESTRATOR.EMERGENCY_ROLE();
@@ -37,126 +39,36 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
         LibTestRootLine.write(
             vm, address(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, MIGRATION_HEAD_GENESIS
         );
+    }
+
+    function landOnto() internal override {
         LibTestRootLine.write(
             vm,
             address(safe),
             LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
             LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
         );
-        script = new OrchestratorAdminToTimelockHarness("local");
     }
 
-    function executeMove() internal {
-        LibSafeFork.executeBundle(vm, safe, script.callAuthorBundle());
-    }
-
-    function testDeclarationIsTheMoveOntoTheBind(uint256 chainId) external {
-        ScriptDeclaration memory declared = new OrchestratorAdminToTimelock().declaration(chainId);
-        assertEq(declared.id, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        assertEq(declared.onto, LibStoxMigrations.BIND_BEACON_INITIAL_OWNER);
-        assertFalse(declared.history);
-    }
-
-    function testBundleEndsWithItsRootLineRecord() external view {
-        SafeTx[] memory txs = script.callAuthorBundle();
-        (address recordTo, bytes memory recordData) = LibStoxMigrations.recordCall(
-            ScriptDeclaration({
-                id: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-                onto: LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
-                history: false
-            })
-        );
-        SafeTx memory last = txs[txs.length - 1];
-        assertEq(last.to, recordTo);
-        assertEq(last.value, 0);
-        assertEq(last.data, recordData);
-    }
-
-    function testPreflightRefusesALineNotAtTheBind(bytes32 head) external {
-        vm.assume(
-            head != LibStoxMigrations.BIND_BEACON_INITIAL_OWNER
-                && head != LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5 && head != bytes32(0)
-                && head != MIGRATION_HEAD_GENESIS
-        );
-        script.callPreflight();
-        LibTestRootLine.write(vm, address(safe), head, LibStoxMigrations.BIND_BEACON_INITIAL_OWNER);
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, head));
-        script.callPreflight();
-    }
-
-    function testPreflightRefusesASafeTheRootDoesNotApprove() external {
-        script.callPreflight();
-        LibTestRootLine.revoke(vm, address(safe));
-        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, address(safe)));
-        script.callPreflight();
-    }
-
-    function assertZeroAndGenesisRefusedOnto(bytes32 onto) internal {
-        vm.expectRevert(IMigrationRegistryV5.ZeroMigration.selector);
-        LibTestRootLine.write(vm, address(safe), bytes32(0), onto);
-        vm.expectRevert(IMigrationRegistryV5.GenesisMigration.selector);
-        LibTestRootLine.write(vm, address(safe), MIGRATION_HEAD_GENESIS, onto);
-    }
-
-    function testNoZeroOrGenesisRecordLandsOnTheBind() external {
-        assertZeroAndGenesisRefusedOnto(LibStoxMigrations.BIND_BEACON_INITIAL_OWNER);
-        assertEq(LibStoxMigrations.head(), LibStoxMigrations.BIND_BEACON_INITIAL_OWNER);
-    }
-
-    function testNoZeroOrGenesisRecordLandsOnTheMove() external {
-        executeMove();
-        assertZeroAndGenesisRefusedOnto(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        assertEq(LibStoxMigrations.head(), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-    }
-
-    function testExecutedMoveIsRecordedAtTheHeadOfTheRootLine() external {
-        executeMove();
+    function testExecutedMoveHandsAdminToTheTimelock() external {
+        executeBundle();
         assertTrue(ORCHESTRATOR.hasRole(bytes32(0), timelock));
         assertFalse(ORCHESTRATOR.hasRole(bytes32(0), address(safe)));
-        assertEq(LibStoxMigrations.applied(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK), block.timestamp);
-        assertEq(LibStoxMigrations.head(), LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        script.callAssertPostState();
-    }
-
-    function testPostStateRefusesARecordFromAnotherMoment(uint32 later) external {
-        vm.assume(later > 0);
-        executeMove();
-        uint256 recorded = block.timestamp;
-        vm.warp(recorded + later);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RecordMismatch.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, block.timestamp, recorded
-            )
-        );
-        script.callAssertPostState();
-    }
-
-    function testPostStateRefusesALineMovedPastTheMove(bytes32 next) external {
-        vm.assume(
-            next != bytes32(0) && next != MIGRATION_HEAD_GENESIS
-                && next != LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
-                && next != LibStoxMigrations.BIND_BEACON_INITIAL_OWNER
-                && next != LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
-        );
-        executeMove();
-        LibTestRootLine.write(vm, address(safe), next, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, next));
-        script.callAssertPostState();
     }
 
     function testPreflightRefusesSafeWithoutEmergency() external {
         bytes32 emergency = ORCHESTRATOR.EMERGENCY_ROLE();
-        script.callPreflight();
+        sScript.callPreflight();
         vm.mockCall(
             address(ORCHESTRATOR), abi.encodeCall(IAccessControl.hasRole, (emergency, address(safe))), abi.encode(false)
         );
         vm.expectRevert(abi.encodeWithSelector(RoleNotHeld.selector, emergency, address(safe)));
-        script.callPreflight();
+        sScript.callPreflight();
     }
 
     function testPostStateRefusesMissingRole() external {
-        executeMove();
-        script.callAssertPostState();
+        executeBundle();
+        sScript.callAssertPostState();
 
         bytes32[2] memory roles = [bytes32(0), ORCHESTRATOR.EMERGENCY_ROLE()];
         address[2] memory holders = [timelock, address(safe)];
@@ -169,7 +81,7 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture {
                 address(ORCHESTRATOR), abi.encodeCall(IAccessControl.hasRole, (roles[i], holders[i])), abi.encode(false)
             );
             vm.expectRevert(abi.encodeWithSelector(RoleNotHeld.selector, roles[i], holders[i]));
-            script.callAssertPostState();
+            sScript.callAssertPostState();
         }
     }
 }

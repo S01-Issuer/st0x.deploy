@@ -10,8 +10,7 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 /// @dev The backfill reads no script for `id`.
 error NoBackfillScript(bytes32 id);
 
-/// @dev Exposes the script's hooks and the scripts it reads each record from,
-/// with a per-instance artifact path because tests run in parallel.
+/// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
 contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
     string internal sArtifactTag;
 
@@ -21,9 +20,7 @@ contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
 
     /// @inheritdoc BackfillMigrationRegistryV5
     function artifactPath() internal view override returns (string memory) {
-        return string.concat(
-            "out/20261030-backfill-migration-registry-v5-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
-        );
+        return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
     }
 
     function callPreflight() external view {
@@ -34,16 +31,16 @@ contract BackfillMigrationRegistryV5Harness is BackfillMigrationRegistryV5 {
         return authorBundle();
     }
 
+    function callAssertPostState() external view {
+        assertPostState();
+    }
+
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
     }
 
     function callScriptArtifactPath() external view returns (string memory) {
-        return super.artifactPath();
-    }
-
-    function callAssertPostState() external view {
-        assertPostState();
+        return BackfillMigrationRegistryV5.artifactPath();
     }
 
     function scriptOf(bytes32 id) external view returns (address) {
