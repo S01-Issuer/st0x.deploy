@@ -21,7 +21,9 @@ contract StoxOffchainAssetReceiptVaultAuthorizerV1AuthorityScopeTest is StoxAuth
         LibTestDeploy.bind(vm, OTHER_AUTHORITY, NAME, "address", abi.encode(OTHER_ADMIN));
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizer = newAuthorizer();
         vm.expectRevert(
-            abi.encodeWithSelector(IConfigRegistryV5.NameNotRegistered.selector, LibRegistryAuthority.ROOT_AUTHORITY, NAME)
+            abi.encodeWithSelector(
+                IConfigRegistryV5.NameNotRegistered.selector, LibRegistryAuthority.ROOT_AUTHORITY, NAME
+            )
         );
         authorizer.initialize(LibTestDeploy.authorizerConfig(LibRegistryAuthority.ROOT_AUTHORITY, NAME));
     }

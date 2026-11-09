@@ -7,7 +7,9 @@ import {
     OffchainAssetReceiptVaultAuthorizerV1Config,
     OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG
 } from "rain-vats-0.2.20/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
+import {
+    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
+} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
@@ -20,7 +22,9 @@ contract StoxOffchainAssetReceiptVaultAuthorizerV1UnknownConfigVersionTest is St
 
     function testV1ConfigIsUnknownVersion(address admin) external {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizer = newAuthorizer();
-        vm.expectRevert(abi.encodeWithSelector(UnknownAuthorizerConfigVersion.selector, bytes32(uint256(uint160(admin)))));
+        vm.expectRevert(
+            abi.encodeWithSelector(UnknownAuthorizerConfigVersion.selector, bytes32(uint256(uint160(admin))))
+        );
         authorizer.initialize(abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: admin})));
     }
 
@@ -28,7 +32,8 @@ contract StoxOffchainAssetReceiptVaultAuthorizerV1UnknownConfigVersionTest is St
         vm.assume(version != OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG);
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizer = newAuthorizer();
         LibTestDeploy.authorizerData(vm, ADMIN);
-        bytes memory data = abi.encode(version, LibRegistryAuthority.ROOT_AUTHORITY, LibTestDeploy.AUTHORIZER_INITIAL_ADMIN_NAME);
+        bytes memory data =
+            abi.encode(version, LibRegistryAuthority.ROOT_AUTHORITY, LibTestDeploy.AUTHORIZER_INITIAL_ADMIN_NAME);
         vm.expectRevert(abi.encodeWithSelector(UnknownAuthorizerConfigVersion.selector, version));
         authorizer.initialize(data);
     }
