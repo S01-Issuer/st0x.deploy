@@ -35,11 +35,7 @@ using-words-from st0x-attest-subparser
   "Attestor not allowlisted"
 ),
 
-price-domain: hash(
-  utf8-hash("EIP712Domain(string name," "string version)")
-  utf8-hash("prices")
-  utf8-hash("1")
-),
+price-domain: [eip712-domain-separator name "prices" version "1"],
 :ensure(
   binary-equal-to(lead-domain() price-domain)
   "Lead domain mismatch"
