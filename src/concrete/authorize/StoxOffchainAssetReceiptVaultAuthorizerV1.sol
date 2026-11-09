@@ -21,14 +21,18 @@ bytes32 constant CANCEL_CORPORATE_ACTION_ADMIN = keccak256("CANCEL_CORPORATE_ACT
 /// via its generic RBAC path, but cannot grant them because no role admin is
 /// configured. This contract adds SCHEDULE_CORPORATE_ACTION_ADMIN and
 /// CANCEL_CORPORATE_ACTION_ADMIN roles following the same pattern as the
-/// existing role admin hierarchy.
+/// existing role admin hierarchy. `initialize` is the base's: the
+/// `OffchainAssetReceiptVaultAuthorizerV1ConfigV2` names the registry binding
+/// the initial admin is resolved from.
 contract StoxOffchainAssetReceiptVaultAuthorizerV1 is OffchainAssetReceiptVaultAuthorizerV1 {
     /// @inheritdoc OffchainAssetReceiptVaultAuthorizerV1
-    function initialize(bytes memory data) public override initializer returns (bytes32) {
-        OffchainAssetReceiptVaultAuthorizerV1Config memory config =
-            abi.decode(data, (OffchainAssetReceiptVaultAuthorizerV1Config));
-
-        bytes32 result = _initialize(config);
+    function _initialize(OffchainAssetReceiptVaultAuthorizerV1Config memory config)
+        internal
+        virtual
+        override
+        returns (bytes32)
+    {
+        bytes32 result = super._initialize(config);
         if (result != ICLONEABLE_V2_SUCCESS) {
             return result;
         }
