@@ -44,7 +44,6 @@ import {LibProdTokenConfig, TokenConfig} from "../lib/LibProdTokenConfig.sol";
 import {LibProdTokenTargets} from "../lib/LibProdTokenTargets.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxWrapperProxy} from "../generated/LibStoxWrapperProxy.sol";
-import {LibStoxTestTokens} from "../lib/LibStoxTestTokens.sol";
 import {LibProdOrchestratorParams} from "../lib/LibProdOrchestratorParams.sol";
 import {LibST0xOrchestratorProxy} from "../generated/LibST0xOrchestratorProxy.sol";
 
@@ -111,8 +110,9 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites());
-        LibCloneCandidates.addRegistryBeaconProxies(declared, testTokenSuites());
+        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites(LibProdTokenConfig.productionTokenConfigs()));
+        LibCloneCandidates.addRegistryBeaconProxies(declared, tokenSuites(LibProdTokenConfig.testTokenConfigs()));
+        LibCloneCandidates.addRegistryBeaconProxies(declared, wrapperSuites(LibProdTokenConfig.testTokenConfigs()));
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;
     }
@@ -335,9 +335,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return string(out);
     }
 
-    function tokenSuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+    function tokenSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {
+        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets(configs);
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](targets.length);
         for (uint256 i = 0; i < targets.length; i++) {
             suites[i] = RegistryBeaconProxyDeploy({
@@ -356,35 +355,20 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return suites;
     }
 
-    function testTokenSuites() internal pure returns (RegistryBeaconProxyDeploy[] memory) {
-        TokenConfig[] memory configs = LibStoxTestTokens.testTokenConfigs();
-        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](configs.length * 2);
-        for (uint256 i = 0; i < configs.length; i++) {
-            string memory key = string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol));
-            RegistryBeaconProxyTarget memory token = LibProdTokenTargets.tokenTarget(configs[i]);
-            suites[i * 2] = RegistryBeaconProxyDeploy({
-                suite: key,
-                factory: token.factory,
-                registry: token.registry,
-                authority: token.authority,
-                beaconName: token.beaconName,
-                beacon: token.beacon,
-                data: token.data,
-                salt: token.salt,
-                dependencies: LibProdTokenTargets.tokenDependencies(),
-                runtimeCode: LibStoxTokenProxy.RUNTIME_CODE
-            });
-            RegistryBeaconProxyTarget memory wrapper = LibStoxTestTokens.wrapperTarget(configs[i]);
-            suites[i * 2 + 1] = RegistryBeaconProxyDeploy({
-                suite: string.concat(key, WRAPPER_SUFFIX),
-                factory: wrapper.factory,
-                registry: wrapper.registry,
-                authority: wrapper.authority,
-                beaconName: wrapper.beaconName,
-                beacon: wrapper.beacon,
-                data: wrapper.data,
-                salt: wrapper.salt,
-                dependencies: LibStoxTestTokens.wrapperDependencies(configs[i]),
+    function wrapperSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {
+        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.wrapperTargets(configs);
+        RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](targets.length);
+        for (uint256 i = 0; i < targets.length; i++) {
+            suites[i] = RegistryBeaconProxyDeploy({
+                suite: string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol), WRAPPER_SUFFIX),
+                factory: targets[i].factory,
+                registry: targets[i].registry,
+                authority: targets[i].authority,
+                beaconName: targets[i].beaconName,
+                beacon: targets[i].beacon,
+                data: targets[i].data,
+                salt: targets[i].salt,
+                dependencies: LibProdTokenTargets.wrapperDependencies(abi.decode(targets[i].data, (address))),
                 runtimeCode: LibStoxWrapperProxy.RUNTIME_CODE
             });
         }

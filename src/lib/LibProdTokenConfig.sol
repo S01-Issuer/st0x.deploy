@@ -489,6 +489,17 @@ library LibProdTokenConfig {
         });
     }
 
+    function testTokenConfigs() internal pure returns (TokenConfig[] memory) {
+        TokenConfig[] memory configs = new TokenConfig[](2);
+        configs[0] = TokenConfig({
+            underlying: "USTEST", name: "US Test ST0x", symbol: "tUSTEST", region: Region.US, underlyingName: ""
+        });
+        configs[1] = TokenConfig({
+            underlying: "EUTEST", name: "EU Test ST0x", symbol: "tEUTEST", region: Region.EU, underlyingName: ""
+        });
+        return configs;
+    }
+
     /// @notice The production row for `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row. Reverts `UnknownUnderlying` when there is none.

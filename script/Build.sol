@@ -16,8 +16,8 @@ import {
     RegistryBeaconProxyTarget
 } from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
+import {LibProdTokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
-import {LibStoxTestTokens} from "../src/lib/LibStoxTestTokens.sol";
 import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../src/concrete/StoxReceiptVault.sol";
@@ -155,7 +155,8 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genTokenProxy() internal {
-        RegistryBeaconProxyTarget memory target = LibProdTokenTargets.tokenTargets()[0];
+        RegistryBeaconProxyTarget memory target =
+            LibProdTokenTargets.tokenTargets(LibProdTokenConfig.productionTokenConfigs())[0];
         // The generated vault beacon constant is from the previous compile.
         target.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
@@ -172,11 +173,11 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genWrapperProxy() internal {
+        RegistryBeaconProxyTarget memory target =
+            LibProdTokenTargets.wrapperTargets(LibProdTokenConfig.testTokenConfigs())[0];
+        target.beacon = LibRainDeploy.zoltuAddress(type(StoxWrappedTokenVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
-            Vm(address(vm)),
-            LibStoxTestTokens.wrapperTarget(LibStoxTestTokens.testTokenConfigs()[0]),
-            V4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE,
-            V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_CANDIDATE
+            Vm(address(vm)), target, V4.STOX_WRAPPED_TOKEN_VAULT_0_1_1, V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1
         );
         writeGeneratedHeader(GEN_WRAPPER_PROXY_PATH);
         vm.writeLine(GEN_WRAPPER_PROXY_PATH, "");
@@ -269,7 +270,8 @@ contract Build is Script, StoxDeploySuites {
         LibRainDeploySnapshot.writeReleasedSuitesAggregate(vm, LIB_DIR, released);
     }
 
-    // ==================================================================    // Deploy-lib generation.
+    // =========================================================================
+    // Deploy-lib generation.
     //
     // Regenerates `src/generated/LibProdDeployV4.sol` (one versioned constant
     // set per release tag, each aliasing that tag's frozen `<tag>/*.sol`
@@ -277,7 +279,8 @@ contract Build is Script, StoxDeploySuites {
     // aliases of the current `deployTag()`), from the per-tag snapshots on
     // disk. Emitted line-by-line via `vm.writeLine` so no single string grows
     // large enough to trip stack-too-deep (via_ir is off).
-    // ==================================================================
+    // =========================================================================
+
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
     string constant GEN_TOKEN_PROXY_PATH = "src/generated/LibStoxTokenProxy.sol";

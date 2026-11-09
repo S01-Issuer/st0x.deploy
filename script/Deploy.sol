@@ -18,14 +18,12 @@ import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenTargets} from "../src/lib/LibProdTokenTargets.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
-import {LibStoxTestTokens} from "../src/lib/LibStoxTestTokens.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
-error WrapperBeaconMismatch(address bound, address expected);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
 error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 
@@ -57,27 +55,16 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
         } else {
-            TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-            for (uint256 i = 0; i < configs.length; i++) {
-                if (name == keccak256(bytes(string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol))))) {
-                    checkToken(configs[i].region);
-                    return;
-                }
-            }
-            TokenConfig[] memory testConfigs = LibStoxTestTokens.testTokenConfigs();
-            for (uint256 i = 0; i < testConfigs.length; i++) {
-                string memory key = string.concat(TOKEN_PREFIX, lowercase(testConfigs[i].symbol));
-                if (name == keccak256(bytes(key))) {
-                    checkToken(testConfigs[i].region);
-                    return;
-                }
-                if (name == keccak256(bytes(string.concat(key, WRAPPER_SUFFIX)))) {
-                    address wrapperBeacon = boundAddress(LibStoxConfig.WRAPPER_BEACON_NAME);
-                    if (wrapperBeacon != LibStoxTestTokens.wrapperBeacon()) {
-                        revert WrapperBeaconMismatch(wrapperBeacon, LibStoxTestTokens.wrapperBeacon());
-                    }
-                    return;
-                }
+            checkTokenSuite(name, LibProdTokenConfig.productionTokenConfigs());
+            checkTokenSuite(name, LibProdTokenConfig.testTokenConfigs());
+        }
+    }
+
+    function checkTokenSuite(bytes32 name, TokenConfig[] memory configs) internal view {
+        for (uint256 i = 0; i < configs.length; i++) {
+            if (name == keccak256(bytes(string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol))))) {
+                checkToken(configs[i].region);
+                return;
             }
         }
     }
