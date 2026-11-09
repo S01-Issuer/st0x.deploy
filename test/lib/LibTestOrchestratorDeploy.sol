@@ -14,7 +14,7 @@ import {
 } from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
 
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
-import {LibProdOrchestratorTarget} from "../../src/lib/LibProdOrchestratorTarget.sol";
+import {LibProdOrchestratorParams} from "../../src/lib/LibProdOrchestratorParams.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "./LibTestDeploy.sol";
 
@@ -23,7 +23,7 @@ import {LibTestDeploy} from "./LibTestDeploy.sol";
 /// `ST0xOrchestrator` and `ST0xOrchestratorBeacon` Zoltu-deployed, the root
 /// authority binding `LibStoxConfig.ORCHESTRATOR_BEACON_NAME` to the beacon,
 /// and the instance the pinned clone factory deploys as the registry beacon
-/// proxy of `LibProdOrchestratorTarget.orchestratorTarget()`. The beacon
+/// proxy of `LibProdOrchestratorParams.orchestratorParams()`. The beacon
 /// initial owner and the orchestrator initial admin MUST be bound first: the
 /// beacon's owner is resolved at construction and the instance's admin at
 /// `initialize`.
@@ -39,18 +39,18 @@ library LibTestOrchestratorDeploy {
     }
 
     /// The root authority binds the beacon name to the deployed beacon, then
-    /// `deployer` runs the production deploy step of the orchestrator target.
+    /// `deployer` runs the production deploy step of the orchestrator params.
     function deployInstance(Vm vm, address deployer) internal returns (address) {
-        RegistryBeaconProxyTarget memory target = LibProdOrchestratorTarget.orchestratorTarget();
-        vm.etch(target.factory, CLONE_FACTORY_RUNTIME_CODE);
+        RegistryBeaconProxyTarget memory params = LibProdOrchestratorParams.orchestratorParams();
+        vm.etch(params.factory, CLONE_FACTORY_RUNTIME_CODE);
         LibTestDeploy.bind(
             vm,
             LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.ORCHESTRATOR_BEACON_NAME,
             "address",
-            abi.encode(target.beacon)
+            abi.encode(params.beacon)
         );
-        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(vm, "base", deployer, abi.encode(target));
+        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(vm, "base", deployer, abi.encode(params));
     }
 
     /// The beacon, then the instance.

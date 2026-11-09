@@ -11,7 +11,7 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthor
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
-import {LibProdOrchestratorTarget} from "../../../src/lib/LibProdOrchestratorTarget.sol";
+import {LibProdOrchestratorParams} from "../../../src/lib/LibProdOrchestratorParams.sol";
 import {LibStoxConfig, ZeroOrchestratorInitialAdmin} from "../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTestOrchestratorDeploy} from "../../lib/LibTestOrchestratorDeploy.sol";
@@ -37,9 +37,9 @@ contract StoxDeploySuitesOrchestratorProxyTest is Test, StoxDeploySuites {
         return LibTestOrchestratorDeploy.deployInstance(vm, makeAddr("deployer"));
     }
 
-    function testProxySuiteDeploysTheProductionTarget() external view {
-        (, bytes memory target) = abi.decode(proxySuite().mechanismData, (bytes32, bytes));
-        assertEq(target, abi.encode(LibProdOrchestratorTarget.orchestratorTarget()));
+    function testProxySuiteDeploysTheProductionParams() external view {
+        (, bytes memory params) = abi.decode(proxySuite().mechanismData, (bytes32, bytes));
+        assertEq(params, abi.encode(LibProdOrchestratorParams.orchestratorParams()));
     }
 
     function testProxySuiteLandsAtTheInstanceOnEveryNetwork() external {
