@@ -150,7 +150,11 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
         address wrapperBeacon = LibRainDeploy.deployZoltu(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_CANDIDATE);
         assertEq(wrapperBeacon, V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE, "wrapper beacon");
         LibTestDeploy.bind(
-            vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.WRAPPER_BEACON_NAME, "address", abi.encode(wrapperBeacon)
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.WRAPPER_BEACON_NAME,
+            "address",
+            abi.encode(wrapperBeacon)
         );
         return (usAuthorizer, euAuthorizer);
     }
