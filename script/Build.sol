@@ -16,6 +16,7 @@ import {
     RegistryBeaconProxyParams
 } from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
+import {LibProdTokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibProdDeployV4 as V4} from "../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../src/concrete/StoxReceipt.sol";
@@ -149,11 +150,13 @@ contract Build is Script, StoxDeploySuites {
         genProdLibs();
         genReleasedLibs(candidates);
         genTokenProxy();
+        genWrapperProxy();
         genOrchestratorProxy();
     }
 
     function genTokenProxy() internal {
-        RegistryBeaconProxyParams memory params = LibProdTokenParams.tokenParams()[0];
+        RegistryBeaconProxyParams memory params =
+            LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs())[0];
         // The generated vault beacon constant is from the previous compile.
         params.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
@@ -167,6 +170,23 @@ contract Build is Script, StoxDeploySuites {
             string.concat('    bytes constant RUNTIME_CODE = hex"', vm.replace(vm.toString(code), "0x", ""), '";')
         );
         vm.writeLine(GEN_TOKEN_PROXY_PATH, "}");
+    }
+
+    function genWrapperProxy() internal {
+        RegistryBeaconProxyParams memory params =
+            LibProdTokenParams.wrapperParams(LibProdTokenConfig.productionTokenConfigs())[0];
+        params.beacon = LibRainDeploy.zoltuAddress(type(StoxWrappedTokenVaultBeacon).creationCode);
+        bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
+            Vm(address(vm)), params, V4.STOX_WRAPPED_TOKEN_VAULT_0_1_1, V4.STOX_WRAPPED_TOKEN_VAULT_RUNTIME_CODE_0_1_1
+        );
+        writeGeneratedHeader(GEN_WRAPPER_PROXY_PATH);
+        vm.writeLine(GEN_WRAPPER_PROXY_PATH, "");
+        vm.writeLine(GEN_WRAPPER_PROXY_PATH, "library LibStoxWrapperProxy {");
+        vm.writeLine(
+            GEN_WRAPPER_PROXY_PATH,
+            string.concat('    bytes constant RUNTIME_CODE = hex"', vm.replace(vm.toString(code), "0x", ""), '";')
+        );
+        vm.writeLine(GEN_WRAPPER_PROXY_PATH, "}");
     }
 
     function genOrchestratorProxy() internal {
@@ -264,6 +284,7 @@ contract Build is Script, StoxDeploySuites {
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
     string constant GEN_TOKEN_PROXY_PATH = "src/generated/LibStoxTokenProxy.sol";
+    string constant GEN_WRAPPER_PROXY_PATH = "src/generated/LibStoxWrapperProxy.sol";
     string constant GEN_ORCHESTRATOR_PROXY_PATH = "src/generated/LibST0xOrchestratorProxy.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";
 

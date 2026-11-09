@@ -26,11 +26,23 @@ contract DeployPreDeployCheckHarness is Deploy {
     }
 
     function declaredTokenSuites(TokenConfig[] memory configs) external view returns (DeploySuite[] memory) {
+        return declaredSuites(configs, "");
+    }
+
+    function declaredWrapperSuites(TokenConfig[] memory configs) external view returns (DeploySuite[] memory) {
+        return declaredSuites(configs, WRAPPER_SUFFIX);
+    }
+
+    function declaredSuites(TokenConfig[] memory configs, string memory suffix)
+        internal
+        view
+        returns (DeploySuite[] memory)
+    {
         DeployDeclaration memory declared = declaration();
         DeploySuite[] memory all = allSuites(declared);
         DeploySuite[] memory suites = new DeploySuite[](configs.length);
         for (uint256 i = 0; i < configs.length; i++) {
-            string memory name = tokenSuiteName(configs[i]);
+            string memory name = string.concat(tokenSuiteName(configs[i]), suffix);
             uint256 index = suiteIndex(all, name);
             if (index == all.length) {
                 revert UnknownDeploymentSuite(name, suiteNames(declared));
@@ -41,13 +53,14 @@ contract DeployPreDeployCheckHarness is Deploy {
     }
 
     function checkedSuiteNames(TokenConfig[] memory configs) external pure returns (string[] memory) {
-        string[] memory names = new string[](4 + configs.length);
+        string[] memory names = new string[](4 + 2 * configs.length);
         names[0] = GOVERNANCE_TIMELOCK;
         names[1] = RECEIPT_BEACON;
         names[2] = RECEIPT_VAULT_BEACON;
         names[3] = WRAPPED_TOKEN_VAULT_BEACON;
         for (uint256 i = 0; i < configs.length; i++) {
-            names[4 + i] = tokenSuiteName(configs[i]);
+            names[4 + 2 * i] = tokenSuiteName(configs[i]);
+            names[5 + 2 * i] = string.concat(tokenSuiteName(configs[i]), WRAPPER_SUFFIX);
         }
         return names;
     }

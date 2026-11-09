@@ -119,6 +119,19 @@ contract LibProdTokenConfigTest is Test {
         }
     }
 
+    function testTestRowsAreTheUsAndEuTestTokens() external pure {
+        TokenConfig[] memory configs = LibProdTokenConfig.testTokenConfigs();
+        assertEq(configs.length, 2, "test rows");
+        assertEq(configs[0].underlying, "USTEST");
+        assertEq(configs[0].name, "US Test ST0x");
+        assertEq(configs[0].symbol, "tUSTEST");
+        assertEq(uint8(configs[0].region), uint8(Region.US));
+        assertEq(configs[1].underlying, "EUTEST");
+        assertEq(configs[1].name, "EU Test ST0x");
+        assertEq(configs[1].symbol, "tEUTEST");
+        assertEq(uint8(configs[1].region), uint8(Region.EU));
+    }
+
     function testRegionOf() external pure {
         assertEq(uint8(LibProdTokenConfig.regionOf("MC")), uint8(Region.EU));
         assertEq(uint8(LibProdTokenConfig.regionOf("SNES")), uint8(Region.US));

@@ -4,7 +4,10 @@ pragma solidity ^0.8.25;
 
 import {DeployDependency} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
-import {RegistryBeaconProxyParams} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {
+    LibRainDeployRegistryBeaconProxy,
+    RegistryBeaconProxyParams
+} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
@@ -18,12 +21,12 @@ import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
 } from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
+import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
-import {LibProdTokenConfig, Region, TokenConfig} from "./LibProdTokenConfig.sol";
+import {Region, TokenConfig} from "./LibProdTokenConfig.sol";
 
 library LibProdTokenParams {
-    function tokenParams() internal pure returns (RegistryBeaconProxyParams[] memory) {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+    function tokenParams(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyParams[] memory) {
         RegistryBeaconProxyParams[] memory params = new RegistryBeaconProxyParams[](configs.length);
         address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
@@ -67,6 +70,34 @@ library LibProdTokenParams {
         dependencies[2] = DeployDependency({
             deployedAddress: vaultBeacon(), runtimeCode: V4.STOX_RECEIPT_VAULT_BEACON_RUNTIME_CODE_CANDIDATE
         });
+        return dependencies;
+    }
+
+    function wrapperParams(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyParams[] memory) {
+        RegistryBeaconProxyParams[] memory params = tokenParams(configs);
+        for (uint256 i = 0; i < params.length; i++) {
+            address token = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]);
+            params[i].beaconName = LibStoxConfig.WRAPPER_BEACON_NAME;
+            params[i].beacon = wrapperBeacon();
+            params[i].data = abi.encode(token);
+        }
+        return params;
+    }
+
+    function wrapperBeacon() internal pure returns (address) {
+        return V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE;
+    }
+
+    function wrapperDependencies(address token) internal pure returns (DeployDependency[] memory) {
+        DeployDependency[] memory dependencies = new DeployDependency[](4);
+        dependencies[0] =
+            DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
+        dependencies[1] =
+            DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
+        dependencies[2] = DeployDependency({
+            deployedAddress: wrapperBeacon(), runtimeCode: V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_RUNTIME_CODE_CANDIDATE
+        });
+        dependencies[3] = DeployDependency({deployedAddress: token, runtimeCode: LibStoxTokenProxy.RUNTIME_CODE});
         return dependencies;
     }
 }
