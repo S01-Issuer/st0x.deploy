@@ -6,21 +6,17 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {BindBeaconInitialOwner} from "../../script/20261022-bind-beacon-initial-owner.s.sol";
 
-/// @dev Exposes the script's hooks, with a per-instance artifact path because
-/// tests run in parallel.
+/// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
 contract BindBeaconInitialOwnerHarness is BindBeaconInitialOwner {
     string internal sArtifactTag;
 
-    /// @param artifactTag Suffixes this instance's artifact path.
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
     }
 
     /// @inheritdoc BindBeaconInitialOwner
     function artifactPath() internal view override returns (string memory) {
-        return string.concat(
-            "out/20261022-bind-beacon-initial-owner-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
-        );
+        return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
     }
 
     function callPreflight() external view {
@@ -40,6 +36,6 @@ contract BindBeaconInitialOwnerHarness is BindBeaconInitialOwner {
     }
 
     function callScriptArtifactPath() external view returns (string memory) {
-        return super.artifactPath();
+        return BindBeaconInitialOwner.artifactPath();
     }
 }

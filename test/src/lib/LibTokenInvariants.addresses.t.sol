@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
@@ -76,33 +76,45 @@ contract LibTokenInvariantsAddressesTest is Test {
         }
     }
 
+    /// `message` prefixed with the token set's ticker.
+    function named(TokenInstance memory token, string memory message) internal pure returns (string memory) {
+        return string.concat(token.underlying, " ", message);
+    }
+
     /// Verify a token set (receipt, receipt vault, wrapped vault) is deployed,
     /// wired correctly, and behind the expected beacons on the current fork.
-    /// The wrapped vault's symbol is accepted as the initialized
-    /// `wt<TICKER>` or, once the underlying-naming rename has run, `<TICKER>s`.
-    function checkTokenSet(
-        address receipt,
-        address receiptVault,
-        address wrappedTokenVault,
-        string memory expectedReceiptVaultSymbol,
-        string memory expectedWrappedVaultSymbol
-    ) internal view {
-        assertTrue(receipt.code.length > 0, "receipt not deployed");
-        assertTrue(receiptVault.code.length > 0, "receipt vault not deployed");
-        assertTrue(wrappedTokenVault.code.length > 0, "wrapped vault not deployed");
+    /// The receipt vault's symbol is `t<TICKER>`; the wrapped vault's is
+    /// accepted as the initialized `wt<TICKER>` or, once the underlying-naming
+    /// rename has run, `<TICKER>s`.
+    function checkTokenSet(TokenInstance memory token) internal view {
+        address receipt = token.receipt;
+        address receiptVault = token.receiptVault;
+        address wrappedTokenVault = token.wrappedTokenVault;
+        assertTrue(receipt.code.length > 0, named(token, "receipt not deployed"));
+        assertTrue(receiptVault.code.length > 0, named(token, "receipt vault not deployed"));
+        assertTrue(wrappedTokenVault.code.length > 0, named(token, "wrapped vault not deployed"));
 
-        assertEq(IERC20Metadata(receiptVault).symbol(), expectedReceiptVaultSymbol);
+        assertEq(
+            IERC20Metadata(receiptVault).symbol(),
+            string.concat("t", token.underlying),
+            named(token, "receipt vault symbol mismatch")
+        );
+        string memory initialWrappedSymbol = string.concat("wt", token.underlying);
         string memory wrappedSymbol = IERC20Metadata(wrappedTokenVault).symbol();
-        if (keccak256(bytes(wrappedSymbol)) != keccak256(bytes(expectedWrappedVaultSymbol))) {
-            assertEq(wrappedSymbol, renamedWrappedSymbol(expectedWrappedVaultSymbol));
+        if (keccak256(bytes(wrappedSymbol)) != keccak256(bytes(initialWrappedSymbol))) {
+            assertEq(
+                wrappedSymbol, renamedWrappedSymbol(initialWrappedSymbol), named(token, "wrapped vault symbol mismatch")
+            );
         }
-        assertEq(IERC4626(wrappedTokenVault).asset(), receiptVault, "wrapped vault asset mismatch");
-        assertEq(address(IReceiptVaultV3(payable(receiptVault)).receipt()), receipt, "receipt address mismatch");
+        assertEq(IERC4626(wrappedTokenVault).asset(), receiptVault, named(token, "wrapped vault asset mismatch"));
+        assertEq(
+            address(IReceiptVaultV3(payable(receiptVault)).receipt()), receipt, named(token, "receipt address mismatch")
+        );
         // The receipt's manager controls mint/burn. If a prod receipt's
         // manager isn't its receipt vault, the vault can't mint receipts
         // when users deposit nor burn receipts when users withdraw —
         // every deposit and withdraw on this token would revert.
-        assertEq(IReceiptV3(receipt).manager(), receiptVault, "receipt manager != receipt vault");
+        assertEq(IReceiptV3(receipt).manager(), receiptVault, named(token, "receipt manager != receipt vault"));
 
         // All prod tokens on Base are behind the V1 OARV deployer's
         // beacons. The constants are the canonical source — the cross-check
@@ -112,77 +124,76 @@ contract LibTokenInvariantsAddressesTest is Test {
         address receiptVaultBeacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
         address wrappedVaultBeacon = LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1;
 
-        assertEq(beaconOf(receipt), receiptBeacon, "receipt beacon mismatch");
-        assertEq(beaconOf(receiptVault), receiptVaultBeacon, "receipt vault beacon mismatch");
-        assertEq(beaconOf(wrappedTokenVault), wrappedVaultBeacon, "wrapped vault beacon mismatch");
+        assertEq(beaconOf(receipt), receiptBeacon, named(token, "receipt beacon mismatch"));
+        assertEq(beaconOf(receiptVault), receiptVaultBeacon, named(token, "receipt vault beacon mismatch"));
+        assertEq(beaconOf(wrappedTokenVault), wrappedVaultBeacon, named(token, "wrapped vault beacon mismatch"));
 
         assertTrue(
             LibExtrospectERC1967BeaconProxy.isBeaconImplementationBytecode(
                 receiptBeacon, LibProdDeployV1.PROD_STOX_RECEIPT_IMPLEMENTATION_BASE_CODEHASH_V1
             ),
-            "receipt beacon impl codehash mismatch"
+            named(token, "receipt beacon impl codehash mismatch")
         );
         assertTrue(
             LibExtrospectERC1967BeaconProxy.isBeaconImplementationBytecode(
                 receiptVaultBeacon, LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1
             ),
-            "receipt vault beacon impl codehash mismatch"
+            named(token, "receipt vault beacon impl codehash mismatch")
         );
         assertTrue(
             LibExtrospectERC1967BeaconProxy.isBeaconImplementationBytecode(
                 wrappedVaultBeacon, LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION_BASE_CODEHASH_V1
             ),
-            "wrapped vault beacon impl codehash mismatch"
+            named(token, "wrapped vault beacon impl codehash mismatch")
         );
 
         assertTrue(
             LibExtrospectERC1967BeaconProxy.isBeaconOwner(receiptBeacon, LibProdDeployV1.BEACON_INITIAL_OWNER),
-            "receipt beacon owner mismatch"
+            named(token, "receipt beacon owner mismatch")
         );
         assertTrue(
             LibExtrospectERC1967BeaconProxy.isBeaconOwner(receiptVaultBeacon, LibProdDeployV1.BEACON_INITIAL_OWNER),
-            "receipt vault beacon owner mismatch"
+            named(token, "receipt vault beacon owner mismatch")
         );
         assertTrue(
             LibExtrospectERC1967BeaconProxy.isBeaconOwner(wrappedVaultBeacon, LibProdDeployV1.BEACON_INITIAL_OWNER),
-            "wrapped vault beacon owner mismatch"
+            named(token, "wrapped vault beacon owner mismatch")
         );
 
         // Receipt vault transfers are gated on `certifiedUntil`. An expired
         // certification freezes all transfers on the affected token. Pin
         // that every prod vault is currently within its certification
         // window at the fork's block timestamp.
-        assertFalse(ICertifiableV1(receiptVault).isCertificationExpired(), "receipt vault certification expired");
+        assertFalse(
+            ICertifiableV1(receiptVault).isCertificationExpired(), named(token, "receipt vault certification expired")
+        );
 
         // Integrators (DEXes, indexers, UIs) read `decimals()` to scale
         // amounts. Drift from 18 silently shifts every off-chain
         // calculation by ten orders of magnitude per missing decimal.
-        assertEq(IERC20Metadata(receiptVault).decimals(), 18, "receipt vault decimals != 18");
-        assertEq(IERC20Metadata(wrappedTokenVault).decimals(), 18, "wrapped vault decimals != 18");
+        assertEq(IERC20Metadata(receiptVault).decimals(), 18, named(token, "receipt vault decimals != 18"));
+        assertEq(IERC20Metadata(wrappedTokenVault).decimals(), 18, named(token, "wrapped vault decimals != 18"));
 
         // Per-class proxy codehash consistency. All receipt proxies are
         // BeaconProxy instances pointing at the same beacon, so their
         // runtime bytecode must be identical. Same for receipt vault
         // proxies and wrapped vault proxies. A divergent codehash means
         // a proxy was deployed through a different mechanism or with
-        // different constructor args than its siblings. The pinned
-        // values live in `LibProdDeployV1` so MSTR is no longer the
-        // canonical reference — every prod proxy is checked against an
-        // in-repo constant.
+        // different constructor args than its siblings.
         assertEq(
             keccak256(receipt.code),
             LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1,
-            "receipt proxy codehash mismatch"
+            named(token, "receipt proxy codehash mismatch")
         );
         assertEq(
             keccak256(receiptVault.code),
             LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1,
-            "receipt vault proxy codehash mismatch"
+            named(token, "receipt vault proxy codehash mismatch")
         );
         assertEq(
             keccak256(wrappedTokenVault.code),
             LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1,
-            "wrapped vault proxy codehash mismatch"
+            named(token, "wrapped vault proxy codehash mismatch")
         );
 
         // Wrapped vault claims (totalAssets) cannot exceed total receipt
@@ -193,94 +204,118 @@ contract LibTokenInvariantsAddressesTest is Test {
         assertLe(
             IERC4626(wrappedTokenVault).totalAssets(),
             IERC20Metadata(receiptVault).totalSupply(),
-            "wrapped vault totalAssets > receipt vault totalSupply"
+            named(token, "wrapped vault totalAssets > receipt vault totalSupply")
         );
     }
 
-    /// Pin the prod V1 implementations to be free of Solidity CBOR metadata.
-    /// `foundry.toml` sets `bytecode_hash = "none"` and `cbor_metadata =
-    /// false` for reproducible Zoltu deployment — this verifies the
-    /// deployed bytecode actually reflects those settings rather than
-    /// having been smuggled in from a different toolchain config.
-    ///
-    /// Largely redundant with the codehash pin: if metadata changes, the
-    /// codehash changes, and the existing `isBeaconImplementationBytecode`
-    /// check catches it. Filed for completeness — the explicit CBOR check
-    /// gives a clearer error message ("metadata present" vs "codehash
-    /// mismatch") if a future toolchain misconfigures the build.
-    function testProdReceiptImplementationHasNoCBOR() external {
+    /// The first 20 Base token sets, each looked up by ticker in
+    /// `productionTokensBase()`. Later entries may postdate the pinned block.
+    function testProductionTokenSetsOnBase() external {
         LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION);
+        string[20] memory tickers = [
+            string("MSTR"),
+            "TSLA",
+            "COIN",
+            "SPYM",
+            "SIVR",
+            "CRCL",
+            "NVDA",
+            "IAU",
+            "PPLT",
+            "AMZN",
+            "BMNR",
+            "IBHG",
+            "SGOV",
+            "QQQM",
+            "VWO",
+            "ARKK",
+            "SPCX",
+            "CEG",
+            "DRAM",
+            "TSM"
+        ];
+        TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
+        for (uint256 i = 0; i < tickers.length; i++) {
+            bool found = false;
+            for (uint256 j = 0; j < tokens.length; j++) {
+                if (keccak256(bytes(tokens[j].underlying)) == keccak256(bytes(tickers[i]))) {
+                    checkTokenSet(tokens[j]);
+                    found = true;
+                    break;
+                }
+            }
+            assertTrue(found, string.concat(tickers[i], " missing from productionTokensBase"));
+        }
     }
 
-    function testProdReceiptVaultImplementationHasNoCBOR() external {
-        LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION);
+    /// A prod V1 contract and the metamorphic-risk bitmap its code exposes.
+    struct ProdV1Contract {
+        string name;
+        address account;
+        uint256 metamorphicRisk;
     }
 
-    function testProdWrappedTokenVaultImplementationHasNoCBOR() external {
-        LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION);
-    }
-
-    function testProdOffchainAssetReceiptVaultBeaconSetDeployerHasNoCBOR() external {
-        LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(
-            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
+    /// The V1 implementations, deployers and beacons on Base.
+    function prodV1Contracts() internal pure returns (ProdV1Contract[] memory) {
+        // CREATE builds the beacons; DELEGATECALL comes from the OZ
+        // Upgradeable / forwarder machinery.
+        uint256 delegatecallOnly = uint256(1) << uint256(EVM_OP_DELEGATECALL);
+        uint256 createAndDelegatecall = (uint256(1) << uint256(EVM_OP_CREATE)) | delegatecallOnly;
+        ProdV1Contract[] memory contracts = new ProdV1Contract[](9);
+        contracts[0] = ProdV1Contract("STOX_RECEIPT_IMPLEMENTATION", LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION, 0);
+        contracts[1] = ProdV1Contract(
+            "STOX_RECEIPT_VAULT_IMPLEMENTATION", LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION, delegatecallOnly
         );
-    }
-
-    function testProdWrappedTokenVaultBeaconSetDeployerHasNoCBOR() external {
-        LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER);
-    }
-
-    function testProdUnifiedDeployerHasNoCBOR() external {
-        LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_UNIFIED_DEPLOYER);
-    }
-
-    function testProdReceiptBeaconHasNoCBOR() external {
-        LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_BEACON_V1);
-    }
-
-    function testProdReceiptVaultBeaconHasNoCBOR() external {
-        LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1);
-    }
-
-    function testProdWrappedTokenVaultBeaconHasNoCBOR() external {
-        LibTestProd.createSelectForkBase(vm);
-        LibExtrospectBytecode.checkNoSolidityCBORMetadata(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1);
-    }
-
-    /// All three V1 beacons are `UpgradeableBeacon` instances — implementation
-    /// and owner live in storage, runtime bytecode is identical. Pinning the
-    /// shared codehash detects a beacon address swapped to a contract that
-    /// merely mimics the `implementation()` / `owner()` selectors used by the
-    /// other checks, which would otherwise pass through unnoticed.
-    function testProdReceiptBeaconRuntimeCodehash() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(LibProdDeployV1.STOX_RECEIPT_BEACON_V1.codehash, LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1);
-    }
-
-    function testProdReceiptVaultBeaconRuntimeCodehash() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1.codehash, LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1
+        contracts[2] = ProdV1Contract(
+            "STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION", LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION, 0
         );
-    }
-
-    function testProdWrappedTokenVaultBeaconRuntimeCodehash() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.codehash,
-            LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1
+        contracts[3] = ProdV1Contract(
+            "OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER",
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            createAndDelegatecall
         );
+        contracts[4] = ProdV1Contract(
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER",
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            createAndDelegatecall
+        );
+        contracts[5] = ProdV1Contract("STOX_UNIFIED_DEPLOYER", LibProdDeployV1.STOX_UNIFIED_DEPLOYER, 0);
+        contracts[6] = ProdV1Contract("STOX_RECEIPT_BEACON_V1", LibProdDeployV1.STOX_RECEIPT_BEACON_V1, 0);
+        contracts[7] = ProdV1Contract("STOX_RECEIPT_VAULT_BEACON_V1", LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1, 0);
+        contracts[8] =
+            ProdV1Contract("STOX_WRAPPED_TOKEN_VAULT_BEACON_V1", LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1, 0);
+        return contracts;
     }
 
-    /// Mutation pin: the no-CBOR tests above all return clean (no revert),
+    /// `foundry.toml` builds without CBOR metadata; the deployed V1 code
+    /// must too.
+    function testProdV1ContractsHaveNoCBOR() external {
+        LibTestProd.createSelectForkBase(vm);
+        ProdV1Contract[] memory contracts = prodV1Contracts();
+        for (uint256 i = 0; i < contracts.length; i++) {
+            bytes memory code = contracts[i].account.code;
+            assertTrue(code.length > 0, string.concat(contracts[i].name, " has no code"));
+            assertFalse(
+                LibExtrospectBytecode.tryTrimSolidityCBORMetadata(code),
+                string.concat(contracts[i].name, " carries CBOR metadata")
+            );
+        }
+    }
+
+    /// Any metamorphic opcode appearing or disappearing forces a re-review.
+    function testProdV1ContractsMetamorphicRiskPinned() external {
+        LibTestProd.createSelectForkBase(vm);
+        ProdV1Contract[] memory contracts = prodV1Contracts();
+        for (uint256 i = 0; i < contracts.length; i++) {
+            assertEq(
+                LibExtrospectMetamorphic.scanMetamorphicRisk(contracts[i].account.code),
+                contracts[i].metamorphicRisk,
+                string.concat(contracts[i].name, " metamorphic surface drifted")
+            );
+        }
+    }
+
+    /// Mutation pin: `testProdV1ContractsHaveNoCBOR` returns clean (no revert),
     /// which by itself doesn't prove `checkNoSolidityCBORMetadata` would
     /// catch a deployment that actually carried CBOR metadata. Construct
     /// fake bytecode at a sentinel address using `vm.etch`, with the exact
@@ -319,189 +354,6 @@ contract LibTokenInvariantsAddressesTest is Test {
         IExtrospectV1(EXTROSPECT_0_1_0).checkNoSolidityCBORMetadata(sentinel);
     }
 
-    /// Pin the metamorphic-risk surface of the prod V1 implementations.
-    /// `LibExtrospectMetamorphic.scanMetamorphicRisk` returns a bitmap of
-    /// reachable opcodes from the metamorphic set (SELFDESTRUCT,
-    /// DELEGATECALL, CALLCODE, CREATE, CREATE2 — bits 0xFF, 0xF4, 0xF2,
-    /// 0xF0, 0xF5 in the all-opcodes bitmap). The codehash pin in
-    /// `checkTokenSet` answers "what bytecode is at this address now";
-    /// this test answers "what redeployment surface does that bytecode
-    /// expose".
-    ///
-    /// Empirically, all three V1 implementations have only DELEGATECALL
-    /// reachable (bit 244 = `1 << 244`). DELEGATECALL is expected because
-    /// the implementations are OZ Upgradeable beacon-proxy targets and
-    /// the upgrade / call machinery embedded in the implementation
-    /// contains delegatecall sites. The pin captures the currently-known
-    /// shape — any change (a new metamorphic op appearing, or
-    /// DELEGATECALL going away) trips the test and forces an explicit
-    /// re-evaluation.
-    ///
-    /// Linear bytecode scan is gas-intensive — `rain.extrospection`
-    /// algorithms are intended for offchain / fork-test use, which this
-    /// test is.
-    /// Bitmap pin for `STOX_RECEIPT_VAULT_IMPLEMENTATION`: only DELEGATECALL
-    /// is reachable. The receipt vault implementation contains delegatecall
-    /// sites from the OZ Upgradeable inheritance chain (and/or ERC2771
-    /// forwarder machinery). Receipt and wrapped-vault implementations are
-    /// clean (0 — no metamorphic ops reachable). Any drift in either
-    /// direction trips the corresponding assertion. Bit position derived
-    /// from the upstream `EVM_OP_DELEGATECALL` constant rather than a
-    /// literal so the bitmap stays correct if rain.extrospection ever
-    /// re-derives opcode numbering.
-    uint256 constant METAMORPHIC_RISK_DELEGATECALL_ONLY = uint256(1) << uint256(EVM_OP_DELEGATECALL);
-
-    /// Bitmap pin for the OARV and wrapped vault beacon-set deployers:
-    /// `CREATE` is reachable because the deployer constructs the beacon
-    /// instances via direct EVM `CREATE`, and `DELEGATECALL` is reachable
-    /// from the OZ Upgradeable / forwarder machinery linked into the
-    /// deployer's compiled bytecode.
-    uint256 constant METAMORPHIC_RISK_CREATE_AND_DELEGATECALL =
-        (uint256(1) << uint256(EVM_OP_CREATE)) | (uint256(1) << uint256(EVM_OP_DELEGATECALL));
-
-    function testProdReceiptImplementationMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION.code),
-            0,
-            "STOX_RECEIPT_IMPLEMENTATION metamorphic surface drifted"
-        );
-    }
-
-    function testProdReceiptVaultImplementationMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION.code),
-            METAMORPHIC_RISK_DELEGATECALL_ONLY,
-            "STOX_RECEIPT_VAULT_IMPLEMENTATION metamorphic surface drifted"
-        );
-    }
-
-    function testProdWrappedTokenVaultImplementationMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION.code),
-            0,
-            "STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION metamorphic surface drifted"
-        );
-    }
-
-    /// Same as the implementation pins above, extended to the three
-    /// first-party deployers. A redeployment with different metamorphic
-    /// characteristics trips the corresponding test.
-    function testProdOffchainAssetReceiptVaultBeaconSetDeployerMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(
-                LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.code
-            ),
-            METAMORPHIC_RISK_CREATE_AND_DELEGATECALL,
-            "OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER metamorphic surface drifted"
-        );
-    }
-
-    function testProdWrappedTokenVaultBeaconSetDeployerMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(
-                LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.code
-            ),
-            METAMORPHIC_RISK_CREATE_AND_DELEGATECALL,
-            "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER metamorphic surface drifted"
-        );
-    }
-
-    function testProdUnifiedDeployerMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code),
-            0,
-            "STOX_UNIFIED_DEPLOYER metamorphic surface drifted"
-        );
-    }
-
-    /// Same pattern extended to the three V1 beacons. UpgradeableBeacon
-    /// doesn't contain reachable DELEGATECALL on its own (the upgrade
-    /// flow is a storage write); expected bitmap is 0 per beacon.
-    function testProdReceiptBeaconMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_RECEIPT_BEACON_V1.code),
-            0,
-            "STOX_RECEIPT_BEACON_V1 metamorphic surface drifted"
-        );
-    }
-
-    function testProdReceiptVaultBeaconMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1.code),
-            0,
-            "STOX_RECEIPT_VAULT_BEACON_V1 metamorphic surface drifted"
-        );
-    }
-
-    function testProdWrappedTokenVaultBeaconMetamorphicRiskPinned() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            LibExtrospectMetamorphic.scanMetamorphicRisk(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.code),
-            0,
-            "STOX_WRAPPED_TOKEN_VAULT_BEACON_V1 metamorphic surface drifted"
-        );
-    }
-
-    /// Pin the deployed runtime bytecode of each prod V1 deployer against
-    /// its `LibProdDeployV1.PROD_*_BASE_CODEHASH_V1` constant. The
-    /// per-token-set assertions in `checkTokenSet` trust the OARV
-    /// deployer's `I_RECEIPT_BEACON()` / `I_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON()`
-    /// getters; if the deployer at the constant address were swapped for a
-    /// contract with different bytecode, those getters could return
-    /// arbitrary addresses and every downstream beacon / impl check would
-    /// proceed against whatever the swapped deployer reported. Pinning the
-    /// runtime keccak forces a swap to fail loud.
-    ///
-    /// The metamorphic-risk pins above answer "could this deployer's code
-    /// change post-deploy"; this answers "is the code at the address what
-    /// we expect today". Both are needed.
-    function testProdOffchainAssetReceiptVaultBeaconSetDeployerCodehash() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            keccak256(LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER.code),
-            LibProdDeployV1.PROD_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1,
-            "OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER codehash drifted"
-        );
-    }
-
-    function testProdWrappedTokenVaultBeaconSetDeployerCodehash() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            keccak256(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER.code),
-            LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1,
-            "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER codehash drifted"
-        );
-    }
-
-    function testProdUnifiedDeployerCodehash() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            keccak256(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code),
-            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1,
-            "STOX_UNIFIED_DEPLOYER codehash drifted"
-        );
-
-        // Mutation pin: confirm the assertion would actually catch a swap
-        // by overwriting the deployer's bytecode and verifying the
-        // codehash check would now fail. Without this, a constant equal
-        // to keccak256("") (or any sentinel hash) would silently always
-        // match because of mismatched expectations.
-        vm.etch(LibProdDeployV1.STOX_UNIFIED_DEPLOYER, hex"00");
-        assertNotEq(
-            keccak256(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code),
-            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1,
-            "swapped bytecode must not match the pinned codehash"
-        );
-    }
-
     /// Single pin test: the runtime-resolved V1 beacon addresses match
     /// the in-repo constants. Once this passes, the rest of the prod
     /// fork tests can use the `STOX_*_BEACON_V1` constants directly
@@ -532,308 +384,112 @@ contract LibTokenInvariantsAddressesTest is Test {
         );
     }
 
-    /// HISTORICAL SNAPSHOT, not a drift detector. Pins each V1 beacon's
-    /// `implementation()` as it stood at `PROD_TEST_BLOCK_NUMBER_BASE`,
-    /// which is a V1-era block: the answer is frozen with the block, so
-    /// this can never notice an upgrade. Its value is as a record that the
-    /// V1 `STOX_*_IMPLEMENTATION` constants describe a state Base really
-    /// was in — the audit trail the constants exist for. What production
-    /// serves TODAY is the `*AtBaseHead` counterpart below; the two are
-    /// deliberately different assertions and both are wanted.
-    ///
-    /// `checkTokenSet`'s `isBeaconImplementationBytecode` only compares the
-    /// resolved impl's runtime keccak — a beacon pointing at a different
-    /// address with the same bytecode would pass. Pinning the address
-    /// closes that gap. Mutation pin (vm.etch on the unified deployer)
-    /// lives in the deployer-codehash test in #114; here we rely on the
-    /// per-pin assertEq + the codehash chain in `checkTokenSet`.
-    function testProdReceiptBeaconImplementationAddressAtPinnedBlock() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).implementation(),
+    /// A V1 beacon with the implementation it served at the pinned block and
+    /// the one it serves at Base HEAD.
+    struct ProdV1Beacon {
+        string name;
+        address beacon;
+        address implementationAtPinnedBlock;
+        address implementationAtBaseHead;
+    }
+
+    /// The receipt and receipt-vault beacons serve 0.1.30 at HEAD after the
+    /// fleet upgrade; the wrapped token vault beacon still serves 0.1.1.
+    function prodV1Beacons() internal pure returns (ProdV1Beacon[] memory) {
+        ProdV1Beacon[] memory beacons = new ProdV1Beacon[](3);
+        beacons[0] = ProdV1Beacon(
+            "STOX_RECEIPT_BEACON_V1",
+            LibProdDeployV1.STOX_RECEIPT_BEACON_V1,
             LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION,
-            "STOX_RECEIPT_BEACON_V1.implementation() drifted"
+            LibProdDeployV4.STOX_RECEIPT_0_1_30
         );
-    }
-
-    /// HISTORICAL SNAPSHOT at `PROD_TEST_BLOCK_NUMBER_BASE`, on the same
-    /// terms as the receipt-beacon snapshot above.
-    function testProdReceiptVaultBeaconImplementationAddressAtPinnedBlock() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
+        beacons[1] = ProdV1Beacon(
+            "STOX_RECEIPT_VAULT_BEACON_V1",
+            LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1,
             LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION,
-            "STOX_RECEIPT_VAULT_BEACON_V1.implementation() drifted"
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30
         );
-    }
-
-    /// HISTORICAL SNAPSHOT at `PROD_TEST_BLOCK_NUMBER_BASE`, on the same
-    /// terms as the two snapshots above.
-    function testProdWrappedTokenVaultBeaconImplementationAddressAtPinnedBlock() external {
-        LibTestProd.createSelectForkBase(vm);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1).implementation(),
+        beacons[2] = ProdV1Beacon(
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON_V1",
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1,
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
-            "STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.implementation() drifted"
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1
         );
+        return beacons;
     }
 
-    /// The LIVE counterpart of the frozen receipt-beacon snapshot: at Base
-    /// HEAD the in-use receipt beacon serves the 0.1.30 receipt, which the
-    /// fleet upgrade (`20260825-upgrade-fleet-to-0-1-30`) put there. An
-    /// unreviewed `upgradeTo` moves this and nothing else in this file
-    /// would notice, because every other beacon-impl assertion here is
-    /// pinned to a V1-era block.
-    function testProdReceiptBeaconImplementationAddressAtBaseHead() external {
+    /// Every V1 beacon is the same `UpgradeableBeacon` runtime, so a contract
+    /// that merely mimics `implementation()` / `owner()` fails.
+    function testProdV1BeaconsRuntimeCodehash() external {
+        LibTestProd.createSelectForkBase(vm);
+        ProdV1Beacon[] memory beacons = prodV1Beacons();
+        for (uint256 i = 0; i < beacons.length; i++) {
+            assertEq(
+                beacons[i].beacon.codehash,
+                LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1,
+                string.concat(beacons[i].name, " runtime codehash drifted")
+            );
+        }
+    }
+
+    /// HISTORICAL SNAPSHOT, not a drift detector: the V1 implementation
+    /// constants describe a state Base was in at the pinned block.
+    /// `isBeaconImplementationBytecode` only compares the impl's codehash;
+    /// this pins its address.
+    function testProdV1BeaconImplementationsAtPinnedBlock() external {
+        LibTestProd.createSelectForkBase(vm);
+        ProdV1Beacon[] memory beacons = prodV1Beacons();
+        for (uint256 i = 0; i < beacons.length; i++) {
+            assertEq(
+                IBeacon(beacons[i].beacon).implementation(),
+                beacons[i].implementationAtPinnedBlock,
+                string.concat(beacons[i].name, ".implementation() drifted at the pinned block")
+            );
+        }
+    }
+
+    /// LIVE: an unreviewed `upgradeTo` on any in-use beacon fails here and
+    /// nowhere else in this file.
+    function testProdV1BeaconImplementationsAtBaseHead() external {
         vm.createSelectFork(LibRainDeploy.BASE);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_RECEIPT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_RECEIPT_0_1_30,
-            "live STOX_RECEIPT_BEACON_V1.implementation() is not the 0.1.30 receipt"
-        );
+        ProdV1Beacon[] memory beacons = prodV1Beacons();
+        for (uint256 i = 0; i < beacons.length; i++) {
+            assertEq(
+                IBeacon(beacons[i].beacon).implementation(),
+                beacons[i].implementationAtBaseHead,
+                string.concat(beacons[i].name, ".implementation() at Base HEAD is not the pinned live impl")
+            );
+        }
     }
 
-    /// The LIVE counterpart of the frozen receipt-vault-beacon snapshot: at
-    /// Base HEAD the in-use receipt-vault beacon serves the 0.1.30 vault.
-    function testProdReceiptVaultBeaconImplementationAddressAtBaseHead() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30,
-            "live STOX_RECEIPT_VAULT_BEACON_V1.implementation() is not the 0.1.30 receipt vault"
-        );
-    }
-
-    /// The LIVE counterpart of the frozen wrapped-vault-beacon snapshot. The
-    /// wrapped token vault did NOT ride the fleet upgrade, so at Base HEAD
-    /// this beacon still serves the audited 0.1.1 implementation — pinned
-    /// explicitly so a future upgrade has to be a deliberate edit here.
-    function testProdWrappedTokenVaultBeaconImplementationAddressAtBaseHead() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        assertEq(
-            IBeacon(LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1,
-            "live STOX_WRAPPED_TOKEN_VAULT_BEACON_V1.implementation() is not the 0.1.1 wrapped token vault"
-        );
-    }
-
-    function testMstrTokenSetOnBase() external {
+    /// `checkTokenSet` trusts the OARV deployer's beacon getters, so a
+    /// swapped deployer must fail loud.
+    function testProdV1DeployersCodehash() external {
         LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.MSTR_RECEIPT,
-            LibTokenInvariants.MSTR_RECEIPT_VAULT,
-            LibTokenInvariants.MSTR_WRAPPED_TOKEN_VAULT,
-            "tMSTR",
-            "wtMSTR"
-        );
-    }
+        string[3] memory names = [
+            string("OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER"),
+            "STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER",
+            "STOX_UNIFIED_DEPLOYER"
+        ];
+        address[3] memory deployers = [
+            LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER,
+            LibProdDeployV1.STOX_UNIFIED_DEPLOYER
+        ];
+        bytes32[3] memory codehashes = [
+            LibProdDeployV1.PROD_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1,
+            LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER_BASE_CODEHASH_V1,
+            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1
+        ];
+        for (uint256 i = 0; i < deployers.length; i++) {
+            assertEq(keccak256(deployers[i].code), codehashes[i], string.concat(names[i], " codehash drifted"));
+        }
 
-    function testTslaTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.TSLA_RECEIPT,
-            LibTokenInvariants.TSLA_RECEIPT_VAULT,
-            LibTokenInvariants.TSLA_WRAPPED_TOKEN_VAULT,
-            "tTSLA",
-            "wtTSLA"
-        );
-    }
-
-    function testCoinTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.COIN_RECEIPT,
-            LibTokenInvariants.COIN_RECEIPT_VAULT,
-            LibTokenInvariants.COIN_WRAPPED_TOKEN_VAULT,
-            "tCOIN",
-            "wtCOIN"
-        );
-    }
-
-    function testSpymTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.SPYM_RECEIPT,
-            LibTokenInvariants.SPYM_RECEIPT_VAULT,
-            LibTokenInvariants.SPYM_WRAPPED_TOKEN_VAULT,
-            "tSPYM",
-            "wtSPYM"
-        );
-    }
-
-    function testSivrTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.SIVR_RECEIPT,
-            LibTokenInvariants.SIVR_RECEIPT_VAULT,
-            LibTokenInvariants.SIVR_WRAPPED_TOKEN_VAULT,
-            "tSIVR",
-            "wtSIVR"
-        );
-    }
-
-    function testCrclTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.CRCL_RECEIPT,
-            LibTokenInvariants.CRCL_RECEIPT_VAULT,
-            LibTokenInvariants.CRCL_WRAPPED_TOKEN_VAULT,
-            "tCRCL",
-            "wtCRCL"
-        );
-    }
-
-    function testNvdaTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.NVDA_RECEIPT,
-            LibTokenInvariants.NVDA_RECEIPT_VAULT,
-            LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT,
-            "tNVDA",
-            "wtNVDA"
-        );
-    }
-
-    function testIauTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.IAU_RECEIPT,
-            LibTokenInvariants.IAU_RECEIPT_VAULT,
-            LibTokenInvariants.IAU_WRAPPED_TOKEN_VAULT,
-            "tIAU",
-            "wtIAU"
-        );
-    }
-
-    function testPpltTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.PPLT_RECEIPT,
-            LibTokenInvariants.PPLT_RECEIPT_VAULT,
-            LibTokenInvariants.PPLT_WRAPPED_TOKEN_VAULT,
-            "tPPLT",
-            "wtPPLT"
-        );
-    }
-
-    function testAmznTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.AMZN_RECEIPT,
-            LibTokenInvariants.AMZN_RECEIPT_VAULT,
-            LibTokenInvariants.AMZN_WRAPPED_TOKEN_VAULT,
-            "tAMZN",
-            "wtAMZN"
-        );
-    }
-
-    function testBmnrTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.BMNR_RECEIPT,
-            LibTokenInvariants.BMNR_RECEIPT_VAULT,
-            LibTokenInvariants.BMNR_WRAPPED_TOKEN_VAULT,
-            "tBMNR",
-            "wtBMNR"
-        );
-    }
-
-    function testIbhgTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.IBHG_RECEIPT,
-            LibTokenInvariants.IBHG_RECEIPT_VAULT,
-            LibTokenInvariants.IBHG_WRAPPED_TOKEN_VAULT,
-            "tIBHG",
-            "wtIBHG"
-        );
-    }
-
-    function testSgovTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.SGOV_RECEIPT,
-            LibTokenInvariants.SGOV_RECEIPT_VAULT,
-            LibTokenInvariants.SGOV_WRAPPED_TOKEN_VAULT,
-            "tSGOV",
-            "wtSGOV"
-        );
-    }
-
-    function testQqqmTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.QQQM_RECEIPT,
-            LibTokenInvariants.QQQM_RECEIPT_VAULT,
-            LibTokenInvariants.QQQM_WRAPPED_TOKEN_VAULT,
-            "tQQQM",
-            "wtQQQM"
-        );
-    }
-
-    function testVwoTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.VWO_RECEIPT,
-            LibTokenInvariants.VWO_RECEIPT_VAULT,
-            LibTokenInvariants.VWO_WRAPPED_TOKEN_VAULT,
-            "tVWO",
-            "wtVWO"
-        );
-    }
-
-    function testArkkTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.ARKK_RECEIPT,
-            LibTokenInvariants.ARKK_RECEIPT_VAULT,
-            LibTokenInvariants.ARKK_WRAPPED_TOKEN_VAULT,
-            "tARKK",
-            "wtARKK"
-        );
-    }
-
-    function testSpcxTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.SPCX_RECEIPT,
-            LibTokenInvariants.SPCX_RECEIPT_VAULT,
-            LibTokenInvariants.SPCX_WRAPPED_TOKEN_VAULT,
-            "tSPCX",
-            "wtSPCX"
-        );
-    }
-
-    function testCegTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.CEG_RECEIPT,
-            LibTokenInvariants.CEG_RECEIPT_VAULT,
-            LibTokenInvariants.CEG_WRAPPED_TOKEN_VAULT,
-            "tCEG",
-            "wtCEG"
-        );
-    }
-
-    function testDramTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.DRAM_RECEIPT,
-            LibTokenInvariants.DRAM_RECEIPT_VAULT,
-            LibTokenInvariants.DRAM_WRAPPED_TOKEN_VAULT,
-            "tDRAM",
-            "wtDRAM"
-        );
-    }
-
-    function testTsmTokenSetOnBase() external {
-        LibTestProd.createSelectForkBase(vm);
-        checkTokenSet(
-            LibTokenInvariants.TSM_RECEIPT,
-            LibTokenInvariants.TSM_RECEIPT_VAULT,
-            LibTokenInvariants.TSM_WRAPPED_TOKEN_VAULT,
-            "tTSM",
-            "wtTSM"
+        vm.etch(LibProdDeployV1.STOX_UNIFIED_DEPLOYER, hex"00");
+        assertNotEq(
+            keccak256(LibProdDeployV1.STOX_UNIFIED_DEPLOYER.code),
+            LibProdDeployV1.PROD_STOX_UNIFIED_DEPLOYER_BASE_CODEHASH_V1,
+            "swapped bytecode must not match the pinned codehash"
         );
     }
 }
