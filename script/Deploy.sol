@@ -24,6 +24,7 @@ error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
+error WrapperBeaconMismatch(address bound, address expected);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
 error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 
@@ -57,6 +58,7 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         } else {
             checkTokenSuite(name, LibProdTokenConfig.productionTokenConfigs());
             checkTokenSuite(name, LibProdTokenConfig.testTokenConfigs());
+            checkWrapperSuite(name, LibProdTokenConfig.testTokenConfigs());
         }
     }
 
@@ -66,6 +68,22 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
                 checkToken(configs[i].region);
                 return;
             }
+        }
+    }
+
+    function checkWrapperSuite(bytes32 name, TokenConfig[] memory configs) internal view {
+        for (uint256 i = 0; i < configs.length; i++) {
+            if (name == keccak256(bytes(string.concat(TOKEN_PREFIX, lowercase(configs[i].symbol), WRAPPER_SUFFIX)))) {
+                checkWrapper();
+                return;
+            }
+        }
+    }
+
+    function checkWrapper() internal view {
+        address wrapperBeacon = boundAddress(LibStoxConfig.WRAPPER_BEACON_NAME);
+        if (wrapperBeacon != LibProdTokenTargets.wrapperBeacon()) {
+            revert WrapperBeaconMismatch(wrapperBeacon, LibProdTokenTargets.wrapperBeacon());
         }
     }
 
