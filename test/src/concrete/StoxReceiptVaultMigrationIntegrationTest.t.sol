@@ -314,9 +314,10 @@ contract StoxReceiptVaultMigrationIntegrationTest is Test {
         for (uint256 i = 0; i < logs.length; i++) {
             if (logs[i].topics.length > 0 && logs[i].topics[0] == keccak256("Transfer(address,address,uint256)")) {
                 transferIdx = i;
+                break;
             }
         }
-        assertLt(bobIdx, transferIdx, "both AccountMigrated precede Transfer");
+        assertLt(bobIdx, transferIdx, "both AccountMigrated precede the first Transfer");
     }
 
     /// Global invariant: across a random balance and a random sequence of
