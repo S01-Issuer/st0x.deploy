@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS
@@ -79,7 +80,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
             RegistryBeaconProxyTarget memory target = targetOf(suite);
             assertEq(target.factory, CLONE_FACTORY_V8_ADDRESS, tokens[i].key);
             assertEq(target.registry, CONFIG_REGISTRY_ADDRESS, tokens[i].key);
-            assertEq(target.authority, LibStoxConfig.ROOT_AUTHORITY, tokens[i].key);
+            assertEq(target.authority, LibRegistryAuthority.ROOT_AUTHORITY, tokens[i].key);
             assertEq(target.beaconName, LibStoxConfig.VAULT_BEACON_NAME, tokens[i].key);
             assertEq(target.beacon, V4.STOX_RECEIPT_VAULT_BEACON_CANDIDATE, tokens[i].key);
         }
@@ -95,7 +96,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
             RegistryBeaconProxyTarget memory target = targetOf(wrapper);
             assertEq(target.factory, CLONE_FACTORY_V8_ADDRESS, wrapper.suite);
             assertEq(target.registry, CONFIG_REGISTRY_ADDRESS, wrapper.suite);
-            assertEq(target.authority, LibStoxConfig.ROOT_AUTHORITY, wrapper.suite);
+            assertEq(target.authority, LibRegistryAuthority.ROOT_AUTHORITY, wrapper.suite);
             assertEq(target.beaconName, LibStoxConfig.WRAPPER_BEACON_NAME, wrapper.suite);
             assertEq(target.beacon, V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE, wrapper.suite);
             assertEq(target.data, abi.encode(token.storedDeployedAddress), wrapper.suite);
@@ -149,7 +150,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
         address wrapperBeacon = LibRainDeploy.deployZoltu(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_CANDIDATE);
         assertEq(wrapperBeacon, V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CANDIDATE, "wrapper beacon");
         LibTestDeploy.bind(
-            vm, LibStoxConfig.ROOT_AUTHORITY, LibStoxConfig.WRAPPER_BEACON_NAME, "address", abi.encode(wrapperBeacon)
+            vm, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.WRAPPER_BEACON_NAME, "address", abi.encode(wrapperBeacon)
         );
         return (usAuthorizer, euAuthorizer);
     }
@@ -183,7 +184,7 @@ contract StoxDeploySuitesTestTokenSuitesTest is Test, StoxDeploySuites {
             ICloneableFactoryV7(CLONE_FACTORY_V8_ADDRESS)
                 .predictRegistryBeaconProxyAddress(
                     CONFIG_REGISTRY_ADDRESS,
-                    LibStoxConfig.ROOT_AUTHORITY,
+                    LibRegistryAuthority.ROOT_AUTHORITY,
                     LibStoxConfig.RECEIPT_BEACON_NAME,
                     abi.encode(address(token)),
                     bytes32(0)
