@@ -4,11 +4,11 @@ pragma solidity ^0.8.25;
 
 import {DeployDependency} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
-import {RegistryBeaconProxyTarget} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {RegistryBeaconProxyParams} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
@@ -16,18 +16,18 @@ import {
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "./LibProdTokenConfig.sol";
 
-library LibProdTokenTargets {
-    function tokenTargets() internal pure returns (RegistryBeaconProxyTarget[] memory) {
+library LibProdTokenParams {
+    function tokenParams() internal pure returns (RegistryBeaconProxyParams[] memory) {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = new RegistryBeaconProxyTarget[](configs.length);
+        RegistryBeaconProxyParams[] memory params = new RegistryBeaconProxyParams[](configs.length);
         address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
-            targets[i] = RegistryBeaconProxyTarget({
+            params[i] = RegistryBeaconProxyParams({
                 factory: CLONE_FACTORY_V8_ADDRESS,
                 registry: CONFIG_REGISTRY_ADDRESS,
                 authority: LibRegistryAuthority.ROOT_AUTHORITY,
@@ -37,7 +37,7 @@ library LibProdTokenTargets {
                 salt: keccak256(bytes(configs[i].underlying))
             });
         }
-        return targets;
+        return params;
     }
 
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {

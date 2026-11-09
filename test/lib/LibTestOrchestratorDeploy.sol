@@ -7,11 +7,11 @@ import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
-    RegistryBeaconProxyTarget
-} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+    RegistryBeaconProxyParams
+} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.6/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
 
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibProdOrchestratorParams} from "../../src/lib/LibProdOrchestratorParams.sol";
@@ -41,7 +41,7 @@ library LibTestOrchestratorDeploy {
     /// The root authority binds the beacon name to the deployed beacon, then
     /// `deployer` runs the production deploy step of the orchestrator params.
     function deployInstance(Vm vm, address deployer) internal returns (address) {
-        RegistryBeaconProxyTarget memory params = LibProdOrchestratorParams.orchestratorParams();
+        RegistryBeaconProxyParams memory params = LibProdOrchestratorParams.orchestratorParams();
         vm.etch(params.factory, CLONE_FACTORY_RUNTIME_CODE);
         LibTestDeploy.bind(
             vm,

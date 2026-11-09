@@ -7,20 +7,20 @@ import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/Ra
 import {
     LibRainDeployCloneMechanism,
     REGISTRY_BEACON_PROXY_MECHANISM
-} from "rain-factory-0.2.10/src/lib/LibRainDeployCloneMechanism.sol";
-import {RegistryBeaconProxyTarget} from "rain-factory-0.2.10/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVaultConfigV3} from "rain-vats-0.2.18/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
+import {RegistryBeaconProxyParams} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVaultConfigV3} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
-import {LibProdTokenTargets} from "../../../src/lib/LibProdTokenTargets.sol";
+import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
 
 /// @title StoxDeploySuitesTokenSuitesTest
 /// @notice Every production token is exactly one declared registry beacon proxy suite, keyed by its symbol, deploying
-/// the target its underlying salts, and landing at its stored address with its stored runtime code.
+/// the params its underlying salts, and landing at its stored address with its stored runtime code.
 contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     address internal constant US_OWNER = address(uint160(uint256(keccak256("st0x.test.token-suites.us-owner"))));
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.token-suites.eu-owner"))));
@@ -53,9 +53,9 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             && keccak256(bytes(suite.suite)) != keccak256(bytes(ORCHESTRATOR_PROXY));
     }
 
-    /// @return The index of the one config whose underlying salts `suite`'s target.
+    /// @return The index of the one config whose underlying salts `suite`'s params.
     function configIndexOf(TokenConfig[] memory configs, DeploySuite memory suite) internal pure returns (uint256) {
-        bytes32 salt = LibRainDeployCloneMechanism.registryBeaconProxyTarget(suite).salt;
+        bytes32 salt = LibRainDeployCloneMechanism.registryBeaconProxyParams(suite).salt;
         uint256 matches = 0;
         uint256 index = 0;
         for (uint256 j = 0; j < configs.length; j++) {
@@ -85,18 +85,19 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     function testEachTokenSuiteIsKeyedByAndDeploysItsUnderlyingsToken() external view {
         DeploySuite[] memory suites = declaredTokenSuites(declaration());
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyTarget[] memory targets = LibProdTokenTargets.tokenTargets();
+        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams();
         for (uint256 i = 0; i < suites.length; i++) {
             uint256 j = configIndexOf(configs, suites[i]);
-            RegistryBeaconProxyTarget memory target = LibRainDeployCloneMechanism.registryBeaconProxyTarget(suites[i]);
+            RegistryBeaconProxyParams memory suiteParams =
+                LibRainDeployCloneMechanism.registryBeaconProxyParams(suites[i]);
             assertEq(
                 vm.toLowercase(suites[i].suite),
                 vm.toLowercase(string.concat(TOKEN_PREFIX, configs[j].symbol)),
                 configs[j].underlying
             );
-            assertEq(abi.encode(target), abi.encode(targets[j]), configs[j].underlying);
+            assertEq(abi.encode(suiteParams), abi.encode(params[j]), configs[j].underlying);
             (, OffchainAssetReceiptVaultConfigV3 memory config) =
-                abi.decode(target.data, (bytes32, OffchainAssetReceiptVaultConfigV3));
+                abi.decode(suiteParams.data, (bytes32, OffchainAssetReceiptVaultConfigV3));
             assertEq(config.symbol, configs[j].symbol, configs[j].underlying);
             assertEq(config.name, configs[j].name, configs[j].underlying);
         }
@@ -109,7 +110,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         DeploySuite[] memory suites = declaredTokenSuites(declared);
         for (uint256 i = 0; i < suites.length; i++) {
             assertEq(
-                LibRainDeployCloneMechanism.registryBeaconProxyTarget(suites[i]).beacon,
+                LibRainDeployCloneMechanism.registryBeaconProxyParams(suites[i]).beacon,
                 beacon.storedDeployedAddress,
                 suites[i].suite
             );
