@@ -21,6 +21,10 @@ import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
 } from "rain-tofu-erc20-decimals-deploy-0.1.4/src/generated/0_1_0/TOFUTokenDecimals.sol";
+import {
+    DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
+    BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
+} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
@@ -37,6 +41,7 @@ import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
+import {ST0xOrchestratorBeacon} from "../../../src/concrete/ST0xOrchestratorBeacon.sol";
 import {St0xAttestSubParser} from "../../../src/concrete/St0xAttestSubParser.sol";
 import {StoxGovernanceTimelock} from "../../../src/concrete/StoxGovernanceTimelock.sol";
 
@@ -69,6 +74,7 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
             return type(StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1).creationCode;
         }
         if (key == keccak256(bytes(ORCHESTRATOR))) return type(ST0xOrchestrator).creationCode;
+        if (key == keccak256(bytes(ORCHESTRATOR_BEACON))) return type(ST0xOrchestratorBeacon).creationCode;
         if (key == keccak256(bytes(ATTEST_SUB_PARSER))) return type(St0xAttestSubParser).creationCode;
         if (key == keccak256(bytes(GOVERNANCE_TIMELOCK))) return type(StoxGovernanceTimelock).creationCode;
         revert(string.concat("no source for suite: ", suite));

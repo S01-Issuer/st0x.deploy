@@ -29,6 +29,9 @@ library LibStoxConfig {
     /// production tokens initialize with.
     bytes32 internal constant RBAC_EU_NAME = keccak256("st0x.rbac.eu.v1");
 
+    /// @notice `abi.encode(address)`: the orchestrator's beacon.
+    bytes32 internal constant ORCHESTRATOR_BEACON_NAME = keccak256("st0x.orchestrator-beacon.v2");
+
     /// @notice `abi.encode(address)`: the initial owner every st0x beacon is
     /// constructed with, read once in its constructor; ownership moves on-chain
     /// after.
