@@ -116,16 +116,25 @@ abstract contract RootLineRecordScriptTest is Test {
         sScript.callPreflight();
     }
 
-    function testPreflightRefusesALineMovedPastItsOnto(bytes32 next) external {
-        assumeUnrecorded(next);
+    function assertPreflightRefusesTheLineMovedTo(bytes32 next, bytes memory refusal) internal {
         sScript.callPreflight();
         LibTestRootLine.write(vm, safeAddress(), next, declaredOnto());
-        vm.expectRevert(
+        vm.expectRevert(refusal);
+        sScript.callPreflight();
+    }
+
+    function testPreflightRefusesALineMovedPastItsOnto(bytes32 next) external {
+        assumeUnrecorded(next);
+        assertPreflightRefusesTheLineMovedTo(
+            next,
             next == declaredId()
                 ? ownRecordPreflightRefusal()
                 : abi.encodeWithSelector(UnexpectedMigrationLine.selector, next)
         );
-        sScript.callPreflight();
+    }
+
+    function testPreflightRefusesTheLineAtItsOwnRecord() external {
+        assertPreflightRefusesTheLineMovedTo(declaredId(), ownRecordPreflightRefusal());
     }
 
     function testPreflightRefusesASafeTheRootDoesNotApprove() external {
