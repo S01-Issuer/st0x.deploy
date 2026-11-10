@@ -66,8 +66,12 @@ contract BindOrchestratorConfigRootLineTest is RootLineRecordScriptTest {
     }
 
     function bind(bytes32 name, address value) internal {
+        bindAs(name, "address", value);
+    }
+
+    function bindAs(bytes32 name, string memory valueType, address value) internal {
         vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
-        CONFIG_REGISTRY.registerV5(LibRegistryAuthority.ROOT_AUTHORITY, name, "address", abi.encode(value), "");
+        CONFIG_REGISTRY.registerV5(LibRegistryAuthority.ROOT_AUTHORITY, name, valueType, abi.encode(value), "");
     }
 
     function executeProvenBundle() internal {
@@ -102,6 +106,37 @@ contract BindOrchestratorConfigRootLineTest is RootLineRecordScriptTest {
                 OrchestratorConfigBindingMismatch.selector,
                 LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME,
                 abi.encode(other),
+                block.timestamp
+            )
+        );
+        sScript.callAssertPostState();
+    }
+
+    function testPostStateRefusesTheBeaconBoundAsAnotherType() external {
+        executeProvenBundle();
+        vm.warp(block.timestamp + 1);
+        bindAs(LibStoxConfig.ORCHESTRATOR_BEACON_NAME, "uint256", beacon());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OrchestratorConfigBindingMismatch.selector,
+                LibStoxConfig.ORCHESTRATOR_BEACON_NAME,
+                abi.encode(beacon()),
+                block.timestamp
+            )
+        );
+        sScript.callAssertPostState();
+    }
+
+    function testPostStateRefusesTheInitialAdminBoundAsAnotherType() external {
+        executeProvenBundle();
+        vm.warp(block.timestamp + 1);
+        bind(LibStoxConfig.ORCHESTRATOR_BEACON_NAME, beacon());
+        bindAs(LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, "uint256", LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OrchestratorConfigBindingMismatch.selector,
+                LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME,
+                abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK),
                 block.timestamp
             )
         );
