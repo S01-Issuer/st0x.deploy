@@ -291,23 +291,23 @@
       "chains": {
         "1": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x93bff861e3ae62b31d3ac93b3e078cfabcd27dc31f0d65abc43959c4e9784b0d"
         },
         "4663": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x93bff861e3ae62b31d3ac93b3e078cfabcd27dc31f0d65abc43959c4e9784b0d"
         },
         "56": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x93bff861e3ae62b31d3ac93b3e078cfabcd27dc31f0d65abc43959c4e9784b0d"
         },
         "8453": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x93bff861e3ae62b31d3ac93b3e078cfabcd27dc31f0d65abc43959c4e9784b0d"
         },
         "999": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x93bff861e3ae62b31d3ac93b3e078cfabcd27dc31f0d65abc43959c4e9784b0d"
         }
       },
       "id": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6",
@@ -390,6 +390,32 @@
       },
       "id": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070",
       "script": "script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        }
+      },
+      "id": "0x93bff861e3ae62b31d3ac93b3e078cfabcd27dc31f0d65abc43959c4e9784b0d",
+      "script": "script/20261110-bind-orchestrator-config.s.sol"
     }
   ],
   "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
