@@ -127,7 +127,14 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE,
                 V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
                 FACET_PATH,
-                one(TOFU_DECIMALS_ADDRESS, TOFU_DECIMALS_RUNTIME_CODE)
+                three(
+                    TOFU_DECIMALS_ADDRESS,
+                    TOFU_DECIMALS_RUNTIME_CODE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    V4.STOX_GOVERNANCE_TIMELOCK_CANDIDATE,
+                    V4.STOX_GOVERNANCE_TIMELOCK_RUNTIME_CODE_CANDIDATE
+                )
             )
         );
         candidates[1] = anchored(

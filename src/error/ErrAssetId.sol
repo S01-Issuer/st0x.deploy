@@ -18,8 +18,8 @@ error AssetIdAlreadySet();
 /// Thrown when `initializeAssetId` runs outside the vault's `initialize`.
 error AssetIdNotInitializing();
 
-/// Thrown when a vault is initialized with a non-empty name; the owner sets it with `setUnderlying`.
+/// Thrown when a vault is initialized with a non-empty name; it is named later with `nameListing` or `setUnderlying`.
 error NonEmptyInitialName();
 
-/// Thrown when a vault is initialized with a non-empty symbol; the owner sets it with `setUnderlying`.
+/// Thrown when a vault is initialized with a non-empty symbol; it is named later with `nameListing` or `setUnderlying`.
 error NonEmptyInitialSymbol();
