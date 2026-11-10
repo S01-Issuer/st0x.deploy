@@ -590,8 +590,8 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
 
     /// @notice The beacon batch's execution proof refuses a live vault that
     /// reports an asset id, one whose `initializeAssetId` does not refuse with
-    /// `AssetIdNotInitializing`, and a wrapper whose name moved across the
-    /// upgrade.
+    /// `AssetIdNotInitializing`, and any of the four metadata values that moved
+    /// across the upgrade, a row the rename skips included.
     function testBeaconProofRefusesEachBrokenUpgrade() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         advanceRootLineToBeaconSchedule();
@@ -614,6 +614,13 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         vm.revertToState(snapshot);
         vm.clearMockedCalls();
 
+        bytes memory guardWord = abi.encodeWithSelector(AssetIdNotInitializing.selector);
+        vm.mockCall(vault, abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))), guardWord);
+        vm.expectRevert(abi.encodeWithSelector(UpgradedVaultMissingAssetIdHook.selector, vault, guardWord));
+        beacons.callProveExecution();
+        vm.revertToState(snapshot);
+        vm.clearMockedCalls();
+
         bytes memory otherError = abi.encodeWithSignature("Error(string)", "no hook");
         vm.mockCallRevert(vault, abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))), otherError);
         vm.expectRevert(abi.encodeWithSelector(UpgradedVaultMissingAssetIdHook.selector, vault, otherError));
@@ -621,23 +628,23 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         vm.revertToState(snapshot);
         vm.clearMockedCalls();
 
-        // A value read before the batch and another after it: the first wrapper's name, the last vault's symbol.
+        // A value read before the batch and another after it, for each of the four getters.
         bytes[] memory moved = new bytes[](2);
         moved[0] = abi.encode("Before");
         moved[1] = abi.encode("After");
-        vm.mockCalls(first.wrappedTokenVault, abi.encodeWithSignature("name()"), moved);
-        vm.expectRevert(
-            abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, first.wrappedTokenVault, "Before", "After")
-        );
-        beacons.callProveExecution();
-        vm.revertToState(snapshot);
-        vm.clearMockedCalls();
-
-        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
-        address lastVault = chainTokens[chainTokens.length - 1].receiptVault;
-        vm.mockCalls(lastVault, abi.encodeWithSignature("symbol()"), moved);
-        vm.expectRevert(abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, lastVault, "Before", "After"));
-        beacons.callProveExecution();
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(block.chainid);
+        assertGt(table.length, LibUnderlyingNamingRollout.TOKEN_COUNT, "the table has rows the rename skips");
+        TokenInstance memory skipped = table[table.length - 1];
+        address[4] memory targets =
+            [first.receiptVault, first.wrappedTokenVault, skipped.receiptVault, skipped.wrappedTokenVault];
+        string[4] memory getters = ["name()", "symbol()", "symbol()", "name()"];
+        for (uint256 i = 0; i < targets.length; i++) {
+            vm.mockCalls(targets[i], abi.encodeWithSignature(getters[i]), moved);
+            vm.expectRevert(abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, targets[i], "Before", "After"));
+            beacons.callProveExecution();
+            vm.revertToState(snapshot);
+            vm.clearMockedCalls();
+        }
     }
 
     /// @notice The rename pre-flight refuses once the rename is registered.
