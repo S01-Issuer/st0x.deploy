@@ -506,9 +506,13 @@ rows. Once the listing signer is bound on a chain:
    OpenZeppelin's
    `StandardMerkleTree.of(rows, ["address","string","string","string"])`. It
    checks each asset id, ticker and name against the st0x.registry entry of the
-   live token with that asset id, and the five rows sourced from issuers (IBHG,
-   RKLB, BIRD, SNES and DIS) and the two test rows against `LibProdTokenConfig`.
-   It checks each token address by deriving it from the asset id with the token
+   live token with that asset id. It checks the five rows with no ISIN in the
+   st0x.registry Base list (IBHG, RKLB, BIRD, SNES and DIS) against the issuer
+   and exchange sources that `LibProdTokenConfigIsinTest.sourcedIsins` names and
+   against the issuer's current legal name; the IBHG ISIN in the other chains'
+   lists (`US46436E3128`) is not the one to use. The two test rows must read
+   `ST0XTESTUS`, `USTEST`, `US Test` and `ST0XTESTEU`, `EUTEST`, `EU Test`. It
+   checks each token address by deriving it from the asset id with the token
    params, not from the registry, which lists no V6 token before it is named. It
    computes the digest from that root (domain name `ST0x Listing`, version `1`,
    no chain id and no verifying contract; struct `Listing(bytes32 root)`),
@@ -538,9 +542,9 @@ service-signer revoke
 tokens are named from the signed listing, which is no migration. While the
 rollout is in flight (two 48h delays), no other migration can land on that
 chain. The revoke holds the line too, from its schedule record to its execute
-record, and its execute waits for minting and redemption to run through the
-orchestrator, so the Safe schedules the revoke only once that precondition
-holds. An urgent migration in that window needs a new script declared onto the
+record. The Safe schedules it only once the service signer's minting and
+redemption run through the orchestrator, since anyone can execute the matured
+batch. An urgent migration in that window needs a new script declared onto the
 current head, and a reviewed PR that re-declares the remaining naming scripts
 onto it.
 
@@ -551,7 +555,10 @@ on the chain's authoriser and keeps `CERTIFY`. The timelock holds
 `LibServiceSignerRevoke` reconstructs the timelock operation. It runs in this
 order on every chain:
 
-1. Schedule the revoke batch
+1. **Precondition:** do not schedule until the service signer's minting and
+   redemption run through the orchestrator; the scripts do not check it. Once
+   the batch matures anyone can execute it, so holding the execute is no gate.
+   Schedule the revoke batch
    (`20261109-schedule-revoke-service-signer-deposit-withdraw`): one
    `scheduleBatch` of `revokeRole(DEPOSIT, signer)` and
    `revokeRole(WITHDRAW, signer)` on the chain's authoriser, then the Safe's
@@ -561,9 +568,7 @@ order on every chain:
 2. Execute the matured batch with
    `20261109-execute-revoke-service-signer-deposit-withdraw` `execute()` from
    the CI deploy key, then dispatch the same script's `run()` through
-   `run-script` for the record-only Safe bundle. **Precondition:** do not
-   execute until the service signer's minting and redemption run through the
-   orchestrator; the scripts do not check it.
+   `run-script` for the record-only Safe bundle.
 
 ## Invariants
 
