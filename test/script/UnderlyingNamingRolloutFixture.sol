@@ -8,6 +8,8 @@ import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/acce
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
 
 import {ExecuteUnderlyingNaming} from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
@@ -42,6 +44,21 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
         adminMove.callPreflight();
         LibSafeFork.executeBundle(vm, safe, adminMove.callAuthorBundle());
         assertEq(LibStoxMigrations.head(), scheduleUnderlyingNamingBeaconsDeclaration().onto, "line at the beacon onto");
+    }
+
+    /// @notice `run()` authors and proves the bundle on a snapshot, `verify`
+    /// holds the artifact to the live re-derivation, and the artifact is then
+    /// executed by the owners as the Safe UI would.
+    function authorVerifyExecute(address script, string memory artifactPath) internal {
+        uint256 preRun = vm.snapshotState();
+        SafeBundleScript(script).run();
+        vm.revertToState(preRun);
+        SafeBundleScript(script).verify(artifactPath);
+        (, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, vm.readFile(artifactPath));
+        assertEq(artifactSafe, LibSafeInvariants.safeForChainId(block.chainid), "artifact Safe");
+        uint256 gasBefore = gasleft();
+        LibSafeFork.executeBundle(vm, Safe(payable(artifactSafe)), txs);
+        console2.log("Safe bundle execution gas (upper bound, includes signing):", gasBefore - gasleft());
     }
 
     /// @notice Executes `txs[0 .. count)` from the chain's Safe.

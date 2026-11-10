@@ -338,6 +338,58 @@
       },
       "id": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5",
       "script": "script/20261030-backfill-migration-registry-v5.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070"
+        }
+      },
+      "id": "0xf4f523ac3a41a095b384301b2343639f93d5e8230168648efac9fc77fa0797df",
+      "script": "script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        }
+      },
+      "id": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070",
+      "script": "script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol"
     }
   ],
   "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
