@@ -15,8 +15,8 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title OrchestratorAdminToTimelockLocalTest
 /// @notice The move on a local Base whose root line is at the beacon-initial-owner
-/// bind, after the V5 backfill, so it runs whatever the live chains have
-/// recorded.
+/// bind, after the V5 backfill and the orchestrator config bind, so it runs
+/// whatever the live chains have recorded.
 contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, RootLineRecordScriptTest {
     function newScript() internal override returns (IRecordScriptHooks) {
         return IRecordScriptHooks(address(new OrchestratorAdminToTimelockHarness("local")));
@@ -39,14 +39,17 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, R
         LibTestRootLine.write(
             vm, address(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, MIGRATION_HEAD_GENESIS
         );
+        LibTestRootLine.write(
+            vm,
+            address(safe),
+            LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG,
+            LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
+        );
     }
 
     function landOnto() internal override {
         LibTestRootLine.write(
-            vm,
-            address(safe),
-            LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
-            LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
+            vm, address(safe), LibStoxMigrations.BIND_BEACON_INITIAL_OWNER, LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG
         );
     }
 
