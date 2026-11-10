@@ -61,7 +61,8 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// `TokenConfig.underlying` and name from `TokenConfig.underlyingName`. Two
 /// Safe calls: `timelock.scheduleBatch(...)`, with the beacon batch as
 /// predecessor so the timelock refuses to execute the rename first, then the
-/// Safe's root-line record.
+/// Safe's root-line record; or the schedule alone when rescheduling a
+/// cancelled batch.
 ///
 /// **The pre-flight refuses until
 /// `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set**, which
@@ -182,12 +183,11 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert RenameNotPendingInsideDelay(id);
         }
-        // A rescheduling bundle writes no record, so the record predates it.
-        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (record == 0 || record > block.timestamp) {
+        // A first schedule writes the record in this bundle; a reschedule
+        // finds it already on the line.
+        if (LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME) == 0) {
             // forge-lint: disable-next-line(block-timestamp)
-            revert RecordMismatch(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME, block.timestamp, record);
+            revert RecordMismatch(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME, block.timestamp, 0);
         }
         bytes32 lineHead = LibStoxMigrations.head();
         if (lineHead != scheduleUnderlyingNamingRenameDeclaration().id) revert LineHeadMismatch(lineHead);

@@ -354,14 +354,17 @@ sequence on a fork of each chain.
    batch that executes while signatures are collected makes its `cancel` revert
    and rolls back the rename's cancel too. The rollout is halted only once the
    rename operation reads unset. Once the beacon batch is Done, `cancel` reverts
-   on it, so cancel the rename alone. The wrapper keeps its current name and
-   symbol while the vault has no underlying set. The orchestrator's vault-logic
-   lock reads the 0.1.30 beacon-set deployer's beacons, not the in-use ones, so
-   it does not cover this upgrade: minting and burning keep running across it
-   (the Base fork test mints and burns through the live orchestrator after the
-   batch); the orchestrator admin move still comes first on the root line (step
-   0). It also means the lock does not watch the logic production tokens run;
-   pointing it at the in-use beacons is a separate orchestrator change.
+   on it, so cancel the rename alone. If only the beacon batch was cancelled,
+   the pending rename waits for the rescheduled beacon batch, its predecessor,
+   and the execute script waits for it too. The wrapper keeps its current name
+   and symbol while the vault has no underlying set. The orchestrator's
+   vault-logic lock reads the 0.1.30 beacon-set deployer's beacons, not the
+   in-use ones, so it does not cover this upgrade: minting and burning keep
+   running across it (the Base fork test mints and burns through the live
+   orchestrator after the batch); the orchestrator admin move still comes first
+   on the root line (step 0). It also means the lock does not watch the logic
+   production tokens run; pointing it at the in-use beacons is a separate
+   orchestrator change.
 
    The pre-flight also requires each beacon to still serve the implementation
    the batch moves it from (`RECEIPT_VAULT_FROM_IMPLEMENTATION`,

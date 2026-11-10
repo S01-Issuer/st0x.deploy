@@ -908,6 +908,106 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         );
     }
 
+    /// @notice After the Safe cancels only the beacon batch, with the rename
+    /// still pending behind it, the beacon batch is rescheduled with the
+    /// rename's record at the head, in the same block as the original schedule. The
+    /// pending rename waits for it as its predecessor, and the rollout then
+    /// executes.
+    function testCancelledBeaconBatchUnderAPendingRenameIsRescheduled() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("cancel-beacon-only");
+        prepareRename();
+        Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+        LibSafeFork.executeBundle(vm, safe, rename.callAuthorBundle());
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        vm.prank(address(safe));
+        TimelockController(payable(timelock)).cancel(beaconId);
+
+        ScheduleUnderlyingNamingBeaconsHarness beacons =
+            new ScheduleUnderlyingNamingBeaconsHarness("cancel-beacon-only");
+        beacons.callPreflight();
+        SafeTx[] memory txs = beacons.callAuthorBundle();
+        assertEq(txs.length, 1, "beacon schedule only");
+        LibSafeFork.executeBundle(vm, safe, txs);
+        beacons.callAssertPostState();
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME, "line unchanged");
+        assertTrue(TimelockController(payable(timelock)).isOperationPending(renameId), "rename still pending");
+
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        ExecuteUnderlyingNaming execute = new ExecuteUnderlyingNaming();
+        execute.execute();
+        execute.execute();
+        rename.callAssertRenamed(block.chainid);
+    }
+
+    /// @notice When the rescheduled beacon batch lands in a later block, the
+    /// pending rename is ready first. The executor refuses it until the beacon
+    /// batch has run, rather than reverting in the timelock, then runs both.
+    function testExecutorWaitsForARescheduledBeaconBatch() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("late-beacon");
+        prepareRename();
+        Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+        LibSafeFork.executeBundle(vm, safe, rename.callAuthorBundle());
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        vm.prank(address(safe));
+        TimelockController(payable(timelock)).cancel(beaconId);
+        vm.warp(vm.getBlockTimestamp() + 1 hours);
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("late-beacon");
+        LibSafeFork.executeBundle(vm, safe, beacons.callAuthorBundle());
+
+        vm.warp(vm.getBlockTimestamp() + LibTimelockInvariants.TIMELOCK_MIN_DELAY - 1 hours);
+        assertTrue(TimelockController(payable(timelock)).isOperationReady(renameId), "rename ready");
+        assertFalse(TimelockController(payable(timelock)).isOperationReady(beaconId), "beacons not ready");
+        ExecuteUnderlyingNaming execute = new ExecuteUnderlyingNaming();
+        vm.expectRevert(
+            abi.encodeWithSelector(NoUnderlyingNamingOperationReady.selector, beaconId, false, renameId, false)
+        );
+        execute.execute();
+
+        vm.warp(vm.getBlockTimestamp() + 1 hours);
+        execute.execute();
+        execute.execute();
+        rename.callAssertRenamed(block.chainid);
+    }
+
+    /// @notice After the beacon batch has executed, the Safe cancels the rename
+    /// in its delay; the rename is rescheduled without a second record and
+    /// then executes.
+    function testCancelledRenameAfterTheBeaconBatchIsRescheduled() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("cancel-rename-only");
+        prepareRename();
+        Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        ExecuteUnderlyingNaming execute = new ExecuteUnderlyingNaming();
+        execute.execute();
+        LibSafeFork.executeBundle(vm, safe, rename.callAuthorBundle());
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        uint256 recorded = LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
+        vm.prank(address(safe));
+        TimelockController(payable(timelock)).cancel(renameId);
+
+        rename.callPreflight();
+        SafeTx[] memory txs = rename.callAuthorBundle();
+        assertEq(txs.length, 1, "rename schedule only");
+        LibSafeFork.executeBundle(vm, safe, txs);
+        rename.callAssertPostState();
+        assertEq(LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME), recorded, "one record");
+
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        execute.execute();
+        rename.callAssertRenamed(block.chainid);
+    }
+
     /// @notice After the Safe cancels both batches in their delays, the beacon
     /// batch and then the rename batch are rescheduled without new records,
     /// and the rollout then executes and renames every token.
@@ -924,7 +1024,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         TimelockController(payable(timelock)).cancel(renameId);
         TimelockController(payable(timelock)).cancel(beaconId);
         vm.stopPrank();
-        vm.warp(block.timestamp + 1);
 
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("reschedule-both");
         vm.expectRevert(abi.encodeWithSelector(BeaconBatchNotScheduled.selector, beaconId));

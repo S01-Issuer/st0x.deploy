@@ -102,7 +102,8 @@ abstract contract RootLineRecordScriptTest is Test {
         vm.assume(record != bytes32(0) && record != MIGRATION_HEAD_GENESIS && LibStoxMigrations.applied(record) == 0);
     }
 
-    function assumeForeign(bytes32 record) internal view {
+    /// @dev A record the post-state refuses at the head over its own record.
+    function assumeForeign(bytes32 record) internal view virtual {
         assumeUnrecorded(record);
         vm.assume(record != declaredId());
     }
