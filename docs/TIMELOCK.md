@@ -497,9 +497,16 @@ chains added later.
 those rows refuses (`V6ListingMoved`). `script/BuildListing.sol` writes
 `listing.json`, which `Git is clean` checks: the root, the EIP-712 digest to
 sign, and per row the token, asset id, ticker, name, leaf, proof and the factory
-call that deploys the token (`deployTo`, `deployData`). A row added later goes
-into a new listing root with its own signature; the frozen root keeps naming its
-rows. Once the listing signer is bound on a chain:
+call that deploys the token (`deployTo`, `deployData`). A row added later also
+adds its wrapper pin in `LibProdTokenParamsAddressesTest`, checked by calling
+`predictRegistryBeaconProxyAddress` on a chain, on the clone factory at the
+row's `deployTo` in `listing.json`, with the ConfigRegistry, the root authority,
+the `bytes32` `LibStoxConfig.WRAPPER_BEACON_NAME` (that is,
+`keccak256("st0x.wrapper-beacon.v1")`), `abi.encode(token)` of the row's
+`listing.json` token, and the salt `keccak256(bytes(assetId))` (an existing pin
+is never edited to match a new derivation), and goes into a new listing root
+with its own signature; the frozen root keeps naming its rows. Once the listing
+signer is bound on a chain:
 
 1. Signing, once for every chain: the signer maps each row of `listing.json` to
    `[token, assetId, ticker, name]`, in that order, and rebuilds the root with
