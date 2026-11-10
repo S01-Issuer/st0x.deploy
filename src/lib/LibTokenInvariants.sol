@@ -543,6 +543,22 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x5ED9f297f10e2b72950F5abc2c2B770ee831805b
     address internal constant TPRO_WRAPPED_TOKEN_VAULT = address(0x5ED9f297f10e2b72950F5abc2c2B770ee831805b);
 
+    // ---- tQSEP / wtQSEP — QS Energy Inc ST0x ----
+    // Deliberately NOT a `productionTokensBase()` row. tQSEP is a Base-only,
+    // non-traded token on the shared receipt-vault beacon that never entered
+    // the token table, so every table-driven migration skipped it: both
+    // authoriser swaps left its vault on the V3 clone, and the timelock
+    // migration left its `owner()` on the token-owner Safe. A table row would
+    // make the cross-chain deploy treat tQSEP as missing on every other
+    // chain. Its expected authoriser is `LibAuthoriserInvariants
+    // .STOX_PROD_AUTHORISER`, once the Safe calls `setAuthorizer` on the vault.
+    /// https://basescan.org/address/0x311aA382B864799b3dE5C69478f841229D353B78
+    address internal constant QSEP_RECEIPT = address(0x311aA382B864799b3dE5C69478f841229D353B78);
+    /// https://basescan.org/address/0x4A9a9FC94a507559481270d0BFf3315Ab92Fcefa
+    address internal constant QSEP_RECEIPT_VAULT = address(0x4A9a9FC94a507559481270d0BFf3315Ab92Fcefa);
+    /// https://basescan.org/address/0x849E389982209F901B7B9ffCA57ae4c9EeB11c0d
+    address internal constant QSEP_WRAPPED_TOKEN_VAULT = address(0x849E389982209F901B7B9ffCA57ae4c9EeB11c0d);
+
     /// @notice Returns the production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
