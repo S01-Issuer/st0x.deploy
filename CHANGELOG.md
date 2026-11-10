@@ -117,9 +117,16 @@
   `keccak256(assetId)`. Suite keys stay `stox-token-` + lowercase symbol; a
   released row's symbol never changes, and the released keys are pinned.
 - **`Deploy.preDeployCheck` refuses a token suite unless the bound vault beacon
-  serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`**
-  (`BeaconImplementationMismatch`, or `VaultBeaconNotDeployed` when the bound
-  beacon has no code). A token's address commits to the beacon name, not the
+  serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`, and the vault and receipt
+  beacons (and, for a wrapper suite, the wrapper beacon) are owned by the
+  governance timelock** (`LibBeaconInvariants.assertBeaconInvariants`:
+  `BeaconOwnerMismatch`, `BeaconImplementationMismatch`, and for the receipt
+  beacon also `BeaconNotDeployed` and `BeaconCodehashMismatch`). The vault and
+  wrapper beacons are suite dependencies, so the broadcaster's dependency check
+  (`MissingDependency`, `DependencyChanged`) refuses them with no code or other
+  code before the pre-flight runs; the receipt beacon is not, so the pre-flight
+  checks its code itself. A wrapper suite also requires the governance timelock
+  in its pinned state. A token's address commits to the beacon name, not the
   implementation, so a token deployed through a beacon serving a hook-less
   implementation would never get an asset id.
 - **`Deploy.preDeployCheck` refuses a beacon or token suite unless the
