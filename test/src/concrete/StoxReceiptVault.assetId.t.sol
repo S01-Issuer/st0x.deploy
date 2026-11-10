@@ -43,6 +43,7 @@ import {MockERC20} from "../../concrete/MockERC20.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {ReentrantAssetIdReceipt} from "../../concrete/ReentrantAssetIdReceipt.sol";
 import {HooklessStoxReceiptVault} from "../../concrete/HooklessStoxReceiptVault.sol";
+import {MovedFacetStoxReceiptVault} from "../../concrete/MovedFacetStoxReceiptVault.sol";
 
 /// @title StoxReceiptVaultAssetIdTest
 /// @notice A vault is initialized with an empty name and symbol and an asset id in its metadata, which it stores once
@@ -278,6 +279,44 @@ contract StoxReceiptVaultAssetIdTest is Test {
         StoxReceiptVault vault = uninitialized();
         vm.expectRevert(AssetIdAlreadySet.selector);
         vault.initialize(data("", "", LibAssetId.encodeMetadata(ASSET_ID)));
+    }
+
+    /// A vault keeps its asset id, underlying and ERC-20 name and symbol across an upgrade of its beacon to an
+    /// implementation whose fallback reads the asset id and underlying through a facet at another address, and back.
+    function testAssetIdSurvivesABeaconUpgrade() external {
+        StoxReceiptVault vault =
+            LibTestDeploy.newVault(AUTHORITY, LibTestDeploy.vaultData(ASSET_ID, AUTHORITY, RBAC_NAME));
+        vm.prank(OWNER);
+        IStoxUnderlyingV1(address(vault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
+        bytes memory facetCode = facet.code;
+        address other = address(new MovedFacetStoxReceiptVault(address(new StoxCorporateActionsFacet())));
+        upgradeVaultBeacon(other);
+        assertEq(UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(), other, "upgraded");
+        // The pinned facet is gone, so the asset id and underlying can only come through the other facet; the ERC-20
+        // name and symbol are the vault's own storage.
+        vm.etch(facet, "");
+        assertEq(IStoxAssetIdV1(address(vault)).assetId(), ASSET_ID, "asset id through the other facet");
+        assertEq(IStoxUnderlyingV1(address(vault)).underlyingSymbol(), "NVDA", "underlying through the other facet");
+        assertEq(
+            IStoxUnderlyingV1(address(vault)).underlyingName(),
+            "NVIDIA Corporation",
+            "underlying name through the other facet"
+        );
+        assertEq(vault.symbol(), "tNVDA", "symbol on the other implementation");
+        assertEq(vault.name(), "NVIDIA Corporation (ST0x)", "name on the other implementation");
+
+        vm.etch(facet, facetCode);
+        upgradeVaultBeacon(LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE);
+        assertEq(
+            UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE,
+            "upgraded back"
+        );
+        assertEq(IStoxAssetIdV1(address(vault)).assetId(), ASSET_ID, "asset id after the upgrade back");
+        assertEq(IStoxUnderlyingV1(address(vault)).underlyingSymbol(), "NVDA", "underlying after the upgrade back");
+        assertEq(vault.symbol(), "tNVDA", "symbol after the upgrade back");
+        assertEq(vault.name(), "NVIDIA Corporation (ST0x)", "name after the upgrade back");
     }
 
     /// A vault initialized named by an implementation without the hook reports no asset id after the upgrade to the
