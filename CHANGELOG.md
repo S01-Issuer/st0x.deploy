@@ -1,5 +1,51 @@
 # Changelog
 
+## Signed listing (RAI-4373)
+
+### StoxCorporateActionsFacet
+
+- **`IStoxListingV1.nameListing`: anyone first-names an unnamed V6 token.** The
+  caller passes the token's asset id, ticker and underlying name, a Merkle
+  proof, a listing root and a signature over the root. The facet reverts unless
+  the token has that asset id (`ListingTokenHasNoAssetId`,
+  `ListingAssetIdMismatch`) and no underlying ticker or name
+  (`ListingAlreadyNamed`), the leaf of `address(this)` and the three fields is
+  in the root (`ListingProofInvalid`), and the bound listing signer signed the
+  root (`ListingSignerMismatch`, OpenZeppelin's `ECDSAInvalidSignature*`). It
+  then writes the names as `setUnderlying` does and emits `ListingNamed`. After
+  that only the owner renames, with `setUnderlying`. Errors are in
+  `src/error/ErrListing.sol`.
+- **The signed message holds on every chain.** `LibListing.digest(root)` is
+  EIP-712 over `Listing(bytes32 root)` in the domain with name `ST0x Listing`
+  and version `1`, with no chain id and no verifying contract. A V6 token's
+  address is the same on every chain, so one signature names the same token on
+  every chain, including chains added later. The leaf binds the token address,
+  so a look-alike vault with the same asset id is never named from a listing.
+- **The signer is bound under the governance timelock.** `nameListing` reads
+  `st0x.listing-signer.v1` from the `ConfigRegistry` under
+  `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` at every call, so every bind
+  and rebind of the signer is a timelock operation with the 48h delay. An
+  unbound, mistyped or malformed binding reverts (`NameNotRegistered`,
+  `ValueTypeMismatch`, `ListingSignerBindingMalformed`).
+- **The facet suite depends on the `ConfigRegistry` and the governance
+  timelock**, which its code embeds, so both must be on a chain before it.
+- **Size.** The facet is 15,868 bytes. The vault does not change size: its
+  fallback routes `nameListing` to the facet.
+
+### Off-chain listing
+
+- **`LibListingTree`** builds a listing off-chain exactly as OpenZeppelin's
+  `StandardMerkleTree.of(rows, ["address","string","string","string"])`, from
+  the token table's V6 rows: ticker = `underlying`, name = `underlyingName`. It
+  is never linked into a deployed contract.
+- **Pins moved:** facet `0x567cA22C1c8f4F070000F307Dfcaae0A96376Ba8`, receipt
+  vault `0xA19377fb7e99D306CEa06f258C633453651a9054`, receipt-vault beacon
+  `0x53f9cE6C82Ce7B7DBefC7164c9401Bd339D4577B`, orchestrator
+  `0x356B4C54B17fe4a6af574ACF8C14b0675Faa98ea`, orchestrator beacon
+  `0x3FD0E23c19F511093a59d60B08116cb3DC27bacd`, and the token and orchestrator
+  proxy runtime code that embeds the beacons. Token and wrapper addresses do not
+  move.
+
 ## Asset id and nameless V6 deploy (RAI-4373)
 
 ### StoxReceiptVault
@@ -12,8 +58,9 @@
   the asset id from the config metadata (`LibAssetId.encodeMetadata`, tagged
   `st0x.metadata.asset-id.1`, canonical encoding enforced), and stores it once
   in a new ERC-7201 namespace `rain.storage.asset-id.1`. So a V6 token's address
-  depends only on its asset id, region, authority and beacon names. The owner
-  (the timelock) names the token later with `setUnderlying`.
+  depends only on its asset id, region, authority and beacon names. The token is
+  named later from a signed listing (`nameListing`) or by its owner with
+  `setUnderlying`.
 - **The hook is init-only.** It needs the OZ `_initializing` flag, which only a
   fresh proxy's single `initialize` sets. Live tokens, initialized before the
   hook, report `assetId() == ""` and can never set one. A facet with no code
@@ -43,7 +90,7 @@
   `manual-sol-artifacts` offers only the test-token `stox-token-*` choices.
 - **Test tokens carry asset ids.** `tUSTEST` and `tEUTEST` have the synthetic
   ids `ST0XTESTUS` and `ST0XTESTEU` and an underlying name, so they deploy
-  nameless and `setUnderlying` can name them. Their wrappers are salted by
+  nameless and a listing can name them. Their wrappers are salted by
   `keccak256(assetId)`, like the tokens.
 - **V6 token params are nameless.** `LibProdTokenParams.tokenData` carries an
   empty name and symbol and the asset id as metadata, and the salt is

@@ -35,6 +35,17 @@ import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
 } from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {IStoxAssetIdV1} from "../interface/IStoxAssetIdV1.sol";
+import {IStoxListingV1} from "../interface/IStoxListingV1.sol";
+import {LibListing} from "../lib/LibListing.sol";
+import {
+    ListingAlreadyNamed,
+    ListingAssetIdMismatch,
+    ListingProofInvalid,
+    ListingSignerMismatch,
+    ListingTokenHasNoAssetId
+} from "../error/ErrListing.sol";
+import {ECDSA} from "@openzeppelin-contracts-5.7.0/utils/cryptography/ECDSA.sol";
+import {MerkleProof} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MerkleProof.sol";
 import {LibAssetId, ASSET_ID_INITIALIZED} from "../lib/LibAssetId.sol";
 import {
     AssetIdAlreadySet,
@@ -59,10 +70,17 @@ import {
 /// `rain.storage.corporate-action.1` (see `LibCorporateAction`). The facet
 /// also implements `IStoxUnderlyingV1`, whose ticker and name live at
 /// `rain.storage.underlying.1` (see `LibUnderlying`), and `IStoxAssetIdV1`,
-/// whose asset id lives at `rain.storage.asset-id.1` (see `LibAssetId`). Any
+/// whose asset id lives at `rain.storage.asset-id.1` (see `LibAssetId`), and
+/// `IStoxListingV1`, which first-names a token from a signed listing. Any
 /// future external entry points added here (e.g. list traversal) must also
 /// carry `onlyDelegatecalled`. It inherits `Initializable` only to read the vault's `_isInitializing()`.
-contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IStoxAssetIdV1, Initializable {
+contract StoxCorporateActionsFacet is
+    ICorporateActionsV1,
+    IStoxUnderlyingV1,
+    IStoxAssetIdV1,
+    IStoxListingV1,
+    Initializable
+{
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -251,6 +269,42 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
         if (msg.sender != IOwnable(address(this)).owner()) {
             revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
         }
+        writeUnderlying(newSymbol, newName);
+    }
+
+    /// @inheritdoc IStoxListingV1
+    /// @dev Reverts unless the token has an asset id equal to `listedAssetId` and no underlying ticker or name, the
+    /// leaf of `address(this)` and the listed fields is in `root`, and the bound listing signer signed `root`.
+    function nameListing(
+        string calldata listedAssetId,
+        string calldata newSymbol,
+        string calldata newName,
+        bytes32[] calldata proof,
+        bytes32 root,
+        bytes calldata signature
+    ) external override onlyDelegatecalled {
+        string memory stored = LibAssetId.getStorage().assetId;
+        if (bytes(stored).length == 0) revert ListingTokenHasNoAssetId();
+        if (keccak256(bytes(stored)) != keccak256(bytes(listedAssetId))) {
+            revert ListingAssetIdMismatch(stored, listedAssetId);
+        }
+        LibUnderlying.UnderlyingStorage storage underlyingStorage = LibUnderlying.getStorage();
+        if (bytes(underlyingStorage.symbol).length != 0 || bytes(underlyingStorage.name).length != 0) {
+            revert ListingAlreadyNamed();
+        }
+        bytes32 leaf = LibListing.leaf(address(this), listedAssetId, newSymbol, newName);
+        if (!MerkleProof.verifyCalldata(proof, root, leaf)) revert ListingProofInvalid(leaf, root);
+        address signer = LibListing.signer();
+        address recovered = ECDSA.recoverCalldata(LibListing.digest(root), signature);
+        if (recovered != signer) revert ListingSignerMismatch(recovered, signer);
+        writeUnderlying(newSymbol, newName);
+        emit ListingNamed(msg.sender, root);
+    }
+
+    /// @dev Writes the underlying ticker and name and the vault's ERC-20 `symbol()` / `name()` built from them.
+    /// @param newSymbol The underlying ticker.
+    /// @param newName The underlying name.
+    function writeUnderlying(string calldata newSymbol, string calldata newName) internal {
         if (bytes(newSymbol).length == 0) revert EmptyUnderlyingSymbol();
         if (bytes(newName).length == 0) revert EmptyUnderlyingName();
 
