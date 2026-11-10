@@ -8,28 +8,24 @@ on:
         type: choice
         options:
           # Append-only registry: add new entries at the bottom; never reorder.
-          # Re-dispatching a historical (executed) script must remain possible
-          # — a signer/auditor may want to re-run its pre-flight against
-          # on-chain reality to confirm what landed.
-          #
-          # An entry may be DELETED only when a named successor listed here
-          # covers its pre-flight at least as strongly, and the deleted
-          # script's broadcast run id has been carried into the pin its run
-          # produced. `20261006-deploy-eu-authoriser` was removed under that
-          # rule: its successor is
-          # `manual-sol-artifacts.yaml` suite `stox-eu-assets-authoriser`, and
-          # its run id is pinned beside `STOX_EU_AUTHORISER_CLONE`.
-          #
-          # An entry may also leave when its script is history-only: its
-          # `run()` refuses and the V5 backfill writes its root-line record.
+          # An entry stays after its script has run, so its pre-flight can be
+          # re-run against the chain. It leaves the list only when its script
+          # is history-only (its `run()` refuses and the V5 backfill writes its
+          # root-line record), or when a named successor covers its pre-flight
+          # at least as strongly, its broadcast run id is pinned beside the
+          # address it produced, and its script file is deleted with the entry
+          # (`20261006-deploy-eu-authoriser` left this way:
+          # its successor is the `manual-sol-artifacts.yaml` suite
+          # `stox-eu-assets-authoriser`, run id beside
+          # `STOX_EU_AUTHORISER_CLONE`).
           #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # broadcast script under `script/`. Convention:
           # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
           # added to this dropdown. Whether a script has run is the chain's
-          # record (executed scripts refuse re-dispatch in pre-flight, and
-          # pins record what landed) — this dropdown is a registry of *which*
-          # scripts exist, not *whether* they've run.
+          # record, not this list. `WorkflowChoicesTest` requires every entry
+          # to name a script that is not history-only, and every script to be
+          # listed here, in `run-script.yaml`, or as history-only.
           - 20261021-execute-underlying-naming
           - 20261109-execute-revoke-service-signer-deposit-withdraw
       sig:
