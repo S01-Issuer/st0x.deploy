@@ -60,7 +60,7 @@ contract BuildListing is Script {
     /// @return The JSON.
     function render() public returns (string memory) {
         TokenConfig[] memory configs = LibV6Listing.configs();
-        ListingRow[] memory rows = LibV6Listing.frozen(configs);
+        ListingRow[] memory rows = LibV6Listing.rowsFor(configs);
         string[] memory rendered = new string[](rows.length);
         for (uint256 i = 0; i < rows.length; i++) {
             rendered[i] = rowJson(configs[i], rows, i);

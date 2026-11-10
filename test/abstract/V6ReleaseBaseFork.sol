@@ -157,10 +157,20 @@ abstract contract V6ReleaseBaseFork is Test, StoxDeploySuites {
 
     /// The row's token has its asset id, its listed name and symbol, the timelock as owner and its region's authorizer.
     function assertNamed(TokenConfig memory config, address token) internal view {
+        assertNamedAs(
+            config,
+            ListingRow({token: token, assetId: config.assetId, ticker: config.underlying, name: config.underlyingName})
+        );
+    }
+
+    /// The row's token has the listing row's asset id, ticker and name, the timelock as owner and its region's
+    /// authorizer.
+    function assertNamedAs(TokenConfig memory config, ListingRow memory row) internal view {
+        address token = row.token;
         StoxReceiptVault vault = StoxReceiptVault(payable(token));
-        assertEq(IStoxAssetIdV1(token).assetId(), config.assetId, config.underlying);
-        assertEq(vault.symbol(), config.symbol, config.underlying);
-        assertEq(vault.name(), string.concat(config.underlyingName, ST0X_NAME_SUFFIX), config.underlying);
+        assertEq(IStoxAssetIdV1(token).assetId(), row.assetId, config.underlying);
+        assertEq(vault.symbol(), string.concat("t", row.ticker), config.underlying);
+        assertEq(vault.name(), string.concat(row.name, ST0X_NAME_SUFFIX), config.underlying);
         assertEq(vault.owner(), LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, config.underlying);
         assertEq(
             address(vault.authorizer()),
@@ -198,7 +208,7 @@ abstract contract V6ReleaseBaseFork is Test, StoxDeploySuites {
         assertEq(abi.decode(results[0].returnData, (address)), suite.storedDeployedAddress, config.underlying);
         assertEq(listed[index].token, suite.storedDeployedAddress, config.underlying);
         assertEq(suite.storedDeployedAddress.codehash, suite.storedBytecodeHash, config.underlying);
-        assertNamed(config, suite.storedDeployedAddress);
+        assertNamedAs(config, listed[index]);
         return suite.storedDeployedAddress;
     }
 }
