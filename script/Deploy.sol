@@ -16,16 +16,12 @@ import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
-import {LibProdOrchestratorParams} from "../src/lib/LibProdOrchestratorParams.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
-error OrchestratorBeaconMismatch(address bound, address expected);
-error OrchestratorInitialAdminMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
 error WrapperBeaconMismatch(address bound, address expected);
@@ -58,21 +54,6 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             address bound = LibStoxConfig.beaconInitialOwner();
             if (bound != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
-            }
-        } else if (name == keccak256(bytes(ORCHESTRATOR_PROXY))) {
-            // slither-disable-next-line unused-return
-            (bytes memory value,) = LibConfigRegistry.resolve(
-                LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.ORCHESTRATOR_BEACON_NAME, keccak256("address")
-            );
-            address beacon = abi.decode(value, (address));
-            address expectedBeacon = LibProdOrchestratorParams.orchestratorParams().beacon;
-            if (beacon != expectedBeacon) {
-                revert OrchestratorBeaconMismatch(beacon, expectedBeacon);
-            }
-            address admin = LibStoxConfig.orchestratorInitialAdmin();
-            address expectedAdmin = LibTimelockInvariants.timelockForChainId(block.chainid);
-            if (admin != expectedAdmin) {
-                revert OrchestratorInitialAdminMismatch(admin, expectedAdmin);
             }
         } else {
             checkTokenSuites(name, LibProdTokenConfig.productionTokenConfigs());
