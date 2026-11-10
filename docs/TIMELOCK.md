@@ -493,8 +493,14 @@ chains added later.
   listing.
 
 **The V6 listing.** `LibV6Listing.ROOT` lists the leading 59 production V6 rows
-(`LibV6Listing.ROW_COUNT`) and the two test tokens. It is frozen: an edit to
-those rows refuses (`V6ListingMoved`). `script/BuildListing.sol` writes
+(`LibV6Listing.ROW_COUNT`) and the two test tokens. The rows the signer signs
+are kept as data (`LibV6Listing.signedRows`) and frozen under `ROOT`
+(`V6ListingMoved`). A later rename of a listed issuer in the token table does
+not change them: a frozen row is checked against the evidence from when `ROOT`
+was fixed, not against the current name, and on every chain where `nameListing`
+writes the old name, the timelock then renames the token with `setUnderlying` to
+the table's ticker and name. A table row whose token address or asset id moves
+is refused (`V6ListingTokenMoved`). `script/BuildListing.sol` writes
 `listing.json`, which `Git is clean` checks: the root, the EIP-712 digest to
 sign, and per row the token, asset id, ticker, name, leaf, proof and the factory
 call that deploys the token (`deployTo`, `deployData`). A row added later also
@@ -513,20 +519,24 @@ signer is bound on a chain:
    OpenZeppelin's
    `StandardMerkleTree.of(rows, ["address","string","string","string"])`. It
    checks each asset id, ticker and name against the st0x.registry entry of the
-   live token with that asset id. It checks the five rows with no ISIN in the
-   st0x.registry Base list (IBHG, RKLB, BIRD, SNES and DIS) against the issuer
-   and exchange sources that `LibProdTokenConfigIsinTest.sourcedIsins` names and
-   against the issuer's current legal name; the IBHG ISIN in the other chains'
-   lists (`US46436E3128`) is not the one to use. The two test rows must read
-   `ST0XTESTUS`, `USTEST`, `US Test` and `ST0XTESTEU`, `EUTEST`, `EU Test`. It
-   checks each token address by deriving it from the asset id with the token
-   params, not from the registry, which lists no V6 token before it is named. It
-   computes the digest from that root (domain name `ST0x Listing`, version `1`,
-   no chain id and no verifying contract; struct `Listing(bytes32 root)`),
-   checks it equals the `digest` of `listing.json`, and signs it with the
-   listing key. The signature is `r || s || v` with a low `s` and `v` 27 or 28,
-   and it is kept in the repository next to `ROOT`, with a test that it recovers
-   to the signer.
+   live token with that asset id as it stood when `ROOT` was fixed. It checks
+   the five rows with no ISIN in the st0x.registry Base list (IBHG, RKLB, BIRD,
+   SNES and DIS) against the issuer and exchange sources that
+   `LibProdTokenConfigIsinTest.sourcedIsins` names and against the issuer's
+   legal name at that time; the IBHG ISIN in the other chains' lists
+   (`US46436E3128`) is not the one to use. A frozen row that no longer matches a
+   later rename is still signed as it is, and the rename goes through
+   `setUnderlying` after `nameListing` (the row is recorded in
+   `LibV6ListingTest.renamedSinceSigning`, and stays there after the rename
+   runs). The two test rows must read `ST0XTESTUS`, `USTEST`, `US Test` and
+   `ST0XTESTEU`, `EUTEST`, `EU Test`. It checks each token address by deriving
+   it from the asset id with the token params, not from the registry, which
+   lists no V6 token before it is named. It computes the digest from that root
+   (domain name `ST0x Listing`, version `1`, no chain id and no verifying
+   contract; struct `Listing(bytes32 root)`), checks it equals the `digest` of
+   `listing.json`, and signs it with the listing key. The signature is
+   `r || s || v` with a low `s` and `v` 27 or 28, and it is kept in the
+   repository next to `ROOT`, with a test that it recovers to the signer.
 2. Per token: check that the signature recovers to the signer bound on the
    chain, run the token suite's pre-flight as a dry run, then from any account
    send Multicall3 `aggregate3` with the row's `deployTo`/`deployData` call and
