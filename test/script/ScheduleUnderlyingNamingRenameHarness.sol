@@ -51,4 +51,8 @@ contract ScheduleUnderlyingNamingRenameHarness is ScheduleUnderlyingNamingRename
     function callAssertRenamed(uint256 chainId) external view {
         assertRenamed(chainId);
     }
+
+    function callProveExecution() external {
+        proveExecution();
+    }
 }

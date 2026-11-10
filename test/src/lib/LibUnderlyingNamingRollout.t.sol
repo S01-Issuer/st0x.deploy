@@ -11,6 +11,9 @@ import {
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
+import {IST0xVaultBeaconSet} from "../../../src/interface/IST0xVaultBeaconSet.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
@@ -217,5 +220,38 @@ contract LibUnderlyingNamingRolloutTest is Test {
         TokenInstance[] memory shorter = new TokenInstance[](count - 1);
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingTokenTableShort.selector, uint256(1), count, count - 1));
         this.externalLeadingRows(1, shorter);
+    }
+
+    /// The ten pinned operation ids derive offline: the 0.1.1 deployer's receipt and receipt-vault beacons are its
+    /// first two `CREATE`s, and the batches and salts are constants.
+    function testPinnedOperationIdsDeriveOffline() external {
+        address deployer = LibProdBeacons0_1_1.beaconSetDeployer();
+        vm.mockCall(
+            deployer,
+            abi.encodeWithSelector(IST0xVaultBeaconSet.iReceiptBeacon.selector),
+            abi.encode(vm.computeCreateAddress(deployer, 1))
+        );
+        vm.mockCall(
+            deployer,
+            abi.encodeWithSelector(IST0xVaultBeaconSet.iOffchainAssetReceiptVaultBeacon.selector),
+            abi.encode(vm.computeCreateAddress(deployer, 2))
+        );
+        address timelock = address(new TimelockController(0, new address[](0), new address[](0), address(0)));
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            (bytes32 beaconId, bytes32 renameId) = LibUnderlyingNamingRollout.pinnedOperationIds(chainIds[i]);
+            assertEq(
+                LibUnderlyingNamingRollout.beaconOperationId(timelock, chainIds[i]), beaconId, vm.toString(chainIds[i])
+            );
+            assertEq(
+                LibUnderlyingNamingRollout.renameOperationId(timelock, chainIds[i]), renameId, vm.toString(chainIds[i])
+            );
+        }
     }
 }
