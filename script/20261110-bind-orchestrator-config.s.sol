@@ -13,11 +13,11 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthor
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
+import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibProdOrchestratorParams} from "../src/lib/LibProdOrchestratorParams.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @notice The root authority has not approved the Safe to bind an
 /// orchestrator config name.
@@ -46,9 +46,9 @@ function bindOrchestratorConfigDeclaration() pure returns (ScriptDeclaration mem
 /// @title BindOrchestratorConfig
 /// @notice Authors the per-chain Safe bundle that binds
 /// `LibStoxConfig.ORCHESTRATOR_BEACON_NAME` to the orchestrator proxy's beacon
-/// and `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME` to the chain's
-/// governance timelock under the root authority, as the root's approved
-/// delegate, and records it.
+/// and `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME` to
+/// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` under the root authority, as
+/// the root's approved delegate, and records it.
 contract BindOrchestratorConfig is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
@@ -92,9 +92,9 @@ contract BindOrchestratorConfig is SafeBundleScript, IStoxScript {
         return ConfigBinding("", "address", abi.encode(LibProdOrchestratorParams.orchestratorParams().beacon), "");
     }
 
-    /// @notice The chain's governance timelock as an `address`.
-    function initialAdminBinding() internal view returns (ConfigBinding memory) {
-        return ConfigBinding("", "address", abi.encode(LibTimelockInvariants.timelockForChainId(block.chainid)), "");
+    /// @notice `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` as an `address`.
+    function initialAdminBinding() internal pure returns (ConfigBinding memory) {
+        return ConfigBinding("", "address", abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK), "");
     }
 
     function registerTx(bytes32 name, ConfigBinding memory binding) internal pure returns (SafeTx memory) {
