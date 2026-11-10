@@ -19,6 +19,7 @@ import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.s
 import {LibTokenInvariants, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../../src/lib/LibProdTokenConfig.sol";
 import {LibTestTokenMetadata} from "../../../lib/LibTestTokenMetadata.sol";
+import {LibTestPreBackfillFork} from "../../../lib/LibTestPreBackfillFork.sol";
 
 /// @notice Minimal surface for the receipt vault's ERC-1155 receipt getter,
 /// used to assert the vault points at this token's pinned receipt.
@@ -102,9 +103,8 @@ struct ChainLegs {
 /// invariant asserting every ST0x chain carries an IDENTICAL deployment —
 /// identical core artifacts, identically-configured token instances,
 /// identical permission structure — so parity cannot silently drift once
-/// multichain is live. Runs in CI on every push and on the scheduled
-/// workflow (drift introduced on-chain between pushes — a role grant, a
-/// beacon upgrade — is caught by the schedule, not just by code changes).
+/// multichain is live. Each chain is forked at `LibTestPreBackfillFork`'s
+/// pinned block.
 ///
 /// Parity layers, per non-baseline chain vs Base (the baseline chain,
 /// which carries the original production state):
@@ -583,7 +583,7 @@ contract StoxCrossChainParityTest is Test {
     /// live on BOTH chains, then requires every leg of every chain to have
     /// been live, so no comparison can have been skipped.
     function testCrossChainParity() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         ChainLegs memory base = assertChainLegs(
             "Base",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE,
@@ -591,7 +591,7 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensBase()
         );
 
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.ETHEREUM);
         ChainLegs memory eth = assertChainLegs(
             "Ethereum",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ETHEREUM,
@@ -603,7 +603,7 @@ contract StoxCrossChainParityTest is Test {
         // `HYPEREVM_RPC_URL` to the shared rainix test workflow from the
         // `RPC_URL_HYPEREVM_FORK` secret, so a missing RPC fails at fork time
         // rather than leaving the legs unasserted behind a green run.
-        vm.createSelectFork(LibStoxDeployNetworks.HYPEREVM);
+        LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
         ChainLegs memory hyper = assertChainLegs(
             "HyperEVM",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_HYPEREVM,
@@ -613,7 +613,7 @@ contract StoxCrossChainParityTest is Test {
 
         // Robinhood Chain forks unconditionally too, from the
         // `RPC_URL_ROBINHOOD_FORK` secret.
-        vm.createSelectFork(LibStoxDeployNetworks.ROBINHOOD);
+        LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.ROBINHOOD);
         ChainLegs memory robinhood = assertChainLegs(
             "Robinhood Chain",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ROBINHOOD,
@@ -622,7 +622,7 @@ contract StoxCrossChainParityTest is Test {
         );
 
         // BNB Smart Chain, from the `RPC_URL_BSC_FORK` secret.
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.BSC);
         ChainLegs memory bsc = assertChainLegs(
             "BNB Smart Chain",
             LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC,

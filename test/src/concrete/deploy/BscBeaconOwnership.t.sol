@@ -9,26 +9,27 @@ import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.s
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTestPreBackfillFork} from "../../../lib/LibTestPreBackfillFork.sol";
 
 /// @title BscBeaconOwnershipTest
 /// @notice The BNB Smart Chain leg of the per-chain beacon pin: every production
 /// beacon carries the OZ `UpgradeableBeacon` codehash, points at its pinned
 /// implementation, and is owned by the chain's governance timelock.
-/// @dev Unpinned head fork: the point is drift detection against live state.
+/// @dev Forked at `LibTestPreBackfillFork`'s pinned block.
 contract BscBeaconOwnershipTest is Test {
     /// Every BNB Smart Chain beacon is owned by the BNB Smart Chain governance timelock,
     /// with the OZ beacon codehash and its pinned implementation unchanged.
     function testBscBeaconsAreTimelockOwned() external {
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC;
 
-        vm.createSelectFork(LibStoxDeployNetworks.BSC);
+        LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.BSC);
         address[4] memory beacons = LibProdBeacons0_1_1.beacons();
         address[4] memory impls = LibProdBeacons0_1_1.implementations();
         // Every expected implementation is named as an explicit pin. The
         // wrapped-token-vault beacon serves the 0.1.1 impl its bootstrap
         // baked; the receipt + receipt-vault beacons were moved onto 0.1.30
         // by the fleet upgrade (20260825-upgrade-fleet-to-0-1-30), which has
-        // landed on every chain. Reading the beacon's own
+        // landed on every chain before the pinned block. Reading the beacon's own
         // `implementation()` back as the expectation asserted only that the
         // beacon agrees with itself, which no upgrade can ever break.
         LibBeaconInvariants.assertBeaconInvariants(

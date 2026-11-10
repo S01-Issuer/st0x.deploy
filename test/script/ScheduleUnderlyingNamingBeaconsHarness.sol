@@ -41,4 +41,8 @@ contract ScheduleUnderlyingNamingBeaconsHarness is ScheduleUnderlyingNamingBeaco
     function releaseFrozen() internal pure override returns (bool) {
         return true;
     }
+
+    function callProveExecution() external {
+        proveExecution();
+    }
 }
