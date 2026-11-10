@@ -137,9 +137,9 @@ contract LibV6ListingTest is Test {
         string[] memory renamed = renamedSinceSigning();
         uint256 found = 0;
         for (uint256 i = 0; i < signed.length; i++) {
-            bool moved = keccak256(bytes(signed[i].ticker)) != keccak256(bytes(table[i].ticker))
+            bool differs = keccak256(bytes(signed[i].ticker)) != keccak256(bytes(table[i].ticker))
                 || keccak256(bytes(signed[i].name)) != keccak256(bytes(table[i].name));
-            if (moved) {
+            if (differs) {
                 assertLt(
                     found,
                     renamed.length,

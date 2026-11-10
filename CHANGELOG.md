@@ -99,7 +99,7 @@
 - **Every production row has an asset id, so every row has a V6 token suite.**
   The ids are ISINs: 54 from the st0x.registry Base token list
   (`extensions.isin` at `e9e47a6`), and IBHG, RKLB, BIRD, SNES and DIS sourced
-  from the issuer and two listings each (see `LibProdTokenConfigIsinTest`).
+  from issuer and sponsor SEC filings (see `LibProdTokenConfigIsinTest`).
   `manual-sol-artifacts` offers one `stox-token-*` and one
   `stox-token-*-wrapper` choice per row; every token key is pinned, and each
   wrapper key derives from its token key. A V6 suite deploys a second token at a

@@ -550,13 +550,13 @@ signer is bound on a chain:
    checks each asset id, ticker and name against the st0x.registry entry of the
    live token with that asset id as it stood when `ROOT` was fixed. It checks
    the five rows with no ISIN in the st0x.registry Base list (IBHG, RKLB, BIRD,
-   SNES and DIS) against the issuer and exchange sources that
+   SNES and DIS) against the issuer and sponsor SEC filings that
    `LibProdTokenConfigIsinTest.sourcedIsins` names and against the issuer's
    legal name at that time; the IBHG ISIN in the other chains' lists
-   (`US46436E3128`) is not the one to use. A frozen row that no longer matches a
-   later rename is still signed as it is, and the rename goes through
-   `setUnderlying` after `nameListing` (the row is recorded in
-   `LibV6ListingTest.renamedSinceSigning`, and stays there after the rename
+   (`US46436E3128`, another iShares fund) is not the one to use. A frozen row
+   that no longer matches a later rename is still signed as it is, and the
+   rename goes through `setUnderlying` after `nameListing` (the row is recorded
+   in `LibV6ListingTest.renamedSinceSigning`, and stays there after the rename
    runs). The two test rows must read `ST0XTESTUS`, `USTEST`, `US Test` and
    `ST0XTESTEU`, `EUTEST`, `EU Test`. It checks each token address by deriving
    it from the asset id with the token params, not from the registry, which
