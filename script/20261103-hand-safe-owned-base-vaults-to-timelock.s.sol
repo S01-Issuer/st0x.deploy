@@ -25,26 +25,62 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
 
+/// @notice A handover vault is owned by neither the Safe nor the timelock.
+/// @param vault The vault.
+/// @param owner Its owner.
 error HandoverVaultNotOnSafe(address vault, address owner);
 
+/// @notice A checked vault this migration does not hand over is not owned by the timelock.
+/// @param vault The vault.
+/// @param owner Its owner.
 error VaultNotOnTimelock(address vault, address owner);
 
+/// @notice A handover vault's beacon is not the chain's production receipt vault beacon.
+/// @param vault The vault.
+/// @param expected The production receipt vault beacon.
+/// @param actual The vault's beacon.
 error HandoverVaultBeaconMismatch(address vault, address expected, address actual);
 
+/// @notice A handover vault's receipt is not the receipt in its token row.
+/// @param vault The vault.
+/// @param expected The token row's receipt.
+/// @param actual The vault's receipt.
 error HandoverVaultReceiptMismatch(address vault, address expected, address actual);
 
+/// @notice A handover vault's receipt's beacon is not the chain's production receipt beacon.
+/// @param receipt The receipt.
+/// @param expected The production receipt beacon.
+/// @param actual The receipt's beacon.
 error HandoverReceiptBeaconMismatch(address receipt, address expected, address actual);
 
+/// @notice A handover vault is owner-frozen until at least the current block's timestamp.
+/// @param vault The vault.
+/// @param frozenUntil The end of its owner freeze.
 error HandoverVaultOwnerFrozen(address vault, uint256 frozenUntil);
 
+/// @notice The Safe holds an admin role on an authoriser.
+/// @param authoriser The authoriser.
+/// @param role The admin role.
 error SafeHoldsAdminRole(address authoriser, bytes32 role);
 
+/// @notice After the bundle, the Safe's direct `transferOwnership` on a handover
+/// vault is not refused with `OwnableUnauthorizedAccount(safe)`.
+/// @param vault The vault.
+/// @param success Whether the call succeeded.
+/// @param reason The call's return data.
 error DirectTransferNotRefused(address vault, bool success, bytes reason);
 
+/// @notice After the Safe schedules the proof batch, it is not pending, or is ready inside its delay.
+/// @param id The operation id.
 error ProofReadyInsideDelay(bytes32 id);
 
+/// @notice After the timelock executes the proof batch, a handover vault is not owned by the Safe.
+/// @param vault The vault.
+/// @param owner Its owner.
 error ProofNotExecuted(address vault, address owner);
 
+/// @notice This script's declaration: the Safe's record, after the orchestrator admin handover.
+/// @return The declaration.
 function handSafeOwnedBaseVaultsToTimelockDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
@@ -82,10 +118,14 @@ contract HandSafeOwnedBaseVaultsToTimelock is SafeBundleScript, IStoxScript {
         return Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
     }
 
+    /// @notice The chain's governance timelock.
+    /// @return The timelock.
     function timelock() internal view returns (address) {
         return LibTimelockInvariants.timelockForChainId(block.chainid);
     }
 
+    /// @notice The vaults this migration hands over: tWMT, tMC, tDIS, tIFX, tSOI and tTPRO on Base, none elsewhere.
+    /// @return The vaults.
     function handoverVaults() internal view returns (address[] memory) {
         if (block.chainid != LibSafeInvariants.BASE_CHAIN_ID) return new address[](0);
         address[] memory vaults = new address[](6);
@@ -123,6 +163,9 @@ contract HandSafeOwnedBaseVaultsToTimelock is SafeBundleScript, IStoxScript {
         return LibUnderlyingNamingRollout.tokens(block.chainid);
     }
 
+    /// @notice Whether `vault` is one of the handover vaults.
+    /// @param vault The vault.
+    /// @return True if it is.
     function isHandoverVault(address vault) internal view returns (bool) {
         address[] memory vaults = handoverVaults();
         for (uint256 i = 0; i < vaults.length; i++) {
@@ -183,11 +226,17 @@ contract HandSafeOwnedBaseVaultsToTimelock is SafeBundleScript, IStoxScript {
         }
     }
 
+    /// @notice The beacon read from `proxy`'s registry beacon proxy bytecode.
+    /// @param proxy The proxy.
+    /// @return The beacon.
     function beaconOf(address proxy) internal view returns (address) {
         (, address beacon) = LibExtrospectRegistryBeaconProxy.isRegistryBeaconProxy(proxy.code);
         return beacon;
     }
 
+    /// @notice Reverts if the Safe holds any of the authoriser's admin roles.
+    /// @param authoriser The authoriser.
+    /// @param chainSafe The chain's Safe.
     function assertSafeHoldsNoAdmin(address authoriser, address chainSafe) internal view {
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(chainSafe, address(0));
         for (uint256 i = 0; i < LibAuthoriserInvariants.ADMIN_ROLE_COUNT; i++) {
@@ -233,6 +282,10 @@ contract HandSafeOwnedBaseVaultsToTimelock is SafeBundleScript, IStoxScript {
         vm.revertToState(postBundle);
     }
 
+    /// @notice Proves the timelock governs the handover vaults: the Safe's direct
+    /// `transferOwnership` is refused, and a timelock batch handing them back to
+    /// the Safe, scheduled through the Safe, is pending inside its delay and,
+    /// after it, executes from an address with no role.
     function proveGovernance() internal {
         Safe chainSafe = safe();
         address controllerAddress = timelock();
