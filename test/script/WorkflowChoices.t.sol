@@ -91,7 +91,8 @@ contract WorkflowChoicesTest is Test {
             }
         }
         assertTrue(
-            i < lines.length && keccak256(bytes(vm.trim(lines[i]))) == header,
+            i < lines.length && indentation(lines[i]) > inputsIndentation && indentation(lines[i]) == childIndentation
+                && keccak256(bytes(vm.trim(lines[i]))) == header,
             string.concat(workflow, " has no input ", input)
         );
         uint256 inputIndentation = indentation(lines[i]);
@@ -592,6 +593,22 @@ contract WorkflowChoicesTest is Test {
             "  workflow_call:\n    inputs:\n      script:\n        options:\n          - wrong\n",
             "script"
         );
+    }
+
+    /// A key of the input's name that ends the `inputs:` block, or follows an empty block, is not the input.
+    function testChoicesRefuseTheKeyThatEndsTheBlock() external {
+        vm.expectRevert(bytes("fixture has no input script"));
+        this.externalChoicesIn(
+            "on:\n  workflow_dispatch:\n    inputs:\n      network:\n        options:\n          - base\n"
+            "    script:\n      options:\n        - wrong\n",
+            "script"
+        );
+        vm.expectRevert(bytes("fixture has no input script"));
+        this.externalChoicesIn(
+            "inputs:\n  network:\n    options:\n      - base\nscript:\n  options:\n    - wrong\n", "script"
+        );
+        vm.expectRevert(bytes("fixture has no input script"));
+        this.externalChoicesIn("inputs:\nscript:\n  options:\n    - wrong\n", "script");
     }
 
     /// A key of the input's name nested under another input is not the input.
