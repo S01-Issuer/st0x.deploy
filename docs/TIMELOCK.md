@@ -22,6 +22,20 @@ After the migration executes, the timelock is:
   `20261006-orchestrator-admin-to-timelock` executes) — so granting or revoking
   `MINT`, `BURN` and `EMERGENCY` on the orchestrator is delay-gated.
 
+**Exception: tQSEP on Base.** The tQSEP vault
+(`LibTokenInvariants.QSEP_RECEIPT_VAULT`) is outside the production token table,
+so the migration skipped it. Its `owner()` is still the token-owner Safe, so its
+`onlyOwner` surfaces (`setAuthorizer`, `setUnderlying`, `transferOwnership`,
+owner freezes) are direct Safe transactions, with no delay. Its authoriser is
+the fleet authoriser `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` once the
+Safe calls `setAuthorizer` on the vault. From then on grants on that authoriser
+go through the timelock. Before that it is on the V3 clone
+(`STOX_PROD_AUTHORISER_V3_CLONE`), whose `_ADMIN` roles are on the Safe. Either
+way, tQSEP mint and burn authority is not delay-gated: the Safe, as vault owner,
+can point the vault at another authoriser (for example a new clone with the Safe
+as admin) with no delay. Moving the vault `owner()` to the timelock is a
+separate change that closes this.
+
 **Why the beacons are in scope.** Every production token proxies through those
 beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
 in a single transaction — a hostile implementation could re-take vault ownership

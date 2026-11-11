@@ -153,14 +153,26 @@ library LibAuthoriserInvariants {
     /// every invariant and script reads. Aliases the V4 clone pinned in
     /// `LibProdDeployV4` (the generated deploy lib is the single source
     /// for the address; this constant is the semantic name "current
-    /// authoriser"). Every production receipt vault's `authorizer()` must
-    /// return this address — an expectation that goes green when the
-    /// `20260623` swap bundle executes on Base.
+    /// authoriser"). Every US `productionTokensBase()` vault's
+    /// `authorizer()` must return this address (EU rows use
+    /// `euAuthoriserForChainId`) — an expectation that goes green when the
+    /// `20260623` swap bundle executes on Base. The tQSEP vault
+    /// (`LibTokenInvariants.QSEP_RECEIPT_VAULT`), outside that table, is
+    /// expected here too, once the token-owner Safe, its owner, calls
+    /// `setAuthorizer(STOX_PROD_AUTHORISER)` on it. Every grant tQSEP needs
+    /// is already in `expectedGrants()`, which is not per-vault.
     /// https://basescan.org/address/0x315b16faa6ee413fabca877d3851b3818369f0cd
     address internal constant STOX_PROD_AUTHORISER = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
-    /// @notice The V3-era production authoriser clone on Base. No production
-    /// vault's `authorizer()` returns it.
+    /// @notice The V3-era production authoriser clone on Base. No
+    /// `productionTokensBase()` vault's `authorizer()` returns it. The tQSEP
+    /// vault still does until its `setAuthorizer` to `STOX_PROD_AUTHORISER`
+    /// executes; after that no vault the repo knows of uses it. Nothing here
+    /// enumerates every vault that points at it. Its role state is not part
+    /// of the expected state: its `_ADMIN` roles are on the token-owner Safe,
+    /// and the retired `0x1c66…d1A9` signer still holds DEPOSIT, WITHDRAW and
+    /// CERTIFY on it. Those grants still act on any unknown vault that points
+    /// at this clone, so revoking them is a follow-up, not a no-op.
     /// https://basescan.org/address/0x35f9fa9d80aaf2b0fb27f0ff015641b3408d7456
     address internal constant STOX_PROD_AUTHORISER_V3_CLONE = address(0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456);
 
@@ -338,8 +350,9 @@ library LibAuthoriserInvariants {
     /// `expectedGrants()` map holds. Pre-flight at the start of every
     /// migration script and prod-state fork test; if this passes silently
     /// the production authoriser is in its expected state.
-    /// @dev No-arg; composed into `LibInvariants.assertAll`. The retired
-    /// V3 clone is deliberately NOT asserted — nothing references it.
+    /// @dev No-arg; composed into `LibInvariants.assertAll`. The V3 clone
+    /// is deliberately NOT asserted: once tQSEP's `setAuthorizer` executes,
+    /// no vault the repo knows of reads it.
     function assertAll() internal view {
         bytes32 expected = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;
         bytes32 actual = STOX_PROD_AUTHORISER.codehash;

@@ -31,4 +31,10 @@ from the repo and are deliberately absent — do not re-add them.
   can no longer call it directly: a script touching it goes
   `timelock.schedule(...)` → delay → `timelock.execute(...)`, resolving the
   address only via `LibTimelockInvariants.timelockForChainId`. Role model and
-  runbook: `docs/TIMELOCK.md`.
+  runbook: `docs/TIMELOCK.md`. Exception: the tQSEP vault
+  (`LibTokenInvariants.QSEP_RECEIPT_VAULT`) is outside the token table, so its
+  `owner()` is still the Safe and vault `onlyOwner` calls (`setAuthorizer`
+  included) are direct Safe transactions. Even on the fleet authoriser, tQSEP
+  mint and burn authority is NOT delay-gated: the Safe can point the vault at
+  another authoriser in one transaction until its `owner()` moves to the
+  timelock.
