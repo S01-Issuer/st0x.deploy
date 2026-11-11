@@ -110,7 +110,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        addTokenSuites(declared, tokenConfigs());
+        addTokenSuites(declared, LibProdTokenConfig.v6TokenConfigs());
         addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;
@@ -346,10 +346,27 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibCloneCandidates.addRegistryBeaconProxies(declared, wrapperSuites(configs));
     }
 
-    /// The production rows that get a token suite: those with a non-empty asset id.
-    /// @return The rows.
-    function tokenConfigs() internal pure returns (TokenConfig[] memory) {
-        return LibProdTokenConfig.v6TokenConfigs();
+    /// The beacon suites whose constructors take `LibStoxConfig.beaconInitialOwner()` as the owner.
+    /// @return The suite keys.
+    function beaconOwnerSuites() internal pure returns (string[] memory) {
+        string[] memory suites = new string[](4);
+        suites[0] = RECEIPT_BEACON;
+        suites[1] = RECEIPT_VAULT_BEACON;
+        suites[2] = WRAPPED_TOKEN_VAULT_BEACON;
+        suites[3] = ORCHESTRATOR_BEACON;
+        return suites;
+    }
+
+    /// Whether `suiteHash` is the key hash of one of `beaconOwnerSuites()`.
+    /// @param suiteHash The keccak256 of a suite key.
+    /// @return Whether it is a beacon owner suite.
+    function isBeaconOwnerSuite(bytes32 suiteHash) internal pure returns (bool) {
+        string[] memory suites = beaconOwnerSuites();
+        bool found = false;
+        for (uint256 i = 0; i < suites.length; i++) {
+            found = found || keccak256(bytes(suites[i])) == suiteHash;
+        }
+        return found;
     }
 
     /// One registry beacon proxy suite per row, keyed `TOKEN_PREFIX` + the lowercased `symbol`.

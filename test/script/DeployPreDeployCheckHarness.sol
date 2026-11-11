@@ -18,11 +18,11 @@ contract DeployPreDeployCheckHarness is Deploy {
 
     function beaconSuites() external view returns (DeploySuite[] memory) {
         DeployDeclaration memory declared = declaration();
-        DeploySuite[] memory suites = new DeploySuite[](4);
-        suites[0] = suiteByName(declared, RECEIPT_BEACON);
-        suites[1] = suiteByName(declared, RECEIPT_VAULT_BEACON);
-        suites[2] = suiteByName(declared, WRAPPED_TOKEN_VAULT_BEACON);
-        suites[3] = suiteByName(declared, ORCHESTRATOR_BEACON);
+        string[] memory names = beaconOwnerSuites();
+        DeploySuite[] memory suites = new DeploySuite[](names.length);
+        for (uint256 i = 0; i < names.length; i++) {
+            suites[i] = suiteByName(declared, names[i]);
+        }
         return suites;
     }
 
@@ -54,15 +54,16 @@ contract DeployPreDeployCheckHarness is Deploy {
     }
 
     function checkedSuiteNames(TokenConfig[] memory configs) external pure returns (string[] memory) {
-        string[] memory names = new string[](5 + 2 * configs.length);
+        string[] memory beacons = beaconOwnerSuites();
+        uint256 head = 1 + beacons.length;
+        string[] memory names = new string[](head + 2 * configs.length);
         names[0] = GOVERNANCE_TIMELOCK;
-        names[1] = RECEIPT_BEACON;
-        names[2] = RECEIPT_VAULT_BEACON;
-        names[3] = WRAPPED_TOKEN_VAULT_BEACON;
-        names[4] = ORCHESTRATOR_BEACON;
+        for (uint256 i = 0; i < beacons.length; i++) {
+            names[1 + i] = beacons[i];
+        }
         for (uint256 i = 0; i < configs.length; i++) {
-            names[5 + 2 * i] = tokenSuiteName(configs[i]);
-            names[6 + 2 * i] = string.concat(tokenSuiteName(configs[i]), WRAPPER_SUFFIX);
+            names[head + 2 * i] = tokenSuiteName(configs[i]);
+            names[head + 1 + 2 * i] = string.concat(tokenSuiteName(configs[i]), WRAPPER_SUFFIX);
         }
         return names;
     }

@@ -5,7 +5,6 @@ pragma solidity =0.8.25;
 import {RainDeployBroadcast} from "rain-deploy-0.1.30/src/abstract/RainDeployBroadcast.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
@@ -21,14 +20,13 @@ import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {BeaconImplementationMismatch} from "../src/lib/LibBeaconInvariants.sol";
+import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
 error WrapperBeaconMismatch(address bound, address expected);
-error VaultBeaconNotDeployed(address beacon);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
 error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 
@@ -52,17 +50,14 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             if (bound != expected) {
                 revert TimelockInitialProposerMismatch(bound, expected);
             }
-        } else if (
-            name == keccak256(bytes(RECEIPT_BEACON)) || name == keccak256(bytes(RECEIPT_VAULT_BEACON))
-                || name == keccak256(bytes(WRAPPED_TOKEN_VAULT_BEACON)) || name == keccak256(bytes(ORCHESTRATOR_BEACON))
-        ) {
+        } else if (isBeaconOwnerSuite(name)) {
             address bound = LibStoxConfig.beaconInitialOwner();
             if (bound != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
             checkGovernanceTimelock();
         } else {
-            checkTokenSuites(name, tokenConfigs());
+            checkTokenSuites(name, LibProdTokenConfig.v6TokenConfigs());
             checkTokenSuites(name, LibProdTokenConfig.testTokenConfigs());
         }
     }
@@ -86,6 +81,14 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         if (wrapperBeacon != LibProdTokenParams.wrapperBeacon()) {
             revert WrapperBeaconMismatch(wrapperBeacon, LibProdTokenParams.wrapperBeacon());
         }
+        // Whoever owns the wrapper beacon upgrades every wrapper behind it.
+        LibBeaconInvariants.assertBeaconInvariants(
+            wrapperBeacon,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT,
+            LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH
+        );
+        checkGovernanceTimelock();
     }
 
     function checkToken(Region region) internal view {
@@ -94,15 +97,23 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             revert VaultBeaconMismatch(vaultBeacon, LibProdTokenParams.vaultBeacon());
         }
         // A token's address commits to the beacon name, so the beacon must serve the hook-carrying implementation.
-        if (vaultBeacon.code.length == 0) revert VaultBeaconNotDeployed(vaultBeacon);
-        address implementation = IBeacon(vaultBeacon).implementation();
-        if (implementation != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
-            revert BeaconImplementationMismatch(vaultBeacon, LibProdDeployCurrent.STOX_RECEIPT_VAULT, implementation);
-        }
+        LibBeaconInvariants.assertBeaconInvariants(
+            vaultBeacon,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT,
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT_BEACON_CODEHASH
+        );
         address receiptBeacon = boundAddress(LibStoxConfig.RECEIPT_BEACON_NAME);
         if (receiptBeacon != LibProdDeployCurrent.STOX_RECEIPT_BEACON) {
             revert ReceiptBeaconMismatch(receiptBeacon, LibProdDeployCurrent.STOX_RECEIPT_BEACON);
         }
+        // Whoever owns the receipt beacon upgrades every receipt behind it.
+        LibBeaconInvariants.assertBeaconInvariants(
+            receiptBeacon,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.STOX_RECEIPT,
+            LibProdDeployCurrent.STOX_RECEIPT_BEACON_CODEHASH
+        );
         bytes32 rbacName = region == Region.US ? LibStoxConfig.RBAC_US_NAME : LibStoxConfig.RBAC_EU_NAME;
         address expectedAuthorizer = region == Region.US
             ? LibAuthoriserInvariants.authoriserForChainId(block.chainid)
@@ -124,6 +135,8 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
 
     /// @notice Reverts unless the governance timelock that owns the beacons and token RBACs has its pinned code,
     /// delay and roles, with the chain's pinned Safe address as proposer; the Safe's own policy is not checked here.
+    /// @dev `AccessControl` cannot list a role's members, so this proves the Safe holds its roles, not that no other
+    /// account holds them.
     function checkGovernanceTimelock() internal view {
         LibTimelockInvariants.assertTimelockState(
             LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, LibSafeInvariants.safeForChainId(block.chainid)
