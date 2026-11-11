@@ -276,7 +276,7 @@ contract LibProdTokenConfigAssetIdTest is Test, StoxDeploySuites {
         for (uint256 i = 0; i < configs.length; i++) {
             bytes memory id = bytes(configs[i].assetId);
             assertTrue(isIsinShaped(id), configs[i].underlying);
-            assertTrue(isinCheckDigitHolds(id), configs[i].underlying);
+            assertTrue(LibTestIsin.isinCheckDigitHolds(id), configs[i].underlying);
         }
     }
 
@@ -304,7 +304,7 @@ contract LibProdTokenConfigAssetIdTest is Test, StoxDeploySuites {
             if (!isUpperAlnum(id[c])) return false;
         }
         if (isSt0xId(id)) return id.length > 4 && id.length != 12;
-        return isIsinShaped(id) && isinCheckDigitHolds(id);
+        return isIsinShaped(id) && LibTestIsin.isinCheckDigitHolds(id);
     }
 
     /// Whether `id` starts with `ST0X`, the prefix of an id for an asset with no ISIN.
@@ -329,10 +329,10 @@ contract LibProdTokenConfigAssetIdTest is Test, StoxDeploySuites {
     /// The ISIN check digit rule, on known ISINs.
     function testIsinCheckDigit() external pure {
         assertTrue(isIsinShaped(bytes("US67066G1040")));
-        assertTrue(isinCheckDigitHolds(bytes("US67066G1040")), "NVIDIA");
-        assertTrue(isinCheckDigitHolds(bytes("US0378331005")), "Apple");
-        assertTrue(isinCheckDigitHolds(bytes("FR0000121014")), "LVMH");
-        assertFalse(isinCheckDigitHolds(bytes("US67066G1041")), "bad check digit");
+        assertTrue(LibTestIsin.isinCheckDigitHolds(bytes("US67066G1040")), "NVIDIA");
+        assertTrue(LibTestIsin.isinCheckDigitHolds(bytes("US0378331005")), "Apple");
+        assertTrue(LibTestIsin.isinCheckDigitHolds(bytes("FR0000121014")), "LVMH");
+        assertFalse(LibTestIsin.isinCheckDigitHolds(bytes("US67066G1041")), "bad check digit");
         assertFalse(isIsinShaped(bytes("ST0XTESTUS")), "synthetic id");
     }
 
@@ -351,9 +351,5 @@ contract LibProdTokenConfigAssetIdTest is Test, StoxDeploySuites {
             if (!letter && !digit) return false;
         }
         return true;
-    }
-
-    function isinCheckDigitHolds(bytes memory id) internal pure returns (bool) {
-        return LibTestIsin.isinCheckDigitHolds(id);
     }
 }
