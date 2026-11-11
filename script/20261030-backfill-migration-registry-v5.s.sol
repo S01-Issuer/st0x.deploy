@@ -19,6 +19,13 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {MigrateMultisigThreshold} from "./20260619-migrate-multisig-threshold.s.sol";
+import {TimelockRehearsalSchedule} from "./20260813-timelock-rehearsal-schedule.s.sol";
+import {TimelockRehearsalCancel} from "./20260813-timelock-rehearsal-cancel.s.sol";
+import {ExecuteTimelockOperations} from "./20260813-execute-timelock-operations.s.sol";
+import {MigrateGovernanceToTimelock} from "./20260729-migrate-governance-to-timelock.s.sol";
+import {GrantEuAuthoriserRoles} from "./20261006-grant-eu-authoriser-roles.s.sol";
+import {GrantOrchestratorEmergency} from "./20261006-grant-orchestrator-emergency.s.sol";
 
 /// @notice The code at the V2 registry address is not the frozen 0.1.18
 /// registry.
