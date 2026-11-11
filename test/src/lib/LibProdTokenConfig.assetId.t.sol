@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {LibTestIsin} from "../../lib/LibTestIsin.sol";
 import {DeployDeclaration} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
@@ -352,29 +353,7 @@ contract LibProdTokenConfigAssetIdTest is Test, StoxDeploySuites {
         return true;
     }
 
-    /// Letters become 10 to 35, then the Luhn sum over the digits, check digit included, is a multiple of 10.
     function isinCheckDigitHolds(bytes memory id) internal pure returns (bool) {
-        uint8[] memory digits = new uint8[](id.length * 2);
-        uint256 count = 0;
-        for (uint256 c = 0; c < id.length; c++) {
-            uint8 character = uint8(id[c]);
-            if (character >= 0x41) {
-                uint8 letterValue = character - 0x41 + 10;
-                digits[count++] = letterValue / 10;
-                digits[count++] = letterValue % 10;
-            } else {
-                digits[count++] = character - 0x30;
-            }
-        }
-        uint256 sum = 0;
-        for (uint256 k = 0; k < count; k++) {
-            uint256 digit = digits[count - 1 - k];
-            if (k % 2 == 1) {
-                digit *= 2;
-                if (digit > 9) digit -= 9;
-            }
-            sum += digit;
-        }
-        return sum % 10 == 0;
+        return LibTestIsin.isinCheckDigitHolds(id);
     }
 }
