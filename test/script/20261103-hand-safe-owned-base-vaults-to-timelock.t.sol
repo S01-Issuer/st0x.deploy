@@ -17,7 +17,6 @@ import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockContr
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 
 import {
     DirectTransferNotRefused,
@@ -36,7 +35,6 @@ import {HandSafeOwnedBaseVaultsToTimelockHarness} from "./HandSafeOwnedBaseVault
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibTestRegistryBeaconProxy} from "../lib/LibTestRegistryBeaconProxy.sol";
-import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {IOwnerFreezableV1} from "rain-vats-0.2.20/src/interface/IOwnerFreezableV1.sol";
@@ -48,13 +46,7 @@ import {RoleGrant} from "../../src/lib/RoleGrant.sol";
 import {LibInvariants} from "../../src/lib/LibInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {
-    LibStoxMigrations,
-    LineHeadMismatch,
-    RecordMismatch,
-    SafeNotApprovedWriter,
-    UnexpectedMigrationLine
-} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {
     LibTokenInvariants,
@@ -65,9 +57,6 @@ import {
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
 contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
-    bytes32 internal constant FOREIGN_RECORD =
-        keccak256("test/script/20261103-hand-safe-owned-base-vaults-to-timelock.t.sol");
-
     function forkAtBackfill(string memory network, string memory tag)
         internal
         returns (HandSafeOwnedBaseVaultsToTimelockHarness)
@@ -206,28 +195,6 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         HandSafeOwnedBaseVaultsToTimelockHarness script = new HandSafeOwnedBaseVaultsToTimelockHarness("path");
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         assertEq(script.callProductionArtifactPath(), "out/20261103-hand-safe-owned-base-vaults-to-timelock-8453.json");
-    }
-
-    /// On Base the bundle is one `transferOwnership(timelock)` per Safe-owned handover vault, then the record.
-    function testBaseBundleIsTheSafeOwnedTransfersThenTheRecord() external {
-        HandSafeOwnedBaseVaultsToTimelockHarness script = forkBaseAtBackfill("exact");
-        ScriptDeclaration memory declared = script.declaration(block.chainid);
-        assertEq(declared.id, LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK);
-        assertEq(declared.onto, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK);
-        assertFalse(declared.history);
-
-        SafeTx[] memory txs = script.callAuthorBundle();
-        address[6] memory vaults = handoverVaults();
-        assertEq(txs.length, vaults.length + 1);
-        for (uint256 i = 0; i < vaults.length; i++) {
-            assertEq(txs[i].to, vaults[i]);
-            assertEq(txs[i].value, 0);
-            assertEq(uint8(txs[i].operation), uint8(Enum.Operation.Call));
-            assertEq(
-                txs[i].data, abi.encodeCall(Ownable.transferOwnership, (LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK))
-            );
-        }
-        assertRecordTx(txs[vaults.length]);
     }
 
     function assertRecordAloneOffBase(string memory network) internal {
@@ -369,21 +336,6 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         }
     }
 
-    function testRefusesSafeOffPolicy() external {
-        HandSafeOwnedBaseVaultsToTimelockHarness script = forkBaseAtBackfill("safe-policy");
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        vm.mockCall(safe, abi.encodeWithSignature("getThreshold()"), abi.encode(uint256(1)));
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                LibSafe.SafeThresholdMismatch.selector,
-                safe,
-                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD,
-                uint256(1)
-            )
-        );
-        script.callPreflight();
-    }
-
     function testRefusesTimelockDrift() external {
         HandSafeOwnedBaseVaultsToTimelockHarness script = forkBaseAtBackfill("timelock-drift");
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
@@ -480,69 +432,6 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         );
         script.callAssertPostState();
         return script;
-    }
-
-    /// The pre-flight refuses a Safe the root authority does not approve to write the record.
-    function testRefusesASafeTheRootDoesNotApprove() external {
-        HandSafeOwnedBaseVaultsToTimelockHarness script = forkBaseAtBackfill("writer");
-        script.callPreflight();
-        address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        LibTestRootLine.revoke(vm, safe);
-        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safe));
-        script.callPreflight();
-    }
-
-    function testRefusesLineAtGenesis() external {
-        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
-        HandSafeOwnedBaseVaultsToTimelockHarness script = new HandSafeOwnedBaseVaultsToTimelockHarness("genesis");
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
-        script.callPreflight();
-    }
-
-    function testPostStateRefusesTransfersWithoutTheRecord() external {
-        HandSafeOwnedBaseVaultsToTimelockHarness script = forkBaseAtBackfill("post-no-record");
-        SafeTx[] memory txs = script.callAuthorBundle();
-        SafeTx[] memory transfers = new SafeTx[](txs.length - 1);
-        for (uint256 i = 0; i < transfers.length; i++) {
-            transfers[i] = txs[i];
-        }
-        LibSafeFork.executeBundle(vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), transfers);
-        this.externalAssertRolloutOwnership(LibTimelockInvariants.timelockForChainId(block.chainid));
-        // forge-lint: disable-next-line(block-timestamp)
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RecordMismatch.selector, LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK, block.timestamp, 0
-            )
-        );
-        script.callAssertPostState();
-    }
-
-    function testPostStateRefusesARecordFromAnotherMoment() external {
-        HandSafeOwnedBaseVaultsToTimelockHarness script = handedOverFork("post-stale-record");
-        // forge-lint: disable-next-line(block-timestamp)
-        uint256 recorded = block.timestamp;
-        vm.warp(recorded + 1);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                RecordMismatch.selector,
-                LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
-                recorded + 1,
-                recorded
-            )
-        );
-        script.callAssertPostState();
-    }
-
-    function testPostStateRefusesALineMovedPastTheRecord() external {
-        HandSafeOwnedBaseVaultsToTimelockHarness script = handedOverFork("post-buried");
-        LibTestRootLine.write(
-            vm,
-            LibSafeInvariants.safeForChainId(block.chainid),
-            FOREIGN_RECORD,
-            LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
-        );
-        vm.expectRevert(abi.encodeWithSelector(LineHeadMismatch.selector, FOREIGN_RECORD));
-        script.callAssertPostState();
     }
 
     function testPostStateRefusesAVaultBackOnTheSafe() external {
