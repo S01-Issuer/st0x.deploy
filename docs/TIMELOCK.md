@@ -521,11 +521,9 @@ as `admin`.
 
 ## Explicitly out of scope (follow-ups)
 
-- **New Base tokens** are V6 listings deployed from this repo (see "V6 listings
-  are deployed nameless" above): each takes its owner at initialize from the
-  region's RBAC binding, which `Deploy.preDeployCheck` requires to be
-  `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`. `LibInvariants` does not
-  check vault ownership: a vault left on the Safe shows only on the
-  rain-org-health dashboard.
+- **New Base tokens** are deployed by the sft-ops CD pipeline, not by a script
+  here. It must hand each new vault to `STOX_GOVERNANCE_TIMELOCK`
+  (`transferOwnership`); a vault left on the Safe fails the token and governance
+  invariants as soon as it is pinned.
 
 - **Dedicated canceller** — see the role model above.
