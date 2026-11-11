@@ -343,11 +343,13 @@ sequence on a fork of each chain.
    `stox-wrapped-token-vault` suites through `manual-sol-artifacts`. The beacon
    script's pre-flight checks each codehash against its pin before scheduling.
    Each chain's beacon and rename operation ids are pinned
-   (`LibUnderlyingNamingRollout.pinnedOperationIds`). Once a chain's batch is
-   scheduled, its pins and the rows and constants they hash must not change: a
-   changed batch needs a new salt and a new script, not a re-pin. Each schedule
-   script's first Safe bundle ends in its root-line record (a reschedule after a
-   cancel is the schedule alone); no record rides in a timelock batch.
+   (`LibUnderlyingNamingRollout.pinnedOperationIds`); a test derives all ten
+   offline, with no RPC (`testPinnedOperationIdsDeriveOffline`), and a fork test
+   per chain derives them from the chain. Once a chain's batch is scheduled, its
+   pins and the rows and constants they hash must not change: a changed batch
+   needs a new salt and a new script, not a re-pin. Each schedule script's first
+   Safe bundle ends in its root-line record (a reschedule after a cancel is the
+   schedule alone); no record rides in a timelock batch.
 2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
    one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
    beacon, then its in-use receipt-vault beacon

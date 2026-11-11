@@ -34,7 +34,8 @@ import {
     ScheduleUnderlyingNamingRename,
     BeaconBatchNotScheduled,
     RenameAlreadyScheduled,
-    RenamedMetadataMismatch
+    RenamedMetadataMismatch,
+    SkippedRowMetadataMoved
 } from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
@@ -772,6 +773,36 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             rename.callAssertRenamed(chainId);
             vm.clearMockedCalls();
             vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice The rename's execution proof refuses a row the rename skips whose metadata moved across the execution,
+    /// for each of the four getters.
+    function testRenameProofRefusesASkippedRowThatMoved() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("skipped-moved");
+        prepareRename();
+        LibSafeFork.executeBundle(
+            vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), rename.callAuthorBundle()
+        );
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(block.chainid);
+        assertGt(table.length, LibUnderlyingNamingRollout.TOKEN_COUNT, "the table has rows the rename skips");
+        TokenInstance memory skipped = table[table.length - 1];
+        uint256 snapshot = vm.snapshotState();
+        rename.callProveExecution();
+        vm.revertToState(snapshot);
+        bytes[] memory moved = new bytes[](2);
+        moved[0] = abi.encode("Before");
+        moved[1] = abi.encode("After");
+        address[4] memory targets =
+            [skipped.receiptVault, skipped.receiptVault, skipped.wrappedTokenVault, skipped.wrappedTokenVault];
+        string[4] memory getters = ["name()", "symbol()", "name()", "symbol()"];
+        for (uint256 i = 0; i < targets.length; i++) {
+            vm.mockCalls(targets[i], abi.encodeWithSignature(getters[i]), moved);
+            vm.expectRevert(abi.encodeWithSelector(SkippedRowMetadataMoved.selector, targets[i], "Before", "After"));
+            rename.callProveExecution();
+            vm.revertToState(snapshot);
+            vm.clearMockedCalls();
         }
     }
 
