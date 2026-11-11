@@ -438,14 +438,15 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         HandSafeOwnedBaseVaultsToTimelockHarness script = handedOverFork("post-owner");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        vm.prank(timelock);
-        Ownable(LibTokenInvariants.WMT_RECEIPT_VAULT).transferOwnership(safe);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ReceiptVaultOwnerMismatch.selector, LibTokenInvariants.WMT_RECEIPT_VAULT, timelock, safe
-            )
-        );
-        script.callAssertPostState();
+        address[6] memory vaults = handoverVaults();
+        for (uint256 i = 0; i < vaults.length; i++) {
+            uint256 clean = vm.snapshotState();
+            vm.prank(timelock);
+            Ownable(vaults[i]).transferOwnership(safe);
+            vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, vaults[i], timelock, safe));
+            script.callAssertPostState();
+            vm.revertToState(clean);
+        }
     }
 
     function testPostStateRefusesWrongAuthoriser() external {
@@ -641,12 +642,15 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         HandSafeOwnedBaseVaultsToTimelockHarness script = forkBaseAtBackfill("frozen");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         uint256 until = block.timestamp + 1 days;
-        vm.prank(safe);
-        IOwnerFreezableV1(LibTokenInvariants.WMT_RECEIPT_VAULT).ownerFreezeUntil(until);
-        vm.expectRevert(
-            abi.encodeWithSelector(HandoverVaultOwnerFrozen.selector, LibTokenInvariants.WMT_RECEIPT_VAULT, until)
-        );
-        script.callPreflight();
+        address[6] memory vaults = handoverVaults();
+        for (uint256 i = 0; i < vaults.length; i++) {
+            uint256 clean = vm.snapshotState();
+            vm.prank(safe);
+            IOwnerFreezableV1(vaults[i]).ownerFreezeUntil(until);
+            vm.expectRevert(abi.encodeWithSelector(HandoverVaultOwnerFrozen.selector, vaults[i], until));
+            script.callPreflight();
+            vm.revertToState(clean);
+        }
     }
 
     /// The freeze is inclusive of its deadline: a vault frozen until exactly now is refused.
