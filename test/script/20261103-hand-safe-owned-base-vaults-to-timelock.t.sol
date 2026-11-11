@@ -337,7 +337,14 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
     }
 
     function testRefusesTimelockDrift() external {
-        HandSafeOwnedBaseVaultsToTimelockHarness script = forkBaseAtBackfill("timelock-drift");
+        assertRefusesTimelockDrift(forkBaseAtBackfill("timelock-drift"));
+    }
+
+    function testRefusesTimelockDriftOffBase() external {
+        assertRefusesTimelockDrift(forkAtBackfill(LibStoxDeployNetworks.ETHEREUM, "off-base-timelock-drift"));
+    }
+
+    function assertRefusesTimelockDrift(HandSafeOwnedBaseVaultsToTimelockHarness script) internal {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         vm.prank(timelock);
         TimelockController(payable(timelock)).updateDelay(1 hours);
@@ -355,7 +362,14 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
     }
 
     function testRefusesBeaconOffTimelock() external {
-        HandSafeOwnedBaseVaultsToTimelockHarness script = forkBaseAtBackfill("beacon-owner");
+        assertRefusesBeaconOffTimelock(forkBaseAtBackfill("beacon-owner"));
+    }
+
+    function testRefusesBeaconOffTimelockOffBase() external {
+        assertRefusesBeaconOffTimelock(forkAtBackfill(LibStoxDeployNetworks.ETHEREUM, "off-base-beacon-owner"));
+    }
+
+    function assertRefusesBeaconOffTimelock(HandSafeOwnedBaseVaultsToTimelockHarness script) internal {
         address beacon = moveOrchestratorBeaconToSafe();
         vm.expectRevert(
             abi.encodeWithSelector(
