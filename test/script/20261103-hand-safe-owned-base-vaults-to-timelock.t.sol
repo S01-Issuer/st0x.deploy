@@ -523,6 +523,16 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
             )
         );
         script.callProveGovernance();
+
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        bytes memory refusal = abi.encodeWithSelector(Ownable.OwnableUnauthorizedAccount.selector, safe);
+        vm.mockCall(LibTokenInvariants.WMT_RECEIPT_VAULT, abi.encodeCall(Ownable.transferOwnership, (safe)), refusal);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                DirectTransferNotRefused.selector, LibTokenInvariants.WMT_RECEIPT_VAULT, true, refusal
+            )
+        );
+        script.callProveGovernance();
     }
 
     function testProofRefusesDirectTransferRevertingForAnotherReason() external {
@@ -545,6 +555,28 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         vm.mockCall(timelock, abi.encodeWithSignature("isOperationReady(bytes32)"), abi.encode(true));
         vm.expectPartialRevert(ProofReadyInsideDelay.selector);
+        script.callProveGovernance();
+    }
+
+    function testProofRefusesOperationNotPending() external {
+        HandSafeOwnedBaseVaultsToTimelockHarness script = handedOverFork("proof-pending");
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        vm.mockCall(timelock, abi.encodeWithSignature("isOperationPending(bytes32)"), abi.encode(false));
+        vm.expectPartialRevert(ProofReadyInsideDelay.selector);
+        script.callProveGovernance();
+    }
+
+    function testProofRefusesATimelockOnlyTheSafeExecutes() external {
+        HandSafeOwnedBaseVaultsToTimelockHarness script = handedOverFork("proof-executor");
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        bytes32 executor = TimelockController(payable(timelock)).EXECUTOR_ROLE();
+        vm.startPrank(timelock);
+        IAccessControl(timelock).revokeRole(executor, address(0));
+        IAccessControl(timelock).grantRole(executor, LibSafeInvariants.safeForChainId(block.chainid));
+        vm.stopPrank();
+        vm.expectRevert(
+            abi.encodeWithSelector(IAccessControl.AccessControlUnauthorizedAccount.selector, address(0xdead), executor)
+        );
         script.callProveGovernance();
     }
 
@@ -595,8 +627,10 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
             bytes32(0),
             keccak256("st0x.hand-safe-owned-base-vaults-to-timelock.proof")
         );
+        uint256 scheduledAt = block.timestamp;
         script.callProveGovernance();
         assertTrue(controller.isOperationDone(id), "proof executed");
+        assertEq(block.timestamp, scheduledAt + LibTimelockInvariants.TIMELOCK_MIN_DELAY, "proof executed at the delay");
     }
 
     /// Off Base `assertReversible` runs the governance proof: the chain's timelock executes its empty batch, and the
