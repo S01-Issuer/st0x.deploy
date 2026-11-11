@@ -81,8 +81,11 @@ contract BindOrchestratorConfig is SafeBundleScript, IStoxScript {
     }
 
     function assertDelegate(bytes32 name, address chainSafe) internal view {
-        if (!IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-                .approvedV5(LibRegistryAuthority.ROOT_AUTHORITY, name, chainSafe)) {
+        IConfigRegistryV5 registry = IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
+        if (
+            !registry.approvedV5(LibRegistryAuthority.ROOT_AUTHORITY, name, chainSafe)
+                && !registry.approvedUnscopedV5(LibRegistryAuthority.ROOT_AUTHORITY, chainSafe)
+        ) {
             revert SafeNotOrchestratorConfigDelegate(name, chainSafe);
         }
     }
