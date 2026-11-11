@@ -27,7 +27,7 @@ import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecor
 
 /// @title BindOrchestratorConfigRootLineTest
 /// @notice The bind on HyperEVM at its pinned pre-backfill block, with the
-/// root's approval of the Safe for both names written on the fork, onto the
+/// root's unscoped approval of the Safe written on the fork, onto the
 /// executed V5 backfill bundle.
 contract BindOrchestratorConfigRootLineTest is RootLineRecordScriptTest {
     IConfigRegistryV5 internal constant CONFIG_REGISTRY =

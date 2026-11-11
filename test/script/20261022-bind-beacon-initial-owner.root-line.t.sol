@@ -29,7 +29,7 @@ import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecor
 
 /// @title BindBeaconInitialOwnerRootLineTest
 /// @notice The bind on HyperEVM at its pinned pre-backfill block, with the
-/// governance timelock deployed, the root's approval of the Safe as binder
+/// governance timelock deployed, the root's unscoped approval of the Safe
 /// written and the V5 backfill bundle executed on the fork, onto the executed
 /// orchestrator config bind bundle.
 contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {

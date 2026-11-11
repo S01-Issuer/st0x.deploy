@@ -19,13 +19,14 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTestConfigRegistryDelegates} from "../lib/LibTestConfigRegistryDelegates.sol";
 import {LibTestOrchestratorConfigBind} from "../lib/LibTestOrchestratorConfigBind.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 /// @title BindOrchestratorConfigTest
 /// @notice The bind on every deployment network at its pinned pre-backfill
-/// block, with the V5 backfill bundle executed first and the root's approval
-/// of the Safe for both names written on the fork.
+/// block, with the V5 backfill bundle executed first and the root's unscoped
+/// approval of the Safe written on the fork.
 contract BindOrchestratorConfigTest is Test {
     function executeBackfill(address safe, string memory tag) internal {
         LibSafeFork.executeBundle(
@@ -76,12 +77,40 @@ contract BindOrchestratorConfigTest is Test {
         script.callPreflight();
     }
 
-    function assertPreflightRefusesASafeApprovedOnlyFor(bytes32 approved, bytes32 unapproved) internal {
+    function backfilledWithoutUnscopedApproval(string memory tag)
+        internal
+        returns (BindOrchestratorConfigHarness, address)
+    {
         LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
-        BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness("unapproved");
+        BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness(tag);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        executeBackfill(safe, "unapproved");
-        LibTestOrchestratorConfigBind.approve(vm, approved, safe);
+        executeBackfill(safe, tag);
+        LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
+        return (script, safe);
+    }
+
+    function testBindLandsFromASafeTheRootApprovesForEachNameAlone() external {
+        (BindOrchestratorConfigHarness script, address safe) = backfilledWithoutUnscopedApproval("scoped");
+        LibTestConfigRegistryDelegates.approve(vm, LibStoxConfig.ORCHESTRATOR_BEACON_NAME, safe);
+        LibTestConfigRegistryDelegates.approve(vm, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, safe);
+        script.callPreflight();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
+        script.callAssertPostState();
+    }
+
+    function testPreflightRefusesASafeTheRootDoesNotApprove() external {
+        (BindOrchestratorConfigHarness script, address safe) = backfilledWithoutUnscopedApproval("unapproved");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                SafeNotOrchestratorConfigDelegate.selector, LibStoxConfig.ORCHESTRATOR_BEACON_NAME, safe
+            )
+        );
+        script.callPreflight();
+    }
+
+    function assertPreflightRefusesASafeApprovedOnlyFor(bytes32 approved, bytes32 unapproved) internal {
+        (BindOrchestratorConfigHarness script, address safe) = backfilledWithoutUnscopedApproval("unapproved");
+        LibTestConfigRegistryDelegates.approve(vm, approved, safe);
         vm.expectRevert(abi.encodeWithSelector(SafeNotOrchestratorConfigDelegate.selector, unapproved, safe));
         script.callPreflight();
     }
