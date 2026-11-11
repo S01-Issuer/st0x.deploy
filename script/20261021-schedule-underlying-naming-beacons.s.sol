@@ -15,7 +15,7 @@ import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFac
 import {AssetIdNotInitializing} from "../src/error/ErrAssetId.sol";
 import {IStoxAssetIdV1} from "../src/interface/IStoxAssetIdV1.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
-import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {
@@ -66,8 +66,8 @@ error BeaconUpgradeMovedMetadata(address token, string before, string afterUpgra
 error UpgradedVaultHasAssetId(address vault, string assetId);
 
 /// @notice A live vault behind the upgraded beacon does not refuse
-/// `initializeAssetId` with `AssetIdNotInitializing`, so the new
-/// implementation does not carry the asset id hook.
+/// `initializeAssetId` with `AssetIdNotInitializing`, so the facet behind the
+/// vault does not serve the init-only asset id guard.
 /// @param vault The vault.
 /// @param result What the call returned.
 error UpgradedVaultMissingAssetIdHook(address vault, bytes result);
@@ -259,17 +259,17 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     }
 
     /// @notice The execution proof `assertReversible` runs. It records every
-    /// vault's and wrapper's `name()` and `symbol()` the rollout renames (the
-    /// leading `TOKEN_COUNT` rows) before the
-    /// batch and requires them unchanged after it: the beacon batch must not
-    /// rename anything, that is the rename batch's job. It also proves a live
+    /// vault's and wrapper's `name()` and `symbol()` in the chain's token table,
+    /// the rows the rename skips included, before the batch and requires them
+    /// unchanged after it: the beacon batch must not rename anything, that is
+    /// the rename batch's job. It also proves a live
     /// vault behind the upgraded beacon serves the facet's asset id surface: it
     /// reports `assetId() == ""`, and the init-only `initializeAssetId` refuses
     /// with `AssetIdNotInitializing`. That the vault's `_initialize` forwards to
     /// the hook is bound by the pinned `RECEIPT_VAULT_CODEHASH`, not by this
     /// check.
     function proveExecution() internal {
-        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
+        TokenInstance[] memory chainTokens = LibTokenInvariants.productionTokensForChainId(block.chainid);
         string[] memory before = metadata(chainTokens);
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
             LibUnderlyingNamingRollout.beaconBatch(block.chainid);
