@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
@@ -45,7 +46,12 @@ import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibTokenInvariants, TokenInstance, NoTokenTableForChain} from "../../src/lib/LibTokenInvariants.sol";
+import {
+    LibTokenInvariants,
+    TokenInstance,
+    NoTokenTableForChain,
+    ReceiptVaultOwnerMismatch
+} from "../../src/lib/LibTokenInvariants.sol";
 import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
@@ -249,7 +255,9 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         vm.expectPartialRevert(ImplementationNotDeployed.selector);
         beacons.callPreflight();
         vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
+            abi.encodeWithSelector(
+                UnexpectedMigrationLine.selector, LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
+            )
         );
         rename.callPreflight();
         plantImplementations();
@@ -259,7 +267,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
             string.concat(network, ": beacon record")
         );
-        completeOwnershipHandover(chainId, rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         assertEq(
             LibStoxMigrations.head(),
@@ -328,7 +335,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("nvda");
         authorVerifyExecute(address(beacons), beacons.callArtifactPath());
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("nvda");
-        completeOwnershipHandover(chainId, rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
@@ -502,12 +508,27 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         beacons.callPreflight();
     }
 
+    /// @notice The rename pre-flight refuses a production vault the timelock
+    /// does not own, since its `setUnderlying` would revert the whole batch.
+    function testRenamePreflightRefusesAVaultOffTheTimelock() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("owner");
+        prepareRename();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address vault = LibUnderlyingNamingRollout.tokens(block.chainid)[0].receiptVault;
+        vm.prank(timelock);
+        Ownable(vault).transferOwnership(safe);
+        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, vault, timelock, safe));
+        rename.callPreflight();
+    }
+
     /// @notice The rename pre-flight refuses once the rename is registered.
     function testRenamePreflightRefusesARegisteredRename() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("refusals");
-        prepareRename(rename);
+        prepareRename();
         rename.callPreflight();
         executePrefix(rename.callAuthorBundle(), 1);
         vm.expectRevert(
@@ -584,7 +605,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
     function testRenamePreflightRefusesAMismatchedTicker() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("ticker");
-        prepareRename(rename);
+        prepareRename();
         rename.callPreflight();
         TokenInstance memory last =
             LibUnderlyingNamingRollout.tokens(block.chainid)[LibUnderlyingNamingRollout.TOKEN_COUNT - 1];
