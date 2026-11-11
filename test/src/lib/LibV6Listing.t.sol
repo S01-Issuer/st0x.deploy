@@ -130,26 +130,72 @@ contract LibV6ListingTest is Test {
         return new string[](0);
     }
 
-    /// Every signed row whose ticker or name differs from the table row in its place is recorded in `renamedSinceSigning`.
-    function testTableRenamesAreRecorded() external pure {
-        ListingRow[] memory signed = LibV6Listing.rows();
-        ListingRow[] memory table = LibListingTree.rows(LibV6Listing.configs());
-        string[] memory renamed = renamedSinceSigning();
-        uint256 found = 0;
+    /// The asset ids of the rows of `signed` whose ticker or name differs from the row of `table` in its place, in
+    /// order.
+    function renamesIn(ListingRow[] memory signed, ListingRow[] memory table) internal pure returns (string[] memory) {
+        string[] memory renamed = new string[](signed.length);
+        uint256 count = 0;
         for (uint256 i = 0; i < signed.length; i++) {
             bool differs = keccak256(bytes(signed[i].ticker)) != keccak256(bytes(table[i].ticker))
                 || keccak256(bytes(signed[i].name)) != keccak256(bytes(table[i].name));
             if (differs) {
-                assertLt(
-                    found,
-                    renamed.length,
-                    string.concat("record in renamedSinceSigning the rename of ", signed[i].assetId)
-                );
-                assertEq(renamed[found], signed[i].assetId, "renamed rows in table order");
-                found++;
+                renamed[count] = signed[i].assetId;
+                count++;
             }
         }
-        assertEq(found, renamed.length, "a recorded rename the table does not show");
+        assembly ("memory-safe") {
+            mstore(renamed, count)
+        }
+        return renamed;
+    }
+
+    /// Every signed row whose ticker or name differs from the table row in its place is recorded in `renamedSinceSigning`.
+    function testTableRenamesAreRecorded() external pure {
+        string[] memory renamed = renamesIn(LibV6Listing.rows(), LibListingTree.rows(LibV6Listing.configs()));
+        string[] memory recorded = renamedSinceSigning();
+        for (uint256 i = 0; i < renamed.length; i++) {
+            assertTrue(i < recorded.length, string.concat("record in renamedSinceSigning the rename of ", renamed[i]));
+            assertEq(recorded[i], renamed[i], "renamed rows in table order");
+        }
+        assertEq(recorded, renamed, "renamedSinceSigning is exactly the renamed rows, in table order");
+    }
+
+    /// A ticker-only rename, a name-only rename and a rename of both are each detected, in table order.
+    function testRenamesInDetectsEachField() external pure {
+        ListingRow[] memory signed = LibV6Listing.rows();
+        ListingRow[] memory table = LibV6Listing.rows();
+        assertEq(renamesIn(signed, table).length, 0, "unchanged");
+        table[3].ticker = "RENAMED";
+        string[] memory renamed = renamesIn(signed, table);
+        assertEq(renamed.length, 1, "ticker only");
+        assertEq(renamed[0], signed[3].assetId, "ticker only row");
+        table = LibV6Listing.rows();
+        table[5].name = "Renamed Inc.";
+        renamed = renamesIn(signed, table);
+        assertEq(renamed.length, 1, "name only");
+        assertEq(renamed[0], signed[5].assetId, "name only row");
+        table = LibV6Listing.rows();
+        table[7].ticker = "SEVEN";
+        table[7].name = "Seven Inc.";
+        table[1].name = "One Inc.";
+        renamed = renamesIn(signed, table);
+        assertEq(renamed.length, 2, "two rows");
+        assertEq(renamed[0], signed[1].assetId, "first in table order");
+        assertEq(renamed[1], signed[7].assetId, "second in table order");
+    }
+
+    /// A rename of the first or the last row is detected, and the asset id recorded is the signed row's.
+    function testRenamesInDetectsTheEdgeRowsAndRecordsTheSignedAssetId() external pure {
+        ListingRow[] memory signed = LibV6Listing.rows();
+        ListingRow[] memory table = LibV6Listing.rows();
+        uint256 last = signed.length - 1;
+        table[0].ticker = "FIRST";
+        table[last].name = "Last Inc.";
+        table[last].assetId = "XX0000000000";
+        string[] memory renamed = renamesIn(signed, table);
+        assertEq(renamed.length, 2, "both edge rows");
+        assertEq(renamed[0], signed[0].assetId, "first row");
+        assertEq(renamed[1], signed[last].assetId, "last row, signed asset id");
     }
 
     /// A table row whose token moves, by another region, is refused.

@@ -552,9 +552,10 @@ signer is bound on a chain:
    the five rows with no ISIN in the st0x.registry Base list (IBHG, RKLB, BIRD,
    SNES and DIS) against the issuer and sponsor SEC filings that
    `LibProdTokenConfigIsinTest.sourcedIsins` names and against the issuer's
-   legal name at that time; the IBHG ISIN in the other chains' lists
-   (`US46436E3128`, another iShares fund) is not the one to use. A frozen row
-   that no longer matches a later rename is still signed as it is, and the
+   legal name at that time. The Base list is the reference: the other chains'
+   lists carry two known wrong ISINs, IBHG's `US46436E3128` (another iShares
+   fund) and SMCI's `US86800U1043` (the line before the 2024 split). A frozen
+   row that no longer matches a later rename is still signed as it is, and the
    rename goes through `setUnderlying` after `nameListing` (the row is recorded
    in `LibV6ListingTest.renamedSinceSigning`, and stays there after the rename
    runs). The two test rows must read `ST0XTESTUS`, `USTEST`, `US Test` and
