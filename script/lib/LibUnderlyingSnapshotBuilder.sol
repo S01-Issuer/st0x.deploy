@@ -15,6 +15,9 @@ uint8 constant UNDERLYING_SNAPSHOT_META_DEPTH = 3;
 uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARD_ROWS = 256;
 uint256 constant EIP170_MAX_RUNTIME = 24576;
 
+/// @notice No shard count up to 255 fits every shard.
+error UnderlyingSnapshotDoesNotShard(uint256 rows);
+
 struct UnderlyingSnapshotRow {
     address token;
     string ticker;
@@ -63,11 +66,8 @@ library LibUnderlyingSnapshotBuilder {
 
     /// Smallest shard count K for which every shard fits the meta index and
     /// EIP-170; rows route to shard `uint160(token) % K`.
-    function build(uint256 asOf, UnderlyingSnapshotRow[] memory rows)
-        internal
-        pure
-        returns (bytes memory, bytes[] memory)
-    {
+    function build(uint256 asOf, UnderlyingSnapshotRow[] memory rows) internal returns (bytes memory, bytes[] memory) {
+        UnderlyingSnapshotShardEncoder encoder = new UnderlyingSnapshotShardEncoder();
         for (uint256 k = 1; k <= type(uint8).max; k++) {
             bytes[] memory shardCodes = new bytes[](k);
             address[] memory shards = new address[](k);
@@ -78,7 +78,14 @@ library LibUnderlyingSnapshotBuilder {
                     fits = false;
                     break;
                 }
-                bytes memory runtime = shardRuntime(member);
+                // A meta build revert (depth, duplicate fingerprint) means try the next K.
+                bytes memory runtime;
+                try encoder.shardRuntime(member) returns (bytes memory encoded) {
+                    runtime = encoded;
+                } catch {
+                    fits = false;
+                    break;
+                }
                 if (runtime.length > EIP170_MAX_RUNTIME) {
                     fits = false;
                     break;
@@ -90,7 +97,7 @@ library LibUnderlyingSnapshotBuilder {
                 return (creationCode(rootRuntime(asOf, shards)), shardCodes);
             }
         }
-        revert("underlying snapshot does not shard");
+        revert UnderlyingSnapshotDoesNotShard(rows.length);
     }
 
     function shardRows(UnderlyingSnapshotRow[] memory rows, uint256 k, uint256 s)
@@ -109,5 +116,12 @@ library LibUnderlyingSnapshotBuilder {
             mstore(member, n)
         }
         return member;
+    }
+}
+
+/// External entry so the builder can catch a shard's meta build revert.
+contract UnderlyingSnapshotShardEncoder {
+    function shardRuntime(UnderlyingSnapshotRow[] memory rows) external pure returns (bytes memory) {
+        return LibUnderlyingSnapshotBuilder.shardRuntime(rows);
     }
 }
