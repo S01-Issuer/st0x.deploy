@@ -26,6 +26,20 @@ import {IOwnable} from "../interface/IOwnable.sol";
 import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying.sol";
+import {IStoxTokenConfigV1, StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../interface/IStoxTokenConfigV1.sol";
+import {
+    InvalidStoxTokenConfigTag,
+    NonCanonicalStoxTokenConfig,
+    EmptyAssetId,
+    EmptyListingTicker,
+    EmptyListingName,
+    StoxTokenAlreadyInitialized
+} from "../error/ErrStoxTokenConfig.sol";
+import {LibStoxTokenConfig} from "../lib/LibStoxTokenConfig.sol";
+import {
+    OffchainAssetReceiptVaultConfigV3,
+    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
+} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
@@ -45,7 +59,7 @@ import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying
 /// `rain.storage.underlying.1` (see `LibUnderlying`). Any future external
 /// entry points added here (e.g. list traversal) must also carry
 /// `onlyDelegatecalled`.
-contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
+contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IStoxTokenConfigV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -245,6 +259,39 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
         ERC20Upgradeable.ERC20Storage storage erc20Storage = LibERC20Storage.getStorage();
         erc20Storage._symbol = string.concat("t", newSymbol);
         erc20Storage._name = string.concat(newName, ST0X_NAME_SUFFIX);
+    }
+
+    /// @inheritdoc IStoxTokenConfigV1
+    function initializeStoxToken(bytes calldata data) external override onlyDelegatecalled returns (bytes memory) {
+        if (!LibStoxTokenConfig.isUninitialized()) revert StoxTokenAlreadyInitialized();
+        if (data.length < 0x20) revert InvalidStoxTokenConfigTag(bytes32(0));
+        bytes32 tag = abi.decode(data, (bytes32));
+        if (tag != STOX_TOKEN_CONFIG_V1_TAG) revert InvalidStoxTokenConfigTag(tag);
+        (, StoxTokenConfigV1 memory config) = abi.decode(data, (bytes32, StoxTokenConfigV1));
+        if (keccak256(abi.encode(tag, config)) != keccak256(data)) revert NonCanonicalStoxTokenConfig();
+        if (bytes(config.assetId).length == 0) revert EmptyAssetId();
+        if (bytes(config.listingTicker).length == 0) revert EmptyListingTicker();
+        if (bytes(config.listingName).length == 0) revert EmptyListingName();
+
+        LibStoxTokenConfig.StoxTokenConfigStorage storage s = LibStoxTokenConfig.getStorage();
+        s.assetId = config.assetId;
+        s.listingTicker = config.listingTicker;
+        s.listingName = config.listingName;
+        s.region = config.region;
+
+        emit StoxTokenInitialized(msg.sender, config);
+
+        return abi.encode(
+            OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
+            OffchainAssetReceiptVaultConfigV3({
+                name: string.concat(config.listingName, ST0X_NAME_SUFFIX),
+                symbol: string.concat("t", config.listingTicker),
+                authority: config.authority,
+                rbacName: config.rbacName,
+                receiptBeaconName: config.receiptBeaconName,
+                metadata: config.metadata
+            })
+        );
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
