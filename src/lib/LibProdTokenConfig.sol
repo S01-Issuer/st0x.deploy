@@ -33,6 +33,9 @@ pragma solidity ^0.8.25;
 /// suffix: the `name` argument of `setUnderlying`. Usually the live `name`
 /// without " ST0x"; it differs where the issuer has since been renamed
 /// (MSTR, RKLB).
+/// @dev Unix seconds the underlying snapshot was cut from this table.
+uint256 constant UNDERLYING_SNAPSHOT_AS_OF = 1794441600;
+
 struct TokenConfig {
     string underlying;
     string name;
