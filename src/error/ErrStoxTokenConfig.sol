@@ -8,8 +8,8 @@ error NonCanonicalStoxTokenConfig();
 
 error EmptyAssetId();
 
-error EmptyListingTicker();
+error MalformedListingTicker(string listingTicker);
 
-error EmptyListingName();
+error MalformedListingName(string listingName);
 
 error StoxTokenAlreadyInitialized();

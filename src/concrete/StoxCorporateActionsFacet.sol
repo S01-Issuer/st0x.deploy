@@ -31,8 +31,8 @@ import {
     InvalidStoxTokenConfigTag,
     NonCanonicalStoxTokenConfig,
     EmptyAssetId,
-    EmptyListingTicker,
-    EmptyListingName,
+    MalformedListingTicker,
+    MalformedListingName,
     StoxTokenAlreadyInitialized
 } from "../error/ErrStoxTokenConfig.sol";
 import {LibStoxTokenConfig} from "../lib/LibStoxTokenConfig.sol";
@@ -270,8 +270,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
         (, StoxTokenConfigV1 memory config) = abi.decode(data, (bytes32, StoxTokenConfigV1));
         if (keccak256(abi.encode(tag, config)) != keccak256(data)) revert NonCanonicalStoxTokenConfig();
         if (bytes(config.assetId).length == 0) revert EmptyAssetId();
-        if (bytes(config.listingTicker).length == 0) revert EmptyListingTicker();
-        if (bytes(config.listingName).length == 0) revert EmptyListingName();
+        if (!LibUnderlying.tickerWellFormed(bytes(config.listingTicker))) {
+            revert MalformedListingTicker(config.listingTicker);
+        }
+        if (!LibUnderlying.nameWellFormed(bytes(config.listingName))) revert MalformedListingName(config.listingName);
 
         LibStoxTokenConfig.StoxTokenConfigStorage storage s = LibStoxTokenConfig.getStorage();
         s.assetId = config.assetId;
