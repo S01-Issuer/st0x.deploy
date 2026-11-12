@@ -15,13 +15,15 @@ pragma solidity ^0.8.25;
 /// `name` + `symbol` are the ONLY free initialization inputs, and this table
 /// holds exactly those.
 ///
-/// The underlying ticker and name are not deploy inputs: the vault owner sets
-/// them after deployment with `IStoxUnderlyingV1.setUnderlying`. The ticker
-/// is this table's `underlying` key (every row's `symbol` is
-/// `"t" + underlying`) and the name is `underlyingName`. Once both are set,
+/// The underlying ticker and name are set at initialization from the
+/// underlying snapshot built from this table, unless a newer registry override
+/// for the token applies; the vault owner can later change them with
+/// `IStoxUnderlyingV1.setUnderlying`. The ticker is this table's `underlying`
+/// key (every row's `symbol` is `"t" + underlying`) and the name is
+/// `underlyingName`. Once both are set,
 /// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
 /// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
-/// Until then the receipt vault reports the `name` + `symbol` it was
+/// A token with neither reports the `name` + `symbol` it was
 /// initialized with, and the wrapped token vault `"Wrapped " + name` /
 /// `"w" + symbol`.
 /// @param underlying The chain-agnostic ticker join key, matching
@@ -33,9 +35,6 @@ pragma solidity ^0.8.25;
 /// suffix: the `name` argument of `setUnderlying`. Usually the live `name`
 /// without " ST0x"; it differs where the issuer has since been renamed
 /// (MSTR, RKLB).
-/// @dev Unix seconds the underlying snapshot was cut from this table.
-uint256 constant UNDERLYING_SNAPSHOT_AS_OF = 1794441600;
-
 struct TokenConfig {
     string underlying;
     string name;
@@ -48,6 +47,9 @@ enum Region {
     US,
     EU
 }
+
+/// @dev Unix seconds the underlying snapshot was cut from this table.
+uint256 constant UNDERLYING_SNAPSHOT_AS_OF = 1794441600;
 
 /// @notice The underlying has no row in the production token table.
 error UnknownUnderlying(string underlying);
