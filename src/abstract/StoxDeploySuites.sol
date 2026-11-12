@@ -11,6 +11,7 @@ import {
 } from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.30/src/lib/LibRainDeployDeclaration.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.30/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {CloneDeploy} from "rain-factory-0.2.11/src/lib/LibRainDeployClone.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.11/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
@@ -46,6 +47,7 @@ import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxWrapperProxy} from "../generated/LibStoxWrapperProxy.sol";
 import {LibProdOrchestratorParams} from "../lib/LibProdOrchestratorParams.sol";
 import {LibST0xOrchestratorProxy} from "../generated/LibST0xOrchestratorProxy.sol";
+import {LibUnderlyingSnapshotCode} from "../generated/LibUnderlyingSnapshotCode.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -75,6 +77,8 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant TOKEN_PREFIX = "stox-token-";
     string constant WRAPPER_SUFFIX = "-wrapper";
     string constant GOVERNANCE_TIMELOCK = "stox-governance-timelock";
+    string constant UNDERLYING_SNAPSHOT_ROOT = "stox-underlying-snapshot-root";
+    string constant UNDERLYING_SNAPSHOT_SHARD_PREFIX = "stox-underlying-snapshot-shard-";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
     string constant RECEIPT_PATH = "src/concrete/StoxReceipt.sol:StoxReceipt";
@@ -109,6 +113,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployCloneMechanism.extend(declared);
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
+        LibRainDeployDeclaration.addCandidates(declared, underlyingSnapshotSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
         addTokenSuites(declared, LibProdTokenConfig.productionTokenConfigs());
         addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
@@ -298,6 +303,40 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             )
         );
         return candidates;
+    }
+
+    /// The underlying snapshot root and shards: pure data, Zoltu-deployed, no source artifact.
+    function underlyingSnapshotSuites() internal pure returns (DeployCandidate[] memory) {
+        bytes[] memory shards = LibUnderlyingSnapshotCode.shardCreationCodes();
+        DeployCandidate[] memory candidates = new DeployCandidate[](shards.length + 1);
+        candidates[0] = anchored(dataZoltu(UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE));
+        for (uint256 i = 0; i < shards.length; i++) {
+            // Suite keys allow only lowercase letters and hyphens, so shards are lettered.
+            candidates[i + 1] = anchored(
+                dataZoltu(
+                    string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, string(abi.encodePacked(bytes1(uint8(0x61 + i))))),
+                    shards[i]
+                )
+            );
+        }
+        return candidates;
+    }
+
+    /// Zoltu suite for a copy-and-return creation code whose 10-byte prefix returns the data after it.
+    function dataZoltu(string memory suite, bytes memory creationCode) internal pure returns (DeploySuite memory) {
+        bytes memory runtimeCode = new bytes(creationCode.length - 10);
+        for (uint256 i = 0; i < runtimeCode.length; i++) {
+            runtimeCode[i] = creationCode[i + 10];
+        }
+        return zoltu(
+            suite,
+            creationCode,
+            LibRainDeploy.zoltuAddress(creationCode),
+            keccak256(runtimeCode),
+            runtimeCode,
+            "",
+            new DeployDependency[](0)
+        );
     }
 
     /// The EU assets authoriser: a clone of the 0.1.1 authoriser whose init
