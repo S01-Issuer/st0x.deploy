@@ -31,6 +31,7 @@ on:
           - 20261021-schedule-underlying-naming-rename
           - 20261021-execute-underlying-naming
           - 20261022-bind-beacon-initial-owner
+          - 20261103-hand-safe-owned-base-vaults-to-timelock
           - 20261109-schedule-revoke-service-signer-deposit-withdraw
           - 20261109-execute-revoke-service-signer-deposit-withdraw
       network:

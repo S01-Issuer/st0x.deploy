@@ -4,7 +4,6 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
@@ -20,11 +19,10 @@ import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingR
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
-import {IOwnable} from "../../src/interface/IOwnable.sol";
+import {HandSafeOwnedBaseVaultsToTimelockHarness} from "./HandSafeOwnedBaseVaultsToTimelockHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {TokenInstance, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
 /// @title UnderlyingNamingRolloutFixture
@@ -32,8 +30,8 @@ import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollo
 /// rollout's steps as the Safe and the executing key would.
 abstract contract UnderlyingNamingRolloutFixture is Test {
     /// @notice Lands, as the Safe would, the root-line records before the
-    /// beacon schedule: the V5 backfill, the beacon-initial-owner bind, then
-    /// the orchestrator admin move.
+    /// beacon schedule: the V5 backfill, the beacon-initial-owner bind, the
+    /// orchestrator admin move, then the Safe-owned Base vault handover.
     function advanceRootLineToBeaconSchedule() internal {
         Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
         BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("underlying-naming");
@@ -43,6 +41,10 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
         OrchestratorAdminToTimelockHarness adminMove = new OrchestratorAdminToTimelockHarness("underlying-naming");
         adminMove.callPreflight();
         LibSafeFork.executeBundle(vm, safe, adminMove.callAuthorBundle());
+        HandSafeOwnedBaseVaultsToTimelockHarness handover =
+            new HandSafeOwnedBaseVaultsToTimelockHarness("underlying-naming");
+        handover.callPreflight();
+        LibSafeFork.executeBundle(vm, safe, handover.callAuthorBundle());
         assertEq(LibStoxMigrations.head(), scheduleUnderlyingNamingBeaconsDeclaration().onto, "line at the beacon onto");
     }
 
@@ -86,52 +88,28 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
         );
     }
 
-    /// @notice Every production vault must be owned by the timelock before
-    /// the rename batch can be authored. Where one is not, the rename
-    /// pre-flight refuses, and the pending ownership handover is applied on the
-    /// fork so the rest of the rollout can be exercised.
-    function completeOwnershipHandover(uint256 chainId, ScheduleUnderlyingNamingRenameHarness rename) internal {
-        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
-        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
-        bool refused = false;
-        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            address owner = IOwnable(chainTokens[tokenIndex].receiptVault).owner();
-            if (owner == timelock) continue;
-            if (!refused) {
-                vm.expectPartialRevert(ReceiptVaultOwnerMismatch.selector);
-                rename.callPreflight();
-                refused = true;
-            }
-            console2.log("PREREQUISITE: vault not owned by the timelock, handed over on the fork");
-            console2.log(chainTokens[tokenIndex].receiptVault);
-            vm.prank(owner);
-            OwnableUpgradeable(chainTokens[tokenIndex].receiptVault).transferOwnership(timelock);
-        }
-    }
-
     /// @notice Brings the forked chain to the point where the rename can be
     /// authored: the beacon batch registered and every vault owned by the
     /// timelock.
-    function prepareRename(ScheduleUnderlyingNamingRenameHarness rename) internal {
+    function prepareRename() internal {
         advanceRootLineToBeaconSchedule();
-        landBeaconScheduleAndHandOver(rename);
+        landBeaconSchedule();
     }
 
-    /// @notice From the line at the beacon onto: plants the implementations,
-    /// lands the beacon bundle and hands every vault to the timelock.
-    function landBeaconScheduleAndHandOver(ScheduleUnderlyingNamingRenameHarness rename) internal {
+    /// @notice From the line at the beacon onto: plants the implementations
+    /// and lands the beacon bundle.
+    function landBeaconSchedule() internal {
         plantImplementations();
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("prepare");
         LibSafeFork.executeBundle(
             vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), beacons.callAuthorBundle()
         );
-        completeOwnershipHandover(block.chainid, rename);
     }
 
     /// @notice Runs the rollout on the fork through to the executed rename
     /// batch.
     function executeRollout(ScheduleUnderlyingNamingRenameHarness rename) internal {
-        prepareRename(rename);
+        prepareRename();
         LibSafeFork.executeBundle(
             vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), rename.callAuthorBundle()
         );

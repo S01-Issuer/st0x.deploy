@@ -36,7 +36,7 @@ contract ExecuteUnderlyingNamingRootLineTest is UnderlyingNamingRolloutFixture, 
     function landBeforeOnto() internal override {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("execute-root-line");
-        prepareRename(rename);
+        prepareRename();
         executePrefix(rename.callAuthorBundle(), 1);
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
