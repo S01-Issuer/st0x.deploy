@@ -18,15 +18,15 @@ pragma solidity ^0.8.25;
 /// The underlying ticker and name are set at initialization from the
 /// underlying snapshot built from this table, unless a newer registry override
 /// for the token applies; the vault owner can later change them with
-/// `IStoxUnderlyingV1.setUnderlying`. The ticker is this table's `underlying`
-/// key (every row's `symbol` is `"t" + underlying`) and the name is
-/// `underlyingName`. Once both are set,
+/// `IStoxUnderlyingV1.setUnderlying`. The ticker is `ticker` and the name is
+/// `underlyingName`; `underlying` is frozen because it is the deploy salt and
+/// join key. Once both are set,
 /// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
 /// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
 /// A token with neither reports the `name` + `symbol` it was
 /// initialized with, and the wrapped token vault `"Wrapped " + name` /
 /// `"w" + symbol`.
-/// @param underlying The chain-agnostic ticker join key, matching
+/// @param underlying The frozen chain-agnostic join key and deploy salt, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param ticker The current underlying ticker: the `ticker` argument of
 /// `setUnderlying`.
@@ -92,7 +92,12 @@ library LibProdTokenConfig {
             underlyingName: "Strategy Inc"
         });
         configs[1] = TokenConfig({
-            underlying: "TSLA", ticker: "TSLA", name: "Tesla Inc ST0x", symbol: "tTSLA", region: Region.US, underlyingName: "Tesla Inc"
+            underlying: "TSLA",
+            ticker: "TSLA",
+            name: "Tesla Inc ST0x",
+            symbol: "tTSLA",
+            region: Region.US,
+            underlyingName: "Tesla Inc"
         });
         configs[2] = TokenConfig({
             underlying: "COIN",
@@ -424,7 +429,12 @@ library LibProdTokenConfig {
             underlyingName: "McDonald's Corporation"
         });
         configs[43] = TokenConfig({
-            underlying: "NKE", ticker: "NKE", name: "NIKE, Inc. ST0x", symbol: "tNKE", region: Region.US, underlyingName: "NIKE, Inc."
+            underlying: "NKE",
+            ticker: "NKE",
+            name: "NIKE, Inc. ST0x",
+            symbol: "tNKE",
+            region: Region.US,
+            underlyingName: "NIKE, Inc."
         });
         configs[44] = TokenConfig({
             underlying: "GRND",
@@ -541,7 +551,12 @@ library LibProdTokenConfig {
             underlyingName: "Infineon Technologies AG"
         });
         configs[57] = TokenConfig({
-            underlying: "SOI", ticker: "SOI", name: "Soitec SA ST0x", symbol: "tSOI", region: Region.EU, underlyingName: "Soitec SA"
+            underlying: "SOI",
+            ticker: "SOI",
+            name: "Soitec SA ST0x",
+            symbol: "tSOI",
+            region: Region.EU,
+            underlyingName: "Soitec SA"
         });
         configs[58] = TokenConfig({
             underlying: "TPRO",
@@ -556,10 +571,20 @@ library LibProdTokenConfig {
     function testTokenConfigs() internal pure returns (TokenConfig[] memory) {
         TokenConfig[] memory configs = new TokenConfig[](2);
         configs[0] = TokenConfig({
-            underlying: "USTEST", ticker: "USTEST", name: "US Test ST0x", symbol: "tUSTEST", region: Region.US, underlyingName: ""
+            underlying: "USTEST",
+            ticker: "USTEST",
+            name: "US Test ST0x",
+            symbol: "tUSTEST",
+            region: Region.US,
+            underlyingName: ""
         });
         configs[1] = TokenConfig({
-            underlying: "EUTEST", ticker: "EUTEST", name: "EU Test ST0x", symbol: "tEUTEST", region: Region.EU, underlyingName: ""
+            underlying: "EUTEST",
+            ticker: "EUTEST",
+            name: "EU Test ST0x",
+            symbol: "tEUTEST",
+            region: Region.EU,
+            underlyingName: ""
         });
         return configs;
     }
