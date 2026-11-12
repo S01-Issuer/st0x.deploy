@@ -97,7 +97,7 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
 
         vm.expectPartialRevert(ReceiptVaultOwnerMismatch.selector);
-        this.externalAssertRolloutOwnership(timelock);
+        this.externalAssertProductionOwnership(timelock);
 
         uint256 preRun = vm.snapshotState();
         uint256 runAt = block.timestamp;
@@ -130,8 +130,16 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         script.callPreflight();
     }
 
-    function externalAssertRolloutOwnership(address timelock) external view {
-        LibTokenInvariants.assertUniformOwnership(LibUnderlyingNamingRollout.tokens(block.chainid), timelock);
+    function externalAssertProductionOwnership(address timelock) external view {
+        LibTokenInvariants.assertUniformOwnership(
+            LibTokenInvariants.productionTokensForChainId(block.chainid), timelock
+        );
+    }
+
+    function vaultOutsideTheRenameRows() internal view returns (address) {
+        TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(block.chainid);
+        assertGt(tokens.length, LibUnderlyingNamingRollout.TOKEN_COUNT, "a production vault outside the rename's rows");
+        return tokens[tokens.length - 1].receiptVault;
     }
 
     function assertGovernedLikeTheRest() internal {
@@ -206,8 +214,9 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         script.callPreflight();
         uint256 snapshot = vm.snapshotState();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        address vault = LibUnderlyingNamingRollout.tokens(block.chainid)[0].receiptVault;
-        vm.prank(LibTimelockInvariants.timelockForChainId(block.chainid));
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address vault = vaultOutsideTheRenameRows();
+        vm.prank(timelock);
         Ownable(vault).transferOwnership(safe);
         vm.expectRevert(abi.encodeWithSelector(VaultNotOnTimelock.selector, vault, safe));
         script.callPreflight();
@@ -223,6 +232,11 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), artifactTxs);
         script.callAssertPostState();
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK, "record heads");
+
+        vm.prank(timelock);
+        Ownable(vault).transferOwnership(safe);
+        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, vault, timelock, safe));
+        script.callAssertPostState();
     }
 
     function testRecordAloneOffBaseEthereum() external {
