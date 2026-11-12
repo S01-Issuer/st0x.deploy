@@ -237,14 +237,18 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
         if (bytes(newSymbol).length == 0) revert EmptyUnderlyingSymbol();
         if (bytes(newName).length == 0) revert EmptyUnderlyingName();
 
+        writeUnderlying(msg.sender, newSymbol, newName);
+    }
+
+    function writeUnderlying(address sender, string memory ticker, string memory name) internal {
         LibUnderlying.UnderlyingStorage storage underlyingStorage = LibUnderlying.getStorage();
-        emit UnderlyingSet(msg.sender, underlyingStorage.symbol, underlyingStorage.name, newSymbol, newName);
-        underlyingStorage.symbol = newSymbol;
-        underlyingStorage.name = newName;
+        emit UnderlyingSet(sender, underlyingStorage.symbol, underlyingStorage.name, ticker, name);
+        underlyingStorage.symbol = ticker;
+        underlyingStorage.name = name;
 
         ERC20Upgradeable.ERC20Storage storage erc20Storage = LibERC20Storage.getStorage();
-        erc20Storage._symbol = string.concat("t", newSymbol);
-        erc20Storage._name = string.concat(newName, ST0X_NAME_SUFFIX);
+        erc20Storage._symbol = string.concat("t", ticker);
+        erc20Storage._name = string.concat(name, ST0X_NAME_SUFFIX);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
