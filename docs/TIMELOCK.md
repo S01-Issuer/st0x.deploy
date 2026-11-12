@@ -28,8 +28,15 @@ so the migration skipped it. Its `owner()` is still the token-owner Safe, so its
 `onlyOwner` surfaces (`setAuthorizer`, `setUnderlying`, `transferOwnership`,
 owner freezes) are direct Safe transactions, with no delay. Its authoriser is
 the fleet authoriser `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` once the
-Safe calls `setAuthorizer` on the vault. From then on grants on that authoriser
-go through the timelock. Before that it is on the V3 clone
+Safe calls `setAuthorizer` on the vault. Actions → `run-script` →
+`20261111-qsep-set-fleet-authoriser`, network `base`, authors that call as a
+one-transaction Safe bundle. The Safe Transaction Builder sends a
+one-transaction batch as a direct CALL, so the script logs that CALL's
+`SafeTxHash`, not a MultiSend hash. The root line on Base is still at genesis,
+so the call goes without its record; once it executes, a re-dispatch authors the
+record-only bundle, which the registry accepts after
+`20261109-execute-revoke-service-signer-deposit-withdraw`. From then on grants
+on that authoriser go through the timelock. Before that it is on the V3 clone
 (`STOX_PROD_AUTHORISER_V3_CLONE`), whose `_ADMIN` roles are on the Safe. Either
 way, tQSEP mint and burn authority is not delay-gated: the Safe, as vault owner,
 can point the vault at another authoriser (for example a new clone with the Safe
@@ -407,7 +414,8 @@ The root line runs, after the backfill: `20261022-bind-beacon-initial-owner` →
 `20261021-schedule-underlying-naming-rename` →
 `20261021-execute-underlying-naming` →
 `20261109-schedule-revoke-service-signer-deposit-withdraw` →
-`20261109-execute-revoke-service-signer-deposit-withdraw`.
+`20261109-execute-revoke-service-signer-deposit-withdraw` →
+`20261111-qsep-set-fleet-authoriser`.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over

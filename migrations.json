@@ -390,6 +390,32 @@
       },
       "id": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070",
       "script": "script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xf4f523ac3a41a095b384301b2343639f93d5e8230168648efac9fc77fa0797df"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xf4f523ac3a41a095b384301b2343639f93d5e8230168648efac9fc77fa0797df"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xf4f523ac3a41a095b384301b2343639f93d5e8230168648efac9fc77fa0797df"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xf4f523ac3a41a095b384301b2343639f93d5e8230168648efac9fc77fa0797df"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xf4f523ac3a41a095b384301b2343639f93d5e8230168648efac9fc77fa0797df"
+        }
+      },
+      "id": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d",
+      "script": "script/20261111-qsep-set-fleet-authoriser.s.sol"
     }
   ],
   "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
