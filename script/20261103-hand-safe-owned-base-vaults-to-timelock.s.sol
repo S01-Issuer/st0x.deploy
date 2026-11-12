@@ -23,7 +23,6 @@ import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
-import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
 
 /// @notice A handover vault is owned by neither the Safe nor the timelock.
 /// @param vault The vault.
@@ -153,14 +152,10 @@ contract HandSafeOwnedBaseVaultsToTimelock is SafeBundleScript, IStoxScript {
         return vaults;
     }
 
-    /// @notice The vaults whose owner this migration checks: every Base
-    /// production vault, and elsewhere the rename's rows.
+    /// @notice The vaults whose owner this migration checks: every production vault on the chain.
     /// @return The tokens.
     function ownershipRows() internal view returns (TokenInstance[] memory) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensForChainId(block.chainid);
-        }
-        return LibUnderlyingNamingRollout.tokens(block.chainid);
+        return LibTokenInvariants.productionTokensForChainId(block.chainid);
     }
 
     /// @notice Whether `vault` is one of the handover vaults.

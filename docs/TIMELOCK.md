@@ -223,9 +223,9 @@ records the 2026-07-29 governance migration.
 line after the orchestrator admin move, which follows the beacon initial owner
 bind and the V5 backfill. On Base its bundle is one
 `transferOwnership(timelock)` per vault of the six the Safe still owns, plus the
-record; elsewhere it is the record alone. The pre-flight requires every other
-token-table Base vault, and the rename's rows elsewhere, to be timelock-owned. A
-vault of the six that the timelock already owns is skipped.
+record; elsewhere it is the record alone. On every chain the pre-flight requires
+every other token-table vault to be timelock-owned. A vault of the six that the
+timelock already owns is skipped.
 
 Decide Base Safe nonce 706 first. It is the Safe's older queued MultiSend that
 moves the same six (from `20260729-migrate-governance-to-timelock`), and it is
