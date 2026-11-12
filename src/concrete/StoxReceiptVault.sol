@@ -67,7 +67,14 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
 
     /// @param data `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`.
     function initialize(bytes memory data) public override returns (bytes32) {
-        bytes memory result = delegateToFacet(abi.encodeCall(IStoxTokenConfigV1.initializeStoxToken, (data)));
+        (bool success, bytes memory result) = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET.delegatecall(
+            abi.encodeCall(IStoxTokenConfigV1.initializeStoxToken, (data))
+        );
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(result, 0x20), mload(result))
+            }
+        }
         return super.initialize(abi.decode(result, (bytes)));
     }
 
@@ -209,24 +216,21 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// per-function comments for the per-method argument that the
     /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
-        bytes memory result = delegateToFacet(msg.data);
-        assembly ("memory-safe") {
-            return(add(result, 0x20), mload(result))
-        }
-    }
-
-    /// @dev Delegatecalls the facet with `data`, bubbling its revert, and
-    /// returns its return data.
-    function delegateToFacet(bytes memory data) internal returns (bytes memory) {
         address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
-        if (facet.code.length == 0) revert CorporateActionsFacetNotDeployed(facet);
-        (bool success, bytes memory result) = facet.delegatecall(data);
-        if (!success) {
-            assembly ("memory-safe") {
-                revert(add(result, 0x20), mload(result))
+        bytes4 notDeployed = CorporateActionsFacetNotDeployed.selector;
+        assembly ("memory-safe") {
+            if iszero(extcodesize(facet)) {
+                mstore(0, notDeployed)
+                mstore(4, facet)
+                revert(0, 0x24)
             }
+            calldatacopy(0, 0, calldatasize())
+            let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch success
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
         }
-        return result;
     }
 
     /// @notice Reject authorizers that don't configure admin hierarchies
