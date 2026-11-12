@@ -89,7 +89,14 @@ library LibProdTokenConfig {
             underlyingName: "Strategy Inc"
         });
         configs[1] = TokenConfig({
-            underlying: "TSLA", assetId: "", listingTicker: "TSLA", listingName: "Tesla Inc", name: "Tesla Inc ST0x", symbol: "tTSLA", region: Region.US, underlyingName: "Tesla Inc"
+            underlying: "TSLA",
+            assetId: "",
+            listingTicker: "TSLA",
+            listingName: "Tesla Inc",
+            name: "Tesla Inc ST0x",
+            symbol: "tTSLA",
+            region: Region.US,
+            underlyingName: "Tesla Inc"
         });
         configs[2] = TokenConfig({
             underlying: "COIN",
@@ -503,7 +510,14 @@ library LibProdTokenConfig {
             underlyingName: "McDonald's Corporation"
         });
         configs[43] = TokenConfig({
-            underlying: "NKE", assetId: "", listingTicker: "NKE", listingName: "NIKE, Inc.", name: "NIKE, Inc. ST0x", symbol: "tNKE", region: Region.US, underlyingName: "NIKE, Inc."
+            underlying: "NKE",
+            assetId: "",
+            listingTicker: "NKE",
+            listingName: "NIKE, Inc.",
+            name: "NIKE, Inc. ST0x",
+            symbol: "tNKE",
+            region: Region.US,
+            underlyingName: "NIKE, Inc."
         });
         configs[44] = TokenConfig({
             underlying: "GRND",
@@ -646,7 +660,14 @@ library LibProdTokenConfig {
             underlyingName: "Infineon Technologies AG"
         });
         configs[57] = TokenConfig({
-            underlying: "SOI", assetId: "", listingTicker: "SOI", listingName: "Soitec SA", name: "Soitec SA ST0x", symbol: "tSOI", region: Region.EU, underlyingName: "Soitec SA"
+            underlying: "SOI",
+            assetId: "",
+            listingTicker: "SOI",
+            listingName: "Soitec SA",
+            name: "Soitec SA ST0x",
+            symbol: "tSOI",
+            region: Region.EU,
+            underlyingName: "Soitec SA"
         });
         configs[58] = TokenConfig({
             underlying: "TPRO",
@@ -663,10 +684,24 @@ library LibProdTokenConfig {
     function testTokenConfigs() internal pure returns (TokenConfig[] memory) {
         TokenConfig[] memory configs = new TokenConfig[](2);
         configs[0] = TokenConfig({
-            underlying: "USTEST", assetId: "ST0XTESTUS", listingTicker: "USTEST", listingName: "US Test", name: "US Test ST0x", symbol: "tUSTEST", region: Region.US, underlyingName: ""
+            underlying: "USTEST",
+            assetId: "ST0XTESTUS",
+            listingTicker: "USTEST",
+            listingName: "US Test",
+            name: "US Test ST0x",
+            symbol: "tUSTEST",
+            region: Region.US,
+            underlyingName: ""
         });
         configs[1] = TokenConfig({
-            underlying: "EUTEST", assetId: "ST0XTESTEU", listingTicker: "EUTEST", listingName: "EU Test", name: "EU Test ST0x", symbol: "tEUTEST", region: Region.EU, underlyingName: ""
+            underlying: "EUTEST",
+            assetId: "ST0XTESTEU",
+            listingTicker: "EUTEST",
+            listingName: "EU Test",
+            name: "EU Test ST0x",
+            symbol: "tEUTEST",
+            region: Region.EU,
+            underlyingName: ""
         });
         return configs;
     }
