@@ -165,10 +165,17 @@ struct ChainLegs {
 /// Safe; the **authoriser leg** needs the clone (its grant map also needs the
 /// Safe) and is assertable as soon as the clone is up, independent of the
 /// tokens; the **token leg** needs the Safe + clone + full token table. Every
-/// chain in the suite is bootstrapped, so `testCrossChainParity` then fails
-/// any pending leg on any chain. A PARTIALLY-hydrated token table (some
-/// triples set, some placeholder) fails on its own.
+/// bootstrapped chain in the suite has all three, so `testCrossChainParity`
+/// then fails any pending leg on it. 0G is not bootstrapped yet: its legs may
+/// stay pending until `ZEROG_PARITY_DEADLINE`, and fail after it. A
+/// PARTIALLY-hydrated token table (some triples set, some placeholder) fails
+/// on its own.
 contract StoxCrossChainParityTest is Test {
+    /// @notice Unix timestamp past which the 0G legs must have armed —
+    /// `2027-02-01T00:00:00Z`, tracking the 0G bootstrap. PLACEHOLDER: move
+    /// it deliberately if the bootstrap slips.
+    uint256 internal constant ZEROG_PARITY_DEADLINE = 1_801_440_000;
+
     /// @notice Read the address stored in `proxy`'s ERC-1967 beacon slot.
     /// @param proxy The beacon-proxy address on the active fork.
     /// @return beacon The beacon address backing the proxy.
@@ -630,11 +637,19 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensBsc()
         );
 
+        // 0G, from the `RPC_URL_ZEROG_FORK` secret. Nothing is deployed there
+        // yet, so the Safe and clone pins are `address(0)` placeholders here
+        // until the 0G Safe and authoriser clone pins land.
+        vm.createSelectFork(LibStoxDeployNetworks.ZEROG);
+        ChainLegs memory zerog =
+            assertChainLegs("0G", address(0), address(0), LibTokenInvariants.productionTokensZerog());
+
         // ---- Cross-chain comparisons, each gated on both sides being live ----
         assertParityWithBase("Ethereum", base, eth);
         assertParityWithBase("HyperEVM", base, hyper);
         assertParityWithBase("Robinhood Chain", base, robinhood);
         assertParityWithBase("BNB Smart Chain", base, bsc);
+        assertParityWithBase("0G", base, zerog);
 
         // ---- The suite must prove it actually ran ----
         assertAllLegsLive("Base", base);
@@ -642,6 +657,13 @@ contract StoxCrossChainParityTest is Test {
         assertAllLegsLive("HyperEVM", hyper);
         assertAllLegsLive("Robinhood Chain", robinhood);
         assertAllLegsLive("BNB Smart Chain", bsc);
+
+        // 0G's legs arm as its bootstrap lands. Until the deadline they may
+        // stay pending; past it, a pending leg fails like any other chain's.
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp >= ZEROG_PARITY_DEADLINE) {
+            assertAllLegsLive("0G", zerog);
+        }
     }
 
     /// @notice External shim so `vm.expectRevert` can see the helper's revert.

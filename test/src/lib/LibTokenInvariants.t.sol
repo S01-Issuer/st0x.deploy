@@ -145,6 +145,18 @@ contract LibTokenInvariantsTest is Test {
         }
     }
 
+    /// The 0G token table mirrors Base row-for-row on the `underlying` key.
+    /// Its addresses are placeholders until the token deploy executes there;
+    /// this guards only the shared shape.
+    function testZerogTokenTableMirrorsBaseUnderlyings() external pure {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
+        assertEq(zerog.length, base.length, "0G token table length diverges from Base");
+        for (uint256 i = 0; i < base.length; i++) {
+            assertEq(zerog[i].underlying, base[i].underlying, "0G token underlying diverges from Base");
+        }
+    }
+
     function testDiscardedEuBatchIsNotListed() external pure {
         string[6] memory discarded = ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
