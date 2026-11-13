@@ -7,7 +7,7 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
-import {IStoxUnderlyingV1} from "../interface/deprecated/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
@@ -59,8 +59,8 @@ error DownstreamNotReadyForRename();
 ///    facet address with no code reverts with `CorporateActionsFacetNotDeployed`
 ///    in the new vault implementation, so the whole batch rolls back if the
 ///    facet is missing at execution.
-/// 2. The rename batch: `setUnderlying(ticker, underlyingName)` on every
-///    production vault of the chain, scheduled with the beacon batch as its
+/// 2. The rename batch: `setUnderlying(ticker, underlyingName, isin)` on
+///    every production vault of the chain, scheduled with the beacon batch as its
 ///    predecessor, so the timelock refuses to execute it first.
 ///
 /// The implementations are the current-source candidate pins. They are the
@@ -195,8 +195,8 @@ library LibUnderlyingNamingRollout {
     }
 
     /// @notice The rename batch's calls: `setUnderlying(underlying,
-    /// underlyingName)` on every production vault of the chain, in table
-    /// order.
+    /// underlyingName, isin)` on every production vault of the chain, in
+    /// table order.
     /// @param chainId The chain id.
     /// @return targets The call targets.
     /// @return values The call values, all zero.
@@ -213,8 +213,9 @@ library LibUnderlyingNamingRollout {
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
             targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
-            payloads[tokenIndex] =
-                abi.encodeCall(IStoxUnderlyingV1.setUnderlying, (config.underlying, config.underlyingName));
+            payloads[tokenIndex] = abi.encodeCall(
+                IStoxUnderlyingV2.setUnderlying, (config.underlying, config.underlyingName, config.isin)
+            );
         }
     }
 
