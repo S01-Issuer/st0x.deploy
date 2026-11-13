@@ -95,7 +95,7 @@ library LibProdTokenConfig {
             symbol: "tMSTR",
             region: Region.US,
             underlyingName: "Strategy Inc",
-            isin: ""
+            isin: "US5949724083"
         });
         configs[1] = TokenConfig({
             underlying: "TSLA",
@@ -107,7 +107,7 @@ library LibProdTokenConfig {
             symbol: "tTSLA",
             region: Region.US,
             underlyingName: "Tesla Inc",
-            isin: ""
+            isin: "US88160R1014"
         });
         configs[2] = TokenConfig({
             underlying: "COIN",
@@ -119,7 +119,7 @@ library LibProdTokenConfig {
             symbol: "tCOIN",
             region: Region.US,
             underlyingName: "Coinbase Global Inc",
-            isin: ""
+            isin: "US19260Q1076"
         });
         configs[3] = TokenConfig({
             underlying: "SPYM",
@@ -131,7 +131,7 @@ library LibProdTokenConfig {
             symbol: "tSPYM",
             region: Region.US,
             underlyingName: "State Street SPDR Portfolio S&P 500 ETF",
-            isin: ""
+            isin: "US78464A8541"
         });
         configs[4] = TokenConfig({
             underlying: "SIVR",
@@ -143,7 +143,7 @@ library LibProdTokenConfig {
             symbol: "tSIVR",
             region: Region.US,
             underlyingName: "abrdn Physical Silver Shares ETF",
-            isin: ""
+            isin: "US0032641088"
         });
         configs[5] = TokenConfig({
             underlying: "CRCL",
@@ -155,7 +155,7 @@ library LibProdTokenConfig {
             symbol: "tCRCL",
             region: Region.US,
             underlyingName: "Circle Internet Group Inc",
-            isin: ""
+            isin: "US1725731079"
         });
         configs[6] = TokenConfig({
             underlying: "NVDA",
@@ -167,7 +167,7 @@ library LibProdTokenConfig {
             symbol: "tNVDA",
             region: Region.US,
             underlyingName: "NVIDIA Corporation",
-            isin: ""
+            isin: "US67066G1040"
         });
         configs[7] = TokenConfig({
             underlying: "IAU",
@@ -179,7 +179,7 @@ library LibProdTokenConfig {
             symbol: "tIAU",
             region: Region.US,
             underlyingName: "iShares Gold Trust",
-            isin: ""
+            isin: "US4642852044"
         });
         configs[8] = TokenConfig({
             underlying: "PPLT",
@@ -191,7 +191,7 @@ library LibProdTokenConfig {
             symbol: "tPPLT",
             region: Region.US,
             underlyingName: "abrdn Physical Platinum Shares ETF",
-            isin: ""
+            isin: "US0032601066"
         });
         configs[9] = TokenConfig({
             underlying: "AMZN",
@@ -203,7 +203,7 @@ library LibProdTokenConfig {
             symbol: "tAMZN",
             region: Region.US,
             underlyingName: "Amazon.com Inc",
-            isin: ""
+            isin: "US0231351067"
         });
         configs[10] = TokenConfig({
             underlying: "BMNR",
@@ -215,7 +215,7 @@ library LibProdTokenConfig {
             symbol: "tBMNR",
             region: Region.US,
             underlyingName: "Bitmine Immersion Technologies, Inc",
-            isin: ""
+            isin: "US09175A2069"
         });
         configs[11] = TokenConfig({
             underlying: "IBHG",
@@ -227,7 +227,7 @@ library LibProdTokenConfig {
             symbol: "tIBHG",
             region: Region.US,
             underlyingName: "iShares iBonds 2027 Term High Yield and Income ETF",
-            isin: ""
+            isin: "US46436E4787"
         });
         // NB: leading space is present on Base and is reproduced verbatim.
         configs[12] = TokenConfig({
@@ -240,7 +240,7 @@ library LibProdTokenConfig {
             symbol: "tSGOV",
             region: Region.US,
             underlyingName: "iShares 0-3 Month Treasury Bond ETF",
-            isin: ""
+            isin: "US46436E7186"
         });
         configs[13] = TokenConfig({
             underlying: "QQQM",
@@ -252,7 +252,7 @@ library LibProdTokenConfig {
             symbol: "tQQQM",
             region: Region.US,
             underlyingName: "Invesco NASDAQ 100 ETF",
-            isin: ""
+            isin: "US46138G6492"
         });
         configs[14] = TokenConfig({
             underlying: "VWO",
@@ -264,7 +264,7 @@ library LibProdTokenConfig {
             symbol: "tVWO",
             region: Region.US,
             underlyingName: "Vanguard Emerging Markets Stock Index Fund",
-            isin: ""
+            isin: "US9220428588"
         });
         configs[15] = TokenConfig({
             underlying: "ARKK",
@@ -276,7 +276,7 @@ library LibProdTokenConfig {
             symbol: "tARKK",
             region: Region.US,
             underlyingName: "ARK Innovation ETF",
-            isin: ""
+            isin: "US00214Q1040"
         });
         configs[16] = TokenConfig({
             underlying: "SPCX",
@@ -288,7 +288,7 @@ library LibProdTokenConfig {
             symbol: "tSPCX",
             region: Region.US,
             underlyingName: "Space Exploration Technologies Corp.",
-            isin: ""
+            isin: "US84615Q1031"
         });
         configs[17] = TokenConfig({
             underlying: "CEG",
@@ -300,7 +300,7 @@ library LibProdTokenConfig {
             symbol: "tCEG",
             region: Region.US,
             underlyingName: "Constellation Energy Corporation",
-            isin: ""
+            isin: "US21037T1097"
         });
         configs[18] = TokenConfig({
             underlying: "DRAM",
@@ -312,7 +312,7 @@ library LibProdTokenConfig {
             symbol: "tDRAM",
             region: Region.US,
             underlyingName: "Roundhill Memory ETF",
-            isin: ""
+            isin: "US77926X3200"
         });
         configs[19] = TokenConfig({
             underlying: "TSM",
@@ -324,7 +324,7 @@ library LibProdTokenConfig {
             symbol: "tTSM",
             region: Region.US,
             underlyingName: "Taiwan Semiconductor Manufacturing Company Limited ADR",
-            isin: ""
+            isin: "US8740391003"
         });
         configs[20] = TokenConfig({
             underlying: "SKHY",
@@ -336,7 +336,7 @@ library LibProdTokenConfig {
             symbol: "tSKHY",
             region: Region.US,
             underlyingName: "SK hynix Inc. ADR",
-            isin: ""
+            isin: "US78392B2060"
         });
         configs[21] = TokenConfig({
             underlying: "ASML",
@@ -348,7 +348,7 @@ library LibProdTokenConfig {
             symbol: "tASML",
             region: Region.US,
             underlyingName: "ASML Holding N.V.",
-            isin: ""
+            isin: "USN070592100"
         });
         configs[22] = TokenConfig({
             underlying: "MU",
@@ -360,7 +360,7 @@ library LibProdTokenConfig {
             symbol: "tMU",
             region: Region.US,
             underlyingName: "Micron Technology, Inc.",
-            isin: ""
+            isin: "US5951121038"
         });
         configs[23] = TokenConfig({
             underlying: "AMD",
@@ -372,7 +372,7 @@ library LibProdTokenConfig {
             symbol: "tAMD",
             region: Region.US,
             underlyingName: "Advanced Micro Devices, Inc.",
-            isin: ""
+            isin: "US0079031078"
         });
         configs[24] = TokenConfig({
             underlying: "AVGO",
@@ -384,7 +384,7 @@ library LibProdTokenConfig {
             symbol: "tAVGO",
             region: Region.US,
             underlyingName: "Broadcom Inc.",
-            isin: ""
+            isin: "US11135F1012"
         });
         configs[25] = TokenConfig({
             underlying: "AMAT",
@@ -396,7 +396,7 @@ library LibProdTokenConfig {
             symbol: "tAMAT",
             region: Region.US,
             underlyingName: "Applied Materials, Inc.",
-            isin: ""
+            isin: "US0382221051"
         });
         configs[26] = TokenConfig({
             underlying: "LRCX",
@@ -408,7 +408,7 @@ library LibProdTokenConfig {
             symbol: "tLRCX",
             region: Region.US,
             underlyingName: "Lam Research Corporation",
-            isin: ""
+            isin: "US5128073062"
         });
         configs[27] = TokenConfig({
             underlying: "TTWO",
@@ -420,7 +420,7 @@ library LibProdTokenConfig {
             symbol: "tTTWO",
             region: Region.US,
             underlyingName: "Take-Two Interactive Software, Inc.",
-            isin: ""
+            isin: "US8740541094"
         });
         configs[28] = TokenConfig({
             underlying: "RKLB",
@@ -432,7 +432,7 @@ library LibProdTokenConfig {
             symbol: "tRKLB",
             region: Region.US,
             underlyingName: "Rocket Lab Corporation",
-            isin: ""
+            isin: "US7731211089"
         });
         configs[29] = TokenConfig({
             underlying: "GOOGL",
@@ -444,7 +444,7 @@ library LibProdTokenConfig {
             symbol: "tGOOGL",
             region: Region.US,
             underlyingName: "Alphabet Inc. Class A",
-            isin: ""
+            isin: "US02079K3059"
         });
         configs[30] = TokenConfig({
             underlying: "AAPL",
@@ -456,7 +456,7 @@ library LibProdTokenConfig {
             symbol: "tAAPL",
             region: Region.US,
             underlyingName: "Apple Inc.",
-            isin: ""
+            isin: "US0378331005"
         });
         configs[31] = TokenConfig({
             underlying: "MSFT",
@@ -468,7 +468,7 @@ library LibProdTokenConfig {
             symbol: "tMSFT",
             region: Region.US,
             underlyingName: "Microsoft Corporation",
-            isin: ""
+            isin: "US5949181045"
         });
         configs[32] = TokenConfig({
             underlying: "LLY",
@@ -480,7 +480,7 @@ library LibProdTokenConfig {
             symbol: "tLLY",
             region: Region.US,
             underlyingName: "Eli Lilly and Company",
-            isin: ""
+            isin: "US5324571083"
         });
         configs[33] = TokenConfig({
             underlying: "PTY",
@@ -492,7 +492,7 @@ library LibProdTokenConfig {
             symbol: "tPTY",
             region: Region.US,
             underlyingName: "PIMCO Corporate & Income Opportunity Fund",
-            isin: ""
+            isin: "US72201B1017"
         });
         configs[34] = TokenConfig({
             underlying: "INTC",
@@ -504,7 +504,7 @@ library LibProdTokenConfig {
             symbol: "tINTC",
             region: Region.US,
             underlyingName: "Intel Corporation",
-            isin: ""
+            isin: "US4581401001"
         });
         configs[35] = TokenConfig({
             underlying: "HOOD",
@@ -516,7 +516,7 @@ library LibProdTokenConfig {
             symbol: "tHOOD",
             region: Region.US,
             underlyingName: "Robinhood Markets, Inc.",
-            isin: ""
+            isin: "US7707001027"
         });
         configs[36] = TokenConfig({
             underlying: "ORCL",
@@ -528,7 +528,7 @@ library LibProdTokenConfig {
             symbol: "tORCL",
             region: Region.US,
             underlyingName: "Oracle Corporation",
-            isin: ""
+            isin: "US68389X1054"
         });
         configs[37] = TokenConfig({
             underlying: "SMCI",
@@ -540,7 +540,7 @@ library LibProdTokenConfig {
             symbol: "tSMCI",
             region: Region.US,
             underlyingName: "Super Micro Computer, Inc.",
-            isin: ""
+            isin: "US86800U3023"
         });
         configs[38] = TokenConfig({
             underlying: "BABA",
@@ -552,7 +552,7 @@ library LibProdTokenConfig {
             symbol: "tBABA",
             region: Region.US,
             underlyingName: "Alibaba Group Holding Limited ADR",
-            isin: ""
+            isin: "US01609W1027"
         });
         configs[39] = TokenConfig({
             underlying: "TQQQ",
@@ -564,7 +564,7 @@ library LibProdTokenConfig {
             symbol: "tTQQQ",
             region: Region.US,
             underlyingName: "ProShares UltraPro QQQ",
-            isin: ""
+            isin: "US74347X8314"
         });
         configs[40] = TokenConfig({
             underlying: "FTF",
@@ -576,7 +576,7 @@ library LibProdTokenConfig {
             symbol: "tFTF",
             region: Region.US,
             underlyingName: "Franklin Limited Duration Income Trust",
-            isin: ""
+            isin: "US35472T1016"
         });
         configs[41] = TokenConfig({
             underlying: "CBRS",
@@ -588,7 +588,7 @@ library LibProdTokenConfig {
             symbol: "tCBRS",
             region: Region.US,
             underlyingName: "Cerebras Systems Inc.",
-            isin: ""
+            isin: "US15675D1037"
         });
         configs[42] = TokenConfig({
             underlying: "MCD",
@@ -600,7 +600,7 @@ library LibProdTokenConfig {
             symbol: "tMCD",
             region: Region.US,
             underlyingName: "McDonald's Corporation",
-            isin: ""
+            isin: "US5801351017"
         });
         configs[43] = TokenConfig({
             underlying: "NKE",
@@ -612,7 +612,7 @@ library LibProdTokenConfig {
             symbol: "tNKE",
             region: Region.US,
             underlyingName: "NIKE, Inc.",
-            isin: ""
+            isin: "US6541061031"
         });
         configs[44] = TokenConfig({
             underlying: "GRND",
@@ -624,7 +624,7 @@ library LibProdTokenConfig {
             symbol: "tGRND",
             region: Region.US,
             underlyingName: "Grindr Inc.",
-            isin: ""
+            isin: "US39854F1012"
         });
         configs[45] = TokenConfig({
             underlying: "DNUT",
@@ -636,7 +636,7 @@ library LibProdTokenConfig {
             symbol: "tDNUT",
             region: Region.US,
             underlyingName: "Krispy Kreme, Inc.",
-            isin: ""
+            isin: "US50101L1061"
         });
         configs[46] = TokenConfig({
             underlying: "PLBY",
@@ -648,7 +648,7 @@ library LibProdTokenConfig {
             symbol: "tPLBY",
             region: Region.US,
             underlyingName: "Playboy, Inc.",
-            isin: ""
+            isin: "US72814P1093"
         });
         configs[47] = TokenConfig({
             underlying: "TR",
@@ -660,7 +660,7 @@ library LibProdTokenConfig {
             symbol: "tTR",
             region: Region.US,
             underlyingName: "Tootsie Roll Industries, Inc.",
-            isin: ""
+            isin: "US8905161076"
         });
         configs[48] = TokenConfig({
             underlying: "WEN",
@@ -672,7 +672,7 @@ library LibProdTokenConfig {
             symbol: "tWEN",
             region: Region.US,
             underlyingName: "The Wendy's Company",
-            isin: ""
+            isin: "US95058W1009"
         });
         configs[49] = TokenConfig({
             underlying: "FGI",
@@ -684,7 +684,7 @@ library LibProdTokenConfig {
             symbol: "tFGI",
             region: Region.US,
             underlyingName: "FGI Industries Ltd.",
-            isin: ""
+            isin: "KYG3302D2024"
         });
         // tBIRD — Smartbird, Inc. is the former Allbirds, Inc. (renamed 2026, same
         // Nasdaq listing); name derived the way sft-ops derives it
@@ -699,7 +699,7 @@ library LibProdTokenConfig {
             symbol: "tBIRD",
             region: Region.US,
             underlyingName: "Smartbird, Inc.",
-            isin: ""
+            isin: "US01675A2087"
         });
         // tSPY — name derived from sft-ops `metadata/spy.json` the way CD derives it
         // (`"<metadata.name> ST0x"`, `"t<code>"`); verified against the live Base vault.
@@ -713,7 +713,7 @@ library LibProdTokenConfig {
             symbol: "tSPY",
             region: Region.US,
             underlyingName: "State Street SPDR S&P 500 ETF Trust",
-            isin: ""
+            isin: "US78462F1030"
         });
         // tSNES — name derived from sft-ops `metadata/snes.json` the way CD derives it;
         // verified against the live Base vault.
@@ -727,7 +727,7 @@ library LibProdTokenConfig {
             symbol: "tSNES",
             region: Region.US,
             underlyingName: "SenesTech, Inc.",
-            isin: ""
+            isin: "US81720R6045"
         });
         // tWMT — name derived from sft-ops `metadata/wmt.json` the way CD derives it;
         // verified against the live Base vault. Ahead of tMC because it reached
@@ -742,7 +742,7 @@ library LibProdTokenConfig {
             symbol: "tWMT",
             region: Region.US,
             underlyingName: "Walmart Inc.",
-            isin: ""
+            isin: "US9311421039"
         });
         configs[54] = TokenConfig({
             underlying: "MC",
@@ -754,7 +754,7 @@ library LibProdTokenConfig {
             symbol: "tMC",
             region: Region.EU,
             underlyingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
-            isin: ""
+            isin: "FR0000121014"
         });
         configs[55] = TokenConfig({
             underlying: "DIS",
@@ -766,7 +766,7 @@ library LibProdTokenConfig {
             symbol: "tDIS",
             region: Region.US,
             underlyingName: "The Walt Disney Company",
-            isin: ""
+            isin: "US2546871060"
         });
         configs[56] = TokenConfig({
             underlying: "IFX",
@@ -778,7 +778,7 @@ library LibProdTokenConfig {
             symbol: "tIFX",
             region: Region.EU,
             underlyingName: "Infineon Technologies AG",
-            isin: ""
+            isin: "DE0006231004"
         });
         configs[57] = TokenConfig({
             underlying: "SOI",
@@ -790,7 +790,7 @@ library LibProdTokenConfig {
             symbol: "tSOI",
             region: Region.EU,
             underlyingName: "Soitec SA",
-            isin: ""
+            isin: "FR0013227113"
         });
         configs[58] = TokenConfig({
             underlying: "TPRO",
@@ -802,7 +802,7 @@ library LibProdTokenConfig {
             symbol: "tTPRO",
             region: Region.EU,
             underlyingName: "Technoprobe S.p.A.",
-            isin: ""
+            isin: "IT0005482333"
         });
     }
 
@@ -818,7 +818,7 @@ library LibProdTokenConfig {
             symbol: "tUSTEST",
             region: Region.US,
             underlyingName: "",
-            isin: ""
+            isin: "US78462F1030"
         });
         configs[1] = TokenConfig({
             underlying: "EUTEST",
@@ -830,7 +830,7 @@ library LibProdTokenConfig {
             symbol: "tEUTEST",
             region: Region.EU,
             underlyingName: "",
-            isin: ""
+            isin: "US78462F1030"
         });
         return configs;
     }
