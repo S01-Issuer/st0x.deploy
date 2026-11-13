@@ -40,9 +40,9 @@ contract LibStoxDeployNetworksTest is Test {
         assertEq(LibStoxDeployNetworks.ZEROG, "zerog", "expected zerog rpc alias");
     }
 
-    /// The 0G name resolves to a configured `[rpc_endpoints]` alias, so a
-    /// script dispatched with `--rpc-url zerog` or a fork test selecting it
-    /// cannot fail on a missing alias.
+    /// The 0G name is a declared `[rpc_endpoints]` alias and resolves in the
+    /// test environment. A CI dispatch with `--rpc-url zerog` still needs the
+    /// `RPC_URL_ZEROG_FORK` secret.
     function testZerogIsRpcAlias() external view {
         assertGt(bytes(vm.rpcUrl(LibStoxDeployNetworks.ZEROG)).length, 0, LibStoxDeployNetworks.ZEROG);
     }
