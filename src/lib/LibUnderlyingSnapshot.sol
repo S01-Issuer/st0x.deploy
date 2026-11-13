@@ -8,8 +8,8 @@ import {MalformedUnderlyingSnapshot} from "../error/ErrUnderlying.sol";
 bytes4 constant UNDERLYING_SNAPSHOT_ROOT_MAGIC = bytes4(keccak256("st0x.underlying-snapshot.root.v1"));
 bytes4 constant UNDERLYING_SNAPSHOT_SHARD_MAGIC = bytes4(keccak256("st0x.underlying-snapshot.shard.v1"));
 
-/// @dev Root runtime: STOP, magic, asOf (32), K (1), then K shard addresses.
-uint256 constant UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH = 38;
+/// @dev Root runtime: STOP, magic, asOf (32), K (2), then K shard addresses.
+uint256 constant UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH = 39;
 /// @dev Shard runtime: STOP, magic, n (2), meta length (2), meta, n row
 /// offsets (2 each, absolute in the runtime), then rows of token (20),
 /// ticker length (1), ticker, name length (1), name.
@@ -28,7 +28,7 @@ library LibUnderlyingSnapshot {
             revert MalformedUnderlyingSnapshot(root);
         }
         uint256 asOf = readUint256(rootCode, 5);
-        uint256 shardCount = uint8(rootCode[37]);
+        uint256 shardCount = readUint16(rootCode, 37);
         if (shardCount == 0 || rootCode.length != UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shardCount) {
             revert MalformedUnderlyingSnapshot(root);
         }

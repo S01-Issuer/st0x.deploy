@@ -7,6 +7,7 @@ import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.s
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,
+    UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH,
     UNDERLYING_SNAPSHOT_SHARD_MAGIC,
     UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH
 } from "../../src/lib/LibUnderlyingSnapshot.sol";
@@ -15,7 +16,7 @@ uint8 constant UNDERLYING_SNAPSHOT_META_DEPTH = 3;
 uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARD_ROWS = 256;
 uint256 constant EIP170_MAX_RUNTIME = 24576;
 
-/// @notice No shard count up to type(uint8).max fits every shard.
+/// @notice No shard count whose root fits EIP-170 fits every shard.
 error UnderlyingSnapshotDoesNotShard(uint256 rows);
 
 struct UnderlyingSnapshotRow {
@@ -57,7 +58,7 @@ library LibUnderlyingSnapshotBuilder {
     }
 
     function rootRuntime(uint256 asOf, address[] memory shards) internal pure returns (bytes memory) {
-        bytes memory out = abi.encodePacked(hex"00", UNDERLYING_SNAPSHOT_ROOT_MAGIC, asOf, uint8(shards.length));
+        bytes memory out = abi.encodePacked(hex"00", UNDERLYING_SNAPSHOT_ROOT_MAGIC, asOf, uint16(shards.length));
         for (uint256 i = 0; i < shards.length; i++) {
             out = abi.encodePacked(out, shards[i]);
         }
@@ -68,7 +69,7 @@ library LibUnderlyingSnapshotBuilder {
     /// EIP-170; rows route to shard `uint160(token) % K`.
     function build(uint256 asOf, UnderlyingSnapshotRow[] memory rows) internal returns (bytes memory, bytes[] memory) {
         UnderlyingSnapshotShardEncoder encoder = new UnderlyingSnapshotShardEncoder();
-        for (uint256 k = 1; k <= type(uint8).max; k++) {
+        for (uint256 k = 1; k <= (EIP170_MAX_RUNTIME - UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) / 20; k++) {
             bytes[] memory shardCodes = new bytes[](k);
             address[] memory shards = new address[](k);
             bool fits = true;
