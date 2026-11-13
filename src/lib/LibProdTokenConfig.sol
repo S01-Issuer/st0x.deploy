@@ -361,7 +361,7 @@ library LibProdTokenConfig {
         });
         configs[28] = TokenConfig({
             underlying: "RKLB",
-            assetId: "",
+            assetId: "US7731211089",
             listingTicker: "RKLB",
             listingName: "Rocket Lab USA Inc",
             name: "Rocket Lab USA Inc ST0x",
@@ -571,7 +571,7 @@ library LibProdTokenConfig {
         });
         configs[49] = TokenConfig({
             underlying: "FGI",
-            assetId: "",
+            assetId: "KYG3302D2024",
             listingTicker: "FGI",
             listingName: "FGI Industries Ltd.",
             name: "FGI Industries Ltd. ST0x",
