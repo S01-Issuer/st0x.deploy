@@ -8,12 +8,12 @@ import {MalformedUnderlyingSnapshot} from "../error/ErrUnderlying.sol";
 bytes4 constant UNDERLYING_SNAPSHOT_ROOT_MAGIC = bytes4(keccak256("st0x.underlying-snapshot.root.v1"));
 bytes4 constant UNDERLYING_SNAPSHOT_SHARD_MAGIC = bytes4(keccak256("st0x.underlying-snapshot.shard.v1"));
 
-/// @dev Root runtime: STOP, magic, asOf (32), K (2), then K shard addresses.
-uint256 constant UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH = 39;
-/// @dev Shard runtime: STOP, magic, n (2), meta length (2), meta, n row
-/// offsets (2 each, absolute in the runtime), then rows of token (20),
-/// ticker length (1), ticker, name length (1), name.
-uint256 constant UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH = 9;
+/// @dev Root data: magic, asOf (32), K (2), then K shard addresses.
+uint256 constant UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH = 38;
+/// @dev Shard data: magic, n (2), meta length (2), meta, n row offsets (2
+/// each, absolute in the data), then rows of token (20), ticker length (1),
+/// ticker, name length (1), name.
+uint256 constant UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH = 8;
 
 /// @title LibUnderlyingSnapshot
 /// @notice Reads the (token -> ticker, name) snapshot held as pure data in a

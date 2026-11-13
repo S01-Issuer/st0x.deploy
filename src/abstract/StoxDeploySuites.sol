@@ -12,6 +12,7 @@ import {
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.30/src/lib/LibRainDeployDeclaration.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.30/src/lib/LibRainDeployZoltuMechanism.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {CloneDeploy} from "rain-factory-0.2.11/src/lib/LibRainDeployClone.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.11/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
@@ -325,11 +326,11 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, string(key));
     }
 
-    /// Zoltu suite for a copy-and-return creation code whose 10-byte prefix returns the data after it.
+    /// Zoltu suite for a LibDataContract creation code; its runtime is the prefix's trailing 0x00 then the data.
     function dataZoltu(string memory suite, bytes memory creationCode) internal pure returns (DeploySuite memory) {
-        bytes memory runtimeCode = new bytes(creationCode.length - 10);
+        bytes memory runtimeCode = new bytes(creationCode.length - (PREFIX_BYTES_LENGTH - 1));
         for (uint256 i = 0; i < runtimeCode.length; i++) {
-            runtimeCode[i] = creationCode[i + 10];
+            runtimeCode[i] = creationCode[i + (PREFIX_BYTES_LENGTH - 1)];
         }
         return zoltu(
             suite,

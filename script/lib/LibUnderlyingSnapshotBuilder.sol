@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {AuthoringMetaV2} from "rainlang-0.2.32/src/interface/IParserV2.sol";
 import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibDataContract, PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,
     UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH,
@@ -26,13 +27,7 @@ struct UnderlyingSnapshotRow {
 }
 
 library LibUnderlyingSnapshotBuilder {
-    /// Copy-and-return prefix: PUSH2 len, DUP1, PUSH1 10, RETURNDATASIZE,
-    /// CODECOPY, RETURNDATASIZE, RETURN.
-    function creationCode(bytes memory runtime) internal pure returns (bytes memory) {
-        return abi.encodePacked(hex"61", uint16(runtime.length), hex"80600a3d393df3", runtime);
-    }
-
-    function shardRuntime(UnderlyingSnapshotRow[] memory rows) internal pure returns (bytes memory) {
+    function shardData(UnderlyingSnapshotRow[] memory rows) internal pure returns (bytes memory) {
         AuthoringMetaV2[] memory words = new AuthoringMetaV2[](rows.length);
         for (uint256 i = 0; i < rows.length; i++) {
             words[i] = AuthoringMetaV2(bytes32(uint256(uint160(rows[i].token))), "");
@@ -53,12 +48,12 @@ library LibUnderlyingSnapshotBuilder {
             );
         }
         return abi.encodePacked(
-            hex"00", UNDERLYING_SNAPSHOT_SHARD_MAGIC, uint16(rows.length), uint16(meta.length), meta, offsets, body
+            UNDERLYING_SNAPSHOT_SHARD_MAGIC, uint16(rows.length), uint16(meta.length), meta, offsets, body
         );
     }
 
-    function rootRuntime(uint256 asOf, address[] memory shards) internal pure returns (bytes memory) {
-        bytes memory out = abi.encodePacked(hex"00", UNDERLYING_SNAPSHOT_ROOT_MAGIC, asOf, uint16(shards.length));
+    function rootData(uint256 asOf, address[] memory shards) internal pure returns (bytes memory) {
+        bytes memory out = abi.encodePacked(UNDERLYING_SNAPSHOT_ROOT_MAGIC, asOf, uint16(shards.length));
         for (uint256 i = 0; i < shards.length; i++) {
             out = abi.encodePacked(out, shards[i]);
         }
@@ -69,7 +64,7 @@ library LibUnderlyingSnapshotBuilder {
     /// EIP-170; rows route to shard `uint160(token) % K`.
     function build(uint256 asOf, UnderlyingSnapshotRow[] memory rows) internal returns (bytes memory, bytes[] memory) {
         UnderlyingSnapshotShardEncoder encoder = new UnderlyingSnapshotShardEncoder();
-        for (uint256 k = 1; k <= (EIP170_MAX_RUNTIME - UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) / 20; k++) {
+        for (uint256 k = 1; k <= (EIP170_MAX_RUNTIME - (PREFIX_BYTES_LENGTH - 1) - UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) / 20; k++) {
             bytes[] memory shardCodes = new bytes[](k);
             address[] memory shards = new address[](k);
             bool fits = true;
@@ -80,22 +75,22 @@ library LibUnderlyingSnapshotBuilder {
                     break;
                 }
                 // A meta build revert (depth, duplicate fingerprint) means try the next K.
-                bytes memory runtime;
-                try encoder.shardRuntime(member) returns (bytes memory encoded) {
-                    runtime = encoded;
+                bytes memory data;
+                try encoder.shardData(member) returns (bytes memory encoded) {
+                    data = encoded;
                 } catch {
                     fits = false;
                     break;
                 }
-                if (runtime.length > EIP170_MAX_RUNTIME) {
+                if ((PREFIX_BYTES_LENGTH - 1) + data.length > EIP170_MAX_RUNTIME) {
                     fits = false;
                     break;
                 }
-                shardCodes[s] = creationCode(runtime);
+                shardCodes[s] = LibDataContract.contractCreationCode(data);
                 shards[s] = LibRainDeploy.zoltuAddress(shardCodes[s]);
             }
             if (fits) {
-                return (creationCode(rootRuntime(asOf, shards)), shardCodes);
+                return (LibDataContract.contractCreationCode(rootData(asOf, shards)), shardCodes);
             }
         }
         revert UnderlyingSnapshotDoesNotShard(rows.length);
@@ -122,7 +117,7 @@ library LibUnderlyingSnapshotBuilder {
 
 /// External entry so the builder can catch a shard's meta build revert.
 contract UnderlyingSnapshotShardEncoder {
-    function shardRuntime(UnderlyingSnapshotRow[] memory rows) external pure returns (bytes memory) {
-        return LibUnderlyingSnapshotBuilder.shardRuntime(rows);
+    function shardData(UnderlyingSnapshotRow[] memory rows) external pure returns (bytes memory) {
+        return LibUnderlyingSnapshotBuilder.shardData(rows);
     }
 }
