@@ -25,7 +25,6 @@ import {IOwnable} from "../interface/IOwnable.sol";
 import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
 import {
     MalformedUnderlyingTicker,
-    UnderlyingMintSymbolTooLong,
     MalformedUnderlyingName,
     MalformedUnderlyingIsin
 } from "../error/ErrUnderlying.sol";
@@ -254,7 +253,6 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
             revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
         }
         if (!LibUnderlying.tickerWellFormed(bytes(newSymbol))) revert MalformedUnderlyingTicker(newSymbol);
-        if (bytes(string.concat("t", newSymbol)).length > 31) revert UnderlyingMintSymbolTooLong(newSymbol);
         if (!LibUnderlying.nameWellFormed(bytes(newName))) revert MalformedUnderlyingName(newName);
         if (!LibUnderlying.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
 

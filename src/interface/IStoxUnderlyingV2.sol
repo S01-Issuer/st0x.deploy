@@ -34,9 +34,8 @@ interface IStoxUnderlyingV2 {
 
     /// @notice Sets this token's underlying ticker, name and ISIN override,
     /// stamped with `block.timestamp`. Callable by the vault owner only.
-    /// Reverts with `MalformedUnderlyingTicker`, `UnderlyingMintSymbolTooLong`,
-    /// `MalformedUnderlyingName` or `MalformedUnderlyingIsin` on a refused
-    /// value.
+    /// Reverts with `MalformedUnderlyingTicker`, `MalformedUnderlyingName` or
+    /// `MalformedUnderlyingIsin` on a refused value.
     /// @param newSymbol The underlying ticker, e.g. "NVDA".
     /// @param newName The underlying asset's name, e.g. "NVIDIA Corporation".
     /// @param newIsin The underlying asset's current ISIN.
