@@ -62,51 +62,17 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// post-state and artifact assertions run against whichever chain the
     /// test selected rather than assuming Base.
     function _activeChainAuthoriser() internal view returns (address) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        }
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
-        }
-        revert("unsupported chain in migration test");
+        return LibAuthoriserInvariants.authoriserForChainId(block.chainid);
     }
 
     /// @notice The active fork's production token table.
     function _activeChainTokens() internal view returns (TokenInstance[] memory) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensBase();
-        }
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensEthereum();
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensHyperEvm();
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensRobinhood();
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensBsc();
-        }
-        revert("unsupported chain in migration test");
+        return LibTokenInvariants.productionTokensForChainId(block.chainid);
     }
 
     /// @notice The active fork's production receipt vaults, in table order.
-    function _activeChainVaults() internal view returns (address[] memory vaults) {
-        TokenInstance[] memory tokens = _activeChainTokens();
-        vaults = new address[](tokens.length);
-        for (uint256 i = 0; i < tokens.length; i++) {
-            vaults[i] = tokens[i].receiptVault;
-        }
+    function _activeChainVaults() internal view returns (address[] memory) {
+        return LibTokenInvariants.productionReceiptVaultsForChainId(block.chainid);
     }
 
     function selectBaseFork() internal {

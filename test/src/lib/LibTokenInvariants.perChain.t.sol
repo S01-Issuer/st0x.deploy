@@ -33,6 +33,10 @@ contract LibTokenInvariantsPerChainTest is Test {
             LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.BSC_CHAIN_ID),
             LibTokenInvariants.productionTokensBsc()
         );
+        assertSame(
+            LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID),
+            LibTokenInvariants.productionTokensZerog()
+        );
     }
 
     function testBaseTableDiffersFromEveryOtherChainsSoTheSelectionIsObservable() external pure {
@@ -69,6 +73,7 @@ contract LibTokenInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, chainId));
         lib.productionTokensForChainId(chainId);
     }
