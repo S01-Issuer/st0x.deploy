@@ -14,7 +14,6 @@ import {
 uint8 constant UNDERLYING_SNAPSHOT_META_DEPTH = 3;
 uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARD_ROWS = 256;
 uint256 constant EIP170_MAX_RUNTIME = 24576;
-/// Shard suite keys are single lowercase letters.
 uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARDS = 26;
 
 /// @notice No shard count up to UNDERLYING_SNAPSHOT_MAX_SHARDS fits every shard.
