@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {LibParseMeta} from "rainlang-0.2.32/src/lib/parse/LibParseMeta.sol";
 import {MalformedUnderlyingSnapshot} from "../error/ErrUnderlying.sol";
+import {LibDataContract} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 
 bytes4 constant UNDERLYING_SNAPSHOT_ROOT_MAGIC = bytes4(keccak256("st0x.underlying-snapshot.root.v1"));
 bytes4 constant UNDERLYING_SNAPSHOT_SHARD_MAGIC = bytes4(keccak256("st0x.underlying-snapshot.shard.v1"));
@@ -20,39 +21,47 @@ uint256 constant UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH = 8;
 /// root contract and its shards.
 library LibUnderlyingSnapshot {
     function lookup(address root, address token) internal view returns (uint256, bool, string memory, string memory) {
-        bytes memory rootCode = root.code;
-        if (
-            rootCode.length < UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH || rootCode[0] != 0x00
-                || readBytes4(rootCode, 1) != UNDERLYING_SNAPSHOT_ROOT_MAGIC
-        ) {
+        uint256 rootLength = dataLength(root);
+        if (rootLength < UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) {
             revert MalformedUnderlyingSnapshot(root);
         }
-        uint256 asOf = readUint256(rootCode, 5);
-        uint256 shardCount = readUint16(rootCode, 37);
-        if (shardCount == 0 || rootCode.length != UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shardCount) {
+        bytes memory header = LibDataContract.readSlice(root, 0, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH);
+        if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_ROOT_MAGIC) {
             revert MalformedUnderlyingSnapshot(root);
         }
-        address shard =
-            readAddress(rootCode, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * (uint256(uint160(token)) % shardCount));
+        uint256 asOf = readUint256(header, 4);
+        uint256 shardCount = readUint16(header, 36);
+        if (shardCount == 0 || rootLength != UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shardCount) {
+            revert MalformedUnderlyingSnapshot(root);
+        }
+        address shard = readAddress(
+            LibDataContract.readSlice(
+                root, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * (uint256(uint160(token)) % shardCount), 20
+            ),
+            0
+        );
         (bool found, string memory ticker, string memory name) = lookupShard(shard, token);
         return (asOf, found, ticker, name);
     }
 
     function lookupShard(address shard, address token) internal view returns (bool, string memory, string memory) {
-        bytes memory code = shard.code;
-        if (
-            code.length < UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH || code[0] != 0x00
-                || readBytes4(code, 1) != UNDERLYING_SNAPSHOT_SHARD_MAGIC
-        ) {
+        uint256 length = dataLength(shard);
+        if (length < UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 n = readUint16(code, 5);
-        uint256 offsetsStart = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + readUint16(code, 7);
+        bytes memory header = LibDataContract.readSlice(shard, 0, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH);
+        if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_SHARD_MAGIC) {
+            revert MalformedUnderlyingSnapshot(shard);
+        }
+        uint256 n = readUint16(header, 4);
+        uint256 offsetsStart = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + readUint16(header, 6);
         uint256 rowsStart = offsetsStart + 2 * n;
-        if (rowsStart > code.length) {
+        if (rowsStart > length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        bytes memory meta = slice(code, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH, offsetsStart);
+        bytes memory meta = LibDataContract.readSlice(
+            shard, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH, offsetsStart - UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH
+        );
         // lookupWord is UB on malformed meta.
         LibParseMeta.checkParseMetaStructure(meta);
         (bool hit, uint256 index) = LibParseMeta.lookupWord(meta, bytes32(uint256(uint160(token))));
@@ -62,24 +71,34 @@ library LibUnderlyingSnapshot {
         if (index >= n) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 row = readUint16(code, offsetsStart + 2 * index);
-        if (row < rowsStart || row + 21 > code.length) {
+        uint256 row = readUint16(LibDataContract.readSlice(shard, offsetsStart + 2 * index, 2), 0);
+        if (row < rowsStart || row + 21 > length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
+        uint256 rowEnd = row + 22 + 2 * uint256(type(uint8).max);
+        bytes memory rowData = LibDataContract.readSlice(shard, row, (rowEnd < length ? rowEnd : length) - row);
         // A fingerprint hit on a non-member lands on another member's row.
-        if (readAddress(code, row) != token) {
+        if (readAddress(rowData, 0) != token) {
             return (false, "", "");
         }
-        uint256 tickerStart = row + 21;
-        uint256 tickerEnd = tickerStart + uint8(code[row + 20]);
-        if (tickerEnd + 1 > code.length) {
+        uint256 tickerEnd = 21 + uint8(rowData[20]);
+        if (tickerEnd + 1 > rowData.length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 nameEnd = tickerEnd + 1 + uint8(code[tickerEnd]);
-        if (nameEnd > code.length) {
+        uint256 nameEnd = tickerEnd + 1 + uint8(rowData[tickerEnd]);
+        if (nameEnd > rowData.length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        return (true, string(slice(code, tickerStart, tickerEnd)), string(slice(code, tickerEnd + 1, nameEnd)));
+        return (true, string(slice(rowData, 21, tickerEnd)), string(slice(rowData, tickerEnd + 1, nameEnd)));
+    }
+
+    /// No code maps to MalformedUnderlyingSnapshot rather than ReadError.
+    function dataLength(address pointer) internal view returns (uint256) {
+        uint256 size = pointer.code.length;
+        if (size == 0) {
+            revert MalformedUnderlyingSnapshot(pointer);
+        }
+        return size - 1;
     }
 
     function slice(bytes memory data, uint256 start, uint256 end) internal pure returns (bytes memory) {
