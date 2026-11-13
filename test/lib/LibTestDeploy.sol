@@ -22,15 +22,13 @@ import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
 } from "rain-vats-0.2.20/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
-    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-    OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
-import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG,
     OffchainAssetReceiptVaultAuthorizerV1ConfigV2
 } from "rain-vats-0.2.20/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../src/interface/IStoxTokenConfigV1.sol";
+import {Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
@@ -210,18 +208,23 @@ library LibTestDeploy {
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS).registerV5(authority, name, valueType, value, "");
     }
 
-    /// The init data of a vault named `name`, `symbol`, resolving its RBAC from
-    /// `rbacName` under `authority`, with its receipt from `LibStoxConfig.RECEIPT_BEACON_NAME`.
-    function vaultData(string memory name, string memory symbol, address authority, bytes32 rbacName)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    /// The init data of a vault listing `assetId` as `listingTicker` /
+    /// `listingName` in the US, resolving its RBAC from `rbacName` under
+    /// `authority`, with its receipt from `LibStoxConfig.RECEIPT_BEACON_NAME`.
+    function vaultData(
+        string memory assetId,
+        string memory listingTicker,
+        string memory listingName,
+        address authority,
+        bytes32 rbacName
+    ) internal pure returns (bytes memory) {
         return abi.encode(
-            OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-            OffchainAssetReceiptVaultConfigV3({
-                name: name,
-                symbol: symbol,
+            STOX_TOKEN_CONFIG_V1_TAG,
+            StoxTokenConfigV1({
+                assetId: assetId,
+                listingTicker: listingTicker,
+                listingName: listingName,
+                region: Region.US,
                 authority: authority,
                 rbacName: rbacName,
                 receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,

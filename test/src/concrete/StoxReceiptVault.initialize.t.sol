@@ -83,7 +83,7 @@ contract StoxReceiptVaultInitializeTest is Test {
     }
 
     function _data() internal pure returns (bytes memory) {
-        return LibTestDeploy.vaultData("Test tStock", "tTEST", AUTHORITY, RBAC_NAME);
+        return LibTestDeploy.vaultData("US0378331005", "TEST", "Test", AUTHORITY, RBAC_NAME);
     }
 
     /// The RBAC's authorizer and owner are installed, replacing the vault
