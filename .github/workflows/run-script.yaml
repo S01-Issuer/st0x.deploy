@@ -33,7 +33,7 @@ on:
           - 20261022-bind-beacon-initial-owner
           - 20261109-schedule-revoke-service-signer-deposit-withdraw
           - 20261109-execute-revoke-service-signer-deposit-withdraw
-          - 20261110-bind-orchestrator-config
+          - 20261113-bind-orchestrator-config
       network:
         description: 'Network to author against (default: base)'
         required: true

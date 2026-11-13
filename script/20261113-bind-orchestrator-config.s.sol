@@ -62,7 +62,7 @@ contract BindOrchestratorConfig is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function artifactPath() internal view virtual override returns (string memory) {
-        return string.concat("out/20261110-bind-orchestrator-config-", vm.toString(block.chainid), ".json");
+        return string.concat("out/20261113-bind-orchestrator-config-", vm.toString(block.chainid), ".json");
     }
 
     /// @inheritdoc SafeBundleScript
