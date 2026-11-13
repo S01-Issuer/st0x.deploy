@@ -685,7 +685,7 @@ library LibProdTokenConfig {
         TokenConfig[] memory configs = new TokenConfig[](2);
         configs[0] = TokenConfig({
             underlying: "USTEST",
-            assetId: "ST0XTESTUS",
+            assetId: "US78462F1030",
             listingTicker: "USTEST",
             listingName: "US Test",
             name: "US Test ST0x",
@@ -695,7 +695,7 @@ library LibProdTokenConfig {
         });
         configs[1] = TokenConfig({
             underlying: "EUTEST",
-            assetId: "ST0XTESTEU",
+            assetId: "US78462F1030",
             listingTicker: "EUTEST",
             listingName: "EU Test",
             name: "EU Test ST0x",
