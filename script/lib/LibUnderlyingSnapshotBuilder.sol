@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {AuthoringMetaV2} from "rainlang-0.2.32/src/interface/IParserV2.sol";
 import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibDataContract, PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {LibDataContract} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,
     UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH,
@@ -64,7 +64,7 @@ library LibUnderlyingSnapshotBuilder {
     /// EIP-170; rows route to shard `uint160(token) % K`.
     function build(uint256 asOf, UnderlyingSnapshotRow[] memory rows) internal returns (bytes memory, bytes[] memory) {
         UnderlyingSnapshotShardEncoder encoder = new UnderlyingSnapshotShardEncoder();
-        for (uint256 k = 1; k <= (EIP170_MAX_RUNTIME - (PREFIX_BYTES_LENGTH - 1) - UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) / 20; k++) {
+        for (uint256 k = 1; k <= (EIP170_MAX_RUNTIME - 1 - UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) / 20; k++) {
             bytes[] memory shardCodes = new bytes[](k);
             address[] memory shards = new address[](k);
             bool fits = true;
@@ -82,7 +82,7 @@ library LibUnderlyingSnapshotBuilder {
                     fits = false;
                     break;
                 }
-                if ((PREFIX_BYTES_LENGTH - 1) + data.length > EIP170_MAX_RUNTIME) {
+                if (data.length + 1 > EIP170_MAX_RUNTIME) {
                     fits = false;
                     break;
                 }
