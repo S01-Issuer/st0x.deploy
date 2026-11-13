@@ -311,20 +311,32 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             uint256 preDeploy = vm.snapshotState();
             vm.chainId(networks[i].chainId);
             for (uint256 j = 0; j < configs.length; j++) {
-                string memory key = tokenKey(configs[j]);
-                string memory label = string.concat(key, " on ", networks[i].name);
-                address token = deploySuite(declared, all, key, networks[i]);
-                assertToken(
-                    StoxReceiptVault(payable(token)),
+                deployTokenAndWrapper(
+                    declared,
+                    all,
+                    networks[i],
                     configs[j],
                     j < snapshotRows,
-                    configs[j].region == Region.US ? usAuthorizer : euAuthorizer,
-                    label
+                    configs[j].region == Region.US ? usAuthorizer : euAuthorizer
                 );
-                address wrapper = deploySuite(declared, all, string.concat(key, WRAPPER_SUFFIX), networks[i]);
-                assertEq(StoxWrappedTokenVault(wrapper).asset(), token, label);
             }
             assertTrue(vm.revertToState(preDeploy), networks[i].name);
         }
+    }
+
+    function deployTokenAndWrapper(
+        DeployDeclaration memory declared,
+        DeploySuite[] memory all,
+        SupportedNetwork memory network,
+        TokenConfig memory config,
+        bool inSnapshot,
+        IAuthorizeV1 authorizer
+    ) internal {
+        string memory key = tokenKey(config);
+        string memory label = string.concat(key, " on ", network.name);
+        address token = deploySuite(declared, all, key, network);
+        assertToken(StoxReceiptVault(payable(token)), config, inSnapshot, authorizer, label);
+        address wrapper = deploySuite(declared, all, string.concat(key, WRAPPER_SUFFIX), network);
+        assertEq(StoxWrappedTokenVault(wrapper).asset(), token, label);
     }
 }
