@@ -510,6 +510,8 @@ contract StoxCrossChainParityTest is Test {
             legs.receiptBeaconImplCodehash = legs.receiptBeaconImpl.codehash;
         } else if (legs.safeLive && legs.cloneLive) {
             emit log(string.concat("PARITY PENDING: ", label, " token table placeholder - token leg skipped"));
+        } else {
+            emit log(string.concat("PARITY PENDING: ", label, " Safe or clone pin placeholder - token leg skipped"));
         }
     }
 
