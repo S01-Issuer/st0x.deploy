@@ -78,6 +78,41 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         return super.initialize(abi.decode(result, (bytes)));
     }
 
+    /// @notice Forwarded to the corporate actions facet.
+    /// @return The name.
+    function name() public view virtual override returns (string memory) {
+        return abi.decode(facetView(abi.encodeWithSelector(this.name.selector)), (string));
+    }
+
+    /// @notice Forwarded to the corporate actions facet.
+    /// @return The symbol.
+    function symbol() public view virtual override returns (string memory) {
+        return abi.decode(facetView(abi.encodeWithSelector(this.symbol.selector)), (string));
+    }
+
+    /// @dev A view cannot delegatecall, so the non-view `facetDelegatecall` is
+    /// cast to a view; the facet functions it reaches are views.
+    function facetView(bytes memory data) internal view returns (bytes memory) {
+        function(bytes memory) internal returns (bytes memory) f = facetDelegatecall;
+        function(bytes memory) internal view returns (bytes memory) g;
+        assembly ("memory-safe") {
+            g := f
+        }
+        return g(data);
+    }
+
+    function facetDelegatecall(bytes memory data) internal returns (bytes memory) {
+        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        if (facet.code.length == 0) revert CorporateActionsFacetNotDeployed(facet);
+        (bool success, bytes memory result) = facet.delegatecall(data);
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(result, 0x20), mload(result))
+            }
+        }
+        return result;
+    }
+
     /// @notice Returns `account`'s ERC20 balance including any pending rebase
     /// multipliers from completed corporate actions. Does NOT mutate state —
     /// if the account's stored balance is stale relative to the latest

@@ -32,6 +32,10 @@ interface IStoxUnderlyingV2 {
     /// @return The name.
     function underlyingName() external view returns (string memory);
 
+    /// @notice The underlying asset's current ISIN.
+    /// @return The ISIN.
+    function underlyingIsin() external view returns (string memory);
+
     /// @notice Sets this token's underlying ticker, name and ISIN override,
     /// stamped with `block.timestamp`. Callable by the vault owner only.
     /// Reverts with `MalformedUnderlyingTicker`, `UnderlyingMintSymbolTooLong`,
