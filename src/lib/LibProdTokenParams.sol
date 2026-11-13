@@ -16,13 +16,10 @@ import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
 } from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
-import {
-    OffchainAssetReceiptVaultConfigV3,
-    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../interface/IStoxTokenConfigV1.sol";
 import {Region, TokenConfig} from "./LibProdTokenConfig.sol";
 
 library LibProdTokenParams {
@@ -37,7 +34,7 @@ library LibProdTokenParams {
                 beaconName: LibStoxConfig.VAULT_BEACON_NAME,
                 beacon: beacon,
                 data: tokenData(configs[i]),
-                salt: keccak256(bytes(configs[i].underlying))
+                salt: bytes32(0)
             });
         }
         return params;
@@ -45,10 +42,12 @@ library LibProdTokenParams {
 
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {
         return abi.encode(
-            OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-            OffchainAssetReceiptVaultConfigV3({
-                name: config.name,
-                symbol: config.symbol,
+            STOX_TOKEN_CONFIG_V1_TAG,
+            StoxTokenConfigV1({
+                assetId: config.assetId,
+                listingTicker: config.listingTicker,
+                listingName: config.listingName,
+                region: config.region,
                 authority: LibRegistryAuthority.ROOT_AUTHORITY,
                 rbacName: config.region == Region.US ? LibStoxConfig.RBAC_US_NAME : LibStoxConfig.RBAC_EU_NAME,
                 receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,

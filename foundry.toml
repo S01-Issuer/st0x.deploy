@@ -18,7 +18,7 @@ optimizer = true
 # Changing it moves every Zoltu address: the vault pins the facet and the orchestrator
 # pins vault + receipt, so all three deploy in lockstep. Dependency-pinned bytecode
 # (rain-deploy's TimelockController, 2000 runs) does not reproduce under this profile.
-optimizer_runs = 195
+optimizer_runs = 183
 
 evm_version = "cancun"
 
