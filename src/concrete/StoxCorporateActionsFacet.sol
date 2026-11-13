@@ -30,7 +30,7 @@ import {IStoxTokenConfigV1, StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from ".
 import {
     InvalidStoxTokenConfigTag,
     NonCanonicalStoxTokenConfig,
-    EmptyAssetId,
+    MalformedAssetId,
     MalformedListingTicker,
     MalformedListingName,
     StoxTokenAlreadyInitialized
@@ -277,7 +277,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
         if (tag != STOX_TOKEN_CONFIG_V1_TAG) revert InvalidStoxTokenConfigTag(tag);
         (, StoxTokenConfigV1 memory config) = abi.decode(data, (bytes32, StoxTokenConfigV1));
         if (keccak256(abi.encode(tag, config)) != keccak256(data)) revert NonCanonicalStoxTokenConfig();
-        if (bytes(config.assetId).length == 0) revert EmptyAssetId();
+        if (!LibUnderlying.isinWellFormed(config.assetId)) revert MalformedAssetId(config.assetId);
         if (!LibUnderlying.tickerWellFormed(bytes(config.listingTicker))) {
             revert MalformedListingTicker(config.listingTicker);
         }

@@ -6,7 +6,7 @@ error InvalidStoxTokenConfigTag(bytes32 tag);
 
 error NonCanonicalStoxTokenConfig();
 
-error EmptyAssetId();
+error MalformedAssetId(string assetId);
 
 error MalformedListingTicker(string listingTicker);
 
