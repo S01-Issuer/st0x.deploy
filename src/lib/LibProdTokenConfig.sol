@@ -80,7 +80,7 @@ library LibProdTokenConfig {
         configs = new TokenConfig[](59);
         configs[0] = TokenConfig({
             underlying: "MSTR",
-            assetId: "",
+            assetId: "US5949724083",
             listingTicker: "MSTR",
             listingName: "MicroStrategy Incorporated",
             name: "MicroStrategy Incorporated ST0x",
@@ -90,7 +90,7 @@ library LibProdTokenConfig {
         });
         configs[1] = TokenConfig({
             underlying: "TSLA",
-            assetId: "",
+            assetId: "US88160R1014",
             listingTicker: "TSLA",
             listingName: "Tesla Inc",
             name: "Tesla Inc ST0x",
@@ -100,7 +100,7 @@ library LibProdTokenConfig {
         });
         configs[2] = TokenConfig({
             underlying: "COIN",
-            assetId: "",
+            assetId: "US19260Q1076",
             listingTicker: "COIN",
             listingName: "Coinbase Global Inc",
             name: "Coinbase Global Inc ST0x",
@@ -110,7 +110,7 @@ library LibProdTokenConfig {
         });
         configs[3] = TokenConfig({
             underlying: "SPYM",
-            assetId: "",
+            assetId: "US78464A8541",
             listingTicker: "SPYM",
             listingName: "State Street SPDR Portfolio S&P 500 ETF",
             name: "State Street SPDR Portfolio S&P 500 ETF ST0x",
@@ -120,7 +120,7 @@ library LibProdTokenConfig {
         });
         configs[4] = TokenConfig({
             underlying: "SIVR",
-            assetId: "",
+            assetId: "US0032641088",
             listingTicker: "SIVR",
             listingName: "abrdn Physical Silver Shares ETF",
             name: "abrdn Physical Silver Shares ETF ST0x",
@@ -130,7 +130,7 @@ library LibProdTokenConfig {
         });
         configs[5] = TokenConfig({
             underlying: "CRCL",
-            assetId: "",
+            assetId: "US1725731079",
             listingTicker: "CRCL",
             listingName: "Circle Internet Group Inc",
             name: "Circle Internet Group Inc ST0x",
@@ -140,7 +140,7 @@ library LibProdTokenConfig {
         });
         configs[6] = TokenConfig({
             underlying: "NVDA",
-            assetId: "",
+            assetId: "US67066G1040",
             listingTicker: "NVDA",
             listingName: "NVIDIA Corporation",
             name: "NVIDIA Corporation ST0x",
@@ -150,7 +150,7 @@ library LibProdTokenConfig {
         });
         configs[7] = TokenConfig({
             underlying: "IAU",
-            assetId: "",
+            assetId: "US4642852044",
             listingTicker: "IAU",
             listingName: "iShares Gold Trust",
             name: "iShares Gold Trust ST0x",
@@ -160,7 +160,7 @@ library LibProdTokenConfig {
         });
         configs[8] = TokenConfig({
             underlying: "PPLT",
-            assetId: "",
+            assetId: "US0032601066",
             listingTicker: "PPLT",
             listingName: "abrdn Physical Platinum Shares ETF",
             name: "abrdn Physical Platinum Shares ETF ST0x",
@@ -170,7 +170,7 @@ library LibProdTokenConfig {
         });
         configs[9] = TokenConfig({
             underlying: "AMZN",
-            assetId: "",
+            assetId: "US0231351067",
             listingTicker: "AMZN",
             listingName: "Amazon.com Inc",
             name: "Amazon.com Inc ST0x",
@@ -180,7 +180,7 @@ library LibProdTokenConfig {
         });
         configs[10] = TokenConfig({
             underlying: "BMNR",
-            assetId: "",
+            assetId: "US09175A2069",
             listingTicker: "BMNR",
             listingName: "Bitmine Immersion Technologies, Inc",
             name: "Bitmine Immersion Technologies, Inc ST0x",
@@ -190,7 +190,7 @@ library LibProdTokenConfig {
         });
         configs[11] = TokenConfig({
             underlying: "IBHG",
-            assetId: "",
+            assetId: "US46436E4787",
             listingTicker: "IBHG",
             listingName: "iShares iBonds 2027 Term High Yield and Income ETF",
             name: "iShares iBonds 2027 Term High Yield and Income ETF ST0x",
@@ -201,7 +201,7 @@ library LibProdTokenConfig {
         // NB: leading space is present on Base and is reproduced verbatim.
         configs[12] = TokenConfig({
             underlying: "SGOV",
-            assetId: "",
+            assetId: "US46436E7186",
             listingTicker: "SGOV",
             listingName: " iShares 0-3 Month Treasury Bond ETF",
             name: " iShares 0-3 Month Treasury Bond ETF ST0x",
@@ -211,7 +211,7 @@ library LibProdTokenConfig {
         });
         configs[13] = TokenConfig({
             underlying: "QQQM",
-            assetId: "",
+            assetId: "US46138G6492",
             listingTicker: "QQQM",
             listingName: "Invesco NASDAQ 100 ETF",
             name: "Invesco NASDAQ 100 ETF ST0x",
@@ -221,7 +221,7 @@ library LibProdTokenConfig {
         });
         configs[14] = TokenConfig({
             underlying: "VWO",
-            assetId: "",
+            assetId: "US9220428588",
             listingTicker: "VWO",
             listingName: "Vanguard Emerging Markets Stock Index Fund",
             name: "Vanguard Emerging Markets Stock Index Fund ST0x",
@@ -231,7 +231,7 @@ library LibProdTokenConfig {
         });
         configs[15] = TokenConfig({
             underlying: "ARKK",
-            assetId: "",
+            assetId: "US00214Q1040",
             listingTicker: "ARKK",
             listingName: "ARK Innovation ETF",
             name: "ARK Innovation ETF ST0x",
@@ -241,7 +241,7 @@ library LibProdTokenConfig {
         });
         configs[16] = TokenConfig({
             underlying: "SPCX",
-            assetId: "",
+            assetId: "US84615Q1031",
             listingTicker: "SPCX",
             listingName: "Space Exploration Technologies Corp.",
             name: "Space Exploration Technologies Corp. ST0x",
@@ -251,7 +251,7 @@ library LibProdTokenConfig {
         });
         configs[17] = TokenConfig({
             underlying: "CEG",
-            assetId: "",
+            assetId: "US21037T1097",
             listingTicker: "CEG",
             listingName: "Constellation Energy Corporation",
             name: "Constellation Energy Corporation ST0x",
@@ -261,7 +261,7 @@ library LibProdTokenConfig {
         });
         configs[18] = TokenConfig({
             underlying: "DRAM",
-            assetId: "",
+            assetId: "US77926X3200",
             listingTicker: "DRAM",
             listingName: "Roundhill Memory ETF",
             name: "Roundhill Memory ETF ST0x",
@@ -271,7 +271,7 @@ library LibProdTokenConfig {
         });
         configs[19] = TokenConfig({
             underlying: "TSM",
-            assetId: "",
+            assetId: "US8740391003",
             listingTicker: "TSM",
             listingName: "Taiwan Semiconductor Manufacturing Company Limited ADR",
             name: "Taiwan Semiconductor Manufacturing Company Limited ADR ST0x",
@@ -281,7 +281,7 @@ library LibProdTokenConfig {
         });
         configs[20] = TokenConfig({
             underlying: "SKHY",
-            assetId: "",
+            assetId: "US78392B2060",
             listingTicker: "SKHY",
             listingName: "SK hynix Inc. ADR",
             name: "SK hynix Inc. ADR ST0x",
@@ -291,7 +291,7 @@ library LibProdTokenConfig {
         });
         configs[21] = TokenConfig({
             underlying: "ASML",
-            assetId: "",
+            assetId: "USN070592100",
             listingTicker: "ASML",
             listingName: "ASML Holding N.V.",
             name: "ASML Holding N.V. ST0x",
@@ -301,7 +301,7 @@ library LibProdTokenConfig {
         });
         configs[22] = TokenConfig({
             underlying: "MU",
-            assetId: "",
+            assetId: "US5951121038",
             listingTicker: "MU",
             listingName: "Micron Technology, Inc.",
             name: "Micron Technology, Inc. ST0x",
@@ -311,7 +311,7 @@ library LibProdTokenConfig {
         });
         configs[23] = TokenConfig({
             underlying: "AMD",
-            assetId: "",
+            assetId: "US0079031078",
             listingTicker: "AMD",
             listingName: "Advanced Micro Devices, Inc.",
             name: "Advanced Micro Devices, Inc. ST0x",
@@ -321,7 +321,7 @@ library LibProdTokenConfig {
         });
         configs[24] = TokenConfig({
             underlying: "AVGO",
-            assetId: "",
+            assetId: "US11135F1012",
             listingTicker: "AVGO",
             listingName: "Broadcom Inc.",
             name: "Broadcom Inc. ST0x",
@@ -331,7 +331,7 @@ library LibProdTokenConfig {
         });
         configs[25] = TokenConfig({
             underlying: "AMAT",
-            assetId: "",
+            assetId: "US0382221051",
             listingTicker: "AMAT",
             listingName: "Applied Materials, Inc.",
             name: "Applied Materials, Inc. ST0x",
@@ -341,7 +341,7 @@ library LibProdTokenConfig {
         });
         configs[26] = TokenConfig({
             underlying: "LRCX",
-            assetId: "",
+            assetId: "US5128073062",
             listingTicker: "LRCX",
             listingName: "Lam Research Corporation",
             name: "Lam Research Corporation ST0x",
@@ -351,7 +351,7 @@ library LibProdTokenConfig {
         });
         configs[27] = TokenConfig({
             underlying: "TTWO",
-            assetId: "",
+            assetId: "US8740541094",
             listingTicker: "TTWO",
             listingName: "Take-Two Interactive Software, Inc.",
             name: "Take-Two Interactive Software, Inc. ST0x",
@@ -371,7 +371,7 @@ library LibProdTokenConfig {
         });
         configs[29] = TokenConfig({
             underlying: "GOOGL",
-            assetId: "",
+            assetId: "US02079K3059",
             listingTicker: "GOOGL",
             listingName: "Alphabet Inc. Class A",
             name: "Alphabet Inc. Class A ST0x",
@@ -381,7 +381,7 @@ library LibProdTokenConfig {
         });
         configs[30] = TokenConfig({
             underlying: "AAPL",
-            assetId: "",
+            assetId: "US0378331005",
             listingTicker: "AAPL",
             listingName: "Apple Inc.",
             name: "Apple Inc. ST0x",
@@ -391,7 +391,7 @@ library LibProdTokenConfig {
         });
         configs[31] = TokenConfig({
             underlying: "MSFT",
-            assetId: "",
+            assetId: "US5949181045",
             listingTicker: "MSFT",
             listingName: "Microsoft Corporation",
             name: "Microsoft Corporation ST0x",
@@ -401,7 +401,7 @@ library LibProdTokenConfig {
         });
         configs[32] = TokenConfig({
             underlying: "LLY",
-            assetId: "",
+            assetId: "US5324571083",
             listingTicker: "LLY",
             listingName: "Eli Lilly and Company",
             name: "Eli Lilly and Company ST0x",
@@ -411,7 +411,7 @@ library LibProdTokenConfig {
         });
         configs[33] = TokenConfig({
             underlying: "PTY",
-            assetId: "",
+            assetId: "US72201B1017",
             listingTicker: "PTY",
             listingName: "PIMCO Corporate & Income Opportunity Fund",
             name: "PIMCO Corporate & Income Opportunity Fund ST0x",
@@ -421,7 +421,7 @@ library LibProdTokenConfig {
         });
         configs[34] = TokenConfig({
             underlying: "INTC",
-            assetId: "",
+            assetId: "US4581401001",
             listingTicker: "INTC",
             listingName: "Intel Corporation",
             name: "Intel Corporation ST0x",
@@ -431,7 +431,7 @@ library LibProdTokenConfig {
         });
         configs[35] = TokenConfig({
             underlying: "HOOD",
-            assetId: "",
+            assetId: "US7707001027",
             listingTicker: "HOOD",
             listingName: "Robinhood Markets, Inc.",
             name: "Robinhood Markets, Inc. ST0x",
@@ -441,7 +441,7 @@ library LibProdTokenConfig {
         });
         configs[36] = TokenConfig({
             underlying: "ORCL",
-            assetId: "",
+            assetId: "US68389X1054",
             listingTicker: "ORCL",
             listingName: "Oracle Corporation",
             name: "Oracle Corporation ST0x",
@@ -451,7 +451,7 @@ library LibProdTokenConfig {
         });
         configs[37] = TokenConfig({
             underlying: "SMCI",
-            assetId: "",
+            assetId: "US86800U3023",
             listingTicker: "SMCI",
             listingName: "Super Micro Computer, Inc.",
             name: "Super Micro Computer, Inc. ST0x",
@@ -461,7 +461,7 @@ library LibProdTokenConfig {
         });
         configs[38] = TokenConfig({
             underlying: "BABA",
-            assetId: "",
+            assetId: "US01609W1027",
             listingTicker: "BABA",
             listingName: "Alibaba Group Holding Limited ADR",
             name: "Alibaba Group Holding Limited ADR ST0x",
@@ -471,7 +471,7 @@ library LibProdTokenConfig {
         });
         configs[39] = TokenConfig({
             underlying: "TQQQ",
-            assetId: "",
+            assetId: "US74347X8314",
             listingTicker: "TQQQ",
             listingName: "ProShares UltraPro QQQ",
             name: "ProShares UltraPro QQQ ST0x",
@@ -481,7 +481,7 @@ library LibProdTokenConfig {
         });
         configs[40] = TokenConfig({
             underlying: "FTF",
-            assetId: "",
+            assetId: "US35472T1016",
             listingTicker: "FTF",
             listingName: "Franklin Limited Duration Income Trust",
             name: "Franklin Limited Duration Income Trust ST0x",
@@ -491,7 +491,7 @@ library LibProdTokenConfig {
         });
         configs[41] = TokenConfig({
             underlying: "CBRS",
-            assetId: "",
+            assetId: "US15675D1037",
             listingTicker: "CBRS",
             listingName: "Cerebras Systems Inc.",
             name: "Cerebras Systems Inc. ST0x",
@@ -501,7 +501,7 @@ library LibProdTokenConfig {
         });
         configs[42] = TokenConfig({
             underlying: "MCD",
-            assetId: "",
+            assetId: "US5801351017",
             listingTicker: "MCD",
             listingName: "McDonald's Corporation",
             name: "McDonald's Corporation ST0x",
@@ -511,7 +511,7 @@ library LibProdTokenConfig {
         });
         configs[43] = TokenConfig({
             underlying: "NKE",
-            assetId: "",
+            assetId: "US6541061031",
             listingTicker: "NKE",
             listingName: "NIKE, Inc.",
             name: "NIKE, Inc. ST0x",
@@ -521,7 +521,7 @@ library LibProdTokenConfig {
         });
         configs[44] = TokenConfig({
             underlying: "GRND",
-            assetId: "",
+            assetId: "US39854F1012",
             listingTicker: "GRND",
             listingName: "Grindr Inc.",
             name: "Grindr Inc. ST0x",
@@ -531,7 +531,7 @@ library LibProdTokenConfig {
         });
         configs[45] = TokenConfig({
             underlying: "DNUT",
-            assetId: "",
+            assetId: "US50101L1061",
             listingTicker: "DNUT",
             listingName: "Krispy Kreme, Inc.",
             name: "Krispy Kreme, Inc. ST0x",
@@ -541,7 +541,7 @@ library LibProdTokenConfig {
         });
         configs[46] = TokenConfig({
             underlying: "PLBY",
-            assetId: "",
+            assetId: "US72814P1093",
             listingTicker: "PLBY",
             listingName: "Playboy, Inc.",
             name: "Playboy, Inc. ST0x",
@@ -551,7 +551,7 @@ library LibProdTokenConfig {
         });
         configs[47] = TokenConfig({
             underlying: "TR",
-            assetId: "",
+            assetId: "US8905161076",
             listingTicker: "TR",
             listingName: "Tootsie Roll Industries, Inc.",
             name: "Tootsie Roll Industries, Inc. ST0x",
@@ -561,7 +561,7 @@ library LibProdTokenConfig {
         });
         configs[48] = TokenConfig({
             underlying: "WEN",
-            assetId: "",
+            assetId: "US95058W1009",
             listingTicker: "WEN",
             listingName: "The Wendy's Company",
             name: "The Wendy's Company ST0x",
@@ -584,7 +584,7 @@ library LibProdTokenConfig {
         // (`"<metadata.name> ST0x"`, `"t<code>"`) from sft-ops `metadata/bird.json`.
         configs[50] = TokenConfig({
             underlying: "BIRD",
-            assetId: "",
+            assetId: "US01675A2087",
             listingTicker: "BIRD",
             listingName: "Smartbird, Inc.",
             name: "Smartbird, Inc. ST0x",
@@ -596,7 +596,7 @@ library LibProdTokenConfig {
         // (`"<metadata.name> ST0x"`, `"t<code>"`); verified against the live Base vault.
         configs[51] = TokenConfig({
             underlying: "SPY",
-            assetId: "",
+            assetId: "US78462F1030",
             listingTicker: "SPY",
             listingName: "State Street SPDR S&P 500 ETF Trust",
             name: "State Street SPDR S&P 500 ETF Trust ST0x",
@@ -608,7 +608,7 @@ library LibProdTokenConfig {
         // verified against the live Base vault.
         configs[52] = TokenConfig({
             underlying: "SNES",
-            assetId: "",
+            assetId: "US81720R6045",
             listingTicker: "SNES",
             listingName: "SenesTech, Inc.",
             name: "SenesTech, Inc. ST0x",
@@ -621,7 +621,7 @@ library LibProdTokenConfig {
         // Base first (sft-ops CD run 37747102500); the tables pair by index.
         configs[53] = TokenConfig({
             underlying: "WMT",
-            assetId: "",
+            assetId: "US9311421039",
             listingTicker: "WMT",
             listingName: "Walmart Inc.",
             name: "Walmart Inc. ST0x",
@@ -631,7 +631,7 @@ library LibProdTokenConfig {
         });
         configs[54] = TokenConfig({
             underlying: "MC",
-            assetId: "",
+            assetId: "FR0000121014",
             listingTicker: "MC",
             listingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
             name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x",
@@ -641,7 +641,7 @@ library LibProdTokenConfig {
         });
         configs[55] = TokenConfig({
             underlying: "DIS",
-            assetId: "",
+            assetId: "US2546871060",
             listingTicker: "DIS",
             listingName: "The Walt Disney Company",
             name: "The Walt Disney Company ST0x",
@@ -651,7 +651,7 @@ library LibProdTokenConfig {
         });
         configs[56] = TokenConfig({
             underlying: "IFX",
-            assetId: "",
+            assetId: "DE0006231004",
             listingTicker: "IFX",
             listingName: "Infineon Technologies AG",
             name: "Infineon Technologies AG ST0x",
@@ -661,7 +661,7 @@ library LibProdTokenConfig {
         });
         configs[57] = TokenConfig({
             underlying: "SOI",
-            assetId: "",
+            assetId: "FR0013227113",
             listingTicker: "SOI",
             listingName: "Soitec SA",
             name: "Soitec SA ST0x",
@@ -671,7 +671,7 @@ library LibProdTokenConfig {
         });
         configs[58] = TokenConfig({
             underlying: "TPRO",
-            assetId: "",
+            assetId: "IT0005482333",
             listingTicker: "TPRO",
             listingName: "Technoprobe S.p.A.",
             name: "Technoprobe S.p.A. ST0x",
