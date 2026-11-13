@@ -106,7 +106,9 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         for (uint256 j = 0; j < configs.length; j++) {
             bool isRow = wrapper
                 ? keccak256(params.data)
-                    == keccak256(abi.encode(LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(tokens[j])))
+                    == keccak256(
+                        abi.encode(LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(tokens[j]))
+                    )
                 : keccak256(bytes(listed.assetId)) == keccak256(bytes(configs[j].assetId))
                     && keccak256(bytes(listed.listingTicker)) == keccak256(bytes(configs[j].listingTicker))
                     && keccak256(bytes(listed.listingName)) == keccak256(bytes(configs[j].listingName))
