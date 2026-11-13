@@ -24,6 +24,7 @@ struct UnderlyingSnapshotRow {
     address token;
     string ticker;
     string name;
+    string isin;
 }
 
 library LibUnderlyingSnapshotBuilder {
@@ -44,7 +45,9 @@ library LibUnderlyingSnapshotBuilder {
                 uint8(bytes(rows[i].ticker).length),
                 rows[i].ticker,
                 uint8(bytes(rows[i].name).length),
-                rows[i].name
+                rows[i].name,
+                uint8(bytes(rows[i].isin).length),
+                rows[i].isin
             );
         }
         return abi.encodePacked(

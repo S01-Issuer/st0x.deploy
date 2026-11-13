@@ -183,7 +183,8 @@ contract Build is Script, StoxDeploySuites {
             rows[i] = UnderlyingSnapshotRow(
                 LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]),
                 configs[i].ticker,
-                configs[i].underlyingName
+                configs[i].underlyingName,
+                configs[i].isin
             );
         }
         (bytes memory root, bytes[] memory shards) = LibUnderlyingSnapshotBuilder.build(UNDERLYING_SNAPSHOT_AS_OF, rows);
