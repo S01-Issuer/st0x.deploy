@@ -2,24 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// Thrown when `setUnderlying` is called with an empty symbol. The token
-/// symbols built from the underlying ticker would otherwise collapse to their
-/// bare prefix or suffix.
-error EmptyUnderlyingSymbol();
-
-/// Thrown when `setUnderlying` is called with an empty name. The token names
-/// built from the underlying name would otherwise be empty.
-error EmptyUnderlyingName();
-
 /// Thrown when `setUnderlying` is given a ticker `LibUnderlying.tickerWellFormed`
 /// refuses.
 /// @param ticker The refused ticker.
 error MalformedUnderlyingTicker(string ticker);
-
-/// Thrown when "t" + the `setUnderlying` ticker exceeds the 31-byte mint symbol
-/// limit, above which mints revert with `MintSymbolTooLong`.
-/// @param ticker The refused ticker.
-error UnderlyingMintSymbolTooLong(string ticker);
 
 /// Thrown when `setUnderlying` is given a name `LibUnderlying.nameWellFormed`
 /// refuses.
