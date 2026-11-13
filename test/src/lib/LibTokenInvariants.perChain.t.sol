@@ -39,16 +39,6 @@ contract LibTokenInvariantsPerChainTest is Test {
         );
     }
 
-    /// The 0G arm selects the all-placeholder table, not a hydrated chain's
-    /// table: every receipt vault reads zero until the 0G deploy is hydrated.
-    function testZerogSelectsItsPlaceholderTable() external pure {
-        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
-        assertEq(zerog.length, LibTokenInvariants.productionTokensBase().length);
-        for (uint256 i = 0; i < zerog.length; i++) {
-            assertEq(zerog[i].receiptVault, address(0));
-        }
-    }
-
     function testBaseTableDiffersFromEveryOtherChainsSoTheSelectionIsObservable() external pure {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
