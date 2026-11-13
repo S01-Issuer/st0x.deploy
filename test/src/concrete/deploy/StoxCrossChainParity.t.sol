@@ -660,12 +660,39 @@ contract StoxCrossChainParityTest is Test {
         assertAllLegsLive("Robinhood Chain", robinhood);
         assertAllLegsLive("BNB Smart Chain", bsc);
 
-        // 0G's legs arm as its bootstrap lands. Until the deadline they may
-        // stay pending; past it, a pending leg fails like any other chain's.
+        assertZerogLegsLiveAfterDeadline(zerog);
+    }
+
+    /// @notice 0G's legs arm as its bootstrap lands. Until
+    /// `ZEROG_PARITY_DEADLINE` they may stay pending; from it on, a pending
+    /// leg fails like any other chain's.
+    /// @param legs What `assertChainLegs` reported for 0G.
+    function assertZerogLegsLiveAfterDeadline(ChainLegs memory legs) internal view {
         // forge-lint: disable-next-line(block-timestamp)
         if (block.timestamp >= ZEROG_PARITY_DEADLINE) {
-            assertAllLegsLive("0G", zerog);
+            assertAllLegsLive("0G", legs);
         }
+    }
+
+    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
+    /// @param legs The 0G legs to check.
+    function externalAssertZerogLegsLiveAfterDeadline(ChainLegs memory legs) external view {
+        assertZerogLegsLiveAfterDeadline(legs);
+    }
+
+    /// @notice Pending 0G legs pass one second before the deadline.
+    function testPendingZerogLegsPassBeforeDeadline() external {
+        ChainLegs memory legs;
+        vm.warp(ZEROG_PARITY_DEADLINE - 1);
+        this.externalAssertZerogLegsLiveAfterDeadline(legs);
+    }
+
+    /// @notice Pending 0G legs fail the suite at the deadline.
+    function testPendingZerogLegsFailAtDeadline() external {
+        ChainLegs memory legs;
+        vm.warp(ZEROG_PARITY_DEADLINE);
+        vm.expectRevert(bytes("0G Safe leg reported pending - parity comparisons are disabled"));
+        this.externalAssertZerogLegsLiveAfterDeadline(legs);
     }
 
     /// @notice External shim so `vm.expectRevert` can see the helper's revert.
