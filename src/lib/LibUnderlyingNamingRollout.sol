@@ -40,9 +40,9 @@ error TickerNotBoundToVault(string underlying, address vault, string symbol);
 /// non-empty, has no `"`, `\` or control byte (the receipt's `uri()` builds
 /// JSON from the vault symbol without escaping), and does not already carry
 /// the ST0x suffix.
-/// @param underlying The row's ticker.
+/// @param ticker The row's ticker.
 /// @param underlyingName The row's underlying name.
-error MalformedUnderlying(string underlying, string underlyingName);
+error MalformedUnderlying(string ticker, string underlyingName);
 
 /// @notice The downstream services are not yet confirmed to accept the
 /// renamed wrapper symbols, so the rename may not be scheduled.
@@ -195,7 +195,7 @@ library LibUnderlyingNamingRollout {
         payloads[2] = abi.encodeCall(ICorporateActionsV1.completedActionCount, ());
     }
 
-    /// @notice The rename batch's calls: `setUnderlying(underlying,
+    /// @notice The rename batch's calls: `setUnderlying(ticker,
     /// underlyingName, isin)` on every production vault of the chain, in
     /// table order.
     /// @param chainId The chain id.
@@ -215,7 +215,7 @@ library LibUnderlyingNamingRollout {
             TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
             targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
             payloads[tokenIndex] = abi.encodeCall(
-                IStoxUnderlyingV2.setUnderlying, (config.underlying, config.underlyingName, config.isin)
+                IStoxUnderlyingV2.setUnderlying, (config.ticker, config.underlyingName, config.isin)
             );
         }
     }
@@ -262,10 +262,10 @@ library LibUnderlyingNamingRollout {
     /// @param config The row.
     function assertUnderlyingWellFormed(TokenConfig memory config) internal pure {
         if (
-            !LibUnderlying.tickerWellFormed(bytes(config.underlying))
+            !LibUnderlying.tickerWellFormed(bytes(config.ticker))
                 || !LibUnderlying.nameWellFormed(bytes(config.underlyingName))
         ) {
-            revert MalformedUnderlying(config.underlying, config.underlyingName);
+            revert MalformedUnderlying(config.ticker, config.underlyingName);
         }
         if (!LibUnderlying.isinWellFormed(config.isin)) revert MalformedUnderlyingIsin(config.isin);
     }
