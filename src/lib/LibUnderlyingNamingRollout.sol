@@ -15,6 +15,7 @@ import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 import {LibUnderlying} from "./LibUnderlying.sol";
+import {MalformedUnderlyingIsin} from "../error/ErrUnderlying.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
@@ -256,7 +257,8 @@ library LibUnderlyingNamingRollout {
     }
 
     /// @notice Reverts `MalformedUnderlying` unless `config`'s ticker and
-    /// underlying name are well formed.
+    /// underlying name are well formed, and `MalformedUnderlyingIsin` unless
+    /// its ISIN is.
     /// @param config The row.
     function assertUnderlyingWellFormed(TokenConfig memory config) internal pure {
         if (
@@ -265,6 +267,7 @@ library LibUnderlyingNamingRollout {
         ) {
             revert MalformedUnderlying(config.underlying, config.underlyingName);
         }
+        if (!LibUnderlying.isinWellFormed(config.isin)) revert MalformedUnderlyingIsin(config.isin);
     }
 
     /// @notice The beacon batch's operation id on `timelock`.

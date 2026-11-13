@@ -29,8 +29,7 @@ interface IStoxUnderlyingV1 {
     /// " (ST0x)". The name and symbol the vault was initialized with are
     /// overwritten and cannot be restored through this call. Callable by the
     /// vault owner only, and callable again later so the values can follow a
-    /// renamed listing. Reverts with `EmptyUnderlyingSymbol` /
-    /// `EmptyUnderlyingName` on an empty value.
+    /// renamed listing. Reverts on an empty value.
     /// @param newSymbol The underlying ticker, e.g. "NVDA".
     /// @param newName The underlying asset's name, e.g. "NVIDIA Corporation".
     function setUnderlying(string calldata newSymbol, string calldata newName) external;

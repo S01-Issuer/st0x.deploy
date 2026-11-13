@@ -15,18 +15,15 @@ pragma solidity ^0.8.25;
 /// `name` + `symbol` are the ONLY free initialization inputs, and this table
 /// holds exactly those.
 ///
-/// The underlying ticker and name are set at initialization from the
-/// underlying snapshot built from this table, unless a newer registry override
-/// for the token applies; the vault owner can later change them with
-/// `IStoxUnderlyingV1.setUnderlying`. The ticker is `ticker` and the name is
-/// `underlyingName`; `underlying` is frozen because it is the deploy salt and
-/// join key. Once both are set,
-/// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
-/// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
-/// A token with neither reports the `name` + `symbol` it was
+/// The underlying snapshot is built from `ticker`, `underlyingName` and
+/// `isin`; the vault owner can override them with
+/// `IStoxUnderlyingV2.setUnderlying`. Once resolved, the receipt vault reports
+/// `"t" + ticker` / `underlyingName + " (ST0x)"` and the wrapped token vault
+/// `ticker + "s"` / the receipt vault's name. A legacy token with no
+/// snapshot row and no override reports the `name` + `symbol` it was
 /// initialized with, and the wrapped token vault `"Wrapped " + name` /
 /// `"w" + symbol`.
-/// @param underlying The frozen chain-agnostic join key and deploy salt, matching
+/// @param underlying The frozen chain-agnostic join key, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param ticker The current underlying ticker: the `ticker` argument of
 /// `setUnderlying`.
