@@ -130,7 +130,9 @@ contract LibUnderlyingTest is Test {
             bytes memory candidate = bytes.concat("US037833100", bytes1(65 + letter));
             assertFalse(wellFormed(candidate), string(candidate));
             uint256 value = 10 + letter;
+            // forge-lint: disable-next-line(unsafe-typecast)
             bytes memory expanded = bytes.concat("US037833100", bytes1(uint8(48 + value / 10)));
+            // forge-lint: disable-next-line(unsafe-typecast)
             luhnWouldPass = luhnWouldPass || luhnCheckDigit(expanded) == bytes1(uint8(48 + value % 10));
         }
         assertTrue(luhnWouldPass);
@@ -140,6 +142,7 @@ contract LibUnderlyingTest is Test {
         bytes memory valid = "US0378331005";
         for (uint256 position = 0; position < 12; position++) {
             for (uint256 b = 0; b < 256; b++) {
+                // forge-lint: disable-next-line(unsafe-typecast)
                 bytes1 c = bytes1(uint8(b));
                 if (isLetter(c) || isDigit(c)) continue;
                 bytes memory candidate = bytes.concat(valid);
