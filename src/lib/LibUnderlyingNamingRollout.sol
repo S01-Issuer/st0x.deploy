@@ -7,7 +7,7 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
-import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV1} from "../interface/deprecated/IStoxUnderlyingV1.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
