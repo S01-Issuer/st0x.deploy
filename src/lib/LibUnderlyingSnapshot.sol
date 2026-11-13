@@ -13,14 +13,18 @@ bytes4 constant UNDERLYING_SNAPSHOT_SHARD_MAGIC = bytes4(keccak256("st0x.underly
 uint256 constant UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH = 38;
 /// @dev Shard data: magic, n (2), meta length (2), meta, n row offsets (2
 /// each, absolute in the data), then rows of token (20), ticker length (1),
-/// ticker, name length (1), name.
+/// ticker, name length (1), name, ISIN length (1), ISIN.
 uint256 constant UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH = 8;
 
 /// @title LibUnderlyingSnapshot
-/// @notice Reads the (token -> ticker, name) snapshot held as pure data in a
-/// root contract and its shards.
+/// @notice Reads the (token -> ticker, name, ISIN) snapshot held as pure data
+/// in a root contract and its shards.
 library LibUnderlyingSnapshot {
-    function lookup(address root, address token) internal view returns (uint256, bool, string memory, string memory) {
+    function lookup(address root, address token)
+        internal
+        view
+        returns (uint256, bool, string memory, string memory, string memory)
+    {
         uint256 rootLength = dataLength(root);
         if (rootLength < UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) {
             revert MalformedUnderlyingSnapshot(root);
@@ -40,11 +44,15 @@ library LibUnderlyingSnapshot {
             ),
             0
         );
-        (bool found, string memory ticker, string memory name) = lookupShard(shard, token);
-        return (asOf, found, ticker, name);
+        (bool found, string memory ticker, string memory name, string memory isin) = lookupShard(shard, token);
+        return (asOf, found, ticker, name, isin);
     }
 
-    function lookupShard(address shard, address token) internal view returns (bool, string memory, string memory) {
+    function lookupShard(address shard, address token)
+        internal
+        view
+        returns (bool, string memory, string memory, string memory)
+    {
         uint256 length = dataLength(shard);
         if (length < UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH) {
             revert MalformedUnderlyingSnapshot(shard);
@@ -66,7 +74,7 @@ library LibUnderlyingSnapshot {
         LibParseMeta.checkParseMetaStructure(meta);
         (bool hit, uint256 index) = LibParseMeta.lookupWord(meta, bytes32(uint256(uint160(token))));
         if (!hit) {
-            return (false, "", "");
+            return (false, "", "", "");
         }
         if (index >= n) {
             revert MalformedUnderlyingSnapshot(shard);
@@ -75,21 +83,30 @@ library LibUnderlyingSnapshot {
         if (row < rowsStart || row + 21 > length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 rowEnd = row + 22 + 2 * uint256(type(uint8).max);
+        uint256 rowEnd = row + 23 + 3 * uint256(type(uint8).max);
         bytes memory rowData = LibDataContract.readSlice(shard, row, (rowEnd < length ? rowEnd : length) - row);
         // A fingerprint hit on a non-member lands on another member's row.
         if (readAddress(rowData, 0) != token) {
-            return (false, "", "");
+            return (false, "", "", "");
         }
         uint256 tickerEnd = 21 + uint8(rowData[20]);
         if (tickerEnd + 1 > rowData.length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
         uint256 nameEnd = tickerEnd + 1 + uint8(rowData[tickerEnd]);
-        if (nameEnd > rowData.length) {
+        if (nameEnd + 1 > rowData.length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        return (true, string(slice(rowData, 21, tickerEnd)), string(slice(rowData, tickerEnd + 1, nameEnd)));
+        uint256 isinEnd = nameEnd + 1 + uint8(rowData[nameEnd]);
+        if (isinEnd > rowData.length) {
+            revert MalformedUnderlyingSnapshot(shard);
+        }
+        return (
+            true,
+            string(slice(rowData, 21, tickerEnd)),
+            string(slice(rowData, tickerEnd + 1, nameEnd)),
+            string(slice(rowData, nameEnd + 1, isinEnd))
+        );
     }
 
     /// No code maps to MalformedUnderlyingSnapshot rather than ReadError.
