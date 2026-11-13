@@ -20,32 +20,40 @@ uint256 constant UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH = 8;
 /// @notice Reads the (token -> ticker, name, ISIN) snapshot held as pure data
 /// in a root contract and its shards.
 library LibUnderlyingSnapshot {
-    function lookup(address root, address token)
-        internal
-        view
-        returns (uint256, bool, string memory, string memory, string memory)
-    {
-        uint256 rootLength = dataLength(root);
-        if (rootLength < UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) {
-            revert MalformedUnderlyingSnapshot(root);
+    struct Lookup {
+        uint256 asOf;
+        bool found;
+        string ticker;
+        string name;
+        string isin;
+    }
+
+    function lookup(address root, address token) internal view returns (Lookup memory) {
+        uint256 asOf;
+        address shard;
+        {
+            uint256 rootLength = dataLength(root);
+            if (rootLength < UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) {
+                revert MalformedUnderlyingSnapshot(root);
+            }
+            bytes memory header = LibDataContract.readSlice(root, 0, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH);
+            if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_ROOT_MAGIC) {
+                revert MalformedUnderlyingSnapshot(root);
+            }
+            asOf = readUint256(header, 4);
+            uint256 shardCount = readUint16(header, 36);
+            if (shardCount == 0 || rootLength != UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shardCount) {
+                revert MalformedUnderlyingSnapshot(root);
+            }
+            shard = readAddress(
+                LibDataContract.readSlice(
+                    root, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * (uint256(uint160(token)) % shardCount), 20
+                ),
+                0
+            );
         }
-        bytes memory header = LibDataContract.readSlice(root, 0, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH);
-        if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_ROOT_MAGIC) {
-            revert MalformedUnderlyingSnapshot(root);
-        }
-        uint256 asOf = readUint256(header, 4);
-        uint256 shardCount = readUint16(header, 36);
-        if (shardCount == 0 || rootLength != UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shardCount) {
-            revert MalformedUnderlyingSnapshot(root);
-        }
-        address shard = readAddress(
-            LibDataContract.readSlice(
-                root, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * (uint256(uint160(token)) % shardCount), 20
-            ),
-            0
-        );
         (bool found, string memory ticker, string memory name, string memory isin) = lookupShard(shard, token);
-        return (asOf, found, ticker, name, isin);
+        return Lookup(asOf, found, ticker, name, isin);
     }
 
     function lookupShard(address shard, address token)
@@ -53,28 +61,53 @@ library LibUnderlyingSnapshot {
         view
         returns (bool, string memory, string memory, string memory)
     {
-        uint256 length = dataLength(shard);
+        bytes memory rowData;
+        {
+            uint256 length = dataLength(shard);
+            (bool hit, uint256 row) = rowOffset(shard, token, length);
+            if (!hit) {
+                return (false, "", "", "");
+            }
+            uint256 rowEnd = row + 23 + 3 * uint256(type(uint8).max);
+            rowData = LibDataContract.readSlice(shard, row, (rowEnd < length ? rowEnd : length) - row);
+        }
+        // A fingerprint hit on a non-member lands on another member's row.
+        if (readAddress(rowData, 0) != token) {
+            return (false, "", "", "");
+        }
+        return decodeRow(shard, rowData);
+    }
+
+    function rowOffset(address shard, address token, uint256 length) internal view returns (bool, uint256) {
         if (length < UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        bytes memory header = LibDataContract.readSlice(shard, 0, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH);
-        if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_SHARD_MAGIC) {
-            revert MalformedUnderlyingSnapshot(shard);
+        uint256 n;
+        uint256 offsetsStart;
+        {
+            bytes memory header = LibDataContract.readSlice(shard, 0, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH);
+            if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_SHARD_MAGIC) {
+                revert MalformedUnderlyingSnapshot(shard);
+            }
+            n = readUint16(header, 4);
+            offsetsStart = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + readUint16(header, 6);
         }
-        uint256 n = readUint16(header, 4);
-        uint256 offsetsStart = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + readUint16(header, 6);
         uint256 rowsStart = offsetsStart + 2 * n;
         if (rowsStart > length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        bytes memory meta = LibDataContract.readSlice(
-            shard, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH, offsetsStart - UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH
-        );
-        // lookupWord is UB on malformed meta.
-        LibParseMeta.checkParseMetaStructure(meta);
-        (bool hit, uint256 index) = LibParseMeta.lookupWord(meta, bytes32(uint256(uint160(token))));
-        if (!hit) {
-            return (false, "", "", "");
+        uint256 index;
+        {
+            bytes memory meta = LibDataContract.readSlice(
+                shard, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH, offsetsStart - UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH
+            );
+            // lookupWord is UB on malformed meta.
+            LibParseMeta.checkParseMetaStructure(meta);
+            bool hit;
+            (hit, index) = LibParseMeta.lookupWord(meta, bytes32(uint256(uint160(token))));
+            if (!hit) {
+                return (false, 0);
+            }
         }
         if (index >= n) {
             revert MalformedUnderlyingSnapshot(shard);
@@ -83,12 +116,14 @@ library LibUnderlyingSnapshot {
         if (row < rowsStart || row + 21 > length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 rowEnd = row + 23 + 3 * uint256(type(uint8).max);
-        bytes memory rowData = LibDataContract.readSlice(shard, row, (rowEnd < length ? rowEnd : length) - row);
-        // A fingerprint hit on a non-member lands on another member's row.
-        if (readAddress(rowData, 0) != token) {
-            return (false, "", "", "");
-        }
+        return (true, row);
+    }
+
+    function decodeRow(address shard, bytes memory rowData)
+        internal
+        pure
+        returns (bool, string memory, string memory, string memory)
+    {
         uint256 tickerEnd = 21 + uint8(rowData[20]);
         if (tickerEnd + 1 > rowData.length) {
             revert MalformedUnderlyingSnapshot(shard);

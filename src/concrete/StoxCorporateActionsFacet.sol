@@ -325,11 +325,10 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
     /// @dev Reverts when the snapshot root has no code. Empty for a legacy vault
     /// with no override.
     function resolveUnderlying() internal view returns (string memory, string memory, string memory) {
-        (uint256 asOf, bool found, string memory rowTicker, string memory rowName, string memory rowIsin) =
-            LibUnderlyingSnapshot.lookup(UNDERLYING_SNAPSHOT_ROOT, address(this));
+        LibUnderlyingSnapshot.Lookup memory row = LibUnderlyingSnapshot.lookup(UNDERLYING_SNAPSHOT_ROOT, address(this));
         LibUnderlying.UnderlyingStorage storage o = LibUnderlying.getStorage();
-        if (o.timestamp > asOf) return (o.symbol, o.name, o.isin);
-        if (found) return (rowTicker, rowName, rowIsin);
+        if (o.timestamp > row.asOf) return (o.symbol, o.name, o.isin);
+        if (row.found) return (row.ticker, row.name, row.isin);
         if (o.timestamp > 0) return (o.symbol, o.name, o.isin);
         LibStoxTokenConfig.StoxTokenConfigStorage storage c = LibStoxTokenConfig.getStorage();
         return (c.listingTicker, c.listingName, c.assetId);
