@@ -14,9 +14,8 @@ import {
 uint8 constant UNDERLYING_SNAPSHOT_META_DEPTH = 3;
 uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARD_ROWS = 256;
 uint256 constant EIP170_MAX_RUNTIME = 24576;
-uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARDS = 26;
 
-/// @notice No shard count up to UNDERLYING_SNAPSHOT_MAX_SHARDS fits every shard.
+/// @notice No shard count up to type(uint8).max fits every shard.
 error UnderlyingSnapshotDoesNotShard(uint256 rows);
 
 struct UnderlyingSnapshotRow {
@@ -69,7 +68,7 @@ library LibUnderlyingSnapshotBuilder {
     /// EIP-170; rows route to shard `uint160(token) % K`.
     function build(uint256 asOf, UnderlyingSnapshotRow[] memory rows) internal returns (bytes memory, bytes[] memory) {
         UnderlyingSnapshotShardEncoder encoder = new UnderlyingSnapshotShardEncoder();
-        for (uint256 k = 1; k <= UNDERLYING_SNAPSHOT_MAX_SHARDS; k++) {
+        for (uint256 k = 1; k <= type(uint8).max; k++) {
             bytes[] memory shardCodes = new bytes[](k);
             address[] memory shards = new address[](k);
             bool fits = true;

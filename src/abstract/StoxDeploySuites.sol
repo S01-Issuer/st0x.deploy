@@ -311,15 +311,18 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         DeployCandidate[] memory candidates = new DeployCandidate[](shards.length + 1);
         candidates[0] = anchored(dataZoltu(UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE));
         for (uint256 i = 0; i < shards.length; i++) {
-            // Suite keys allow only lowercase letters and hyphens, so shards are lettered.
-            candidates[i + 1] = anchored(
-                dataZoltu(
-                    string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, string(abi.encodePacked(bytes1(uint8(0x61 + i))))),
-                    shards[i]
-                )
-            );
+            candidates[i + 1] = anchored(dataZoltu(underlyingSnapshotShardSuite(i), shards[i]));
         }
         return candidates;
+    }
+
+    /// Suite keys allow only lowercase letters and hyphens, so the shard index is base-26 in a-z.
+    function underlyingSnapshotShardSuite(uint256 index) internal pure returns (string memory) {
+        bytes memory key = abi.encodePacked(bytes1(uint8(0x61 + index % 26)));
+        for (index /= 26; index > 0; index /= 26) {
+            key = abi.encodePacked(bytes1(uint8(0x61 + index % 26)), key);
+        }
+        return string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, string(key));
     }
 
     /// Zoltu suite for a copy-and-return creation code whose 10-byte prefix returns the data after it.
