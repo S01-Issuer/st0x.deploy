@@ -33,6 +33,7 @@ contract LibUnderlyingSnapshotTest is Test {
     }
 
     function deploy(uint256 asOf, UnderlyingSnapshotRow[] memory rows) internal returns (address, uint256) {
+        LibRainDeploy.etchZoltuFactory(vm);
         (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(asOf, rows);
         for (uint256 i = 0; i < shardCodes.length; i++) {
             if (LibRainDeploy.zoltuAddress(shardCodes[i]).code.length == 0) LibRainDeploy.deployZoltu(shardCodes[i]);
