@@ -293,13 +293,12 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     function testEveryTokenAndWrapperSuiteLandsAtItsStoredAddressOnEveryNetwork() external {
         (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) =
             LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
-        address wrapperBeacon = LibRainDeploy.deployZoltu(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_CANDIDATE);
         LibTestDeploy.bind(
             vm,
             LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.WRAPPER_BEACON_NAME,
             "address",
-            abi.encode(wrapperBeacon)
+            abi.encode(LibRainDeploy.deployZoltu(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_CANDIDATE))
         );
         DeployDeclaration memory declared = declaration();
         DeploySuite[] memory all = allSuites(declared);
@@ -311,14 +310,8 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             uint256 preDeploy = vm.snapshotState();
             vm.chainId(networks[i].chainId);
             for (uint256 j = 0; j < configs.length; j++) {
-                deployTokenAndWrapper(
-                    declared,
-                    all,
-                    networks[i],
-                    configs[j],
-                    j < snapshotRows,
-                    configs[j].region == Region.US ? usAuthorizer : euAuthorizer
-                );
+                IAuthorizeV1 authorizer = configs[j].region == Region.US ? usAuthorizer : euAuthorizer;
+                deployTokenAndWrapper(declared, all, networks[i], configs[j], j < snapshotRows, authorizer);
             }
             assertTrue(vm.revertToState(preDeploy), networks[i].name);
         }
