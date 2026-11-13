@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
@@ -710,5 +710,21 @@ contract StoxCrossChainParityTest is Test {
         legs.tokenLegLive = false;
         vm.expectRevert(bytes("Ethereum token leg reported pending - parity comparisons are disabled"));
         this.externalAssertAllLegsLive("Ethereum", legs);
+    }
+
+    /// @notice A chain with no Safe, no clone and a placeholder token table
+    /// logs every leg as pending, the token leg included.
+    function testPlaceholderPinsLogEveryPendingLeg() external {
+        vm.recordLogs();
+        assertChainLegs("0G", address(0), address(0), LibTokenInvariants.productionTokensZerog());
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 3, "expected one PARITY PENDING log per leg");
+        assertEq(abi.decode(logs[0].data, (string)), "PARITY PENDING: 0G Safe pin placeholder - Safe leg skipped");
+        assertEq(
+            abi.decode(logs[1].data, (string)), "PARITY PENDING: 0G clone pin placeholder - authoriser leg skipped"
+        );
+        assertEq(
+            abi.decode(logs[2].data, (string)), "PARITY PENDING: 0G Safe or clone pin placeholder - token leg skipped"
+        );
     }
 }
