@@ -26,6 +26,7 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {TokenInstance, ReceiptVaultOwnerMismatch} from "../../src/lib/LibTokenInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 
 /// @title UnderlyingNamingRolloutFixture
 /// @notice Brings a forked deployment network through the underlying-naming

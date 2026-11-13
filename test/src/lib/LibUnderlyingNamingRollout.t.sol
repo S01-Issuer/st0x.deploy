@@ -11,6 +11,7 @@ import {
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {MalformedUnderlyingIsin} from "../../../src/error/ErrUnderlying.sol";
 import {NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
@@ -48,10 +49,12 @@ contract LibUnderlyingNamingRolloutTest is Test {
             listingTicker: ticker,
             listingName: underlyingName,
             underlying: ticker,
+            ticker: ticker,
             name: string.concat(underlyingName, " ST0x"),
             symbol: string.concat("t", ticker),
             region: Region.US,
-            underlyingName: underlyingName
+            underlyingName: underlyingName,
+            isin: isin
         });
     }
 
@@ -88,6 +91,42 @@ contract LibUnderlyingNamingRolloutTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA \"Corp\""));
         this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA \"Corp\""));
+    }
+
+    /// The row check refuses a malformed current ISIN, naming it.
+    function testRowCheckRefusesAMalformedIsin() external {
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "US67066G1041"));
+        this.externalAssertUnderlyingWellFormed(row("US67066G1041", "NVDA", "NVIDIA Corporation"));
+
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, ""));
+        this.externalAssertUnderlyingWellFormed(row("", "NVDA", "NVIDIA Corporation"));
+
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "us67066g1040"));
+        this.externalAssertUnderlyingWellFormed(row("us67066g1040", "NVDA", "NVIDIA Corporation"));
+    }
+
+    /// The current ISIN is checked, not the frozen listing `assetId`.
+    function testRowCheckReadsTheCurrentIsin() external {
+        TokenConfig memory config = row("US67066G1040", "NVDA", "NVIDIA Corporation");
+        config.isin = "US67066G1041";
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "US67066G1041"));
+        this.externalAssertUnderlyingWellFormed(config);
+    }
+
+    /// A malformed ticker is reported before a malformed ISIN on the same row.
+    function testRowCheckReportsTickerBeforeIsin() external {
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "nvda", "NVIDIA Corporation"));
+        this.externalAssertUnderlyingWellFormed(row("US67066G1041", "nvda", "NVIDIA Corporation"));
+    }
+
+    /// The row loop refuses a malformed ISIN on a row after well-formed ones.
+    function testRowsCheckRefusesAMalformedIsinAmongGoodOnes() external {
+        TokenConfig[] memory rows = new TokenConfig[](3);
+        rows[0] = row("US67066G1040", "NVDA", "NVIDIA Corporation");
+        rows[1] = row("US0378331005", "AAPL", "Apple Inc.");
+        rows[2] = row("US5949181046", "MSFT", "Microsoft Corporation");
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "US5949181046"));
+        this.externalAssertRowsWellFormed(rows);
     }
 
     /// With the release frozen but the downstream flag unset, the rename
