@@ -225,12 +225,16 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
 
     /// @inheritdoc IStoxUnderlyingV1
     function underlyingSymbol() external view override onlyDelegatecalled returns (string memory) {
-        return LibUnderlying.getStorage().symbol;
+        string memory symbol = LibUnderlying.getStorage().symbol;
+        if (bytes(symbol).length == 0) symbol = LibStoxTokenConfig.getStorage().listingTicker;
+        return symbol;
     }
 
     /// @inheritdoc IStoxUnderlyingV1
     function underlyingName() external view override onlyDelegatecalled returns (string memory) {
-        return LibUnderlying.getStorage().name;
+        string memory name = LibUnderlying.getStorage().name;
+        if (bytes(name).length == 0) name = LibStoxTokenConfig.getStorage().listingName;
+        return name;
     }
 
     /// @inheritdoc IStoxUnderlyingV1
