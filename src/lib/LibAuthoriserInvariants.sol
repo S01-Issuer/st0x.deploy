@@ -170,11 +170,18 @@ library LibAuthoriserInvariants {
     /// executes; after that no vault the repo knows of uses it. Nothing here
     /// enumerates every vault that points at it. Its role state is not part
     /// of the expected state: its `_ADMIN` roles are on the token-owner Safe,
-    /// and the retired `0x1c66…d1A9` signer still holds DEPOSIT, WITHDRAW and
-    /// CERTIFY on it. Those grants still act on any unknown vault that points
-    /// at this clone, so revoking them is a follow-up, not a no-op.
+    /// and the retired signer `V3_RETIRED_SIGNER_1C66` holds DEPOSIT, WITHDRAW
+    /// and CERTIFY on it until the `20261111-qsep-set-fleet-authoriser` bundle
+    /// revokes them in the same Safe transaction as the tQSEP swap. Those
+    /// grants act on any unknown vault that points at this clone, so the
+    /// revoke is not a no-op.
     /// https://basescan.org/address/0x35f9fa9d80aaf2b0fb27f0ff015641b3408d7456
     address internal constant STOX_PROD_AUTHORISER_V3_CLONE = address(0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456);
+
+    /// @notice The retired Fireblocks signer. The token-owner Safe granted it
+    /// DEPOSIT, WITHDRAW and CERTIFY on `STOX_PROD_AUTHORISER_V3_CLONE` (Safe
+    /// nonces 434 to 436); it holds no role on the fleet authoriser.
+    address internal constant V3_RETIRED_SIGNER_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
 
     /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
     /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the
