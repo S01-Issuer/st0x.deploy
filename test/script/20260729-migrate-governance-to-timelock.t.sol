@@ -97,6 +97,9 @@ contract MigrateGovernanceToTimelockTest is Test {
         if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
             return LibTokenInvariants.productionTokensBsc();
         }
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return LibTokenInvariants.productionTokensZerog();
+        }
         revert("unsupported chain in migration test");
     }
 
