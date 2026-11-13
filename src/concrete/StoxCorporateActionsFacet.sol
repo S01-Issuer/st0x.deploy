@@ -41,7 +41,6 @@ import {LibStoxTokenConfig} from "../lib/LibStoxTokenConfig.sol";
 import {LibUnderlyingSnapshot} from "../lib/LibUnderlyingSnapshot.sol";
 import {UNDERLYING_SNAPSHOT_ROOT} from "../generated/LibUnderlyingSnapshotCode.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
-import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
@@ -231,34 +230,36 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
 
     /// @inheritdoc IStoxUnderlyingV2
     function underlyingSymbol() external view override onlyDelegatecalled returns (string memory) {
-        (string memory ticker,,,) = resolveUnderlying();
+        (string memory ticker,,) = resolveUnderlying();
         return ticker;
     }
 
     /// @inheritdoc IStoxUnderlyingV2
     function underlyingName() external view override onlyDelegatecalled returns (string memory) {
-        (, string memory underlying,,) = resolveUnderlying();
+        (, string memory underlying,) = resolveUnderlying();
         return underlying;
     }
 
     /// @inheritdoc IStoxUnderlyingV2
     function underlyingIsin() external view override onlyDelegatecalled returns (string memory) {
-        (,, string memory isin,) = resolveUnderlying();
+        (,, string memory isin) = resolveUnderlying();
         return isin;
     }
 
     /// @notice The vault's ERC-20 name, forwarded here by `StoxReceiptVault`.
     /// @return The name.
     function name() external view onlyDelegatecalled returns (string memory) {
-        (, string memory underlying,, bool legacy) = resolveUnderlying();
-        return legacy ? underlying : string.concat(underlying, ST0X_NAME_SUFFIX);
+        (, string memory underlying,) = resolveUnderlying();
+        if (bytes(underlying).length == 0) return LibERC20Storage.getStorage()._name;
+        return string.concat(underlying, ST0X_NAME_SUFFIX);
     }
 
     /// @notice The vault's ERC-20 symbol, forwarded here by `StoxReceiptVault`.
     /// @return The symbol.
     function symbol() external view onlyDelegatecalled returns (string memory) {
-        (string memory ticker,,, bool legacy) = resolveUnderlying();
-        return legacy ? ticker : string.concat("t", ticker);
+        (string memory ticker,,) = resolveUnderlying();
+        if (bytes(ticker).length == 0) return LibERC20Storage.getStorage()._symbol;
+        return string.concat("t", ticker);
     }
 
     /// @inheritdoc IStoxUnderlyingV2
@@ -321,19 +322,17 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         );
     }
 
-    /// @dev Reverts when the snapshot root has no code. The bool is true for a
-    /// legacy vault's stored ERC-20 name and symbol, which are already formatted.
-    function resolveUnderlying() internal view returns (string memory, string memory, string memory, bool) {
+    /// @dev Reverts when the snapshot root has no code. Empty for a legacy vault
+    /// with no override.
+    function resolveUnderlying() internal view returns (string memory, string memory, string memory) {
         (uint256 asOf, bool found, string memory rowTicker, string memory rowName, string memory rowIsin) =
             LibUnderlyingSnapshot.lookup(UNDERLYING_SNAPSHOT_ROOT, address(this));
         LibUnderlying.UnderlyingStorage storage o = LibUnderlying.getStorage();
-        if (o.timestamp > asOf) return (o.symbol, o.name, o.isin, false);
-        if (found) return (rowTicker, rowName, rowIsin, false);
+        if (o.timestamp > asOf) return (o.symbol, o.name, o.isin);
+        if (found) return (rowTicker, rowName, rowIsin);
+        if (o.timestamp > 0) return (o.symbol, o.name, o.isin);
         LibStoxTokenConfig.StoxTokenConfigStorage storage c = LibStoxTokenConfig.getStorage();
-        if (bytes(c.listingTicker).length > 0) return (c.listingTicker, c.listingName, c.assetId, false);
-        if (o.timestamp > 0) return (o.symbol, o.name, o.isin, false);
-        ERC20Upgradeable.ERC20Storage storage e = LibERC20Storage.getStorage();
-        return (e._symbol, e._name, "", true);
+        return (c.listingTicker, c.listingName, c.assetId);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
