@@ -65,6 +65,42 @@ library LibUnderlying {
         return !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
     }
 
+    /// @notice Whether `isin` is 2 of `A-Z`, 9 of `A-Z` and `0-9`, then a
+    /// digit that passes the Luhn check over the letters expanded to
+    /// `A` = 10 … `Z` = 35.
+    /// @param isin The ISIN.
+    /// @return Whether it is well formed.
+    function isinWellFormed(string memory isin) internal pure returns (bool) {
+        bytes memory value = bytes(isin);
+        if (value.length != 12) return false;
+        uint256 sum = 0;
+        bool doubled = false;
+        for (uint256 i = value.length; i > 0; i--) {
+            bytes1 c = value[i - 1];
+            uint256 code;
+            if (c >= "0" && c <= "9") {
+                if (i <= 2) return false;
+                code = uint8(c) - uint8(bytes1("0"));
+            } else if (c >= "A" && c <= "Z") {
+                if (i == value.length) return false;
+                code = uint8(c) - uint8(bytes1("A")) + 10;
+            } else {
+                return false;
+            }
+            do {
+                uint256 digit = code % 10;
+                code /= 10;
+                if (doubled) {
+                    digit *= 2;
+                    if (digit > 9) digit -= 9;
+                }
+                sum += digit;
+                doubled = !doubled;
+            } while (code > 0);
+        }
+        return sum % 10 == 0;
+    }
+
     /// @notice Whether `value` ends with `suffix`.
     /// @param value The value.
     /// @param suffix The suffix.
