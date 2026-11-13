@@ -33,6 +33,20 @@ contract LibTokenInvariantsPerChainTest is Test {
             LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.BSC_CHAIN_ID),
             LibTokenInvariants.productionTokensBsc()
         );
+        assertSame(
+            LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID),
+            LibTokenInvariants.productionTokensZerog()
+        );
+    }
+
+    /// The 0G arm selects the all-placeholder table, not a hydrated chain's
+    /// table: every receipt vault reads zero until the 0G deploy is hydrated.
+    function testZerogSelectsItsPlaceholderTable() external pure {
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertEq(zerog.length, LibTokenInvariants.productionTokensBase().length);
+        for (uint256 i = 0; i < zerog.length; i++) {
+            assertEq(zerog[i].receiptVault, address(0));
+        }
     }
 
     function testBaseTableDiffersFromEveryOtherChainsSoTheSelectionIsObservable() external pure {
@@ -69,6 +83,7 @@ contract LibTokenInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, chainId));
         lib.productionTokensForChainId(chainId);
     }

@@ -2478,6 +2478,7 @@ library LibTokenInvariants {
         if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();
         if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return productionTokensRobinhood();
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return productionTokensBsc();
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return productionTokensZerog();
         revert NoTokenTableForChain(chainId);
     }
 

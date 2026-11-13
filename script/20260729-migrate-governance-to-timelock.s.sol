@@ -32,11 +32,6 @@ import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.s
 /// @param chainId The active chain id whose pin is unhydrated.
 error TimelockNotPinned(uint256 chainId);
 
-/// @notice This chain has no production token table to migrate. A typed
-/// revert rather than a silent fallback to another chain's table.
-/// @param chainId The active chain id without a token table.
-error UnsupportedChainForTokenTable(uint256 chainId);
-
 /// @notice The chain's V4 authoriser clone has no runtime code.
 /// @param authoriser The authoriser address with no code.
 error MigrationAuthoriserNotDeployed(address authoriser);
@@ -255,27 +250,14 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigrati
         return LibTimelockInvariants.timelockForChainId(block.chainid);
     }
 
-    /// @notice The chain's V4 authoriser clone, selected by chain id from
-    /// `LibProdDeployV4`. Every chain's clone proxies the same Zoltu-deployed
-    /// 0.1.1 impl address, so they share one EIP-1167 codehash pin.
+    /// @notice The chain's V4 authoriser clone, read from the one
+    /// chain-to-clone table in `LibAuthoriserInvariants`, which reverts for a
+    /// chain without a slot. Every chain's clone proxies the same
+    /// Zoltu-deployed 0.1.1 impl address, so they share one EIP-1167 codehash
+    /// pin.
     /// @return The active chain's authoriser clone.
     function activeChainAuthoriser() internal view returns (address) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        }
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
-        }
-        revert UnsupportedChainForTokenTable(block.chainid);
+        return LibAuthoriserInvariants.authoriserForChainId(block.chainid);
     }
 
     /// @notice The chain's production token table, selected by chain id.

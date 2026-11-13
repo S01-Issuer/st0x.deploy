@@ -39,6 +39,9 @@ library LibSafeInvariants {
     /// @notice BNB Smart Chain mainnet chain id.
     uint256 internal constant BSC_CHAIN_ID = 56;
 
+    /// @notice 0G mainnet chain id.
+    uint256 internal constant ZEROG_CHAIN_ID = 16661;
+
     /// @notice The ST0x token-owner Safe on **Base** (the reference chain).
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
