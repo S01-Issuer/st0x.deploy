@@ -27,6 +27,7 @@ import {IAuthorizableV1} from "rain-vats-0.2.20/src/interface/IAuthorizableV1.so
 import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {ICertifiableV1} from "rain-vats-0.2.20/src/interface/ICertifiableV1.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 
 /// @title V3UpgradeShadowForkTest
 /// @notice Shadow-fork verification of the receipt vault V3 upgrade against
@@ -92,6 +93,7 @@ contract V3UpgradeShadowForkTest is Test {
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
         );
+        LibTestDeploy.deployUnderlyingSnapshot(vm);
 
         // 2. The live beacon is owned by the governance timelock.
         assertEq(

@@ -26,7 +26,7 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxTokenConfigV1} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
-import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
@@ -262,12 +262,17 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     function assertToken(
         StoxReceiptVault token,
         TokenConfig memory config,
+        bool inSnapshot,
         IAuthorizeV1 authorizer,
         string memory label
     ) internal view {
         bool us = config.region == Region.US;
-        assertEq(token.name(), string.concat(config.listingName, ST0X_NAME_SUFFIX), label);
-        assertEq(token.symbol(), string.concat("t", config.listingTicker), label);
+        assertEq(
+            token.name(),
+            string.concat(inSnapshot ? config.underlyingName : config.listingName, ST0X_NAME_SUFFIX),
+            label
+        );
+        assertEq(token.symbol(), string.concat("t", inSnapshot ? config.ticker : config.listingTicker), label);
         assertEq(token.owner(), us ? US_OWNER : EU_OWNER, label);
         assertEq(address(token.authorizer()), address(authorizer), label);
         assertEq(
@@ -301,6 +306,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         SupportedNetwork[] memory networks = LibRainDeploy.declaredNetworkConfigs(declared.deployNetworks);
         assertTrue(networks.length > 0, "networks");
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        uint256 snapshotRows = LibProdTokenConfig.productionTokenConfigs().length;
         for (uint256 i = 0; i < networks.length; i++) {
             uint256 preDeploy = vm.snapshotState();
             vm.chainId(networks[i].chainId);
@@ -311,6 +317,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
                 assertToken(
                     StoxReceiptVault(payable(token)),
                     configs[j],
+                    j < snapshotRows,
                     configs[j].region == Region.US ? usAuthorizer : euAuthorizer,
                     label
                 );

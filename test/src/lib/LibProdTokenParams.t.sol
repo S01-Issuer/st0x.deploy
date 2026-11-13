@@ -20,7 +20,7 @@ import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxTokenProxy} from "../../../src/generated/LibStoxTokenProxy.sol";
-import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../../src/interface/IStoxTokenConfigV1.sol";
@@ -118,6 +118,7 @@ contract LibProdTokenParamsTest is Test {
             LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
 
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        uint256 snapshotRows = LibProdTokenConfig.productionTokenConfigs().length;
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < params.length; i++) {
             address deployed = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(
@@ -130,8 +131,15 @@ contract LibProdTokenParamsTest is Test {
 
             StoxReceiptVault token = StoxReceiptVault(payable(deployed));
             bool us = configs[i].region == Region.US;
-            assertEq(token.name(), string.concat(configs[i].listingName, ST0X_NAME_SUFFIX), "name");
-            assertEq(token.symbol(), string.concat("t", configs[i].listingTicker), "symbol");
+            bool inSnapshot = i < snapshotRows;
+            assertEq(
+                token.name(),
+                string.concat(inSnapshot ? configs[i].underlyingName : configs[i].listingName, ST0X_NAME_SUFFIX),
+                "name"
+            );
+            assertEq(
+                token.symbol(), string.concat("t", inSnapshot ? configs[i].ticker : configs[i].listingTicker), "symbol"
+            );
             assertEq(token.owner(), us ? US_OWNER : EU_OWNER, "owner");
             assertEq(address(token.authorizer()), address(us ? usAuthorizer : euAuthorizer), "authorizer");
         }
