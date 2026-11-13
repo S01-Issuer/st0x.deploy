@@ -2374,6 +2374,78 @@ library LibTokenInvariants {
         });
     }
 
+    /// @notice Returns the production token instance triples on 0G (chain id
+    /// 16661) — Base's underlyings in Base row order, so the tables pair by
+    /// index as well as by key (the cross-chain parity pin asserts the
+    /// alignment).
+    ///
+    /// **ALL PLACEHOLDERS** (`address(0)`) until the 0G token deployment
+    /// executes and the post-execution pin PR hydrates every entry in one
+    /// reviewed change; all-or-nothing, as for every other chain's table.
+    /// @return tokens The production token instances on 0G.
+    function productionTokensZerog() internal pure returns (TokenInstance[] memory tokens) {
+        tokens = new TokenInstance[](59);
+        tokens[0] = TokenInstance("MSTR", address(0), address(0), address(0));
+        tokens[1] = TokenInstance("TSLA", address(0), address(0), address(0));
+        tokens[2] = TokenInstance("COIN", address(0), address(0), address(0));
+        tokens[3] = TokenInstance("SPYM", address(0), address(0), address(0));
+        tokens[4] = TokenInstance("SIVR", address(0), address(0), address(0));
+        tokens[5] = TokenInstance("CRCL", address(0), address(0), address(0));
+        tokens[6] = TokenInstance("NVDA", address(0), address(0), address(0));
+        tokens[7] = TokenInstance("IAU", address(0), address(0), address(0));
+        tokens[8] = TokenInstance("PPLT", address(0), address(0), address(0));
+        tokens[9] = TokenInstance("AMZN", address(0), address(0), address(0));
+        tokens[10] = TokenInstance("BMNR", address(0), address(0), address(0));
+        tokens[11] = TokenInstance("IBHG", address(0), address(0), address(0));
+        tokens[12] = TokenInstance("SGOV", address(0), address(0), address(0));
+        tokens[13] = TokenInstance("QQQM", address(0), address(0), address(0));
+        tokens[14] = TokenInstance("VWO", address(0), address(0), address(0));
+        tokens[15] = TokenInstance("ARKK", address(0), address(0), address(0));
+        tokens[16] = TokenInstance("SPCX", address(0), address(0), address(0));
+        tokens[17] = TokenInstance("CEG", address(0), address(0), address(0));
+        tokens[18] = TokenInstance("DRAM", address(0), address(0), address(0));
+        tokens[19] = TokenInstance("TSM", address(0), address(0), address(0));
+        tokens[20] = TokenInstance("SKHY", address(0), address(0), address(0));
+        tokens[21] = TokenInstance("ASML", address(0), address(0), address(0));
+        tokens[22] = TokenInstance("MU", address(0), address(0), address(0));
+        tokens[23] = TokenInstance("AMD", address(0), address(0), address(0));
+        tokens[24] = TokenInstance("AVGO", address(0), address(0), address(0));
+        tokens[25] = TokenInstance("AMAT", address(0), address(0), address(0));
+        tokens[26] = TokenInstance("LRCX", address(0), address(0), address(0));
+        tokens[27] = TokenInstance("TTWO", address(0), address(0), address(0));
+        tokens[28] = TokenInstance("RKLB", address(0), address(0), address(0));
+        tokens[29] = TokenInstance("GOOGL", address(0), address(0), address(0));
+        tokens[30] = TokenInstance("AAPL", address(0), address(0), address(0));
+        tokens[31] = TokenInstance("MSFT", address(0), address(0), address(0));
+        tokens[32] = TokenInstance("LLY", address(0), address(0), address(0));
+        tokens[33] = TokenInstance("PTY", address(0), address(0), address(0));
+        tokens[34] = TokenInstance("INTC", address(0), address(0), address(0));
+        tokens[35] = TokenInstance("HOOD", address(0), address(0), address(0));
+        tokens[36] = TokenInstance("ORCL", address(0), address(0), address(0));
+        tokens[37] = TokenInstance("SMCI", address(0), address(0), address(0));
+        tokens[38] = TokenInstance("BABA", address(0), address(0), address(0));
+        tokens[39] = TokenInstance("TQQQ", address(0), address(0), address(0));
+        tokens[40] = TokenInstance("FTF", address(0), address(0), address(0));
+        tokens[41] = TokenInstance("CBRS", address(0), address(0), address(0));
+        tokens[42] = TokenInstance("MCD", address(0), address(0), address(0));
+        tokens[43] = TokenInstance("NKE", address(0), address(0), address(0));
+        tokens[44] = TokenInstance("GRND", address(0), address(0), address(0));
+        tokens[45] = TokenInstance("DNUT", address(0), address(0), address(0));
+        tokens[46] = TokenInstance("PLBY", address(0), address(0), address(0));
+        tokens[47] = TokenInstance("TR", address(0), address(0), address(0));
+        tokens[48] = TokenInstance("WEN", address(0), address(0), address(0));
+        tokens[49] = TokenInstance("FGI", address(0), address(0), address(0));
+        tokens[50] = TokenInstance("BIRD", address(0), address(0), address(0));
+        tokens[51] = TokenInstance("SPY", address(0), address(0), address(0));
+        tokens[52] = TokenInstance("SNES", address(0), address(0), address(0));
+        tokens[53] = TokenInstance("WMT", address(0), address(0), address(0));
+        tokens[54] = TokenInstance("MC", address(0), address(0), address(0));
+        tokens[55] = TokenInstance("DIS", address(0), address(0), address(0));
+        tokens[56] = TokenInstance("IFX", address(0), address(0), address(0));
+        tokens[57] = TokenInstance("SOI", address(0), address(0), address(0));
+        tokens[58] = TokenInstance("TPRO", address(0), address(0), address(0));
+    }
+
     /// @notice Returns the production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the

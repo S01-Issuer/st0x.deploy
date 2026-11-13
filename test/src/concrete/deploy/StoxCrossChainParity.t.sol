@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
@@ -165,10 +165,17 @@ struct ChainLegs {
 /// Safe; the **authoriser leg** needs the clone (its grant map also needs the
 /// Safe) and is assertable as soon as the clone is up, independent of the
 /// tokens; the **token leg** needs the Safe + clone + full token table. Every
-/// chain in the suite is bootstrapped, so `testCrossChainParity` then fails
-/// any pending leg on any chain. A PARTIALLY-hydrated token table (some
-/// triples set, some placeholder) fails on its own.
+/// bootstrapped chain in the suite has all three, so `testCrossChainParity`
+/// then fails any pending leg on it. 0G is not bootstrapped yet: its legs may
+/// stay pending until `ZEROG_PARITY_DEADLINE`, and fail after it. A
+/// PARTIALLY-hydrated token table (some triples set, some placeholder) fails
+/// on its own.
 contract StoxCrossChainParityTest is Test {
+    /// @notice Unix timestamp past which the 0G legs must have armed —
+    /// `2027-02-01T00:00:00Z`, tracking the 0G bootstrap. PLACEHOLDER: move
+    /// it deliberately if the bootstrap slips.
+    uint256 internal constant ZEROG_PARITY_DEADLINE = 1_801_440_000;
+
     /// @notice Read the address stored in `proxy`'s ERC-1967 beacon slot.
     /// @param proxy The beacon-proxy address on the active fork.
     /// @return beacon The beacon address backing the proxy.
@@ -503,6 +510,8 @@ contract StoxCrossChainParityTest is Test {
             legs.receiptBeaconImplCodehash = legs.receiptBeaconImpl.codehash;
         } else if (legs.safeLive && legs.cloneLive) {
             emit log(string.concat("PARITY PENDING: ", label, " token table placeholder - token leg skipped"));
+        } else {
+            emit log(string.concat("PARITY PENDING: ", label, " Safe or clone pin placeholder - token leg skipped"));
         }
     }
 
@@ -630,11 +639,19 @@ contract StoxCrossChainParityTest is Test {
             LibTokenInvariants.productionTokensBsc()
         );
 
+        // 0G, from the `RPC_URL_ZEROG_FORK` secret. Nothing is deployed there
+        // yet, so the Safe and clone pins are `address(0)` placeholders here
+        // until the 0G Safe and authoriser clone pins land.
+        vm.createSelectFork(LibStoxDeployNetworks.ZEROG);
+        ChainLegs memory zerog =
+            assertChainLegs("0G", address(0), address(0), LibTokenInvariants.productionTokensZerog());
+
         // ---- Cross-chain comparisons, each gated on both sides being live ----
         assertParityWithBase("Ethereum", base, eth);
         assertParityWithBase("HyperEVM", base, hyper);
         assertParityWithBase("Robinhood Chain", base, robinhood);
         assertParityWithBase("BNB Smart Chain", base, bsc);
+        assertParityWithBase("0G", base, zerog);
 
         // ---- The suite must prove it actually ran ----
         assertAllLegsLive("Base", base);
@@ -642,6 +659,40 @@ contract StoxCrossChainParityTest is Test {
         assertAllLegsLive("HyperEVM", hyper);
         assertAllLegsLive("Robinhood Chain", robinhood);
         assertAllLegsLive("BNB Smart Chain", bsc);
+
+        assertZerogLegsLiveAfterDeadline(zerog);
+    }
+
+    /// @notice 0G's legs arm as its bootstrap lands. Until
+    /// `ZEROG_PARITY_DEADLINE` they may stay pending; from it on, a pending
+    /// leg fails like any other chain's.
+    /// @param legs What `assertChainLegs` reported for 0G.
+    function assertZerogLegsLiveAfterDeadline(ChainLegs memory legs) internal view {
+        // forge-lint: disable-next-line(block-timestamp)
+        if (block.timestamp >= ZEROG_PARITY_DEADLINE) {
+            assertAllLegsLive("0G", legs);
+        }
+    }
+
+    /// @notice External shim so `vm.expectRevert` can see the helper's revert.
+    /// @param legs The 0G legs to check.
+    function externalAssertZerogLegsLiveAfterDeadline(ChainLegs memory legs) external view {
+        assertZerogLegsLiveAfterDeadline(legs);
+    }
+
+    /// @notice Pending 0G legs pass one second before the deadline.
+    function testPendingZerogLegsPassBeforeDeadline() external {
+        ChainLegs memory legs;
+        vm.warp(ZEROG_PARITY_DEADLINE - 1);
+        this.externalAssertZerogLegsLiveAfterDeadline(legs);
+    }
+
+    /// @notice Pending 0G legs fail the suite at the deadline.
+    function testPendingZerogLegsFailAtDeadline() external {
+        ChainLegs memory legs;
+        vm.warp(ZEROG_PARITY_DEADLINE);
+        vm.expectRevert(bytes("0G Safe leg reported pending - parity comparisons are disabled"));
+        this.externalAssertZerogLegsLiveAfterDeadline(legs);
     }
 
     /// @notice External shim so `vm.expectRevert` can see the helper's revert.
@@ -688,5 +739,21 @@ contract StoxCrossChainParityTest is Test {
         legs.tokenLegLive = false;
         vm.expectRevert(bytes("Ethereum token leg reported pending - parity comparisons are disabled"));
         this.externalAssertAllLegsLive("Ethereum", legs);
+    }
+
+    /// @notice A chain with no Safe, no clone and a placeholder token table
+    /// logs every leg as pending, the token leg included.
+    function testPlaceholderPinsLogEveryPendingLeg() external {
+        vm.recordLogs();
+        assertChainLegs("0G", address(0), address(0), LibTokenInvariants.productionTokensZerog());
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+        assertEq(logs.length, 3, "expected one PARITY PENDING log per leg");
+        assertEq(abi.decode(logs[0].data, (string)), "PARITY PENDING: 0G Safe pin placeholder - Safe leg skipped");
+        assertEq(
+            abi.decode(logs[1].data, (string)), "PARITY PENDING: 0G clone pin placeholder - authoriser leg skipped"
+        );
+        assertEq(
+            abi.decode(logs[2].data, (string)), "PARITY PENDING: 0G Safe or clone pin placeholder - token leg skipped"
+        );
     }
 }
