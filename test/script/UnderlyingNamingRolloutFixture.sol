@@ -84,6 +84,7 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
             "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
             LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
         );
+        LibTestDeploy.deployUnderlyingSnapshot(vm);
     }
 
     /// @notice Every production vault must be owned by the timelock before

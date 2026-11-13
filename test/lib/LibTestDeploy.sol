@@ -34,6 +34,10 @@ import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
+import {
+    LibUnderlyingSnapshotCode,
+    UNDERLYING_SNAPSHOT_ROOT
+} from "../../src/generated/LibUnderlyingSnapshotCode.sol";
 
 /// @title LibTestDeploy
 /// @notice The production token set on the local EVM: the candidate
@@ -53,6 +57,18 @@ library LibTestDeploy {
         require(wrapper == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE, "StoxWrappedTokenVault address mismatch");
     }
 
+    /// Zoltu-deploys the generated underlying snapshot shards and root,
+    /// refusing a root that lands off its constant address.
+    function deployUnderlyingSnapshot(Vm vm) internal {
+        LibRainDeploy.etchZoltuFactory(vm);
+        bytes[] memory shards = LibUnderlyingSnapshotCode.shardCreationCodes();
+        for (uint256 i = 0; i < shards.length; i++) {
+            LibRainDeploy.deployZoltu(shards[i]);
+        }
+        address root = LibRainDeploy.deployZoltu(LibUnderlyingSnapshotCode.ROOT_CREATION_CODE);
+        require(root == UNDERLYING_SNAPSHOT_ROOT, "underlying snapshot root address mismatch");
+    }
+
     /// Places an `UpgradeableBeacon` serving `implementation`, owned by
     /// `owner`, at `at`: its code, then its owner and implementation slots.
     function placeBeacon(Vm vm, address at, address implementation, address owner) internal {
@@ -63,11 +79,13 @@ library LibTestDeploy {
     }
 
     /// The candidate implementations behind the V1 receipt, vault and wrapper
-    /// beacons, and the pinned clone factory and ConfigRegistry, on a local EVM
-    /// that is Base, the chain the V1 beacons serve.
+    /// beacons, the underlying snapshot, and the pinned clone factory and
+    /// ConfigRegistry, on a local EVM that is Base, the chain the V1 beacons
+    /// serve.
     function deployAll(Vm vm) internal {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         deployImplementations(vm);
+        deployUnderlyingSnapshot(vm);
         address owner = LibProdDeployV1.BEACON_INITIAL_OWNER;
         placeBeacon(vm, LibProdDeployV1.STOX_RECEIPT_BEACON_V1, LibProdDeployV4.STOX_RECEIPT_CANDIDATE, owner);
         placeBeacon(
