@@ -77,17 +77,21 @@ contract BindBeaconInitialOwnerTest is Test {
         script.callPreflight();
     }
 
-    function backfilledWithoutApproval(string memory tag) internal returns (BindBeaconInitialOwnerHarness, address) {
+    function backfilledWithoutUnscopedApproval(string memory tag)
+        internal
+        returns (BindBeaconInitialOwnerHarness, address)
+    {
         LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
         BindBeaconInitialOwnerHarness script = new BindBeaconInitialOwnerHarness(tag);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         deployTimelock(safe);
         executeBackfill(safe, tag);
+        LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
         return (script, safe);
     }
 
     function testBindLandsFromASafeTheRootApprovesForTheNameAlone() external {
-        (BindBeaconInitialOwnerHarness script, address safe) = backfilledWithoutApproval("scoped");
+        (BindBeaconInitialOwnerHarness script, address safe) = backfilledWithoutUnscopedApproval("scoped");
         LibTestConfigRegistryDelegates.approve(vm, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, safe);
         script.callPreflight();
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
@@ -95,7 +99,7 @@ contract BindBeaconInitialOwnerTest is Test {
     }
 
     function testPreflightRefusesASafeTheRootDoesNotApproveAsBinder() external {
-        (BindBeaconInitialOwnerHarness script, address safe) = backfilledWithoutApproval("unapproved");
+        (BindBeaconInitialOwnerHarness script, address safe) = backfilledWithoutUnscopedApproval("unapproved");
         vm.expectRevert(abi.encodeWithSelector(SafeNotBeaconInitialOwnerDelegate.selector, safe));
         script.callPreflight();
     }
