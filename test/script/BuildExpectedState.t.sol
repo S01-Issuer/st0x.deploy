@@ -19,7 +19,7 @@ import {
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.18/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+} from "rain-vats-0.2.20/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
 import {BuildExpectedState} from "../../script/BuildExpectedState.sol";
 import {BuildExpectedStateHarness} from "./BuildExpectedStateHarness.sol";
 import {LibLocalProdState} from "../lib/LibLocalProdState.sol";
