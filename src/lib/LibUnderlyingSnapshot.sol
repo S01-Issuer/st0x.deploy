@@ -66,6 +66,8 @@ library LibUnderlyingSnapshot {
             uint256 length = dataLength(shard);
             (bool hit, uint256 row) = rowOffset(shard, token, length);
             if (!hit) {
+                // The literal is this function's found/not-found return value, not a condition operand.
+                // forge-lint: disable-next-line(boolean-cst)
                 return (false, "", "", "");
             }
             uint256 rowEnd = row + 23 + 3 * uint256(type(uint8).max);
@@ -73,6 +75,7 @@ library LibUnderlyingSnapshot {
         }
         // A fingerprint hit on a non-member lands on another member's row.
         if (readAddress(rowData, 0) != token) {
+            // forge-lint: disable-next-line(boolean-cst)
             return (false, "", "", "");
         }
         return decodeRow(shard, rowData);
@@ -106,6 +109,7 @@ library LibUnderlyingSnapshot {
             bool hit;
             (hit, index) = LibParseMeta.lookupWord(meta, bytes32(uint256(uint160(token))));
             if (!hit) {
+                // forge-lint: disable-next-line(boolean-cst)
                 return (false, 0);
             }
         }
@@ -116,6 +120,7 @@ library LibUnderlyingSnapshot {
         if (row < rowsStart || row + 21 > length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
+        // forge-lint: disable-next-line(boolean-cst)
         return (true, row);
     }
 
@@ -137,6 +142,7 @@ library LibUnderlyingSnapshot {
             revert MalformedUnderlyingSnapshot(shard);
         }
         return (
+            // forge-lint: disable-next-line(boolean-cst)
             true,
             string(slice(rowData, 21, tickerEnd)),
             string(slice(rowData, tickerEnd + 1, nameEnd)),
