@@ -22,6 +22,7 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.2.20/src/abstract/OffchainA
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
+import {IStoxAssetIdV1} from "../interface/IStoxAssetIdV1.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
 import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
@@ -59,7 +60,7 @@ import {
 /// `rain.storage.underlying.1` (see `LibUnderlying`). Any future external
 /// entry points added here (e.g. list traversal) must also carry
 /// `onlyDelegatecalled`.
-contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IStoxTokenConfigV1 {
+contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IStoxTokenConfigV1, IStoxAssetIdV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -235,6 +236,11 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
         string memory name = LibUnderlying.getStorage().name;
         if (bytes(name).length == 0) name = LibStoxTokenConfig.getStorage().listingName;
         return name;
+    }
+
+    /// @inheritdoc IStoxAssetIdV1
+    function assetId() external view override onlyDelegatecalled returns (string memory) {
+        return LibStoxTokenConfig.getStorage().assetId;
     }
 
     /// @inheritdoc IStoxUnderlyingV1
