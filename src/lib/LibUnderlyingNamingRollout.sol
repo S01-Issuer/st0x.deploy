@@ -15,6 +15,8 @@ import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
+import {LibStoxMigrations} from "./LibStoxMigrations.sol";
+import {ScriptDeclaration} from "../interface/IStoxScript.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
@@ -187,15 +189,38 @@ library LibUnderlyingNamingRollout {
         view
         returns (address[] memory targets, uint256[] memory values, bytes[] memory payloads)
     {
-        targets = new address[](3);
-        values = new uint256[](3);
-        payloads = new bytes[](3);
+        targets = new address[](4);
+        values = new uint256[](4);
+        payloads = new bytes[](4);
         targets[0] = wrappedTokenVaultBeacon(chainId);
         payloads[0] = abi.encodeCall(UpgradeableBeacon.upgradeTo, (WRAPPED_TOKEN_VAULT_IMPLEMENTATION));
         targets[1] = receiptVaultBeacon(chainId);
         payloads[1] = abi.encodeCall(UpgradeableBeacon.upgradeTo, (RECEIPT_VAULT_IMPLEMENTATION));
         targets[2] = tokens(chainId)[0].receiptVault;
         payloads[2] = abi.encodeCall(ICorporateActionsV1.completedActionCount, ());
+        (targets[3], payloads[3]) = LibStoxMigrations.recordCall(beaconDeclaration());
+    }
+
+    /// @notice The beacon batch's root-line record, its last call, written by
+    /// the timelock as an approved root delegate.
+    /// @return The declaration.
+    function beaconDeclaration() internal pure returns (ScriptDeclaration memory) {
+        return ScriptDeclaration({
+            id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+            onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+            history: false
+        });
+    }
+
+    /// @notice The rename batch's root-line record, its last call, onto the
+    /// beacon batch's record.
+    /// @return The declaration.
+    function renameDeclaration() internal pure returns (ScriptDeclaration memory) {
+        return ScriptDeclaration({
+            id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
+            onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+            history: false
+        });
     }
 
     /// @notice The rename batch's calls: `setUnderlying(underlying,
@@ -207,19 +232,21 @@ library LibUnderlyingNamingRollout {
     /// @return payloads The calldata.
     function renameBatch(uint256 chainId)
         internal
-        pure
+        view
         returns (address[] memory targets, uint256[] memory values, bytes[] memory payloads)
     {
         TokenInstance[] memory chainTokens = tokens(chainId);
-        targets = new address[](chainTokens.length);
-        values = new uint256[](chainTokens.length);
-        payloads = new bytes[](chainTokens.length);
+        targets = new address[](chainTokens.length + 1);
+        values = new uint256[](chainTokens.length + 1);
+        payloads = new bytes[](chainTokens.length + 1);
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
             targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
             payloads[tokenIndex] =
                 abi.encodeCall(IStoxUnderlyingV1.setUnderlying, (config.underlying, config.underlyingName));
         }
+        (targets[chainTokens.length], payloads[chainTokens.length]) =
+            LibStoxMigrations.recordCall(renameDeclaration());
     }
 
     /// @notice Reverts unless every production vault of the chain reports
