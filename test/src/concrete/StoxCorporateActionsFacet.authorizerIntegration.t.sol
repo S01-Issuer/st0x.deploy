@@ -5,18 +5,18 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {
-    OffchainAssetReceiptVaultAuthorizerV1Config,
     CERTIFY,
     CERTIFY_ADMIN
-} from "rain-vats-0.2.18/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.20/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {Unauthorized} from "rain-vats-0.2.18/src/interface/IAuthorizeV1.sol";
+import {Unauthorized} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.6/src/concrete/CloneFactory.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.8/src/concrete/CloneFactory.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// @title StoxCorporateActionsFacetAuthorizerIntegrationTest
 /// @notice Tests that the real OffchainAssetReceiptVaultAuthorizerV1 handles
@@ -35,9 +35,7 @@ contract StoxCorporateActionsFacetAuthorizerIntegrationTest is Test {
         // second call in one test at an address the first already took.
         return StoxOffchainAssetReceiptVaultAuthorizerV1(
             factory.cloneDeterministic(
-                address(impl),
-                abi.encode(OffchainAssetReceiptVaultAuthorizerV1Config({initialAdmin: ADMIN})),
-                bytes32(uint256(uint160(address(impl))))
+                address(impl), LibTestDeploy.authorizerData(vm, ADMIN), bytes32(uint256(uint160(address(impl))))
             )
         );
     }

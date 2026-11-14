@@ -7,7 +7,6 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
@@ -60,7 +59,11 @@ contract PostMigrationGovernanceTest is Test {
         // Precondition: this chain HAS migrated. If it has not, this test
         // reports that rather than passing.
         for (uint256 i = 0; i < beacons.length; i++) {
-            assertEq(Ownable(beacons[i]).owner(), timelockAddr, "beacon is not timelock-owned: chain has not migrated");
+            assertEq(
+                Ownable(beacons[i]).owner(),
+                timelockAddr,
+                onChain("beacon is not timelock-owned: chain has not migrated")
+            );
         }
 
         _driveBeaconUpgrades(Safe(payable(safeAddr)), timelockAddr, beacons, "post-migration-loop");
@@ -96,7 +99,7 @@ contract PostMigrationGovernanceTest is Test {
 
             // The destination must DIFFER from the incumbent or step (5) cannot
             // tell an executed upgrade from a no-op.
-            assertTrue(address(probeImpl) != implBefore, "probe impl collided with the incumbent");
+            assertTrue(address(probeImpl) != implBefore, onChain("probe impl collided with the incumbent"));
 
             // (3) Schedule through the Safe's real signature-verified exec path,
             // at the production threshold — not a prank, so the threshold gate
@@ -117,23 +120,23 @@ contract PostMigrationGovernanceTest is Test {
 
             // (4) Inside the window: pending, and NOT executable. A timelock
             // that let this through would be a timelock in name only.
-            assertTrue(controller.isOperationPending(id), "schedule did not register");
-            assertFalse(controller.isOperationReady(id), "executable inside the delay");
+            assertTrue(controller.isOperationPending(id), onChain("schedule did not register"));
+            assertFalse(controller.isOperationReady(id), onChain("executable inside the delay"));
 
             // (5) After the delay: executable, and the execution lands.
             vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-            assertTrue(controller.isOperationReady(id), "not executable after the delay");
+            assertTrue(controller.isOperationReady(id), onChain("not executable after the delay"));
             LibSafeFork.simulateNPlus1(
                 vm,
                 safe,
                 timelockAddr,
                 abi.encodeCall(TimelockController.execute, (beacon, 0, action, bytes32(0), salt))
             );
-            assertTrue(controller.isOperationDone(id), "operation did not complete");
+            assertTrue(controller.isOperationDone(id), onChain("operation did not complete"));
             // The beacon MOVED. Asserting it still equals `implBefore` would
             // hold just as well if nothing had executed at all.
-            assertEq(IBeacon(beacon).implementation(), address(probeImpl), "implementation did not land");
-            assertTrue(IBeacon(beacon).implementation() != implBefore, "implementation did not move");
+            assertEq(IBeacon(beacon).implementation(), address(probeImpl), onChain("implementation did not land"));
+            assertTrue(IBeacon(beacon).implementation() != implBefore, onChain("implementation did not move"));
         }
     }
 
@@ -162,49 +165,27 @@ contract PostMigrationGovernanceTest is Test {
                 (beacon, 0, action, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
             )
         );
-        assertTrue(controller.isOperationPending(id), "schedule did not register");
+        assertTrue(controller.isOperationPending(id), onChain("schedule did not register"));
 
         LibSafeFork.simulateNPlus1(vm, safe, timelockAddr, abi.encodeCall(TimelockController.cancel, (id)));
-        assertFalse(controller.isOperationPending(id), "cancel did not clear the operation");
+        assertFalse(controller.isOperationPending(id), onChain("cancel did not clear the operation"));
     }
 
-    function testGovernanceUsableOnEthereum() external {
-        _assertGovernanceUsable(LibStoxDeployNetworks.ETHEREUM);
+    function onChain(string memory message) internal view returns (string memory) {
+        return string.concat(vm.toString(block.chainid), ": ", message);
     }
 
-    function testGovernanceUsableOnHyperevm() external {
-        _assertGovernanceUsable(LibStoxDeployNetworks.HYPEREVM);
+    function testGovernanceUsableOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            _assertGovernanceUsable(networks[i]);
+        }
     }
 
-    function testCancelUsableOnEthereum() external {
-        _assertCancelUsable(LibStoxDeployNetworks.ETHEREUM);
-    }
-
-    function testCancelUsableOnHyperevm() external {
-        _assertCancelUsable(LibStoxDeployNetworks.HYPEREVM);
-    }
-
-    function testGovernanceUsableOnBase() external {
-        _assertGovernanceUsable(LibRainDeploy.BASE);
-    }
-
-    function testGovernanceUsableOnRobinhood() external {
-        _assertGovernanceUsable(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testGovernanceUsableOnBsc() external {
-        _assertGovernanceUsable(LibStoxDeployNetworks.BSC);
-    }
-
-    function testCancelUsableOnBase() external {
-        _assertCancelUsable(LibRainDeploy.BASE);
-    }
-
-    function testCancelUsableOnRobinhood() external {
-        _assertCancelUsable(LibStoxDeployNetworks.ROBINHOOD);
-    }
-
-    function testCancelUsableOnBsc() external {
-        _assertCancelUsable(LibStoxDeployNetworks.BSC);
+    function testCancelUsableOnEveryDeploymentNetwork() external {
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        for (uint256 i = 0; i < networks.length; i++) {
+            _assertCancelUsable(networks[i]);
+        }
     }
 }

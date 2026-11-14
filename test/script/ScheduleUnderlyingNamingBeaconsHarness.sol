@@ -6,27 +6,17 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {ScheduleUnderlyingNamingBeacons} from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 
-/// @dev Exposes the script's hooks and gives each test its own artifact path.
+/// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
 contract ScheduleUnderlyingNamingBeaconsHarness is ScheduleUnderlyingNamingBeacons {
     string internal sArtifactTag;
 
-    /// @param artifactTag Suffixes this instance's artifact path.
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
     }
 
     /// @inheritdoc ScheduleUnderlyingNamingBeacons
     function artifactPath() internal view override returns (string memory) {
-        return string.concat(
-            "out/20261021-schedule-underlying-naming-beacons-", vm.toString(block.chainid), "-", sArtifactTag, ".json"
-        );
-    }
-
-    /// @inheritdoc ScheduleUnderlyingNamingBeacons
-    /// @dev The tests exercise the rollout against the planted candidate
-    /// implementations, as if they were the frozen release.
-    function releaseFrozen() internal pure override returns (bool) {
-        return true;
+        return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
     }
 
     function callPreflight() external view {
@@ -37,7 +27,18 @@ contract ScheduleUnderlyingNamingBeaconsHarness is ScheduleUnderlyingNamingBeaco
         return authorBundle();
     }
 
+    function callAssertPostState() external view {
+        assertPostState();
+    }
+
     function callArtifactPath() external view returns (string memory) {
         return artifactPath();
+    }
+
+    /// @inheritdoc ScheduleUnderlyingNamingBeacons
+    /// @dev The tests exercise the rollout against the planted candidate
+    /// implementations, as if they were the frozen release.
+    function releaseFrozen() internal pure override returns (bool) {
+        return true;
     }
 }

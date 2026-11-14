@@ -13,8 +13,6 @@ import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdT
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
-import {ScheduleUnderlyingNamingBeacons} from "../../../script/20261021-schedule-underlying-naming-beacons.s.sol";
-import {ScheduleUnderlyingNamingRename} from "../../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
 import {FrozenReleaseRenameHarness} from "../../script/FrozenReleaseRenameHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "../../script/ScheduleUnderlyingNamingRenameHarness.sol";
@@ -218,14 +216,5 @@ contract LibUnderlyingNamingRolloutTest is Test {
         TokenInstance[] memory shorter = new TokenInstance[](count - 1);
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingTokenTableShort.selector, uint256(1), count, count - 1));
         this.externalLeadingRows(1, shorter);
-    }
-
-    /// The release can only be frozen together with the record the freeze PR
-    /// owes: while `RELEASE_FROZEN` is true, both schedule scripts must be
-    /// declared migrations, so they record themselves in the registry.
-    function testFreezingTheReleaseRequiresMigrationDeclarations() external {
-        if (!LibUnderlyingNamingRollout.RELEASE_FROZEN) return;
-        assertTrue(new ScheduleUnderlyingNamingBeacons().declaration().migration, "beacon batch is a migration");
-        assertTrue(new ScheduleUnderlyingNamingRename().declaration().migration, "rename batch is a migration");
     }
 }

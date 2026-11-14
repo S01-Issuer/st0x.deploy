@@ -98,8 +98,8 @@ library LibUnderlyingNamingRollout {
     /// also: re-points the six implementation constants and the step-1 deploy
     /// at the release; pins each chain's `beaconOperationId` and
     /// `renameOperationId` as literals, so a later row edit cannot move a
-    /// scheduled batch; and declares both schedule scripts as timelock-written
-    /// migrations that record themselves as the last call of each batch.
+    /// scheduled batch. Each schedule script's Safe bundle ends in its root-line
+    /// record; no record rides in a timelock batch.
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and

@@ -28,10 +28,10 @@ contract BuildMigrationsHarness is BuildMigrations {
         return renderFor(dir, networks);
     }
 
-    function callDeclaring(string memory path, string memory name)
+    function callDeclaring(string memory path, string memory name, uint256 chainId)
         external
         returns (address, ScriptDeclaration memory)
     {
-        return declaring(path, name);
+        return declaring(path, name, chainId);
     }
 }
