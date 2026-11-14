@@ -81,24 +81,26 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// @notice Forwarded to the corporate actions facet.
     /// @return The name.
     function name() public view virtual override returns (string memory) {
-        forwardToFacetView();
+        return forwardStringToFacetView();
     }
 
     /// @notice Forwarded to the corporate actions facet.
     /// @return The symbol.
     function symbol() public view virtual override returns (string memory) {
-        forwardToFacetView();
+        return forwardStringToFacetView();
     }
 
     /// @dev A view cannot delegatecall, so `forwardToFacet` is cast to a view;
-    /// the facet's `name` and `symbol` are views.
-    function forwardToFacetView() internal view {
+    /// the facet's `name` and `symbol` are views. The string return type is
+    /// nominal: `forwardToFacet` returns the facet's returndata itself.
+    /// @return Never reached.
+    function forwardStringToFacetView() internal view returns (string memory) {
         function() internal f = forwardToFacet;
-        function() internal view g;
+        function() internal view returns (string memory) g;
         assembly ("memory-safe") {
             g := f
         }
-        g();
+        return g();
     }
 
     /// @dev Delegatecalls the facet with this call's calldata and returns or
