@@ -14,6 +14,7 @@ import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
+import {LibUnderlying} from "./LibUnderlying.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
@@ -257,47 +258,12 @@ library LibUnderlyingNamingRollout {
     /// underlying name are well formed.
     /// @param config The row.
     function assertUnderlyingWellFormed(TokenConfig memory config) internal pure {
-        if (!tickerWellFormed(bytes(config.underlying)) || !nameWellFormed(bytes(config.underlyingName))) {
+        if (
+            !LibUnderlying.tickerWellFormed(bytes(config.underlying))
+                || !LibUnderlying.nameWellFormed(bytes(config.underlyingName))
+        ) {
             revert MalformedUnderlying(config.underlying, config.underlyingName);
         }
-    }
-
-    /// @notice Whether `ticker` is 1 to 16 bytes of `A-Z`, `0-9` and `.`.
-    /// @param ticker The ticker.
-    /// @return Whether it is well formed.
-    function tickerWellFormed(bytes memory ticker) internal pure returns (bool) {
-        if (ticker.length == 0 || ticker.length > 16) return false;
-        for (uint256 i = 0; i < ticker.length; i++) {
-            bytes1 c = ticker[i];
-            if (!((c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == ".")) return false;
-        }
-        return true;
-    }
-
-    /// @notice Whether `name` is non-empty, has no `"`, `\` or control byte,
-    /// and does not end in "ST0x" or "(ST0x)".
-    /// @param name The underlying name.
-    /// @return Whether it is well formed.
-    function nameWellFormed(bytes memory name) internal pure returns (bool) {
-        if (name.length == 0) return false;
-        for (uint256 i = 0; i < name.length; i++) {
-            bytes1 c = name[i];
-            if (c < 0x20 || c == 0x7f || c == '"' || c == "\\") return false;
-        }
-        return !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
-    }
-
-    /// @notice Whether `value` ends with `suffix`.
-    /// @param value The value.
-    /// @param suffix The suffix.
-    /// @return Whether it does.
-    function endsWith(bytes memory value, bytes memory suffix) internal pure returns (bool) {
-        if (value.length < suffix.length) return false;
-        uint256 offset = value.length - suffix.length;
-        for (uint256 i = 0; i < suffix.length; i++) {
-            if (value[offset + i] != suffix[i]) return false;
-        }
-        return true;
     }
 
     /// @notice The beacon batch's operation id on `timelock`.
