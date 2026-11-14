@@ -24,6 +24,12 @@ pragma solidity ^0.8.25;
 /// Until then the receipt vault reports the `name` + `symbol` it was
 /// initialized with, and the wrapped token vault `"Wrapped " + name` /
 /// `"w" + symbol`.
+///
+/// `assetId`, `listingTicker` and `listingName` record the listing each
+/// token tracks, and are the token's `StoxTokenConfigV1` init data.
+/// @param assetId The ISIN of the underlying, as the Final Terms state it.
+/// @param listingTicker The underlying's ticker as listed.
+/// @param listingName The underlying's name as listed.
 /// @param underlying The chain-agnostic ticker join key, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param name The receipt vault's ERC-20 `name()`, verbatim from Base.
