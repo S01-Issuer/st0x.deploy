@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: LicenseRef-DCL-1.0
+# SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
+---
+#st0x-attest-subparser !St0xAttestSubParser address.
+
+#lead-signer !Lead signer.
+#lead-source !Lead price source.
+#pool-source-0 !Pool price source.
+#pool-source-1 !Pool price source.
+#operator-1 !Pool operator.
+#operator-2 !Pool operator.
+#operator-3 !Pool operator.
+#operator-4 !Pool operator.
+#operator-5 !Pool operator.
+#operator-6 !Pool operator.
+
+#max-deviation !Max proportional price deviation.
+#max-time-spread !Max time spread in seconds.
+#min-price !Min lead price.
+#max-price !Max lead price.
+
+#weighting
+using-words-from st0x-attest-subparser
+
+:ensure(
+  binary-equal-to(lead() lead-signer)
+  "Lead attestation missing"
+),
+
+:ensure(
+  binary-in<2>(
+    attestor<0>() attestor<1>()
+    operator-1 operator-2 operator-3 operator-4 operator-5 operator-6
+  )
+  "Attestor not allowlisted"
+),
+
+price-domain: [eip712-domain-separator name "prices" version "1"],
+:ensure(
+  binary-equal-to(lead-domain() price-domain)
+  "Lead domain mismatch"
+),
+:ensure(
+  binary-equal-to(attestor-domain<0>() attestor-domain<1>() price-domain)
+  "Attestor domain mismatch"
+),
+
+:ensure(
+  binary-equal-to(lead-source() lead-source)
+  "Lead source mismatch"
+),
+:ensure(
+  binary-in<2>(
+    attested-source<0>() attested-source<1>()
+    pool-source-0 pool-source-1
+  )
+  "Pool source not allowlisted"
+),
+
+:ensure(
+  binary-unique(lead() attestor<0>() attestor<1>())
+  "Same operator twice"
+),
+
+/* Ticker: the IntOrAString vault symbol less its leading `t`. */
+vault-symbol: mint-symbol(),
+symbol-scale: uint256-power(0x0100 bitwise-and(vault-symbol 0x1f)),
+symbol-first: uint256-div(vault-symbol symbol-scale),
+
+:ensure(
+  binary-equal-to(symbol-first 0x74)
+  "Vault symbol has no t prefix"
+),
+ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
+:ensure(
+  binary-equal-to(
+    lead-symbol() attested-symbol<0>() attested-symbol<1>()
+    ticker
+  )
+  "Attestation for another token"
+),
+
+:ensure(
+  binary-equal-to(
+    lead-currency() attested-currency<0>() attested-currency<1>()
+    "USD"
+  )
+  "Price not in USD"
+),
+
+:ensure(
+  agree(
+    max-time-spread 0
+    now() lead-time() attested-time<0>() attested-time<1>()
+  )
+  "Times disagree"
+),
+
+lead-time-key: hash("lead-time" ticker),
+:ensure(
+  greater-than-or-equal-to(lead-time() get(lead-time-key))
+  "Lead time went backwards"
+),
+:set(lead-time-key lead-time()),
+
+:ensure(
+  agree(
+    0 max-deviation
+    lead-price() attested-price<0>() attested-price<1>()
+  )
+  "Attestors disagree"
+),
+
+:ensure(
+  less-than-or-equal-to(min-price lead-price() max-price)
+  "Price outside bounds"
+),
+
+value: mul(mint-amount() lead-price());

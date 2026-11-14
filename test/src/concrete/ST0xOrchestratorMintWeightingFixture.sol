@@ -9,7 +9,7 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {ReceiptVault} from "rain-vats-0.2.20/src/abstract/ReceiptVault.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4, SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {EvaluableV4, SignedContextV2} from "rainlang-0.2.33/src/interface/IInterpreterCallerV5.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {LibTestDeploy} from "test/lib/LibTestDeploy.sol";
@@ -165,7 +165,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     }
 
     /// One attestation, the lead's, of `[attestedSymbol, price, now]` under
-    /// `LEAD_DOMAIN`.
+    /// `priceDomain()`.
     function _lead(string memory attestedSymbol, int256 price) internal view returns (SignedContextV2[] memory) {
         SignedContextV2[] memory attestations = new SignedContextV2[](1);
         attestations[0] = attest(LEAD_KEY, symbol(attestedSymbol), float(price), float(int256(block.timestamp)));

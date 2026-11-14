@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
-import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.33/src/interface/IInterpreterCallerV5.sol";
 
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
@@ -31,13 +31,14 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     /// values under a different domain, so a word reading the wrong column or
     /// row is caught.
     function testWordsReadTheirCell() external view {
+        bytes32 poolDomain = keccak256("st0x.test.pool-domain");
         bytes32 otherPoolDomain = keccak256("st0x.test.other-pool-domain");
         SignedContextV2[] memory attestations = new SignedContextV2[](3);
         attestations[0] = attestRows(
-            LEAD_KEY, LEAD_DOMAIN, [symbol("AAPL"), float(150), float(1000), symbol("alpaca"), symbol("USD")]
+            LEAD_KEY, priceDomain(), [symbol("AAPL"), float(150), float(1000), symbol("alpaca"), symbol("USD")]
         );
         attestations[1] = attestRows(
-            OPERATOR_KEY_0, POOL_DOMAIN, [symbol("AAPL-0"), float(151), float(1001), symbol("yahoo"), symbol("EUR")]
+            OPERATOR_KEY_0, poolDomain, [symbol("AAPL-0"), float(151), float(1001), symbol("yahoo"), symbol("EUR")]
         );
         attestations[2] = attestRows(
             OPERATOR_KEY_0 + 1,
@@ -50,8 +51,8 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord("attestor<0>()", context, signer(vm.addr(OPERATOR_KEY_0)));
         checkWord("attestor<1>()", context, signer(vm.addr(OPERATOR_KEY_0 + 1)));
 
-        checkWord("lead-domain()", context, LEAD_DOMAIN);
-        checkWord("attestor-domain<0>()", context, POOL_DOMAIN);
+        checkWord("lead-domain()", context, priceDomain());
+        checkWord("attestor-domain<0>()", context, poolDomain);
         checkWord("attestor-domain<1>()", context, otherPoolDomain);
 
         checkWord("lead-symbol()", context, symbol("AAPL"));
@@ -181,7 +182,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         bytes32[][] memory context = LibSt0xAttestContext.build(symbol("AAPL"), float(1), attestations);
 
         checkWord("lead()", context, signer(vm.addr(LEAD_KEY)));
-        checkWord("lead-domain()", context, LEAD_DOMAIN);
+        checkWord("lead-domain()", context, priceDomain());
         checkWord("lead-symbol()", context, symbol("AAPL"));
         checkWord("lead-price()", context, float(150));
         checkWordReverts("lead-time()", context, stdError.indexOOBError);
@@ -189,7 +190,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWordReverts("lead-currency()", context, stdError.indexOOBError);
 
         checkWord("attestor<0>()", context, signer(vm.addr(OPERATOR_KEY_0)));
-        checkWord("attestor-domain<0>()", context, POOL_DOMAIN);
+        checkWord("attestor-domain<0>()", context, priceDomain());
         checkWordReverts("attested-symbol<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-price<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-time<0>()", context, stdError.indexOOBError);

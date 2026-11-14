@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {AuthoringMetaV2} from "rainlang-0.2.32/src/interface/ISubParserV4.sol";
-import {OperandV2} from "rainlang-0.2.32/src/interface/IInterpreterV4.sol";
-import {LibSubParse} from "rainlang-0.2.32/src/lib/parse/LibSubParse.sol";
+import {AuthoringMetaV2} from "rainlang-0.2.33/src/interface/ISubParserV4.sol";
+import {OperandV2} from "rainlang-0.2.33/src/interface/IInterpreterV4.sol";
+import {LibSubParse} from "rainlang-0.2.33/src/lib/parse/LibSubParse.sol";
 
 import {
     CONTEXT_ATTESTATION_ROW_CURRENCY,

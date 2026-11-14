@@ -11,10 +11,10 @@ import {
     IInterpreterCallerV5,
     EvaluableV4,
     SignedContextV2
-} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
-import {StateNamespace} from "rainlang-0.2.32/src/interface/IInterpreterStoreV3.sol";
-import {LibNamespace} from "rainlang-0.2.32/src/lib/ns/LibNamespace.sol";
-import {InvalidSignature} from "rainlang-0.2.32/src/lib/caller/LibContext.sol";
+} from "rainlang-0.2.33/src/interface/IInterpreterCallerV5.sol";
+import {StateNamespace} from "rainlang-0.2.33/src/interface/IInterpreterStoreV3.sol";
+import {LibNamespace} from "rainlang-0.2.33/src/lib/ns/LibNamespace.sol";
+import {InvalidSignature} from "rainlang-0.2.33/src/lib/caller/LibContext.sol";
 import {ITOFUTokenDecimals, TOFUOutcome} from "rain-tofu-erc20-decimals-0.1.4/src/interface/ITOFUTokenDecimals.sol";
 
 import {IST0xOrchestratorV2, MintAuthV1, MintCapKind, Digest} from "src/interface/IST0xOrchestratorV2.sol";
@@ -216,7 +216,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         // The domain is signed over: an attestation relabelled with another
         // domain than it was signed under does not verify.
         attestations = _lead(TOKEN_SYMBOL, PRICE);
-        attestations[0].domainSeparator = POOL_DOMAIN;
+        attestations[0].domainSeparator = keccak256("st0x.test.other-domain");
         vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector, 0));
         vm.prank(MINTER);
         orchestrator.mint(
@@ -259,7 +259,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         bytes32[] memory context = attestation(symbol(TOKEN_SYMBOL), float(PRICE), float(int256(block.timestamp)));
         SignedContextV2[] memory attestations = new SignedContextV2[](1);
 
-        attestations[0] = signFor(address(account), OPERATOR_KEY_0, LEAD_DOMAIN, context);
+        attestations[0] = signFor(address(account), OPERATOR_KEY_0, priceDomain(), context);
         _mockVaultMint(AMOUNT);
         vm.expectRevert(abi.encodeWithSelector(InvalidSignature.selector, 0));
         vm.prank(MINTER);
@@ -273,7 +273,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         );
         _assertFloatEq(_headroom(), CAPACITY, "nothing was charged");
 
-        attestations[0] = signFor(address(account), LEAD_KEY, LEAD_DOMAIN, context);
+        attestations[0] = signFor(address(account), LEAD_KEY, priceDomain(), context);
         _mint(AMOUNT, keccak256("erc1271"), attestations);
         _assertFloatEq(_headroom(), CAPACITY.sub(_f(VALUE, 0)), "charged the value");
     }
@@ -382,7 +382,7 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         grid[2] = new bytes32[](1);
         grid[2][0] = signer(vm.addr(LEAD_KEY));
         grid[3] = new bytes32[](1);
-        grid[3][0] = LEAD_DOMAIN;
+        grid[3][0] = priceDomain();
         grid[4] = attestation(symbol(TOKEN_SYMBOL), float(PRICE), float(int256(block.timestamp)));
 
         _mockVaultMint(AMOUNT);

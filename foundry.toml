@@ -29,6 +29,7 @@ fs_permissions = [
   { access = "read-write", path = "src/generated" },
   { access = "read-write", path = "src/lib" },
   { access = "read-write", path = "meta" },
+  { access = "read-write", path = "test/composed" },
   # `script/Build.sol` reads the canonical release version from `[package].version`
   # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
   { access = "read", path = "foundry.toml" },
@@ -83,7 +84,7 @@ rain-tofu-erc20-decimals-deploy = "0.1.4"
 "rain-math-float-deploy" = "0.1.9"
 "rain-metadata" = "0.1.45"
 "rain-string" = "0.3.9"
-rainlang = "0.2.32"
+rainlang = "0.2.33"
 rainlang-deploy = "0.1.12"
 
 [soldeer]
