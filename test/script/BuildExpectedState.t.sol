@@ -77,7 +77,10 @@ contract BuildExpectedStateTest is Test {
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             string memory at = chain(nets[c]);
-            assertKeys(json, at, chainFields());
+            assertKeys(json, at, chainFields(nets[c].chainId));
+            if (nets[c].chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+                assertKeys(json, string.concat(at, ".qsep"), qsepFields());
+            }
             assertRowKeys(json, string.concat(at, ".beacons"), 4, beaconFields());
             assertKeys(json, string.concat(at, ".safe"), safeFields());
             assertKeys(json, string.concat(at, ".timelock"), timelockFields());
@@ -585,6 +588,68 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
+    /// tQSEP, outside the token table, is on Base only: its own legs on Base's beacon rows at the Base V1 proxy pins,
+    /// owned by Base's timelock and authorised by the fleet authoriser.
+    function testQsepIsBaseOnlyOnTheBaseBeaconsWithTheTimelockAndFleetAuthoriser() external {
+        string memory json = build.render();
+        SupportedNetwork[] memory nets = networks();
+        bool sawBase;
+        for (uint256 c = 0; c < nets.length; c++) {
+            bool isBase = nets[c].chainId == LibSafeInvariants.BASE_CHAIN_ID;
+            sawBase = sawBase || isBase;
+            assertEq(vm.keyExistsJson(json, string.concat(chain(nets[c]), ".qsep")), isBase, nets[c].name);
+        }
+        assertTrue(sawBase);
+        string memory at = ".chains.8453.qsep";
+        address vault = LibTokenInvariants.QSEP_RECEIPT_VAULT;
+        address receipt = LibTokenInvariants.QSEP_RECEIPT;
+        assertEq(vm.parseJsonAddress(json, string.concat(at, ".receiptVault")), vault);
+        assertEq(vm.parseJsonAddress(json, string.concat(at, ".receipt")), receipt);
+        assertEq(
+            vm.parseJsonAddress(json, string.concat(at, ".wrappedTokenVault")),
+            LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT
+        );
+        assertEq(vm.parseJsonAddress(json, string.concat(at, ".receiptVaultReceipt")), receipt);
+        assertEq(vm.parseJsonAddress(json, string.concat(at, ".receiptManager")), vault);
+        assertEq(vm.parseJsonAddress(json, string.concat(at, ".wrappedTokenVaultAsset")), vault);
+        assertQsepBeacons(json, at);
+        assertEq(
+            vm.parseJsonBytes32(json, string.concat(at, ".receiptCodehash")),
+            LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1
+        );
+        assertEq(
+            vm.parseJsonBytes32(json, string.concat(at, ".receiptVaultCodehash")),
+            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1
+        );
+        assertEq(
+            vm.parseJsonBytes32(json, string.concat(at, ".wrappedTokenVaultCodehash")),
+            LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1
+        );
+        address owner = vm.parseJsonAddress(json, string.concat(at, ".owner"));
+        assertEq(owner, LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID));
+        assertEq(owner, vm.parseJsonAddress(json, ".chains.8453.timelock.address"));
+        address authoriser = vm.parseJsonAddress(json, string.concat(at, ".authoriser"));
+        assertEq(authoriser, LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+        assertEq(authoriser, vm.parseJsonAddress(json, ".chains.8453.authoriser.address"));
+    }
+
+    /// Each tQSEP leg's beacon is Base's beacon row for that leg, as Base's set deployer getters resolve it.
+    function assertQsepBeacons(string memory json, string memory at) internal {
+        address[4] memory resolved = resolvedBeacons(LibSafeInvariants.BASE_CHAIN_ID);
+        string memory base = ".chains.8453";
+        uint256[3] memory legs = [
+            LibBeaconInvariants.RECEIPT_BEACON_INDEX,
+            LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX,
+            LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX
+        ];
+        string[3] memory keys = ["receiptBeacon", "receiptVaultBeacon", "wrappedTokenVaultBeacon"];
+        for (uint256 i = 0; i < legs.length; i++) {
+            address beacon = vm.parseJsonAddress(json, string.concat(at, ".", keys[i]));
+            assertEq(beacon, beaconRow(json, base, legs[i]), keys[i]);
+            assertEq(beacon, resolved[legs[i]], keys[i]);
+        }
+    }
+
     /// Off Base each leg is a `RegistryBeaconProxy` over its in-use beacon: the receipt and receipt-vault beacons are
     /// the set deployer's first and second CREATE, the wrapper beacon is pinned.
     function testOffBaseTokenLegCodehashesAreRegistryBeaconProxiesOverTheInUseBeacons() external {
@@ -881,8 +946,9 @@ contract BuildExpectedStateTest is Test {
         assertEq(vm.parseJsonAddress(json, string.concat(at, ".owner")), owner);
     }
 
-    function chainFields() internal pure returns (string[] memory) {
-        string[] memory fields = new string[](11);
+    function chainFields(uint256 chainId) internal pure returns (string[] memory) {
+        bool isBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
+        string[] memory fields = new string[](isBase ? 12 : 11);
         fields[0] = "network";
         fields[1] = "beaconSetDeployer";
         fields[2] = "beacons";
@@ -894,6 +960,9 @@ contract BuildExpectedStateTest is Test {
         fields[8] = "zoltu";
         fields[9] = "renameMigration";
         fields[10] = "tokens";
+        if (isBase) {
+            fields[11] = "qsep";
+        }
         return fields;
     }
 
@@ -975,6 +1044,16 @@ contract BuildExpectedStateTest is Test {
         fields[21] = "wrappedTokenVaultCodehash";
         fields[22] = "owner";
         fields[23] = "authoriser";
+        return fields;
+    }
+
+    /// The token fields after the metadata.
+    function qsepFields() internal pure returns (string[] memory) {
+        string[] memory token = tokenFields();
+        string[] memory fields = new string[](14);
+        for (uint256 i = 0; i < fields.length; i++) {
+            fields[i] = token[i + 10];
+        }
         return fields;
     }
 
