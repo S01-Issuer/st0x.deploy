@@ -461,9 +461,8 @@ rows. Once the listing signer is bound on a chain:
 sits onto exactly one predecessor. On each chain the naming rollout runs only
 after these have landed, in this order: the V5 backfill
 (`20261030-backfill-migration-registry-v5`), the beacon initial owner bind
-(`20261022-bind-beacon-initial-owner`), the orchestrator admin move
-(`20261006-orchestrator-admin-to-timelock`), and the Safe-owned Base vault
-handover (`20261103-hand-safe-owned-base-vaults-to-timelock`). Then come the
+(`20261022-bind-beacon-initial-owner`) and the orchestrator admin move
+(`20261006-orchestrator-admin-to-timelock`). Then come the
 beacon schedule, the rename schedule, the execution and its record, and then the
 service-signer revoke
 (`20261109-schedule-revoke-service-signer-deposit-withdraw` and its execute). V6
