@@ -99,6 +99,7 @@ flare = "${FLARE_RPC_URL}"
 hyperevm = "${HYPEREVM_RPC_URL}"
 polygon = "${POLYGON_RPC_URL}"
 robinhood = "${ROBINHOOD_RPC_URL}"
+zerog = "${ZEROG_RPC_URL}"
 
 [etherscan]
 arbitrum = { key = "${CI_DEPLOY_ARBITRUM_ETHERSCAN_API_KEY}" }
@@ -119,3 +120,8 @@ flare = { key = "${CI_DEPLOY_FLARE_ETHERSCAN_API_KEY}" }
 hyperevm = { key = "${CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY}", chain = 999, url = "https://api.etherscan.io/v2/api?chainid=999" }
 polygon = { key = "${CI_DEPLOY_POLYGON_ETHERSCAN_API_KEY}" }
 robinhood = { key = "${CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY}", chain = 4663, url = "https://robinhoodchain.blockscout.com/api" }
+# 0G (16661) is not indexed by Etherscan V2 and is not a built-in foundry chain
+# alias, so the entry pins the chain id and points at 0G's chainscan, which
+# speaks the Etherscan API and ignores the key. Forge still needs a non-empty
+# key, so CI passes a placeholder. Sourcify also supports 16661.
+zerog = { key = "${CI_DEPLOY_ZEROG_ETHERSCAN_API_KEY}", chain = 16661, url = "https://chainscan.0g.ai/open/api" }
