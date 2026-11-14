@@ -40,7 +40,7 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// (`wrappedTokenVault.asset()`), the
 /// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
 /// `receiptVaultCodehash`, `receiptCodehash`,
-/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`. Under `v2`, per network V2 was checked on: `network`,
+/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`; on Base, `qsep` (tQSEP's legs, `owner`, `authoriser`). Under `v2`, per network V2 was checked on: `network`,
 /// `deployments` (each `LibProdDeployV2` key, address, codehash), `beaconSetDeployer`, and `receiptBeacon`,
 /// `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon, implementation, owner).
 contract BuildExpectedState is Script {
@@ -193,6 +193,24 @@ contract BuildExpectedState is Script {
         return rows;
     }
 
+    /// tQSEP is Base-only and outside `productionTokensForChainId`, on the shared Base beacons.
+    function qsepJson(uint256 chainId, string memory key) internal returns (string memory) {
+        string memory row = string.concat(key, ".qsep");
+        tokenLegsJson(
+            row,
+            TokenInstance({
+                underlying: "QSEP",
+                receipt: LibTokenInvariants.QSEP_RECEIPT,
+                receiptVault: LibTokenInvariants.QSEP_RECEIPT_VAULT,
+                wrappedTokenVault: LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT
+            }),
+            LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId),
+            LibBeaconInvariants.prodTokenProxyCodehashesForChainId(chainId)
+        );
+        vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
+        return vm.serializeAddress(row, "authoriser", LibAuthoriserInvariants.authoriserForChainId(chainId));
+    }
+
     function releasedSuites() internal pure returns (DeploySuite[] memory) {
         DeployDeclaration memory declared;
         LibRainDeployDeclaration.setNetworks(declared, LibStoxDeployNetworks.deploymentNetworks());
@@ -264,6 +282,9 @@ contract BuildExpectedState is Script {
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
         vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
+        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
+            vm.serializeString(key, "qsep", qsepJson(chainId, key));
+        }
         return vm.serializeString(key, "tokens", tokensJson(chainId, key));
     }
 
