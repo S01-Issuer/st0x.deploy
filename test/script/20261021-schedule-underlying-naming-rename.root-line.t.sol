@@ -46,7 +46,7 @@ contract ScheduleUnderlyingNamingRenameRootLineTest is UnderlyingNamingRolloutFi
     }
 
     function landOnto() internal override {
-        landBeaconSchedule();
+        landBeaconScheduleAndHandOver(ScheduleUnderlyingNamingRenameHarness(address(sScript)));
     }
 
     /// @dev Past the delay the post-state refuses the ready operation before the record.

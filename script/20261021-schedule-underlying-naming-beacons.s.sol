@@ -72,12 +72,12 @@ error UpgradedVaultHasAssetId(address vault, string assetId);
 /// @param result What the call returned.
 error UpgradedVaultMissingAssetIdHook(address vault, bytes result);
 
-/// @notice This script's declaration: the Safe's record, after the Safe-owned Base vault handover.
+/// @notice This script's declaration: the Safe's record, after orchestrator-admin-to-timelock.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        onto: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
+        onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
         history: false
     });
 }
