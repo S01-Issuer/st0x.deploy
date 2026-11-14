@@ -22,7 +22,6 @@ path = [
   "privileged-addresses.json",
   "ideal-roles.json",
   "migrations.json",
-  "listing.json",
   "REUSE.toml",
   "slither.config.json",
   "subgraph/**/",
