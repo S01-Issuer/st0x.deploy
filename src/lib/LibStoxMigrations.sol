@@ -55,8 +55,11 @@ error LineHeadMismatch(bytes32 head);
 /// - a migration the Safe performs directly is recorded as the last call of
 ///   the Safe's MultiSend, so the record and the change land atomically;
 /// - a migration executed through the governance timelock is recorded by the
-///   Safe in its next bundle after the operation executes; no record rides in
-///   a timelock batch, so a pending batch never holds the line.
+///   Safe in its next bundle after the operation executes, or as the last call
+///   of the timelock batch, written by the timelock at execution. The line is
+///   not held during the delay: a migration recorded onto the head meanwhile
+///   makes the batch's record revert at execution, and the fix is cancel and
+///   reschedule.
 ///
 /// A migration that ran before anything was recorded is recorded later as
 /// history, with the moment it executed. Until that record lands, `applied`
@@ -119,9 +122,6 @@ library LibStoxMigrations {
     /// @notice `script/20261021-schedule-underlying-naming-rename.s.sol`.
     bytes32 internal constant SCHEDULE_UNDERLYING_NAMING_RENAME =
         keccak256("script/20261021-schedule-underlying-naming-rename.s.sol");
-
-    /// @notice `script/20261021-execute-underlying-naming.s.sol`.
-    bytes32 internal constant EXECUTE_UNDERLYING_NAMING = keccak256("script/20261021-execute-underlying-naming.s.sol");
 
     /// @notice `script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol`.
     bytes32 internal constant SCHEDULE_REVOKE_SERVICE_SIGNER =

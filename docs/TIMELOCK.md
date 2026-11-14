@@ -259,9 +259,15 @@ sequence on a fork of each chain.
    `stox-corporate-actions-facet`, `stox-receipt-vault` and
    `stox-wrapped-token-vault` suites through `manual-sol-artifacts`. The beacon
    script's pre-flight checks each codehash against its pin before scheduling.
-   The PR that freezes the release (`RELEASE_FROZEN`) also pins each chain's
-   beacon and rename operation ids as literals. Each schedule script's Safe
-   bundle ends in its root-line record; no record rides in a timelock batch.
+   Each chain's beacon and rename operation ids are pinned
+   (`LibUnderlyingNamingRollout.pinnedOperationIds`). Once a chain's batch is
+   scheduled, its pins and the rows and constants they hash must not change: a
+   changed batch needs a new salt and a new script, not a re-pin. Each schedule
+   script's Safe bundle is the `scheduleBatch` alone; the batch's last call
+   writes its root-line record, as the timelock, at execution. The line is not
+   held during the 48h delay: a migration recorded onto the head meanwhile makes
+   the batch's record revert at execution, and the fix is cancel and
+   reschedule.
 2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
    one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
    beacon, then its in-use receipt-vault beacon
@@ -271,15 +277,27 @@ sequence on a fork of each chain.
    likewise rejects an implementation with no code. A reverted `executeBatch`
    rolls back and leaves the operation Ready with its delay spent: deploy what
    is missing and execute the same batch again. A new delay is needed only if
-   the operation is cancelled or its arguments change. The wrapper keeps its
-   current name and symbol while the vault has no underlying set. The
-   orchestrator's vault-logic lock reads the 0.1.30 beacon-set deployer's
-   beacons, not the in-use ones, so it does not cover this upgrade: minting and
-   burning keep running across it (the Base fork test mints and burns through
-   the live orchestrator after the batch), and the orchestrator steps under
-   Orchestrator roles do not have to precede it. It also means the lock does not
-   watch the logic production tokens run; pointing it at the in-use beacons is a
-   separate orchestrator change.
+   the operation is cancelled or its arguments change. Both pre-flights refuse
+   unless the derived operation id equals the pinned one
+   (`LibUnderlyingNamingRollout.pinnedOperationIds`). A schedule bundle is one
+   call, which the Safe UI proposes as a direct call rather than the `MultiSend`
+   that `verify` hashes: compare the call's target and data with the artifact
+   instead of the `SafeTxHash`. To halt the rollout while the beacon batch is
+   pending, cancel both: a rename left pending becomes executable again as soon
+   as a newly scheduled beacon batch executes. Cancel the rename first, in its own
+   Safe transaction, then the beacon batch in another: in one bundle, a beacon
+   batch that executes while signatures are collected makes its `cancel` revert
+   and rolls back the rename's cancel too. The rollout is halted only once the
+   rename operation reads unset. Once the beacon batch is Done, `cancel` reverts
+   on it, so cancel the rename alone. The wrapper keeps its current name and
+   symbol while the vault has no underlying set. The orchestrator's vault-logic
+   lock reads the 0.1.30 beacon-set deployer's beacons, not the in-use ones, so
+   it does not cover this upgrade: minting and burning keep running across it
+   (the Base fork test mints and burns through the live orchestrator after the
+   batch), and the orchestrator steps under Orchestrator roles do not have to
+   precede it. It also means the lock does not watch the logic production
+   tokens run; pointing it at the in-use beacons is a separate orchestrator
+   change.
 
    The pre-flight also requires each beacon to still serve the implementation
    the batch moves it from (`RECEIPT_VAULT_FROM_IMPLEMENTATION`,
@@ -288,7 +306,9 @@ sequence on a fork of each chain.
    any other upgrade of a chain's receipt-vault or wrapper beacon, it must
    `cancel` that chain's pending beacon batch and its rename batch. Otherwise
    the stale batch stays Ready after its delay and anyone can execute it later,
-   which rolls the beacons back to this rollout's implementations.
+   which rolls the beacons back to this rollout's implementations. After such a
+   cancel the rollout resumes only through a reviewed change onto the new
+   from-implementations, not a reschedule.
 3. Schedule the rename batch (`20261021-schedule-underlying-naming-rename`): one
    `scheduleBatch` of `setUnderlying(ticker, underlyingName)` on every
    production vault, with the beacon batch as its predecessor, so the timelock
@@ -321,10 +341,8 @@ sequence on a fork of each chain.
    `execute()` from the CI deploy key, one operation per dispatch. On HyperEVM
    the rename batch needs more gas than a small block holds, so enable big
    blocks for the deploy key (`manual-hyperevm-big-blocks`) before executing it
-   there. After the rename batch executes, the Safe signs `run-script`
-   `20261021-execute-underlying-naming` `run()`. It writes the execution's
-   record, and until it lands the root line stays at the rename schedule and
-   every later migration on that chain refuses.
+   there. The script writes no record: the rename batch's record is the
+   execution's record.
 
 After the beacon batch, the in-use receipt-vault beacon serves a vault that
 initializes only from the ConfigRegistry (rain-vats 0.2.12, config V3). The
@@ -407,17 +425,16 @@ after these have landed, in this order: the V5 backfill
 (`20261030-backfill-migration-registry-v5`), the beacon initial owner bind
 (`20261022-bind-beacon-initial-owner`) and the orchestrator admin move
 (`20261006-orchestrator-admin-to-timelock`). Then come the
-beacon schedule, the rename schedule, the execution and its record, and then the
-service-signer revoke
+beacon batch's record, the rename batch's record, and then the service-signer
+revoke
 (`20261109-schedule-revoke-service-signer-deposit-withdraw` and its execute). V6
-tokens are named from the signed listing, which is no migration. While the
-rollout is in flight (two 48h delays), no other migration can land on that
-chain. The revoke holds the line too, from its schedule record to its execute
-record, and its execute waits for minting and redemption to run through the
-orchestrator, so the Safe schedules the revoke only once that precondition
-holds. An urgent migration in that window needs a new script declared onto the
-current head, and a reviewed PR that re-declares the remaining naming scripts
-onto it.
+tokens are named from the signed listing, which is no migration. A naming
+batch does not hold the line during its 48h delay: a migration recorded onto
+the head meanwhile makes the batch's record revert at execution, and the fix is
+cancel and reschedule. The revoke holds the line from its schedule record to
+its execute record, and its execute waits for minting and redemption to run
+through the orchestrator, so the Safe schedules the revoke only once that
+precondition holds.
 
 **Revoking the service signer's vault roles.** The service signer
 (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) loses `DEPOSIT` and `WITHDRAW`

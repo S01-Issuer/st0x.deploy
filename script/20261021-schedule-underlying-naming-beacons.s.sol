@@ -18,7 +18,11 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {LibUnderlyingNamingRollout, UnderlyingNamingReleaseNotFrozen} from "../src/lib/LibUnderlyingNamingRollout.sol";
+import {
+    LibUnderlyingNamingRollout,
+    UnderlyingNamingBatchMoved,
+    UnderlyingNamingReleaseNotFrozen
+} from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -68,14 +72,11 @@ error UpgradedVaultHasAssetId(address vault, string assetId);
 /// @param result What the call returned.
 error UpgradedVaultMissingAssetIdHook(address vault, bytes result);
 
-/// @notice This script's declaration: the Safe's record, after orchestrator-admin-to-timelock.
+/// @notice This script's declaration: the beacon batch's own record, written
+/// by the timelock at execution, after orchestrator-admin-to-timelock.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
-    return ScriptDeclaration({
-        id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
-        history: false
-    });
+    return LibUnderlyingNamingRollout.beaconDeclaration();
 }
 
 /// @title ScheduleUnderlyingNamingBeacons
@@ -140,16 +141,17 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The release is frozen, the Safe and timelock are the pinned ones,
+    /// @dev The root line is at this migration's `onto` and the timelock may
+    /// write the batch's record. The release is frozen,
+    /// the Safe and timelock are the pinned ones,
     /// the timelock owns the in-use beacons, the three implementations carry their pinned code, the
     /// beacons have not moved and still serve their pinned from-implementations,
-    /// the operation is not registered, and the root line is at this
-    /// migration's `onto`.
+    /// the operation is not registered, and its derived id is the pinned one.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), chainSafe);
+        LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), timelock());
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
         assertDeployed(LibUnderlyingNamingRollout.FACET, LibUnderlyingNamingRollout.FACET_CODEHASH);
@@ -187,33 +189,32 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
         );
 
         bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
+        (bytes32 pinned,) = LibUnderlyingNamingRollout.pinnedOperationIds(block.chainid);
+        if (id != pinned) revert UnderlyingNamingBatchMoved(pinned, id);
         if (TimelockController(payable(timelock())).isOperation(id)) revert OperationAlreadyScheduled(id);
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The schedule, then the record.
+    /// @dev The schedule alone; the batch carries its own record.
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](2);
+        SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
             data: LibUnderlyingNamingRollout.scheduleBeaconCalldata(block.chainid),
             operation: Enum.Operation.Call
         });
-        txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingBeaconsDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Scheduled, pending and not ready inside the delay; the record is
-    /// this bundle's and heads the root line.
+    /// @dev Scheduled, pending and not ready inside the delay.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert OperationNotPendingInsideDelay(id);
         }
-        LibStoxMigrations.assertRecorded(scheduleUnderlyingNamingBeaconsDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript
