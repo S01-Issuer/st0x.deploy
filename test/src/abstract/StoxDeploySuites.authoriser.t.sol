@@ -24,7 +24,7 @@ contract StoxDeploySuitesAuthoriserTest is StoxAuthorizerInitTest, StoxDeploySui
         return suite;
     }
 
-    function networks() internal view returns (SupportedNetwork[] memory) {
+    function networks() internal pure returns (SupportedNetwork[] memory) {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         assertTrue(nets.length > 0, "networks");
