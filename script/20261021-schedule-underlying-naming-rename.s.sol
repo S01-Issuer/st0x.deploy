@@ -22,7 +22,7 @@ import {
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {ST0X_NAME_SUFFIX} from "../src/lib/LibUnderlying.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations, LineHeadMismatch, RecordMismatch} from "../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, SafeNotApprovedWriter} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice The beacon batch is not registered on this chain's timelock, so
 /// the rename batch, which names it as predecessor, could never execute.
@@ -44,14 +44,11 @@ error RenameNotPendingInsideDelay(bytes32 id);
 /// @param actual The value read.
 error RenamedMetadataMismatch(address token, string expected, string actual);
 
-/// @notice This script's declaration: the Safe's record, after the beacon schedule.
+/// @notice This script's declaration: the rename batch's own record, written
+/// by the timelock at execution, after the beacon batch's.
 /// @return The declaration.
 function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclaration memory) {
-    return ScriptDeclaration({
-        id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
-        onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        history: false
-    });
+    return LibUnderlyingNamingRollout.renameDeclaration();
 }
 
 /// @title ScheduleUnderlyingNamingRename
@@ -119,8 +116,7 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The root line is at this migration's `onto`, or its own record
-    /// heads it and the batch is being rescheduled after a cancel. The release
+    /// @dev The timelock may write the batch's record. The release
     /// is frozen, the downstream services accept the new
     /// symbols, every row is well formed, the Safe and timelock are the pinned ones,
     /// the beacon batch is registered, the rename batch is not, every ticker
@@ -131,7 +127,7 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
         LibUnderlyingNamingRollout.assertUnderlyingsWellFormed(block.chainid);
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        if (!rescheduling()) LibStoxMigrations.assertNext(scheduleUnderlyingNamingRenameDeclaration(), chainSafe);
+        if (!LibStoxMigrations.approved(timelock())) revert SafeNotApprovedWriter(timelock());
         TimelockController controller = TimelockController(payable(timelock()));
 
         bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
@@ -148,49 +144,27 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
         LibTokenInvariants.assertUniformOwnership(chainTokens, timelock());
     }
 
-    /// @notice Whether this dispatch reschedules a cancelled rename batch:
-    /// this migration's record already heads the line. The pre-flight still
-    /// requires the batch not to be registered.
-    /// @return True when the bundle must schedule without a second record.
-    function rescheduling() internal view returns (bool) {
-        return LibStoxMigrations.head() == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME;
-    }
-
     /// @inheritdoc SafeBundleScript
-    /// @dev The schedule, then the record. When rescheduling a cancelled
-    /// batch the record already heads the line, so the bundle is the schedule
-    /// alone.
+    /// @dev The schedule alone; the batch carries its own record.
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        bool reschedule = rescheduling();
-        SafeTx[] memory txs = new SafeTx[](reschedule ? 1 : 2);
+        SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
             data: LibUnderlyingNamingRollout.scheduleRenameCalldata(timelock(), block.chainid),
             operation: Enum.Operation.Call
         });
-        if (!reschedule) txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingRenameDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Scheduled, pending and not ready inside the delay; this migration's record heads the root line, written by
-    /// this bundle or, on a reschedule, before it.
+    /// @dev Scheduled, pending and not ready inside the delay.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibUnderlyingNamingRollout.renameOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert RenameNotPendingInsideDelay(id);
         }
-        // A rescheduling bundle writes no record, so the record predates it.
-        uint256 record = LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (record == 0 || record > block.timestamp) {
-            // forge-lint: disable-next-line(block-timestamp)
-            revert RecordMismatch(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME, block.timestamp, record);
-        }
-        bytes32 lineHead = LibStoxMigrations.head();
-        if (lineHead != scheduleUnderlyingNamingRenameDeclaration().id) revert LineHeadMismatch(lineHead);
     }
 
     /// @inheritdoc SafeBundleScript
