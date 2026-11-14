@@ -130,7 +130,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
         DeployCandidate[] memory candidates = new DeployCandidate[](13);
-        DeploySuite memory snapshotRoot = underlyingSnapshotRootSuite();
+        DeploySuite memory snapshotRoot = underlyingSnapshotRootSuite(underlyingSnapshotShardSuites());
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -320,37 +320,61 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     /// The underlying snapshot root and shards: pure data, Zoltu-deployed, no source artifact.
     function underlyingSnapshotSuites() internal pure returns (DeployCandidate[] memory) {
-        bytes[] memory shards = LibUnderlyingSnapshotCode.shardCreationCodes();
+        DeploySuite[] memory shards = underlyingSnapshotShardSuites();
         DeployCandidate[] memory candidates = new DeployCandidate[](shards.length + 1);
-        candidates[0] = unanchored(underlyingSnapshotRootSuite());
+        candidates[0] = unanchored(underlyingSnapshotRootSuite(shards));
         for (uint256 i = 0; i < shards.length; i++) {
-            candidates[i + 1] =
-                unanchored(dataZoltu(underlyingSnapshotShardSuite(i), shards[i], UNDERLYING_SNAPSHOT_SHARD_PATH));
+            candidates[i + 1] = unanchored(shards[i]);
         }
         return candidates;
     }
 
-    function underlyingSnapshotRootSuite() internal pure returns (DeploySuite memory) {
+    function underlyingSnapshotShardSuites() internal pure returns (DeploySuite[] memory) {
+        bytes[] memory codes = LibUnderlyingSnapshotCode.shardCreationCodes();
+        DeploySuite[] memory shards = new DeploySuite[](codes.length);
+        for (uint256 i = 0; i < codes.length; i++) {
+            shards[i] = dataZoltu(
+                underlyingSnapshotShardSuite(i), codes[i], UNDERLYING_SNAPSHOT_SHARD_PATH, new DeployDependency[](0)
+            );
+        }
+        return shards;
+    }
+
+    /// The root's data embeds every shard's address.
+    function underlyingSnapshotRootSuite(DeploySuite[] memory shards) internal pure returns (DeploySuite memory) {
+        DeployDependency[] memory dependencies = new DeployDependency[](shards.length);
+        for (uint256 i = 0; i < shards.length; i++) {
+            dependencies[i] = DeployDependency({
+                deployedAddress: shards[i].storedDeployedAddress, runtimeCode: shards[i].storedRuntimeCode
+            });
+        }
         return dataZoltu(
-            UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE, UNDERLYING_SNAPSHOT_ROOT_PATH
+            UNDERLYING_SNAPSHOT_ROOT,
+            LibUnderlyingSnapshotCode.ROOT_CREATION_CODE,
+            UNDERLYING_SNAPSHOT_ROOT_PATH,
+            dependencies
         );
     }
 
     /// Suite keys allow only lowercase letters and hyphens, so the shard index is base-26 in a-z.
     function underlyingSnapshotShardSuite(uint256 index) internal pure returns (string memory) {
+        // 0x61 + index % 26 is at most 0x7a.
+        // forge-lint: disable-next-line(unsafe-typecast)
         bytes memory key = abi.encodePacked(bytes1(uint8(0x61 + index % 26)));
         for (index /= 26; index > 0; index /= 26) {
+            // forge-lint: disable-next-line(unsafe-typecast)
             key = abi.encodePacked(bytes1(uint8(0x61 + index % 26)), key);
         }
         return string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, string(key));
     }
 
     /// Zoltu suite for a LibDataContract creation code; its runtime is the prefix's trailing 0x00 then the data.
-    function dataZoltu(string memory suite, bytes memory creationCode, string memory artifactPath)
-        internal
-        pure
-        returns (DeploySuite memory)
-    {
+    function dataZoltu(
+        string memory suite,
+        bytes memory creationCode,
+        string memory artifactPath,
+        DeployDependency[] memory dependencies
+    ) internal pure returns (DeploySuite memory) {
         bytes memory runtimeCode = new bytes(creationCode.length - (PREFIX_BYTES_LENGTH - 1));
         for (uint256 i = 0; i < runtimeCode.length; i++) {
             runtimeCode[i] = creationCode[i + (PREFIX_BYTES_LENGTH - 1)];
@@ -362,7 +386,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             keccak256(runtimeCode),
             runtimeCode,
             artifactPath,
-            new DeployDependency[](0)
+            dependencies
         );
     }
 
