@@ -13,15 +13,14 @@ is only ever created once in its store, so the guard is unobservable in tests.
 path. The guard stays: graph-node would otherwise spawn a second data source for
 the same address.
 
-## `src/lib/LibUnderlyingNamingRollout.sol`: row check and leading-rows cut
+## `src/lib/LibUnderlyingNamingRollout.sol`: row check
 
-Mutants: `assertUnderlyingsWellFormed` drops its `assertRowsWellFormed(rows)`
-call, and `tokens()` returns the chain's table without `leadingRows`. Both are
-equivalent while every production row is well formed and every table has exactly
-`TOKEN_COUNT` rows, so no test can tell them apart. The behavior is pinned
-around them: `testEveryChainsRowsAreWellFormed` checks the production rows
-through `assertRowsWellFormed` directly, the row loop's refusals are tested on
-built rows, `testLeadingRowsCutsALongerTableAndRefusesAShorterOne` tests the cut
-on a longer table, and `testTokenSetIsPinnedByIdentity` fails on a 57th row.
-Both calls stay: the rename pre-flight must check the rows it sets, and the
-rename id must not move when a table grows.
+Mutant: `assertUnderlyingsWellFormed` drops its `assertRowsWellFormed(rows)`
+call. It is equivalent while every production row is well formed, so no test can
+tell it apart. The behavior is pinned around it:
+`testEveryChainsRowsAreWellFormed` checks the production rows through
+`assertRowsWellFormed` directly, and the row loop's refusals are tested on built
+rows. The call stays: the rename pre-flight must check the rows it sets.
+(`tokens()` without `leadingRows` is not excused: Base's table is longer than
+`TOKEN_COUNT`, so the pinned rename id, `testPinnedOperationIdsDeriveOffline`
+included, kills it.)

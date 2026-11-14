@@ -44,6 +44,12 @@ error RenameNotPendingInsideDelay(bytes32 id);
 /// @param actual The value read.
 error RenamedMetadataMismatch(address token, string expected, string actual);
 
+/// @notice A token of the chain's table that the rename skips changed its name or symbol across the execution.
+/// @param token The token contract.
+/// @param before The value before.
+/// @param afterRun The value after.
+error SkippedRowMetadataMoved(address token, string before, string afterRun);
+
 /// @notice This script's declaration: the Safe's record, after the beacon schedule.
 /// @return The declaration.
 function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclaration memory) {
@@ -205,6 +211,8 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
 
     /// @notice The execution proof `assertReversible` runs.
     function proveExecution() internal {
+        TokenInstance[] memory skipped = skippedRows(block.chainid);
+        string[] memory before = skippedMetadata(skipped);
         TimelockController controller = TimelockController(payable(timelock()));
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
@@ -225,7 +233,43 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
         controller.executeBatch(targets, values, payloads, beaconId, LibUnderlyingNamingRollout.RENAME_SALT);
 
         assertRenamed(block.chainid);
+        string[] memory afterRun = skippedMetadata(skipped);
+        for (uint256 i = 0; i < before.length; i++) {
+            if (keccak256(bytes(before[i])) != keccak256(bytes(afterRun[i]))) {
+                TokenInstance memory token = skipped[i / 4];
+                revert SkippedRowMetadataMoved(
+                    i % 4 < 2 ? token.receiptVault : token.wrappedTokenVault, before[i], afterRun[i]
+                );
+            }
+        }
         console2.log("Execution proven: every production vault and wrapper renamed by a roleless executor");
+    }
+
+    /// @notice The chain's table rows after the leading `TOKEN_COUNT`, which the rename does not touch.
+    /// @param chainId The chain id.
+    /// @return The rows.
+    function skippedRows(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+        uint256 count = LibUnderlyingNamingRollout.TOKEN_COUNT;
+        TokenInstance[] memory rows = new TokenInstance[](table.length > count ? table.length - count : 0);
+        for (uint256 i = 0; i < rows.length; i++) {
+            rows[i] = table[count + i];
+        }
+        return rows;
+    }
+
+    /// @notice Each row's vault name and symbol, then wrapper name and symbol.
+    /// @param rows The rows.
+    /// @return The values read.
+    function skippedMetadata(TokenInstance[] memory rows) internal view returns (string[] memory) {
+        string[] memory values = new string[](rows.length * 4);
+        for (uint256 i = 0; i < rows.length; i++) {
+            values[i * 4] = IERC20Metadata(rows[i].receiptVault).name();
+            values[i * 4 + 1] = IERC20Metadata(rows[i].receiptVault).symbol();
+            values[i * 4 + 2] = IERC20Metadata(rows[i].wrappedTokenVault).name();
+            values[i * 4 + 3] = IERC20Metadata(rows[i].wrappedTokenVault).symbol();
+        }
+        return values;
     }
 
     /// @notice Reverts unless every production token of `chainId` reports the
