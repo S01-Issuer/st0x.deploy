@@ -16,7 +16,8 @@ pragma solidity ^0.8.25;
 /// holds exactly those.
 ///
 /// The underlying snapshot is built from `ticker`, `underlyingName` and
-/// `isin`.
+/// `isin`; the vault owner overrides them per token with
+/// `IStoxUnderlyingV2.setUnderlying`.
 /// @param underlying The frozen chain-agnostic join key, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param ticker The current underlying ticker, as the snapshot records it.
