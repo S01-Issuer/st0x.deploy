@@ -21,7 +21,7 @@ struct PinnedWrapperAddress {
 /// @notice Every V6 row still derives the wrapper address pinned for its asset id. The wrapper address commits to the
 /// token address, so a dependency bump or a change to the token params cannot move a V6 token or wrapper unseen.
 /// @dev A new V6 row adds its pin here, checked with the clone factory's on-chain `predictRegistryBeaconProxyAddress`
-/// (`WRAPPER_BEACON_NAME`, `abi.encode(token)` of its `listing.json` token, salt `keccak256(bytes(assetId))`).
+/// (`WRAPPER_BEACON_NAME`, `abi.encode(token)` of its token, salt `keccak256(bytes(assetId))`).
 /// An existing pin is never edited to match a new derivation.
 contract LibProdTokenParamsAddressesTest is Test {
     /// The pinned addresses of the production V6 rows, in table order.
