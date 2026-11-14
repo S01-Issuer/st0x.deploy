@@ -21,6 +21,10 @@ import {
     VaultBeaconNotDeployed
 } from "../../script/Deploy.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
+import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
+import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
@@ -37,6 +41,11 @@ contract DeployTokenBindingsTest is Test {
         harness = new DeployPreDeployCheckHarness();
         LibTestDeploy.etchConfigRegistry(vm);
         placeVaultBeacon(LibProdDeployCurrent.STOX_RECEIPT_VAULT);
+    }
+
+    /// Deploys the governance timelock with `proposer` as its proposer.
+    function deployTimelock(address proposer) internal {
+        LibTestBeaconInitialOwnerBind.deployTimelock(vm, proposer);
     }
 
     /// The pinned vault beacon, serving `implementation`.
@@ -302,14 +311,17 @@ contract DeployTokenBindingsTest is Test {
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
+            uint256 snapshot = vm.snapshotState();
             uint256 chainId = networks[i].chainId;
             vm.chainId(chainId);
+            deployTimelock(LibSafeInvariants.safeForChainId(chainId));
             for (uint256 j = 0; j < tokens.length; j++) {
                 bindPinned(chainId);
                 Region other = configs[j].region == Region.US ? Region.EU : Region.US;
                 bindRbac(rbacName(other), address(0), address(0));
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
             }
+            vm.revertToState(snapshot);
         }
     }
 
@@ -318,12 +330,91 @@ contract DeployTokenBindingsTest is Test {
         DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
+            uint256 snapshot = vm.snapshotState();
             vm.chainId(networks[i].chainId);
             bindPinned(networks[i].chainId);
+            deployTimelock(LibSafeInvariants.safeForChainId(networks[i].chainId));
             for (uint256 j = 0; j < tokens.length; j++) {
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
             }
+            vm.revertToState(snapshot);
         }
+    }
+
+    /// With every binding right but no timelock at its address, the tokens are refused.
+    function testTokensRefuseAnUndeployedGovernanceTimelock() external {
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            bindPinned(networks[i].chainId);
+            for (uint256 j = 0; j < tokens.length; j++) {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        LibTimelockController.TimelockNotDeployed.selector,
+                        LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+                    )
+                );
+                harness.exposedPreDeployCheck(tokens[j], networks[i]);
+            }
+        }
+    }
+
+    /// Other code at the governance timelock's address is refused, with its hash.
+    function testTokensRefuseAGovernanceTimelockWithOtherCode() external {
+        bytes memory code = hex"00";
+        TokenConfig[] memory configs = LibProdTokenConfig.testTokenConfigs();
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        vm.etch(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, code);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockCodehashMismatch.selector,
+                LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+                LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH,
+                keccak256(code)
+            )
+        );
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
+    }
+
+    /// A timelock with the pinned code but another proposer than the chain's Safe is refused.
+    function testTokensRefuseAGovernanceTimelockWithAnotherProposer(address proposer) external {
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        address safe = LibSafeInvariants.safeForChainId(networks[0].chainId);
+        vm.assume(proposer != safe && proposer != address(0));
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibProdTokenConfig.testTokenConfigs());
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        deployTimelock(proposer);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockMissingRole.selector,
+                LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+                LibTimelockInvariants.TIMELOCK_PROPOSER_ROLE,
+                safe
+            )
+        );
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
+    }
+
+    /// The binding checks run first: with the timelock missing too, an unbound vault beacon is what the operator sees.
+    function testTokensReportTheBindingBeforeTheTimelock() external {
+        TokenConfig[] memory configs = LibProdTokenConfig.testTokenConfigs();
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(configs);
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                IConfigRegistryV5.NameNotRegistered.selector,
+                LibRegistryAuthority.ROOT_AUTHORITY,
+                LibStoxConfig.VAULT_BEACON_NAME
+            )
+        );
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
     }
 
     function testWrappersRefuseUnboundWrapperBeacon() external {

@@ -110,6 +110,16 @@
   beacon has no code). A token's address commits to the beacon name, not the
   implementation, so a token deployed through a beacon serving a hook-less
   implementation would never get an asset id.
+- **`Deploy.preDeployCheck` refuses a beacon or token suite unless the
+  governance timelock that owns them is in its pinned state**
+  (`LibTimelockInvariants.assertTimelockState` with the chain's Safe as
+  proposer, so `TimelockNotDeployed`, `TimelockCodehashMismatch`,
+  `TimelockMissingRole` and the other `LibTimelockController` errors). It runs
+  after the binding checks. `stox-orchestrator-beacon` now goes through the
+  beacon branch too, so it is refused unless the beacon initial owner binding is
+  `STOX_GOVERNANCE_TIMELOCK` (`NameNotRegistered` when unbound,
+  `BeaconInitialOwnerMismatch` when bound to another address); before, it had no
+  check.
 - **Pins moved:** facet `0xEcbC00c59019fe72628bE5e70E01BcF31460301D`, receipt
   vault `0x45C8FeF0bBa6230759F28DC7328DE50Da8f7008F`, wrapped token vault
   `0x8405cb839951dECd3D0bbb620e809A3eE300616b`, receipt-vault beacon
