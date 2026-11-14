@@ -23,11 +23,7 @@ import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/acce
 import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
 import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
-import {
-    MalformedUnderlyingTicker,
-    MalformedUnderlyingName,
-    MalformedUnderlyingIsin
-} from "../error/ErrUnderlying.sol";
+import {MalformedUnderlyingTicker, MalformedUnderlyingName, MalformedUnderlyingIsin} from "../error/ErrUnderlying.sol";
 import {IStoxTokenConfigV1, StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../interface/IStoxTokenConfigV1.sol";
 import {
     InvalidStoxTokenConfigTag,

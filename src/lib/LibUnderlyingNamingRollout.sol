@@ -214,9 +214,8 @@ library LibUnderlyingNamingRollout {
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
             targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
-            payloads[tokenIndex] = abi.encodeCall(
-                IStoxUnderlyingV2.setUnderlying, (config.ticker, config.underlyingName, config.isin)
-            );
+            payloads[tokenIndex] =
+                abi.encodeCall(IStoxUnderlyingV2.setUnderlying, (config.ticker, config.underlyingName, config.isin));
         }
     }
 
