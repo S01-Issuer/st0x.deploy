@@ -131,6 +131,12 @@ library LibStoxMigrations {
     bytes32 internal constant EXECUTE_REVOKE_SERVICE_SIGNER =
         keccak256("script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol");
 
+    /// @notice `script/20261111-qsep-set-fleet-authoriser.s.sol`: the Base
+    /// tQSEP vault moved onto the fleet authoriser, and the retired signer's
+    /// V3 clone roles revoked, in one Safe MultiSend, recorded by the Safe in
+    /// a later bundle.
+    bytes32 internal constant QSEP_SET_FLEET_AUTHORISER = keccak256("script/20261111-qsep-set-fleet-authoriser.s.sol");
+
     /// @notice `script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol`.
     bytes32 internal constant HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK =
         keccak256("script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol");

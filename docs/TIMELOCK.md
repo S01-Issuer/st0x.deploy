@@ -22,6 +22,36 @@ After the migration executes, the timelock is:
   `20261006-orchestrator-admin-to-timelock` executes) — so granting or revoking
   `MINT`, `BURN` and `EMERGENCY` on the orchestrator is delay-gated.
 
+**Exception: tQSEP on Base.** The tQSEP vault
+(`LibTokenInvariants.QSEP_RECEIPT_VAULT`) is outside the production token table,
+so the migration skipped it. Its `owner()` is still the token-owner Safe, so its
+`onlyOwner` surfaces (`setAuthorizer`, `setUnderlying`, `transferOwnership`,
+owner freezes) are direct Safe transactions, with no delay. Its authoriser is
+the fleet authoriser `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` once the
+Safe calls `setAuthorizer` on the vault. Actions → `run-script` →
+`20261111-qsep-set-fleet-authoriser`, network `base`, authors that call in one
+Safe bundle with three revokes on the V3 clone: `revokeRole` of `DEPOSIT`,
+`WITHDRAW` and `CERTIFY` from the retired Fireblocks signer
+`LibAuthoriserInvariants.V3_RETIRED_SIGNER_1C66` (`0x1c66…d1A9`), every role it
+holds there. The Safe holds each role's `_ADMIN` on the V3 clone, so the revokes
+have no delay. The pre-flight refuses if any of the three is not held, or if the
+Safe does not hold its admin. The bundle does not move the vault `owner()`: it
+stays on the Safe until the cutover is verified. The Safe Transaction Builder
+sends a batch of two or more transactions as one DELEGATECALL to
+`MultiSendCallOnly` v1.4.1 (`0x9641…02e2`), so the script logs that
+transaction's `SafeTxHash` at the live nonce and at the three nonces after it.
+The root line on Base is still at genesis, so the calls go without their record;
+once they execute, a re-dispatch authors the record-only bundle (one direct
+CALL), which the registry accepts after
+`20261109-execute-revoke-service-signer-deposit-withdraw`. On Base the record is
+refused while the retired signer still holds any of the three roles. Once the
+vault is on the fleet authoriser, grants that act on it go through the timelock.
+Before that it is on the V3 clone (`STOX_PROD_AUTHORISER_V3_CLONE`), whose
+`_ADMIN` roles are on the Safe. Either way, tQSEP mint and burn authority is not
+delay-gated: the Safe, as vault owner, can point the vault at another authoriser
+(for example a new clone with the Safe as admin) with no delay. Moving the vault
+`owner()` to the timelock is a separate change that closes this.
+
 **Why the beacons are in scope.** Every production token proxies through those
 beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
 in a single transaction — a hostile implementation could re-take vault ownership
@@ -383,68 +413,6 @@ that beacon to serve `LibProdDeployCurrent.STOX_RECEIPT`, so upgrading the
 orchestrator to it needs a receipt-beacon upgrade first, or every token halts
 mint and burn. The live 0.1.30 orchestrator does not check the in-use beacons.
 
-After the beacon batch, every new vault on a beacon that serves this
-implementation must be initialized nameless with an asset id (RAI-4373): its
-`initialize` reverts unless the config's name and symbol are empty and its
-metadata is `LibAssetId.encodeMetadata(assetId)` with a non-empty id. The hook
-is init-only, so live tokens are unaffected and report `assetId() == ""`.
-
-**V6 listings are deployed nameless.** A V6 token's address commits to its asset
-id, region, authority and beacon names, not to its name or symbol. It deploys
-with an empty name and symbol. Its owner is the RBAC owner of its region, which
-`Deploy.preDeployCheck` requires to be the Zoltu-deployed
-`LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` (not the per-Safe timelocks that
-own the live tokens). Anyone names it from a signed listing (`nameListing`,
-below); after that only that timelock renames it, with `setUnderlying` and the
-48h delay. Rollout rule: do not publish a V6 token to the st0x.registry,
-activate it in the bots, give it mint traffic, or trade it until it is named and
-its `name()` and `symbol()` read back as expected. Until then the vault reports
-`""` / `""` and the wrapper `"Wrapped "` / `"w"`, which the liquidity parser
-does not accept. A token's address commits to the vault beacon name, not to the
-implementation the beacon serves, so `VAULT_BEACON_NAME` must only ever resolve
-to a beacon that serves an implementation with the asset id hook and the
-`assetId()` getter. `Deploy.preDeployCheck` refuses a token suite unless the
-bound vault beacon serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll
-a V6 vault beacon back to an implementation without the hook: the asset ids are
-public, so any undeployed pinned row could then be deployed with no asset id,
-forever.
-
-**Naming V6 tokens from a signed listing.** `nameListing` on a V6 token takes
-its asset id, ticker and underlying name, a proof, a root and a signature, and
-sets the ticker and name as `setUnderlying` does, once. It reverts unless the
-token has that asset id and no ticker or name yet, the leaf of the token's own
-address and the three fields is in the root, and the listing signer signed the
-root. The leaf is OpenZeppelin's `StandardMerkleTree` leaf of
-`(address, string, string, string)`. The digest (`LibListing.digest`) is EIP-712
-with no chain id and no verifying contract, and a V6 token's address is the same
-on every chain, so one signature names the same tokens on every chain, including
-chains added later.
-
-- **The signer binding.** `nameListing` reads `st0x.listing-signer.v1` from the
-  `ConfigRegistry` under `LibListing.LISTING_AUTHORITY`, the governance timelock
-  itself, at every call. Only the timelock writes under it, so binding or
-  rotating the signer is a timelock operation: the Safe schedules
-  `registerV5(LISTING_AUTHORITY, LISTING_SIGNER_NAME, "address", abi.encode(signer), "")`
-  on the registry, and anyone executes it after 48h. The timelock never approves
-  a registry delegate: a delegate could rebind at once. Operations never expire,
-  so before a bind or rotation check that no other pending operation targets the
-  registry or the timelock itself, and cancel abandoned binds. The signer key
-  signs listing roots and nothing else.
-- **Stale roots and a lost key.** A signed root never expires: a leaf can still
-  name a fresh token of its asset id on a new chain after the issuer renamed.
-  Rotating the signer on a chain retires every root the old key signed there;
-  sign the current roots again with the new key. A compromised key can name
-  unnamed V6 tokens with any name and symbol, which also feeds the mint
-  weighting's price key (`symbol()`); named tokens refuse. The response is to
-  rotate the signer and rename the affected tokens with `setUnderlying`, 48h
-  each.
-- **Deploy and name in one transaction.** Send Multicall3
-  (`0xcA11bde05977b3631167028862bE2a173976CA11`) `aggregate3` with the token's
-  factory call and its `nameListing` call, both with `allowFailure = false`, so
-  a refused naming deploys nothing. If the token already has code, send the
-  `nameListing` call alone. Check Multicall3's code on a chain before its first
-  listing.
-
 Execute each matured batch with `20261021-execute-underlying-naming` `execute()`
 from the CI deploy key, one operation per dispatch. On HyperEVM the rename batch
 needs more gas than a small block holds, so enable big blocks for the deploy key
@@ -520,7 +488,8 @@ The root line runs, after the backfill: `20261022-bind-beacon-initial-owner` →
 `20261021-schedule-underlying-naming-rename` →
 `20261021-execute-underlying-naming` →
 `20261109-schedule-revoke-service-signer-deposit-withdraw` →
-`20261109-execute-revoke-service-signer-deposit-withdraw`.
+`20261109-execute-revoke-service-signer-deposit-withdraw` →
+`20261111-qsep-set-fleet-authoriser`.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over
