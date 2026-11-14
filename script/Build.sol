@@ -48,7 +48,7 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthor
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.sol";
-import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "./lib/LibUnderlyingSnapshotBuilder.sol";
+import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "./LibUnderlyingSnapshotBuilder.sol";
 import {TokenConfig, UNDERLYING_SNAPSHOT_AS_OF} from "../src/lib/LibProdTokenConfig.sol";
 
 contract Build is Script, StoxDeploySuites {

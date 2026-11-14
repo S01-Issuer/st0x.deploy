@@ -24,10 +24,7 @@ import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {UNDERLYING_SNAPSHOT_ROOT} from "../../../src/generated/LibUnderlyingSnapshotCode.sol";
-import {
-    LibUnderlyingSnapshotBuilder,
-    UnderlyingSnapshotRow
-} from "../../../script/lib/LibUnderlyingSnapshotBuilder.sol";
+import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../../script/LibUnderlyingSnapshotBuilder.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LegacyInitStoxReceiptVault} from "./LegacyInitStoxReceiptVault.sol";
 

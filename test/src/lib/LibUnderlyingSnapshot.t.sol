@@ -15,10 +15,7 @@ import {
     LibUnderlyingSnapshotCode,
     UNDERLYING_SNAPSHOT_ROOT
 } from "../../../src/generated/LibUnderlyingSnapshotCode.sol";
-import {
-    LibUnderlyingSnapshotBuilder,
-    UnderlyingSnapshotRow
-} from "../../../script/lib/LibUnderlyingSnapshotBuilder.sol";
+import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../../script/LibUnderlyingSnapshotBuilder.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 contract LibUnderlyingSnapshotTest is Test {

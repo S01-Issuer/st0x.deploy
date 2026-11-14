@@ -11,7 +11,7 @@ import {
     UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH,
     UNDERLYING_SNAPSHOT_SHARD_MAGIC,
     UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH
-} from "../../src/lib/LibUnderlyingSnapshot.sol";
+} from "../src/lib/LibUnderlyingSnapshot.sol";
 
 uint8 constant UNDERLYING_SNAPSHOT_META_DEPTH = 3;
 uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARD_ROWS = 256;
@@ -38,6 +38,8 @@ library LibUnderlyingSnapshotBuilder {
         bytes memory offsets;
         bytes memory body;
         for (uint256 i = 0; i < rows.length; i++) {
+            // build rejects any shard whose data passes EIP-170, far below 2^16.
+            // forge-lint: disable-next-line(unsafe-typecast)
             offsets = abi.encodePacked(offsets, uint16(rowsStart + body.length));
             body = abi.encodePacked(
                 body,
