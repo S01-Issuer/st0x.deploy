@@ -18,9 +18,9 @@ import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.s
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 
 /// @title QsepAuthoriserProdTest
-/// @notice The tQSEP triple, read against live Base, and the one-call
-/// token-owner Safe transaction that moves the tQSEP vault from the V3
-/// authoriser clone onto the fleet authoriser `STOX_PROD_AUTHORISER`.
+/// @notice The one-call token-owner Safe transaction that moves the tQSEP
+/// vault from the V3 authoriser clone onto the fleet authoriser
+/// `STOX_PROD_AUTHORISER`.
 /// @dev The before-and-after tests fork Base at `PRE_SWAP_BLOCK`, where the
 /// vault is still on the V3 clone, so they do not change once the Safe
 /// transaction executes. The vault cannot go back to the V3 clone (see
