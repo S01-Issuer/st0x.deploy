@@ -105,7 +105,10 @@ contract LibUnderlyingSnapshotTest is Test {
         return rows;
     }
 
-    function assertRoundTrips(uint256 asOf, bytes32 seed, UnderlyingSnapshotRow[] memory rows) internal returns (uint256) {
+    function assertRoundTrips(uint256 asOf, bytes32 seed, UnderlyingSnapshotRow[] memory rows)
+        internal
+        returns (uint256)
+    {
         (address root, uint256 shardCount) = deploy(asOf, rows);
         for (uint256 i = 0; i < rows.length; i++) {
             LibUnderlyingSnapshot.Lookup memory row = LibUnderlyingSnapshot.lookup(root, rows[i].token);

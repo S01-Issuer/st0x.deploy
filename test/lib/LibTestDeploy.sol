@@ -34,10 +34,7 @@ import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
-import {
-    LibUnderlyingSnapshotCode,
-    UNDERLYING_SNAPSHOT_ROOT
-} from "../../src/generated/LibUnderlyingSnapshotCode.sol";
+import {LibUnderlyingSnapshotCode, UNDERLYING_SNAPSHOT_ROOT} from "../../src/generated/LibUnderlyingSnapshotCode.sol";
 
 /// @title LibTestDeploy
 /// @notice The production token set on the local EVM: the candidate

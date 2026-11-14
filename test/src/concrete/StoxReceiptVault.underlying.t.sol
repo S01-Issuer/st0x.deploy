@@ -90,7 +90,9 @@ contract StoxReceiptVaultUnderlyingTest is Test {
             vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 2)),
             bytes32(0x5553363730363647313034300000000000000000000000000000000000000018)
         );
-        assertEq(vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)), bytes32(uint256(1_800_000_000)));
+        assertEq(
+            vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)), bytes32(uint256(1_800_000_000))
+        );
     }
 
     function testSetUnderlyingStampsBlockTimestamp(uint32 timestamp) external {
@@ -98,7 +100,9 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         vm.warp(timestamp);
         vm.prank(OWNER);
         underlying().setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
-        assertEq(vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)), bytes32(uint256(timestamp)));
+        assertEq(
+            vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)), bytes32(uint256(timestamp))
+        );
     }
 
     function testSetUnderlyingLeavesOzErc20SlotsUntouched() external {
