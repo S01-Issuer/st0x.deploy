@@ -23,15 +23,13 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
-import {LibTestOrchestratorConfigBind} from "../lib/LibTestOrchestratorConfigBind.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
 
 /// @title BindBeaconInitialOwnerRootLineTest
 /// @notice The bind on HyperEVM at its pinned pre-backfill block, with the
-/// governance timelock deployed, the root's unscoped approval of the Safe
-/// written and the V5 backfill bundle executed on the fork, onto the executed
-/// orchestrator config bind bundle.
+/// governance timelock deployed and the root's unscoped approval of the Safe
+/// written on the fork, onto the executed V5 backfill bundle.
 contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
     IConfigRegistryV5 internal constant CONFIG_REGISTRY =
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
@@ -45,7 +43,7 @@ contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG;
+        return LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
     }
 
     function landBeforeOnto() internal override {
@@ -56,13 +54,12 @@ contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
             "timelock address"
         );
         LibTestBeaconInitialOwnerBind.approveSafe(vm, safeAddress());
-        LibSafeFork.executeBundle(
-            vm, Safe(payable(safeAddress())), new BackfillMigrationRegistryV5Harness("root-line").callAuthorBundle()
-        );
     }
 
     function landOnto() internal override {
-        LibTestOrchestratorConfigBind.execute(vm, safeAddress(), "root-line");
+        LibSafeFork.executeBundle(
+            vm, Safe(payable(safeAddress())), new BackfillMigrationRegistryV5Harness("root-line").callAuthorBundle()
+        );
     }
 
     function restampAtThisMoment() internal override {

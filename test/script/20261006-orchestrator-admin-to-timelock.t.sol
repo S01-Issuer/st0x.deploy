@@ -23,7 +23,6 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
-import {LibTestOrchestratorConfigBind} from "../lib/LibTestOrchestratorConfigBind.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibTestTamperedArtifact} from "../lib/LibTestTamperedArtifact.sol";
 
@@ -31,9 +30,8 @@ import {LibTestTamperedArtifact} from "../lib/LibTestTamperedArtifact.sol";
 /// @notice The admin move on every deployment network, at its pinned
 /// pre-backfill block. The bundle walks the line: before the V5 backfill the
 /// script refuses and the bundle cannot execute, at the backfill it refuses;
-/// with the backfill, orchestrator config bind and beacon-initial-owner bind
-/// bundles executed on the fork `run()` executes the move through the Safe,
-/// proves it
+/// with the backfill and beacon-initial-owner bind bundles executed on the
+/// fork `run()` executes the move through the Safe, proves it
 /// and writes the artifact, `verify` accepts that artifact, and the artifact
 /// executed by the owners leaves the state the invariants demand and makes a
 /// re-dispatch refuse.
@@ -48,7 +46,6 @@ contract OrchestratorAdminToTimelockTest is Test {
 
     function executeBackfillThenBind(address safe) internal {
         executeBackfill(safe);
-        LibTestOrchestratorConfigBind.execute(vm, safe, "admin-move-prerequisite");
         LibTestBeaconInitialOwnerBind.execute(vm, safe, "admin-move-prerequisite");
     }
 
@@ -84,7 +81,6 @@ contract OrchestratorAdminToTimelockTest is Test {
             abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5)
         );
         script.callPreflight();
-        LibTestOrchestratorConfigBind.execute(vm, safe, network);
         LibTestBeaconInitialOwnerBind.execute(vm, safe, network);
 
         uint256 preRun = vm.snapshotState();

@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
@@ -10,9 +9,16 @@ import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
 
-import {SafeNotOrchestratorConfigDelegate} from "../../script/20261110-bind-orchestrator-config.s.sol";
+import {SafeNotOrchestratorConfigDelegate} from "../../script/20261113-bind-orchestrator-config.s.sol";
+import {
+    scheduleRevokeServiceSignerDeclaration
+} from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
+import {
+    executeRevokeServiceSignerDeclaration
+} from "../../script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol";
+import {qsepSetFleetAuthoriserDeclaration} from "../../script/20261111-qsep-set-fleet-authoriser.s.sol";
 import {BindOrchestratorConfigHarness} from "./BindOrchestratorConfigHarness.sol";
-import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
+import {RevokeServiceSignerDepositWithdrawFixture} from "./RevokeServiceSignerDepositWithdrawFixture.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdOrchestratorParams} from "../../src/lib/LibProdOrchestratorParams.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -25,13 +31,13 @@ import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 /// @title BindOrchestratorConfigTest
 /// @notice The bind on every deployment network at its pinned pre-backfill
-/// block, with the V5 backfill bundle executed first and the root's unscoped
-/// approval of the Safe written on the fork.
-contract BindOrchestratorConfigTest is Test {
-    function executeBackfill(address safe, string memory tag) internal {
-        LibSafeFork.executeBundle(
-            vm, Safe(payable(safe)), new BackfillMigrationRegistryV5Harness(tag).callAuthorBundle()
-        );
+/// block, with the root line advanced through the tQSEP record and the root's
+/// unscoped approval of the Safe written on the fork.
+contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture {
+    function advanceRootLineToQsepOnto() internal {
+        advanceRootLineToRevokeSchedule();
+        writeRecord(scheduleRevokeServiceSignerDeclaration());
+        writeRecord(executeRevokeServiceSignerDeclaration());
     }
 
     function onChain(string memory message) internal view returns (string memory) {
@@ -47,7 +53,12 @@ contract BindOrchestratorConfigTest is Test {
 
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
         script.callPreflight();
-        executeBackfill(safe, network);
+        advanceRootLineToQsepOnto();
+        vm.expectRevert(
+            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.EXECUTE_REVOKE_SERVICE_SIGNER)
+        );
+        script.callPreflight();
+        writeRecord(qsepSetFleetAuthoriserDeclaration());
 
         uint256 preRun = vm.snapshotState();
         script.run();
@@ -77,20 +88,21 @@ contract BindOrchestratorConfigTest is Test {
         script.callPreflight();
     }
 
-    function backfilledWithoutUnscopedApproval(string memory tag)
+    function qsepRecordedWithoutUnscopedApproval(string memory tag)
         internal
         returns (BindOrchestratorConfigHarness, address)
     {
         LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
         BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness(tag);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        executeBackfill(safe, tag);
+        advanceRootLineToQsepOnto();
+        writeRecord(qsepSetFleetAuthoriserDeclaration());
         LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
         return (script, safe);
     }
 
     function testBindLandsFromASafeTheRootApprovesForEachNameAlone() external {
-        (BindOrchestratorConfigHarness script, address safe) = backfilledWithoutUnscopedApproval("scoped");
+        (BindOrchestratorConfigHarness script, address safe) = qsepRecordedWithoutUnscopedApproval("scoped");
         LibTestConfigRegistryDelegates.approve(vm, LibStoxConfig.ORCHESTRATOR_BEACON_NAME, safe);
         LibTestConfigRegistryDelegates.approve(vm, LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, safe);
         script.callPreflight();
@@ -99,7 +111,7 @@ contract BindOrchestratorConfigTest is Test {
     }
 
     function testPreflightRefusesASafeTheRootDoesNotApprove() external {
-        (BindOrchestratorConfigHarness script, address safe) = backfilledWithoutUnscopedApproval("unapproved");
+        (BindOrchestratorConfigHarness script, address safe) = qsepRecordedWithoutUnscopedApproval("unapproved");
         vm.expectRevert(
             abi.encodeWithSelector(
                 SafeNotOrchestratorConfigDelegate.selector, LibStoxConfig.ORCHESTRATOR_BEACON_NAME, safe
@@ -109,7 +121,7 @@ contract BindOrchestratorConfigTest is Test {
     }
 
     function assertPreflightRefusesASafeApprovedOnlyFor(bytes32 approved, bytes32 unapproved) internal {
-        (BindOrchestratorConfigHarness script, address safe) = backfilledWithoutUnscopedApproval("unapproved");
+        (BindOrchestratorConfigHarness script, address safe) = qsepRecordedWithoutUnscopedApproval("unapproved");
         LibTestConfigRegistryDelegates.approve(vm, approved, safe);
         vm.expectRevert(abi.encodeWithSelector(SafeNotOrchestratorConfigDelegate.selector, unapproved, safe));
         script.callPreflight();
@@ -142,7 +154,7 @@ contract BindOrchestratorConfigTest is Test {
             vm.chainId(networks[i].chainId);
             assertEq(
                 script.callScriptArtifactPath(),
-                string.concat("out/20261110-bind-orchestrator-config-", vm.toString(networks[i].chainId), ".json")
+                string.concat("out/20261113-bind-orchestrator-config-", vm.toString(networks[i].chainId), ".json")
             );
         }
     }

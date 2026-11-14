@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
-import {BindOrchestratorConfig} from "../../script/20261110-bind-orchestrator-config.s.sol";
+import {BindOrchestratorConfig} from "../../script/20261113-bind-orchestrator-config.s.sol";
 
 /// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
 contract BindOrchestratorConfigHarness is BindOrchestratorConfig {

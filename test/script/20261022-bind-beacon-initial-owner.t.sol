@@ -20,14 +20,12 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {LibTestConfigRegistryDelegates} from "../lib/LibTestConfigRegistryDelegates.sol";
-import {LibTestOrchestratorConfigBind} from "../lib/LibTestOrchestratorConfigBind.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 /// @title BindBeaconInitialOwnerTest
 /// @notice The bind on every deployment network at its pinned pre-backfill
-/// block, with the V5 backfill and orchestrator config bind bundles executed
-/// first, the root's unscoped approval of the Safe and the governance timelock
-/// written on the fork.
+/// block, with the V5 backfill bundle executed first, the root's unscoped
+/// approval of the Safe and the governance timelock written on the fork.
 contract BindBeaconInitialOwnerTest is Test {
     function executeBackfill(address safe, string memory tag) internal {
         LibSafeFork.executeBundle(
@@ -59,11 +57,6 @@ contract BindBeaconInitialOwnerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
         script.callPreflight();
         executeBackfill(safe, network);
-        vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5)
-        );
-        script.callPreflight();
-        LibTestOrchestratorConfigBind.execute(vm, safe, network);
 
         uint256 preRun = vm.snapshotState();
         script.run();
@@ -84,22 +77,17 @@ contract BindBeaconInitialOwnerTest is Test {
         script.callPreflight();
     }
 
-    function orchestratorBoundWithoutUnscopedApproval(string memory tag)
-        internal
-        returns (BindBeaconInitialOwnerHarness, address)
-    {
+    function backfilledWithoutApproval(string memory tag) internal returns (BindBeaconInitialOwnerHarness, address) {
         LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
         BindBeaconInitialOwnerHarness script = new BindBeaconInitialOwnerHarness(tag);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         deployTimelock(safe);
         executeBackfill(safe, tag);
-        LibTestOrchestratorConfigBind.execute(vm, safe, tag);
-        LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
         return (script, safe);
     }
 
     function testBindLandsFromASafeTheRootApprovesForTheNameAlone() external {
-        (BindBeaconInitialOwnerHarness script, address safe) = orchestratorBoundWithoutUnscopedApproval("scoped");
+        (BindBeaconInitialOwnerHarness script, address safe) = backfilledWithoutApproval("scoped");
         LibTestConfigRegistryDelegates.approve(vm, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, safe);
         script.callPreflight();
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
@@ -107,7 +95,7 @@ contract BindBeaconInitialOwnerTest is Test {
     }
 
     function testPreflightRefusesASafeTheRootDoesNotApproveAsBinder() external {
-        (BindBeaconInitialOwnerHarness script, address safe) = orchestratorBoundWithoutUnscopedApproval("unapproved");
+        (BindBeaconInitialOwnerHarness script, address safe) = backfilledWithoutApproval("unapproved");
         vm.expectRevert(abi.encodeWithSelector(SafeNotBeaconInitialOwnerDelegate.selector, safe));
         script.callPreflight();
     }
