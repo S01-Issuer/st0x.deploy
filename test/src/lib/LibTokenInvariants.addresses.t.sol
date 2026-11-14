@@ -387,30 +387,22 @@ contract LibTokenInvariantsAddressesTest is Test {
         string name;
         address beacon;
         address implementationAtPinnedBlock;
-        address implementationAtBaseHead;
     }
 
-    /// The receipt and receipt-vault beacons serve 0.1.30 at HEAD after the
-    /// fleet upgrade; the wrapped token vault beacon still serves 0.1.1.
     function prodV1Beacons() internal pure returns (ProdV1Beacon[] memory) {
         ProdV1Beacon[] memory beacons = new ProdV1Beacon[](3);
         beacons[0] = ProdV1Beacon(
-            "STOX_RECEIPT_BEACON_V1",
-            LibProdDeployV1.STOX_RECEIPT_BEACON_V1,
-            LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION,
-            LibProdDeployV4.STOX_RECEIPT_0_1_30
+            "STOX_RECEIPT_BEACON_V1", LibProdDeployV1.STOX_RECEIPT_BEACON_V1, LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION
         );
         beacons[1] = ProdV1Beacon(
             "STOX_RECEIPT_VAULT_BEACON_V1",
             LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1,
-            LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION,
-            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30
+            LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION
         );
         beacons[2] = ProdV1Beacon(
             "STOX_WRAPPED_TOKEN_VAULT_BEACON_V1",
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1,
-            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
-            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION
         );
         return beacons;
     }
