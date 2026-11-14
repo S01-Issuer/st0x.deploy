@@ -275,12 +275,20 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (!LibUnderlying.nameWellFormed(bytes(newName))) revert MalformedUnderlyingName(newName);
         if (!LibUnderlying.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
 
-        LibUnderlying.UnderlyingStorage storage s = LibUnderlying.getStorage();
-        emit UnderlyingSet(msg.sender, s.symbol, s.name, s.isin, newSymbol, newName, newIsin);
-        s.symbol = newSymbol;
-        s.name = newName;
-        s.isin = newIsin;
-        s.timestamp = uint256(block.timestamp);
+        LibUnderlying.UnderlyingStorage storage underlyingStorage = LibUnderlying.getStorage();
+        emit UnderlyingSet(
+            msg.sender,
+            underlyingStorage.symbol,
+            underlyingStorage.name,
+            underlyingStorage.isin,
+            newSymbol,
+            newName,
+            newIsin
+        );
+        underlyingStorage.symbol = newSymbol;
+        underlyingStorage.name = newName;
+        underlyingStorage.isin = newIsin;
+        underlyingStorage.timestamp = uint256(block.timestamp);
     }
 
     /// @inheritdoc IStoxTokenConfigV1

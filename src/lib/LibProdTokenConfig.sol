@@ -16,7 +16,7 @@ pragma solidity ^0.8.25;
 /// holds exactly those.
 ///
 /// The underlying snapshot is built from `ticker`, `underlyingName` and
-/// `isin`; the vault owner can override them with
+/// `isin`; the vault owner overrides them per token with
 /// `IStoxUnderlyingV2.setUnderlying`. Once resolved, the receipt vault reports
 /// `"t" + ticker` / `underlyingName + " (ST0x)"` and the wrapped token vault
 /// `ticker + "s"` / the receipt vault's name. A legacy token with no
@@ -25,8 +25,7 @@ pragma solidity ^0.8.25;
 /// `"w" + symbol`.
 /// @param underlying The frozen chain-agnostic join key, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
-/// @param ticker The current underlying ticker: the `ticker` argument of
-/// `setUnderlying`.
+/// @param ticker The current underlying ticker, as the snapshot records it.
 /// @param name The receipt vault's ERC-20 `name()`, verbatim from Base.
 /// @param symbol The receipt vault's ERC-20 `symbol()`, verbatim from Base.
 /// @param region Where the underlying is listed.

@@ -21,8 +21,3 @@ error MalformedUnderlyingIsin(string isin);
 /// do not match the snapshot format.
 /// @param account The snapshot contract whose code was refused.
 error MalformedUnderlyingSnapshot(address account);
-
-/// Thrown when a per-token underlying override binding's value is not the
-/// canonical `(string,string)` encoding.
-/// @param name The registry name of the refused binding.
-error NonCanonicalUnderlyingBinding(bytes32 name);
