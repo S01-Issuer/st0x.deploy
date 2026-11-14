@@ -5,8 +5,8 @@ pragma solidity ^0.8.25;
 import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 
 /// @title LibTestTokenRows
-/// @notice Every token row the declaration gives a token suite and a wrapper suite: the production rows, then the
-/// test rows.
+/// @notice Every token row the declaration gives a token suite and a wrapper suite: the production rows with an asset
+/// id, then the test rows.
 library LibTestTokenRows {
     function allRows() internal pure returns (TokenConfig[] memory) {
         TokenConfig[] memory production = LibProdTokenConfig.productionTokenConfigs();
@@ -18,6 +18,6 @@ library LibTestTokenRows {
         for (uint256 i = 0; i < test.length; i++) {
             rows[production.length + i] = test[i];
         }
-        return rows;
+        return LibProdTokenConfig.withAssetId(rows);
     }
 }

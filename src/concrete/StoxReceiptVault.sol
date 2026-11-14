@@ -2,7 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
+import {
+    OffchainAssetReceiptVault,
+    OffchainAssetReceiptVaultConfigV2
+} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {LibCorporateAction, SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../lib/LibCorporateAction.sol";
@@ -11,6 +14,7 @@ import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {AuthorizerMissingCorporateActionAdmin, CorporateActionsFacetNotDeployed} from "../error/ErrCorporateAction.sol";
+import {StoxCorporateActionsFacet} from "./StoxCorporateActionsFacet.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -171,6 +175,32 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         emit AccountMigrated(account, currentCursor, newCursor, storedBalance, newBalance);
 
         LibTotalSupply.onAccountMigrated(currentCursor, storedBalance, newCursor, newBalance);
+    }
+
+    /// @dev Runs rain-vats' `_initialize`, then delegatecalls the pinned facet's `initializeAssetId` with this `initialize(bytes)` calldata, selector swapped.
+    /// Reverts `CorporateActionsFacetNotDeployed` when the facet has no code, and unless the call succeeds with one word.
+    function _initialize(OffchainAssetReceiptVaultConfigV2 memory config) internal virtual override {
+        super._initialize(config);
+        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        bytes4 selector = StoxCorporateActionsFacet.initializeAssetId.selector;
+        bytes4 notDeployed = CorporateActionsFacetNotDeployed.selector;
+        assembly ("memory-safe") {
+            if iszero(extcodesize(facet)) {
+                mstore(0, notDeployed)
+                mstore(4, facet)
+                revert(0, 0x24)
+            }
+            // Scratch space past the free memory pointer: execution continues
+            // after this block, so the low memory Solidity uses is kept intact.
+            let buffer := mload(0x40)
+            mstore(buffer, selector)
+            calldatacopy(add(buffer, 4), 4, sub(calldatasize(), 4))
+            let success := delegatecall(gas(), facet, buffer, calldatasize(), 0, 0)
+            if iszero(and(success, eq(returndatasize(), 0x20))) {
+                returndatacopy(buffer, 0, returndatasize())
+                revert(buffer, returndatasize())
+            }
+        }
     }
 
     /// @notice Routes calls with non-matching selectors to the corporate actions

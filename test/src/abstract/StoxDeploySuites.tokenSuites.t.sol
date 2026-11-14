@@ -15,7 +15,10 @@ import {
     LibRainDeployCloneMechanism,
     REGISTRY_BEACON_PROXY_MECHANISM
 } from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
-import {RegistryBeaconProxyParams} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {
+    LibRainDeployRegistryBeaconProxy,
+    RegistryBeaconProxyParams
+} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVaultConfigV3} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
@@ -23,9 +26,16 @@ import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
-import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {IStoxAssetIdV1} from "../../../src/interface/IStoxAssetIdV1.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
+import {StoxGovernanceTimelock} from "../../../src/concrete/StoxGovernanceTimelock.sol";
+import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
+import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
+import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
 import {LibTestTokenRows} from "../../lib/LibTestTokenRows.sol";
@@ -39,6 +49,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     address internal constant EU_OWNER = address(uint160(uint256(keccak256("st0x.test.token-suites.eu-owner"))));
     address internal constant DEPLOYER = address(uint160(uint256(keccak256("st0x.test.token-suites.deployer"))));
     address internal constant TIMELOCK = address(uint160(uint256(keccak256("st0x.test.token-suites.timelock"))));
+    address internal constant SAFE = address(uint160(uint256(keccak256("st0x.test.token-suites.safe"))));
 
     /// Released and candidate alike, so a suite declared as a release is counted.
     function declaredSuitesWhere(
@@ -85,13 +96,31 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         return string.concat(TOKEN_PREFIX, lowercase(config.symbol));
     }
 
-    /// @return The index of the one config whose underlying salts `suite`'s params.
+    /// @return The index of the one config whose token `suite` deploys or, for a wrapper suite, wraps. A token is
+    /// matched by its asset id salt and its region's RBAC name: a US and an EU row can share an asset id.
     function configIndexOf(TokenConfig[] memory configs, DeploySuite memory suite) internal pure returns (uint256) {
-        bytes32 salt = LibRainDeployCloneMechanism.registryBeaconProxyParams(suite).salt;
+        RegistryBeaconProxyParams memory target = LibRainDeployCloneMechanism.registryBeaconProxyParams(suite);
+        if (target.beaconName == LibStoxConfig.WRAPPER_BEACON_NAME) {
+            address token = abi.decode(target.data, (address));
+            RegistryBeaconProxyParams[] memory tokens = LibProdTokenParams.tokenParams(configs);
+            uint256 hits = 0;
+            uint256 at = 0;
+            for (uint256 j = 0; j < tokens.length; j++) {
+                if (LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(tokens[j]) == token) {
+                    hits++;
+                    at = j;
+                }
+            }
+            assertEq(hits, 1, suite.suite);
+            return at;
+        }
+        (, OffchainAssetReceiptVaultConfigV3 memory config) =
+            abi.decode(target.data, (bytes32, OffchainAssetReceiptVaultConfigV3));
         uint256 matches = 0;
         uint256 index = 0;
         for (uint256 j = 0; j < configs.length; j++) {
-            if (keccak256(bytes(configs[j].underlying)) == salt) {
+            bytes32 rbacName = configs[j].region == Region.US ? LibStoxConfig.RBAC_US_NAME : LibStoxConfig.RBAC_EU_NAME;
+            if (keccak256(bytes(configs[j].assetId)) == target.salt && rbacName == config.rbacName) {
                 matches++;
                 index = j;
             }
@@ -150,8 +179,8 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             assertEq(abi.encode(suiteParams), abi.encode(params[j]), configs[j].underlying);
             (, OffchainAssetReceiptVaultConfigV3 memory config) =
                 abi.decode(suiteParams.data, (bytes32, OffchainAssetReceiptVaultConfigV3));
-            assertEq(config.symbol, configs[j].symbol, configs[j].underlying);
-            assertEq(config.name, configs[j].name, configs[j].underlying);
+            assertEq(config.symbol, "", configs[j].underlying);
+            assertEq(config.name, "", configs[j].underlying);
         }
     }
 
@@ -244,8 +273,8 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
         string memory label
     ) internal view {
         bool us = config.region == Region.US;
-        assertEq(token.name(), config.name, label);
-        assertEq(token.symbol(), config.symbol, label);
+        assertEq(token.name(), "", label);
+        assertEq(token.symbol(), "", label);
         assertEq(token.owner(), us ? US_OWNER : EU_OWNER, label);
         assertEq(address(token.authorizer()), address(authorizer), label);
         assertEq(
@@ -296,6 +325,73 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
                 assertEq(StoxWrappedTokenVault(wrapper).asset(), token, label);
             }
             assertTrue(vm.revertToState(preDeploy), networks[i].name);
+        }
+    }
+
+    /// A test token deploys nameless through its suite with the real governance timelock as its owner; the first
+    /// `setUnderlying` is a timelock operation that executes after the 48h delay and names the token, keeping its
+    /// address and asset id.
+    function testNamelessTokenIsNamedThroughTheTimelock() external {
+        address timelockAddress = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
+        LibTestTokenEnvironment.deploy(vm, TIMELOCK, timelockAddress, timelockAddress);
+        LibTestDeploy.bind(
+            vm,
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            LibStoxConfig.TIMELOCK_INITIAL_PROPOSER_NAME,
+            "address",
+            abi.encode(SAFE)
+        );
+        TimelockController timelock =
+            TimelockController(payable(LibRainDeploy.deployZoltu(type(StoxGovernanceTimelock).creationCode)));
+        assertEq(address(timelock), timelockAddress, "timelock address");
+
+        TokenConfig memory config = LibProdTokenConfig.testTokenConfigs()[0];
+        DeployDeclaration memory declared = declaration();
+        DeploySuite memory suite = suiteByName(declared, string.concat(TOKEN_PREFIX, lowercase(config.symbol)));
+        address deployed =
+            deployStep(declared, suite)(vm, "base", DEPLOYER, deployStepData(declared, suite, block.chainid));
+        assertEq(deployed, suite.storedDeployedAddress, "address");
+        StoxReceiptVault token = StoxReceiptVault(payable(deployed));
+        assertEq(token.owner(), timelockAddress, "owner");
+        assertEq(IStoxAssetIdV1(deployed).assetId(), config.assetId, "asset id");
+        assertEq(token.name(), "", "nameless");
+        assertEq(token.symbol(), "", "symbolless");
+
+        bytes memory payload =
+            abi.encodeCall(IStoxUnderlyingV1.setUnderlying, (config.underlying, config.underlyingName));
+        bytes32 salt = keccak256("st0x.test.first-set-underlying");
+        vm.prank(SAFE);
+        timelock.schedule(deployed, 0, payload, bytes32(0), salt, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                TimelockController.TimelockUnexpectedOperationState.selector,
+                timelock.hashOperation(deployed, 0, payload, bytes32(0), salt),
+                bytes32(uint256(2) ** uint8(TimelockController.OperationState.Ready))
+            )
+        );
+        timelock.execute(deployed, 0, payload, bytes32(0), salt);
+
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        timelock.execute(deployed, 0, payload, bytes32(0), salt);
+
+        assertEq(token.symbol(), string.concat("t", config.underlying), "symbol");
+        assertEq(token.name(), string.concat(config.underlyingName, ST0X_NAME_SUFFIX), "name");
+        assertEq(token.symbol(), config.symbol, "symbol is the table symbol");
+        assertEq(IStoxAssetIdV1(deployed).assetId(), config.assetId, "asset id kept");
+        assertEq(deployed, suite.storedDeployedAddress, "address kept");
+    }
+
+    /// Two rows that share an asset id, one per region, each match their own suite.
+    function testSaltAndRegionMatchEachRegionalRowSharingAnAssetId() external pure {
+        TokenConfig[] memory configs = LibProdTokenConfig.testTokenConfigs();
+        configs[1].assetId = configs[0].assetId;
+        RegistryBeaconProxyParams[] memory targets = LibProdTokenParams.tokenParams(configs);
+        for (uint256 i = 0; i < configs.length; i++) {
+            DeploySuite memory suite;
+            suite.suite = configs[i].symbol;
+            suite.mechanismData = abi.encode(REGISTRY_BEACON_PROXY_MECHANISM, abi.encode(targets[i]));
+            suite.dependencies = LibProdTokenParams.tokenDependencies();
+            assertEq(configIndexOf(configs, suite), i, configs[i].underlying);
         }
     }
 }

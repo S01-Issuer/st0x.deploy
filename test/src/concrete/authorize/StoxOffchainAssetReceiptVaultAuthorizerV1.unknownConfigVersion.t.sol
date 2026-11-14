@@ -41,7 +41,7 @@ contract StoxOffchainAssetReceiptVaultAuthorizerV1UnknownConfigVersionTest is St
     function testVaultConfigIsUnknownVersion() external {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizer = newAuthorizer();
         bytes memory data = LibTestDeploy.vaultData(
-            "Token", "TKN", LibRegistryAuthority.ROOT_AUTHORITY, LibTestDeploy.AUTHORIZER_INITIAL_ADMIN_NAME
+            "ST0XTEST", LibRegistryAuthority.ROOT_AUTHORITY, LibTestDeploy.AUTHORIZER_INITIAL_ADMIN_NAME
         );
         vm.expectRevert(
             abi.encodeWithSelector(UnknownAuthorizerConfigVersion.selector, OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG)

@@ -21,9 +21,10 @@ import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// End-to-end naming for a token pair built as in production (registry beacon
-/// proxies over the candidate implementations): the tStock and its wrapper
-/// keep the initialized metadata until the owner sets the underlying ticker
-/// and name, then both carry the names built from it.
+/// proxies over the candidate implementations): the tStock is initialized
+/// nameless, so it and its wrapper report empty or prefix-only metadata until
+/// the owner sets the underlying ticker and name, then both carry the names
+/// built from it.
 contract StoxUnderlyingIntegrationTest is Test {
     address internal constant AUTHORITY = address(uint160(uint256(keccak256("AUTHORITY"))));
     bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
@@ -46,9 +47,7 @@ contract StoxUnderlyingIntegrationTest is Test {
                 )
         );
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, address(this), authorizer);
-        sVault = LibTestDeploy.newVault(
-            AUTHORITY, LibTestDeploy.vaultData("NVIDIA Corporation ST0x", "tNVDA", AUTHORITY, RBAC_NAME)
-        );
+        sVault = LibTestDeploy.newVault(AUTHORITY, LibTestDeploy.vaultData("US67066G1040", AUTHORITY, RBAC_NAME));
         sWrapper = LibTestDeploy.newWrapper(AUTHORITY, address(sVault));
     }
 
@@ -73,15 +72,15 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sWrapper.name(), string.concat(longName, ST0X_NAME_SUFFIX));
     }
 
-    /// Unset: the tStock reports its initialized metadata and the wrapper
-    /// derives "Wrapped " / "w" from it.
+    /// Unset: the tStock reports its empty initialized metadata and the
+    /// wrapper derives "Wrapped " / "w" from it.
     function testUnsetFallbacks() external view {
         assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "");
         assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "");
-        assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation ST0x");
-        assertEq(sWrapper.symbol(), "wtNVDA");
-        assertEq(sWrapper.name(), "Wrapped NVIDIA Corporation ST0x");
+        assertEq(sVault.symbol(), "");
+        assertEq(sVault.name(), "");
+        assertEq(sWrapper.symbol(), "w");
+        assertEq(sWrapper.name(), "Wrapped ");
     }
 
     /// Set: both tokens carry the names built from the underlying ticker and
@@ -101,8 +100,8 @@ contract StoxUnderlyingIntegrationTest is Test {
         vm.etch(facet, "");
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
-        assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation ST0x");
+        assertEq(sVault.symbol(), "");
+        assertEq(sVault.name(), "");
     }
 
     /// Once set, the tStock's metadata is plain ERC-20 storage: reading it
@@ -115,14 +114,14 @@ contract StoxUnderlyingIntegrationTest is Test {
     }
 
     /// The ERC-1155 receipt builds its name and symbol from the vault's
-    /// `symbol()`, which reads "t" + ticker either way.
+    /// live `symbol()`: empty at deploy, "t" + ticker once set.
     function testReceiptFollowsVaultSymbol() external {
         IReceiptV3 receipt = IReceiptV3(address(IReceiptVaultV3(payable(address(sVault))).receipt()));
-        string memory receiptSymbolBefore = receipt.symbol();
-        string memory receiptNameBefore = receipt.name();
+        assertEq(receipt.symbol(), " RCPT");
+        assertEq(receipt.name(), " Receipt");
         IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
-        assertEq(receipt.symbol(), receiptSymbolBefore);
-        assertEq(receipt.name(), receiptNameBefore);
+        assertEq(receipt.symbol(), "tNVDA RCPT");
+        assertEq(receipt.name(), "tNVDA Receipt");
     }
 
     /// A ticker change moves both tokens' metadata with it.

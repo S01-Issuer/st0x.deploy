@@ -29,6 +29,7 @@ import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
+import {IStoxUnderlyingV1} from "../../../../src/interface/IStoxUnderlyingV1.sol";
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
@@ -108,9 +109,12 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         // the beacon the guard version-locks against.
         vault = LibTestDeploy.newVault(
             LibRegistryAuthority.ROOT_AUTHORITY,
-            LibTestDeploy.vaultData("Test tStock", "tTEST", LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME)
+            LibTestDeploy.vaultData("ST0XTEST", LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME)
         );
         receipt = IERC1155(address(vault.receipt()));
+        // The vault deploys nameless; its owner names it `tTEST`.
+        vm.prank(vault.owner());
+        IStoxUnderlyingV1(address(vault)).setUnderlying("TEST", "Test");
 
         // Orchestrator impl behind a real UpgradeableBeacon + BeaconProxy, so
         // OWNER, the bound governance timelock, is its admin.
