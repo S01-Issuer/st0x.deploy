@@ -58,7 +58,10 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         bytes memory out = new bytes(length);
         for (uint256 i = 0; i < length; i++) {
             bytes1 c = bytes1(uint8(0x20 + (i < seed.length ? uint8(seed[i]) : 0) % 0x5f));
-            out[i] = c == '"' || c == "\\" ? bytes1("A") : c;
+            if (c == '"' || c == "\\") {
+                c = "A";
+            }
+            out[i] = c;
         }
         // Breaks any "ST0x" / "(ST0x)" ending.
         out[length - 1] = "A";
