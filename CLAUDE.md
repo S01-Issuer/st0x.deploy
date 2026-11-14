@@ -14,6 +14,10 @@ from the repo and are deliberately absent — do not re-add them.
   unreferenced, and never update one to match a newer deployment — a redeploy
   gets a new release-tag suffix or a new library, keeping the old values intact.
 
+- **The V6 wrapper pins in `LibProdTokenParamsAddressesTest` are fixed.** A red
+  pin means a dependency bump or a `tokenData` change moved a V6 token or
+  wrapper; fix the change that moved it, never paste the new addresses.
+
 - **Every compiler setting stays in the single `[profile.default]`.** Tests
   assert `addr.codehash` against constants derived from _deployed_ bytecode, so
   a second profile compiling with different optimizer settings breaks every
