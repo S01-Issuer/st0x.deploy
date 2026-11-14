@@ -16,13 +16,7 @@ pragma solidity ^0.8.25;
 /// holds exactly those.
 ///
 /// The underlying snapshot is built from `ticker`, `underlyingName` and
-/// `isin`. The vault owner sets the underlying ticker and name after
-/// deployment with `IStoxUnderlyingV1.setUnderlying`. Once both are set,
-/// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
-/// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
-/// Until then the receipt vault reports the `name` + `symbol` it was
-/// initialized with, and the wrapped token vault `"Wrapped " + name` /
-/// `"w" + symbol`.
+/// `isin`.
 /// @param underlying The frozen chain-agnostic join key, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param ticker The current underlying ticker, as the snapshot records it.
