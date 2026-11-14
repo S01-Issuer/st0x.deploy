@@ -26,9 +26,14 @@ library LibUnderlying {
     /// @param symbol The underlying ticker, e.g. "NVDA". Empty when unset.
     /// @param name The underlying asset's name, e.g. "NVIDIA Corporation".
     /// Empty when unset.
+    /// @param isin The underlying asset's current ISIN. Empty when unset.
+    /// @param timestamp The `block.timestamp` of the last `setUnderlying`.
+    /// Zero when unset.
     struct UnderlyingStorage {
         string symbol;
         string name;
+        string isin;
+        uint256 timestamp;
     }
 
     /// @notice Accessor for the underlying identity storage.

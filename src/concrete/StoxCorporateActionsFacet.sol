@@ -21,11 +21,11 @@ import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
-import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
 import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
-import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying.sol";
+import {MalformedUnderlyingTicker, MalformedUnderlyingName, MalformedUnderlyingIsin} from "../error/ErrUnderlying.sol";
 import {IStoxTokenConfigV1, StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../interface/IStoxTokenConfigV1.sol";
 import {
     InvalidStoxTokenConfigTag,
@@ -55,11 +55,11 @@ import {
 ///
 /// Corporate-action storage lives at the ERC-7201 namespace
 /// `rain.storage.corporate-action.1` (see `LibCorporateAction`). The facet
-/// also implements `IStoxUnderlyingV1`, whose ticker and name live at
+/// also implements `IStoxUnderlyingV2`, whose override lives at
 /// `rain.storage.underlying.1` (see `LibUnderlying`). Any future external
 /// entry points added here (e.g. list traversal) must also carry
 /// `onlyDelegatecalled`.
-contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IStoxTokenConfigV1 {
+contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IStoxTokenConfigV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -223,21 +223,21 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
         return cumulative;
     }
 
-    /// @inheritdoc IStoxUnderlyingV1
+    /// @inheritdoc IStoxUnderlyingV2
     function underlyingSymbol() external view override onlyDelegatecalled returns (string memory) {
         string memory symbol = LibUnderlying.getStorage().symbol;
         if (bytes(symbol).length == 0) symbol = LibStoxTokenConfig.getStorage().listingTicker;
         return symbol;
     }
 
-    /// @inheritdoc IStoxUnderlyingV1
+    /// @inheritdoc IStoxUnderlyingV2
     function underlyingName() external view override onlyDelegatecalled returns (string memory) {
         string memory name = LibUnderlying.getStorage().name;
         if (bytes(name).length == 0) name = LibStoxTokenConfig.getStorage().listingName;
         return name;
     }
 
-    /// @inheritdoc IStoxUnderlyingV1
+    /// @inheritdoc IStoxUnderlyingV2
     /// @dev Gated on the vault's `owner()` rather than the authorizer: the
     /// values set the vault's ERC-20 metadata, which is an owner surface
     /// like `setAuthorizer`. `owner()` is a call back into the vault, which
@@ -248,17 +248,32 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
     /// keeps OZ's plain storage-reading getters, so the metadata costs the
     /// vault no bytecode. The initialized name and symbol are overwritten;
     /// they stay on record in the vault's initialization event.
-    function setUnderlying(string calldata newSymbol, string calldata newName) external override onlyDelegatecalled {
+    function setUnderlying(string calldata newSymbol, string calldata newName, string calldata newIsin)
+        external
+        override
+        onlyDelegatecalled
+    {
         if (msg.sender != IOwnable(address(this)).owner()) {
             revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
         }
-        if (bytes(newSymbol).length == 0) revert EmptyUnderlyingSymbol();
-        if (bytes(newName).length == 0) revert EmptyUnderlyingName();
+        if (!LibUnderlying.tickerWellFormed(bytes(newSymbol))) revert MalformedUnderlyingTicker(newSymbol);
+        if (!LibUnderlying.nameWellFormed(bytes(newName))) revert MalformedUnderlyingName(newName);
+        if (!LibUnderlying.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
 
         LibUnderlying.UnderlyingStorage storage underlyingStorage = LibUnderlying.getStorage();
-        emit UnderlyingSet(msg.sender, underlyingStorage.symbol, underlyingStorage.name, newSymbol, newName);
+        emit UnderlyingSet(
+            msg.sender,
+            underlyingStorage.symbol,
+            underlyingStorage.name,
+            underlyingStorage.isin,
+            newSymbol,
+            newName,
+            newIsin
+        );
         underlyingStorage.symbol = newSymbol;
         underlyingStorage.name = newName;
+        underlyingStorage.isin = newIsin;
+        underlyingStorage.timestamp = uint256(block.timestamp);
 
         ERC20Upgradeable.ERC20Storage storage erc20Storage = LibERC20Storage.getStorage();
         erc20Storage._symbol = string.concat("t", newSymbol);

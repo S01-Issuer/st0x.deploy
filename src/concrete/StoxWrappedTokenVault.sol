@@ -8,7 +8,7 @@ import {
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.11/src/interface/ICloneableV2.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
 
 /// @dev Error raised when a zero address is provided for the vault asset.
 error ZeroAsset();
@@ -29,7 +29,7 @@ error ZeroAsset();
 /// that make minimal assumptions/affordances beyond basic ERC20 functionality.
 /// The wrapper's ERC-20 name and symbol are read from the asset on every call,
 /// each field on its own. `symbol()` is the asset's
-/// `IStoxUnderlyingV1.underlyingSymbol()` + "s" when that is non-empty (e.g.
+/// `IStoxUnderlyingV2.underlyingSymbol()` + "s" when that is non-empty (e.g.
 /// "NVDAs"), else "w" + the asset's symbol (e.g. "wtNVDA"). `name()` is the
 /// asset's own name when its `underlyingName()` is non-empty (e.g.
 /// "NVIDIA Corporation (ST0x)"), else "Wrapped " + that name. Any ERC-20
@@ -68,7 +68,7 @@ contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
     }
 
     /// The asset's own ERC-20 name once the asset reports a non-empty
-    /// `IStoxUnderlyingV1.underlyingName()`: for a `StoxReceiptVault` that is
+    /// `IStoxUnderlyingV2.underlyingName()`: for a `StoxReceiptVault` that is
     /// the name built from the underlying, e.g. "NVIDIA Corporation (ST0x)",
     /// so the name format lives in one place. When the asset does not
     /// implement the getter, reverts, returns malformed data or returns an
@@ -76,17 +76,17 @@ contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
     /// @return The wrapped token name.
     function name() public view override(IERC20Metadata, ERC20Upgradeable) returns (string memory) {
         string memory assetName = IERC20Metadata(asset()).name();
-        if (bytes(tryAssetString(IStoxUnderlyingV1.underlyingName.selector)).length > 0) return assetName;
+        if (bytes(tryAssetString(IStoxUnderlyingV2.underlyingName.selector)).length > 0) return assetName;
         return string.concat("Wrapped ", assetName);
     }
 
-    /// The asset's `IStoxUnderlyingV1.underlyingSymbol()` + "s", e.g.
+    /// The asset's `IStoxUnderlyingV2.underlyingSymbol()` + "s", e.g.
     /// "NVDAs". When the asset does not implement it, reverts, returns
     /// malformed data or returns an empty ticker, falls back to "w" + the
     /// asset's ERC-20 symbol.
     /// @return The wrapped token symbol.
     function symbol() public view override(IERC20Metadata, ERC20Upgradeable) returns (string memory) {
-        string memory underlying = tryAssetString(IStoxUnderlyingV1.underlyingSymbol.selector);
+        string memory underlying = tryAssetString(IStoxUnderlyingV2.underlyingSymbol.selector);
         if (bytes(underlying).length > 0) return string.concat(underlying, "s");
         return string.concat("w", IERC20Metadata(asset()).symbol());
     }
