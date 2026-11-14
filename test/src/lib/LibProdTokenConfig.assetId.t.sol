@@ -292,6 +292,8 @@ contract LibProdTokenConfigAssetIdTest is Test, StoxDeploySuites {
         assertFalse(assetIdWellFormed(bytes("0")), "passes the check digit but is not ISIN-shaped");
         assertFalse(assetIdWellFormed(bytes("")), "empty");
         assertFalse(assetIdWellFormed(bytes("st0xabc")), "lowercase");
+        assertFalse(assetIdWellFormed(bytes("ST0Xabc")), "lowercase after ST0X");
+        assertFalse(assetIdWellFormed(bytes("ST0XA-1")), "punctuation after ST0X");
         assertFalse(assetIdWellFormed(bytes("ST0XAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")), "33 characters");
     }
 

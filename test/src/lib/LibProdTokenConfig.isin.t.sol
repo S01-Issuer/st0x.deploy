@@ -16,7 +16,8 @@ struct UnderlyingIsin {
 contract LibProdTokenConfigIsinTest is Test {
     /// `extensions.isin` of every `wt<TICKER>` in st0x.registry `token-lists/base.json` at commit `e9e47a6`, keyed by
     /// the ticker. The other chains' lists agree with it except wtSMCI, where they still carry the pre-split ISIN
-    /// `US86800U1043`. SMCI's current CUSIP after its 2024 10-for-1 split is `86800U302`, which is the Base value.
+    /// `US86800U1043`: SMCI's 8-K of 2024-09-26 gives the post-split CUSIP `86800U302`, and Exhibit 1.1 of its 8-K of
+    /// 2026-06-15 gives "CUSIP / ISIN for the Common Stock 86800U302 / US86800U3023", the Base value.
     function registryBaseIsins() internal pure returns (UnderlyingIsin[] memory) {
         UnderlyingIsin[] memory isins = new UnderlyingIsin[](54);
         isins[0] = UnderlyingIsin({underlying: "MSTR", isin: "US5949724083"});
@@ -78,17 +79,17 @@ contract LibProdTokenConfigIsinTest is Test {
 
     /// The rows the registry Base list has no ISIN for. Each is the ISIN of the share line that trades under the
     /// ticker, with its check digit validated. Sources:
-    /// - IBHG: BlackRock's fund page gives CUSIP 46436E478; Pensions & Investments gives ISIN US46436E4787. The
-    ///   registry's Ethereum, HyperEVM and Robinhood lists carry US46436E3128, which no other source ties to IBHG.
-    /// - RKLB: the issuer's May 2025 8-K12B gives the new CUSIP 773121108 of Rocket Lab Corporation after the holding
-    ///   company reorganization; getquin and GuruFocus give ISIN US7731211089. The older US7731221062 is the
+    /// - IBHG: BlackRock's fund page gives CUSIP 46436E478, and the iShares Trust N-PORT-P filed 2026-09-23
+    ///   (accession 0001004726-26-008843) lists the fund with ISIN US46436E4787. The registry's Ethereum, HyperEVM and
+    ///   Robinhood lists carry wtIBHG as US46436E3128, the ISIN of the iShares iBonds Dec 2032 Term Corporate ETF.
+    /// - RKLB: the issuer's 8-K12B of 2025-05-23 gives the new CUSIP 773121108 of Rocket Lab Corporation after the
+    ///   holding company reorganization, and its 10-Q filed 2026-11-09 keeps that name. The older US7731221062 is the
     ///   Rocket Lab USA line that the reorganization replaced.
-    /// - BIRD: Allbirds' 2024 reverse split notice gives CUSIP 01675A208, and the June 2026 8-K for the rename to
-    ///   Smartbird, Inc. says the CUSIP is unchanged; Fidelity and Hargreaves Lansdown give ISIN US01675A2087.
-    /// - SNES: the issuer's July 2024 8-K gives CUSIP 81720R604 after the 1-for-10 reverse split; wallstreet-online
-    ///   and GuruFocus give ISIN US81720R6045.
-    /// - DIS: CUSIP 254687106 in Disney's SEC filings; StockAnalysis and the Mexican exchange (BMV) give ISIN
-    ///   US2546871060.
+    /// - BIRD: Allbirds' 8-K of 2024-08-30 gives CUSIP 01675A208 after the reverse split, and Exhibit 99.1 of the 8-K
+    ///   of 2026-06-17 for the rename to Smartbird, Inc. says the CUSIP is unchanged.
+    /// - SNES: the issuer's 8-K of 2024-07-23 gives CUSIP 81720R604 after the 1-for-10 reverse split.
+    /// - DIS: Disney's proxy of 2015-01-16 gives common CUSIP 254687106; the 8-K12B of 2019-03-20 keeps the DIS line
+    ///   under the successor registrant, and its 2026 notes keep the 254687 issuer number.
     function sourcedIsins() internal pure returns (UnderlyingIsin[] memory) {
         UnderlyingIsin[] memory isins = new UnderlyingIsin[](5);
         isins[0] = UnderlyingIsin({underlying: "IBHG", isin: "US46436E4787"});
