@@ -85,10 +85,10 @@ library LibUnderlying {
             uint256 code;
             if (c >= "0" && c <= "9") {
                 if (i <= 2) return false;
-                code = uint8(c) - uint8(bytes1("0"));
+                code = uint8(c) - 0x30;
             } else if (c >= "A" && c <= "Z") {
                 if (i == value.length) return false;
-                code = uint8(c) - uint8(bytes1("A")) + 10;
+                code = uint8(c) - 0x41 + 10;
             } else {
                 return false;
             }
