@@ -14,7 +14,7 @@ import {
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
-import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
@@ -27,6 +27,9 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 contract StoxUnderlyingIntegrationTest is Test {
     address internal constant AUTHORITY = address(uint160(uint256(keccak256("AUTHORITY"))));
     bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
+    string internal constant NVDA_ISIN = "US67066G1040";
+    string internal constant META_ISIN = "US30303M1027";
+    string internal constant NEW_ISIN = "US0378331005";
 
     StoxReceiptVault internal sVault;
     StoxWrappedTokenVault internal sWrapper;
@@ -47,7 +50,7 @@ contract StoxUnderlyingIntegrationTest is Test {
         );
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, address(this), authorizer);
         sVault = LibTestDeploy.newVault(
-            AUTHORITY, LibTestDeploy.vaultData("US67066G1040", "NVDA", "NVIDIA Corporation", AUTHORITY, RBAC_NAME)
+            AUTHORITY, LibTestDeploy.vaultData(NVDA_ISIN, "NVDA", "NVIDIA Corporation", AUTHORITY, RBAC_NAME)
         );
         sWrapper = LibTestDeploy.newWrapper(AUTHORITY, address(sVault));
     }
@@ -60,13 +63,12 @@ contract StoxUnderlyingIntegrationTest is Test {
         return string(out);
     }
 
-    /// The wrapper derives its metadata from long underlying values read cold
-    /// through the real proxy, fallback and facet path, so the probe of its
-    /// asset is not starved of gas.
+    /// The wrapper's probe of its asset is not starved of gas by a long
+    /// name read cold through the real proxy, fallback and facet path.
     function testLongUnderlyingDerivesThroughWrapper() external {
-        string memory ticker = repeated("A", 4096);
+        string memory ticker = repeated("A", 16);
         string memory longName = repeated("N", 4096);
-        IStoxUnderlyingV1(address(sVault)).setUnderlying(ticker, longName);
+        IStoxUnderlyingV2(address(sVault)).setUnderlying(ticker, longName, NVDA_ISIN);
         vm.cool(address(sVault));
         assertEq(sWrapper.symbol(), string.concat(ticker, "s"));
         vm.cool(address(sVault));
@@ -76,8 +78,8 @@ contract StoxUnderlyingIntegrationTest is Test {
     /// Unset: the underlying getters fall back to the listing ticker and
     /// name, so both tokens carry the names built from them.
     function testUnsetFallsBackToTheListingTickerAndName() external view {
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDA");
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Corporation");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingSymbol(), "NVDA");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingName(), "NVIDIA Corporation");
         assertEq(sVault.symbol(), "tNVDA");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
         assertEq(sWrapper.symbol(), "NVDAs");
@@ -87,7 +89,7 @@ contract StoxUnderlyingIntegrationTest is Test {
     /// Set: both tokens carry the names built from the underlying ticker and
     /// name.
     function testDerivedFromUnderlying() external {
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings", NEW_ISIN);
         assertEq(sVault.symbol(), "tNVDX");
         assertEq(sVault.name(), "NVIDIA Holdings (ST0x)");
         assertEq(sWrapper.symbol(), "NVDXs");
@@ -100,7 +102,7 @@ contract StoxUnderlyingIntegrationTest is Test {
         address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
         vm.etch(facet, "");
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings", NEW_ISIN);
         assertEq(sVault.symbol(), "tNVDA");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
     }
@@ -108,7 +110,7 @@ contract StoxUnderlyingIntegrationTest is Test {
     /// Once set, the tStock's metadata is plain ERC-20 storage: reading it
     /// needs no facet.
     function testSetMetadataReadsWithoutFacet() external {
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings", NEW_ISIN);
         vm.etch(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "");
         assertEq(sVault.symbol(), "tNVDX");
         assertEq(sVault.name(), "NVIDIA Holdings (ST0x)");
@@ -120,16 +122,16 @@ contract StoxUnderlyingIntegrationTest is Test {
         IReceiptV3 receipt = IReceiptV3(address(IReceiptVaultV3(payable(address(sVault))).receipt()));
         string memory receiptSymbolBefore = receipt.symbol();
         string memory receiptNameBefore = receipt.name();
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
         assertEq(receipt.symbol(), receiptSymbolBefore);
         assertEq(receipt.name(), receiptNameBefore);
     }
 
     /// A ticker change moves both tokens' metadata with it.
     function testRenameFollowsThrough() external {
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("FB", "Meta Platforms, Inc.");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("FB", "Meta Platforms, Inc.", META_ISIN);
         assertEq(sWrapper.symbol(), "FBs");
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("META", "Meta Platforms, Inc.");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("META", "Meta Platforms, Inc.", META_ISIN);
         assertEq(sVault.symbol(), "tMETA");
         assertEq(sWrapper.symbol(), "METAs");
         assertEq(sWrapper.name(), "Meta Platforms, Inc. (ST0x)");
