@@ -11,7 +11,7 @@ import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
-import {IST0xOrchestratorBeaconSetDeployerV1} from "../../src/interface/IST0xOrchestratorBeaconSetDeployerV1.sol";
+import {IST0xOrchestratorBeaconSetDeployerV1} from "../../src/interface/deprecated/IST0xOrchestratorBeaconSetDeployerV1.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibEuAuthoriserClone} from "../../src/lib/LibEuAuthoriserClone.sol";
