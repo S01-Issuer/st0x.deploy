@@ -2,6 +2,19 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
+import {LibParseChar} from "rain-string-0.3.9/src/lib/parse/LibParseChar.sol";
+import {
+    CMASK_ASCII,
+    CMASK_BACKSLASH,
+    CMASK_FULL_STOP,
+    CMASK_NUMERIC_0_9,
+    CMASK_PRINTABLE,
+    CMASK_QUOTATION_MARK,
+    CMASK_UPPER_ALPHA_A_Z
+} from "rain-string-0.3.9/src/lib/parse/LibParseCMask.sol";
+import {LibBytes} from "rain-solmem-0.1.28/src/lib/LibBytes.sol";
+import {Pointer} from "rain-solmem-0.1.28/src/lib/LibPointer.sol";
+
 /// @dev ERC-7201 namespaced storage location for the underlying asset's
 /// identity, derived in-source from the spec formula rather than hardcoded.
 bytes32 constant UNDERLYING_STORAGE_LOCATION =
@@ -45,11 +58,12 @@ library LibUnderlying {
     /// @return Whether it is well formed.
     function tickerWellFormed(bytes memory ticker) internal pure returns (bool) {
         if (ticker.length == 0 || ticker.length > 16) return false;
-        for (uint256 i = 0; i < ticker.length; i++) {
-            bytes1 c = ticker[i];
-            if (!((c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == ".")) return false;
-        }
-        return true;
+        uint256 end = Pointer.unwrap(LibBytes.endDataPointer(ticker));
+        return LibParseChar.skipMask(
+            Pointer.unwrap(LibBytes.dataPointer(ticker)),
+            end,
+            CMASK_UPPER_ALPHA_A_Z | CMASK_NUMERIC_0_9 | CMASK_FULL_STOP
+        ) == end;
     }
 
     /// @notice Whether `name` is non-empty, has no `"`, `\` or control byte,
@@ -58,11 +72,12 @@ library LibUnderlying {
     /// @return Whether it is well formed.
     function nameWellFormed(bytes memory name) internal pure returns (bool) {
         if (name.length == 0) return false;
-        for (uint256 i = 0; i < name.length; i++) {
-            bytes1 c = name[i];
-            if (c < 0x20 || c == 0x7f || c == '"' || c == "\\") return false;
-        }
-        return !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
+        uint256 end = Pointer.unwrap(LibBytes.endDataPointer(name));
+        return LibParseChar.skipMask(
+            Pointer.unwrap(LibBytes.dataPointer(name)),
+            end,
+            ~((CMASK_ASCII & ~CMASK_PRINTABLE) | CMASK_QUOTATION_MARK | CMASK_BACKSLASH)
+        ) == end && !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
     }
 
     /// @notice Whether `isin` is 2 of `A-Z`, 9 of `A-Z` and `0-9`, then a
@@ -76,14 +91,14 @@ library LibUnderlying {
         uint256 sum = 0;
         bool doubled = false;
         for (uint256 i = value.length; i > 0; i--) {
-            bytes1 c = value[i - 1];
+            uint8 c = uint8(value[i - 1]);
             uint256 code;
-            if (c >= "0" && c <= "9") {
+            if ((uint256(1) << c) & CMASK_NUMERIC_0_9 != 0) {
                 if (i <= 2) return false;
-                code = uint8(c) - 0x30;
-            } else if (c >= "A" && c <= "Z") {
+                code = c - 0x30;
+            } else if ((uint256(1) << c) & CMASK_UPPER_ALPHA_A_Z != 0) {
                 if (i == value.length) return false;
-                code = uint8(c) - 0x41 + 10;
+                code = c - 0x41 + 10;
             } else {
                 return false;
             }
