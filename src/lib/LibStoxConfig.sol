@@ -61,6 +61,10 @@ library LibStoxConfig {
         return abi.decode(value, (address));
     }
 
+    /// @notice `abi.encode(address)`: the authoriser clone's initial admin,
+    /// read once at its initialize.
+    bytes32 internal constant AUTHORISER_INITIAL_ADMIN_NAME = keccak256("st0x.authoriser-initial-admin.v1");
+
     /// @notice `abi.encode(address)`: the orchestrator's initial admin,
     /// read once in its `initialize`.
     bytes32 internal constant ORCHESTRATOR_INITIAL_ADMIN_NAME = keccak256("st0x.orchestrator-initial-admin.v1");
