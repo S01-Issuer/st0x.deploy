@@ -35,7 +35,7 @@ contract ScheduleUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutF
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK;
+        return LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK;
     }
 
     function landBeforeOnto() internal override {
