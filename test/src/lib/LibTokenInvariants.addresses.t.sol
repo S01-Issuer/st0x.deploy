@@ -392,7 +392,9 @@ contract LibTokenInvariantsAddressesTest is Test {
     function prodV1Beacons() internal pure returns (ProdV1Beacon[] memory) {
         ProdV1Beacon[] memory beacons = new ProdV1Beacon[](3);
         beacons[0] = ProdV1Beacon(
-            "STOX_RECEIPT_BEACON_V1", LibProdDeployV1.STOX_RECEIPT_BEACON_V1, LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION
+            "STOX_RECEIPT_BEACON_V1",
+            LibProdDeployV1.STOX_RECEIPT_BEACON_V1,
+            LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION
         );
         beacons[1] = ProdV1Beacon(
             "STOX_RECEIPT_VAULT_BEACON_V1",
