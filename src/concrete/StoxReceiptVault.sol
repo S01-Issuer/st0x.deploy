@@ -67,9 +67,12 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
 
     /// @param data `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`.
     function initialize(bytes memory data) public override returns (bytes32) {
+        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        // A delegatecall into empty code succeeds with no return data.
+        if (facet.code.length == 0) revert CorporateActionsFacetNotDeployed(facet);
         // slither-disable-next-line low-level-calls
-        (bool success, bytes memory result) = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
-            .delegatecall(abi.encodeCall(IStoxTokenConfigV1.initializeStoxToken, (data)));
+        (bool success, bytes memory result) =
+            facet.delegatecall(abi.encodeCall(IStoxTokenConfigV1.initializeStoxToken, (data)));
         if (!success) {
             assembly ("memory-safe") {
                 revert(add(result, 0x20), mload(result))
