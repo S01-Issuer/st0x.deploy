@@ -5158,6 +5158,22 @@
         "owner": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
         "setDeployer": "0x945D0Faf6f268e805246907507ef1044e70E75D7"
       },
+      "qsep": {
+        "authoriser": "0x315b16faa6eE413faBCa877d3851B3818369f0cD",
+        "owner": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
+        "receipt": "0x311aA382B864799b3dE5C69478f841229D353B78",
+        "receiptBeacon": "0x86e93c39B095be0B0054C8488E26466Ee027D79a",
+        "receiptCodehash": "0x3a6a276173fa980d807d8cdc6e760a76be57ee8cc0d6b8522ca651e7d6e649b6",
+        "receiptManager": "0x4A9a9FC94a507559481270d0BFf3315Ab92Fcefa",
+        "receiptVault": "0x4A9a9FC94a507559481270d0BFf3315Ab92Fcefa",
+        "receiptVaultBeacon": "0xEa084c8F4331CDF3328E772781b59F8A24F28F1A",
+        "receiptVaultCodehash": "0x458736ea3d3ad05745640e02a8e1110d707f793096e3ac278c304110f6d54689",
+        "receiptVaultReceipt": "0x311aA382B864799b3dE5C69478f841229D353B78",
+        "wrappedTokenVault": "0x849E389982209F901B7B9ffCA57ae4c9EeB11c0d",
+        "wrappedTokenVaultAsset": "0x4A9a9FC94a507559481270d0BFf3315Ab92Fcefa",
+        "wrappedTokenVaultBeacon": "0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8",
+        "wrappedTokenVaultCodehash": "0x8227665ab0d770ac6d47cc6b17924f8e64c93ca12f3b4281e8949b67d36f3e44"
+      },
       "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
       "safe": {
         "address": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
