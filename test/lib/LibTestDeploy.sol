@@ -22,20 +22,19 @@ import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
 } from "rain-vats-0.2.20/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
-    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-    OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
-import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG,
     OffchainAssetReceiptVaultAuthorizerV1ConfigV2
 } from "rain-vats-0.2.20/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../src/interface/IStoxTokenConfigV1.sol";
+import {Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
+import {LibUnderlyingSnapshotCode, UNDERLYING_SNAPSHOT_ROOT} from "../../src/generated/LibUnderlyingSnapshotCode.sol";
 
 /// @title LibTestDeploy
 /// @notice The production token set on the local EVM: the candidate
@@ -55,6 +54,18 @@ library LibTestDeploy {
         require(wrapper == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE, "StoxWrappedTokenVault address mismatch");
     }
 
+    /// Zoltu-deploys the generated underlying snapshot shards and root,
+    /// refusing a root that lands off its constant address.
+    function deployUnderlyingSnapshot(Vm vm) internal {
+        LibRainDeploy.etchZoltuFactory(vm);
+        bytes[] memory shards = LibUnderlyingSnapshotCode.shardCreationCodes();
+        for (uint256 i = 0; i < shards.length; i++) {
+            LibRainDeploy.deployZoltu(shards[i]);
+        }
+        address root = LibRainDeploy.deployZoltu(LibUnderlyingSnapshotCode.ROOT_CREATION_CODE);
+        require(root == UNDERLYING_SNAPSHOT_ROOT, "underlying snapshot root address mismatch");
+    }
+
     /// Places an `UpgradeableBeacon` serving `implementation`, owned by
     /// `owner`, at `at`: its code, then its owner and implementation slots.
     function placeBeacon(Vm vm, address at, address implementation, address owner) internal {
@@ -65,11 +76,13 @@ library LibTestDeploy {
     }
 
     /// The candidate implementations behind the V1 receipt, vault and wrapper
-    /// beacons, and the pinned clone factory and ConfigRegistry, on a local EVM
-    /// that is Base, the chain the V1 beacons serve.
+    /// beacons, the underlying snapshot, and the pinned clone factory and
+    /// ConfigRegistry, on a local EVM that is Base, the chain the V1 beacons
+    /// serve.
     function deployAll(Vm vm) internal {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         deployImplementations(vm);
+        deployUnderlyingSnapshot(vm);
         address owner = LibProdDeployV1.BEACON_INITIAL_OWNER;
         placeBeacon(vm, LibProdDeployV1.STOX_RECEIPT_BEACON_V1, LibProdDeployV4.STOX_RECEIPT_CANDIDATE, owner);
         placeBeacon(
@@ -210,18 +223,23 @@ library LibTestDeploy {
         IConfigRegistryV5(CONFIG_REGISTRY_ADDRESS).registerV5(authority, name, valueType, value, "");
     }
 
-    /// The init data of a vault named `name`, `symbol`, resolving its RBAC from
-    /// `rbacName` under `authority`, with its receipt from `LibStoxConfig.RECEIPT_BEACON_NAME`.
-    function vaultData(string memory name, string memory symbol, address authority, bytes32 rbacName)
-        internal
-        pure
-        returns (bytes memory)
-    {
+    /// The init data of a vault listing `assetId` as `listingTicker` /
+    /// `listingName` in the US, resolving its RBAC from `rbacName` under
+    /// `authority`, with its receipt from `LibStoxConfig.RECEIPT_BEACON_NAME`.
+    function vaultData(
+        string memory assetId,
+        string memory listingTicker,
+        string memory listingName,
+        address authority,
+        bytes32 rbacName
+    ) internal pure returns (bytes memory) {
         return abi.encode(
-            OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-            OffchainAssetReceiptVaultConfigV3({
-                name: name,
-                symbol: symbol,
+            STOX_TOKEN_CONFIG_V1_TAG,
+            StoxTokenConfigV1({
+                assetId: assetId,
+                listingTicker: listingTicker,
+                listingName: listingName,
+                region: Region.US,
                 authority: authority,
                 rbacName: rbacName,
                 receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,

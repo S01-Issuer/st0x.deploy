@@ -2,12 +2,14 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../../src/interface/IStoxUnderlyingV2.sol";
 
 /// @dev An intermediate contract that forwards `setUnderlying`, so the vault
 /// sees this contract as `msg.sender` while `tx.origin` is whoever called it.
 contract UnderlyingSetForwarder {
-    function forward(IStoxUnderlyingV1 vault, string memory newSymbol, string memory newName) external {
-        vault.setUnderlying(newSymbol, newName);
+    function forward(IStoxUnderlyingV2 vault, string memory newSymbol, string memory newName, string memory newIsin)
+        external
+    {
+        vault.setUnderlying(newSymbol, newName, newIsin);
     }
 }

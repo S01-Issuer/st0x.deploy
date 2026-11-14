@@ -26,9 +26,14 @@ library LibUnderlying {
     /// @param symbol The underlying ticker, e.g. "NVDA". Empty when unset.
     /// @param name The underlying asset's name, e.g. "NVIDIA Corporation".
     /// Empty when unset.
+    /// @param isin The underlying asset's current ISIN. Empty when unset.
+    /// @param timestamp The `block.timestamp` of the last `setUnderlying`.
+    /// Zero when unset.
     struct UnderlyingStorage {
         string symbol;
         string name;
+        string isin;
+        uint256 timestamp;
     }
 
     /// @notice Accessor for the underlying identity storage.
@@ -38,5 +43,79 @@ library LibUnderlying {
         assembly ("memory-safe") {
             s.slot := position
         }
+    }
+
+    /// @notice Whether `ticker` is 1 to 16 bytes of `A-Z`, `0-9` and `.`.
+    /// @param ticker The ticker.
+    /// @return Whether it is well formed.
+    function tickerWellFormed(bytes memory ticker) internal pure returns (bool) {
+        if (ticker.length == 0 || ticker.length > 16) return false;
+        for (uint256 i = 0; i < ticker.length; i++) {
+            bytes1 c = ticker[i];
+            if (!((c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == ".")) return false;
+        }
+        return true;
+    }
+
+    /// @notice Whether `name` is non-empty, has no `"`, `\` or control byte,
+    /// and does not end in "ST0x" or "(ST0x)".
+    /// @param name The underlying name.
+    /// @return Whether it is well formed.
+    function nameWellFormed(bytes memory name) internal pure returns (bool) {
+        if (name.length == 0) return false;
+        for (uint256 i = 0; i < name.length; i++) {
+            bytes1 c = name[i];
+            if (c < 0x20 || c == 0x7f || c == '"' || c == "\\") return false;
+        }
+        return !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
+    }
+
+    /// @notice Whether `isin` is 2 of `A-Z`, 9 of `A-Z` and `0-9`, then a
+    /// digit that passes the Luhn check over the letters expanded to
+    /// `A` = 10 … `Z` = 35.
+    /// @param isin The ISIN.
+    /// @return Whether it is well formed.
+    function isinWellFormed(string memory isin) internal pure returns (bool) {
+        bytes memory value = bytes(isin);
+        if (value.length != 12) return false;
+        uint256 sum = 0;
+        bool doubled = false;
+        for (uint256 i = value.length; i > 0; i--) {
+            bytes1 c = value[i - 1];
+            uint256 code;
+            if (c >= "0" && c <= "9") {
+                if (i <= 2) return false;
+                code = uint8(c) - 0x30;
+            } else if (c >= "A" && c <= "Z") {
+                if (i == value.length) return false;
+                code = uint8(c) - 0x41 + 10;
+            } else {
+                return false;
+            }
+            do {
+                uint256 digit = code % 10;
+                code /= 10;
+                if (doubled) {
+                    digit *= 2;
+                    if (digit > 9) digit -= 9;
+                }
+                sum += digit;
+                doubled = !doubled;
+            } while (code > 0);
+        }
+        return sum % 10 == 0;
+    }
+
+    /// @notice Whether `value` ends with `suffix`.
+    /// @param value The value.
+    /// @param suffix The suffix.
+    /// @return Whether it does.
+    function endsWith(bytes memory value, bytes memory suffix) internal pure returns (bool) {
+        if (value.length < suffix.length) return false;
+        uint256 offset = value.length - suffix.length;
+        for (uint256 i = 0; i < suffix.length; i++) {
+            if (value[offset + i] != suffix[i]) return false;
+        }
+        return true;
     }
 }

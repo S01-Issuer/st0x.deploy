@@ -23,6 +23,8 @@ on:
           - stox-orchestrator-proxy
           - stox-attest-sub-parser
           - stox-governance-timelock
+          - stox-underlying-snapshot-root
+          - stox-underlying-snapshot-shard-a
           - stox-eu-assets-authoriser
           - stox-token-tmstr
           - stox-token-tmstr-wrapper

@@ -87,6 +87,7 @@ library LibTestTokenEnvironment {
     {
         (address receiptBeacon, address vaultBeacon) = deployBeacons(vm, beaconInitialOwner);
         LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
+        LibTestDeploy.deployUnderlyingSnapshot(vm);
         IAuthorizeV1 usAuthorizer = newAuthorizer(vm, usOwner);
         IAuthorizeV1 euAuthorizer = newAuthorizer(vm, euOwner);
         LibTestDeploy.bind(

@@ -12,11 +12,16 @@ import {LibTestTokenMetadata} from "./LibTestTokenMetadata.sol";
 contract LibTestTokenMetadataTest is Test {
     function config() internal pure returns (TokenConfig memory) {
         return TokenConfig({
+            assetId: "US67066G1040",
+            listingTicker: "NVDA",
+            listingName: "NVIDIA Corporation",
             underlying: "NVDA",
+            ticker: "NVDA",
             name: "NVIDIA Corporation ST0x",
             symbol: "tNVDA",
             region: Region.US,
-            underlyingName: "NVIDIA Corporation"
+            underlyingName: "NVIDIA Corporation",
+            isin: "US67066G1040"
         });
     }
 

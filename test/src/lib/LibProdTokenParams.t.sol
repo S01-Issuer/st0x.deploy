@@ -16,17 +16,15 @@ import {
     RegistryBeaconProxyParams
 } from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {
-    OffchainAssetReceiptVaultConfigV3,
-    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxTokenProxy} from "../../../src/generated/LibStoxTokenProxy.sol";
-import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../../src/interface/IStoxTokenConfigV1.sol";
+import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
 import {LibTestTokenRows} from "../../lib/LibTestTokenRows.sol";
@@ -57,20 +55,21 @@ contract LibProdTokenParamsTest is Test {
             assertEq(params[i].authority, LibRegistryAuthority.ROOT_AUTHORITY, configs[i].underlying);
             assertEq(params[i].beaconName, LibStoxConfig.VAULT_BEACON_NAME, configs[i].underlying);
             assertEq(params[i].beacon, LibProdTokenParams.vaultBeacon(), configs[i].underlying);
-            assertEq(params[i].salt, keccak256(bytes(configs[i].underlying)), configs[i].underlying);
+            assertEq(params[i].salt, bytes32(0), configs[i].underlying);
         }
     }
 
-    function testEachParamsDataIsTheCanonicalV3ConfigOfItsRow() external pure {
+    function testEachParamsDataIsTheCanonicalStoxTokenConfigV1OfItsRow() external pure {
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < params.length; i++) {
-            (bytes32 tag, OffchainAssetReceiptVaultConfigV3 memory config) =
-                abi.decode(params[i].data, (bytes32, OffchainAssetReceiptVaultConfigV3));
+            (bytes32 tag, StoxTokenConfigV1 memory config) = abi.decode(params[i].data, (bytes32, StoxTokenConfigV1));
             assertEq(abi.encode(tag, config), params[i].data, "canonical");
-            assertEq(tag, OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG, "tag");
-            assertEq(config.name, configs[i].name, "name");
-            assertEq(config.symbol, configs[i].symbol, "symbol");
+            assertEq(tag, STOX_TOKEN_CONFIG_V1_TAG, "tag");
+            assertEq(config.assetId, configs[i].assetId, "asset id");
+            assertEq(config.listingTicker, configs[i].listingTicker, "listing ticker");
+            assertEq(config.listingName, configs[i].listingName, "listing name");
+            assertEq(uint8(config.region), uint8(configs[i].region), "region");
             assertEq(config.authority, LibRegistryAuthority.ROOT_AUTHORITY, "authority");
             assertEq(
                 config.rbacName,
@@ -119,6 +118,7 @@ contract LibProdTokenParamsTest is Test {
             LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
 
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        uint256 snapshotRows = LibProdTokenConfig.productionTokenConfigs().length;
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < params.length; i++) {
             address deployed = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployStep(
@@ -131,8 +131,15 @@ contract LibProdTokenParamsTest is Test {
 
             StoxReceiptVault token = StoxReceiptVault(payable(deployed));
             bool us = configs[i].region == Region.US;
-            assertEq(token.name(), configs[i].name, "name");
-            assertEq(token.symbol(), configs[i].symbol, "symbol");
+            bool inSnapshot = i < snapshotRows;
+            assertEq(
+                token.name(),
+                string.concat(inSnapshot ? configs[i].underlyingName : configs[i].listingName, ST0X_NAME_SUFFIX),
+                "name"
+            );
+            assertEq(
+                token.symbol(), string.concat("t", inSnapshot ? configs[i].ticker : configs[i].listingTicker), "symbol"
+            );
             assertEq(token.owner(), us ? US_OWNER : EU_OWNER, "owner");
             assertEq(address(token.authorizer()), address(us ? usAuthorizer : euAuthorizer), "authorizer");
         }

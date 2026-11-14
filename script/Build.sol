@@ -48,6 +48,8 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthor
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
 import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.sol";
+import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "./lib/LibUnderlyingSnapshotBuilder.sol";
+import {TokenConfig, UNDERLYING_SNAPSHOT_AS_OF} from "../src/lib/LibProdTokenConfig.sol";
 
 contract Build is Script, StoxDeploySuites {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
@@ -152,6 +154,7 @@ contract Build is Script, StoxDeploySuites {
         genTokenProxy();
         genWrapperProxy();
         genOrchestratorProxy();
+        genUnderlyingSnapshot();
     }
 
     function genTokenProxy() internal {
@@ -170,6 +173,52 @@ contract Build is Script, StoxDeploySuites {
             string.concat('    bytes constant RUNTIME_CODE = hex"', vm.replace(vm.toString(code), "0x", ""), '";')
         );
         vm.writeLine(GEN_TOKEN_PROXY_PATH, "}");
+    }
+
+    function genUnderlyingSnapshot() internal {
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](configs.length);
+        for (uint256 i = 0; i < configs.length; i++) {
+            rows[i] = UnderlyingSnapshotRow(
+                LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]),
+                configs[i].ticker,
+                configs[i].underlyingName,
+                configs[i].isin
+            );
+        }
+        (bytes memory root, bytes[] memory shards) = LibUnderlyingSnapshotBuilder.build(UNDERLYING_SNAPSHOT_AS_OF, rows);
+        string memory path = GEN_UNDERLYING_SNAPSHOT_PATH;
+        writeGeneratedHeader(path);
+        vm.writeLine(path, "");
+        vm.writeLine(
+            path,
+            string.concat(
+                "address constant UNDERLYING_SNAPSHOT_ROOT = ", vm.toString(LibRainDeploy.zoltuAddress(root)), ";"
+            )
+        );
+        vm.writeLine(path, "");
+        vm.writeLine(path, "library LibUnderlyingSnapshotCode {");
+        vm.writeLine(
+            path,
+            string.concat('    bytes constant ROOT_CREATION_CODE = hex"', vm.replace(vm.toString(root), "0x", ""), '";')
+        );
+        vm.writeLine(path, "");
+        vm.writeLine(path, "    function shardCreationCodes() internal pure returns (bytes[] memory) {");
+        vm.writeLine(
+            path, string.concat("        bytes[] memory codes = new bytes[](", vm.toString(shards.length), ");")
+        );
+        for (uint256 i = 0; i < shards.length; i++) {
+            vm.writeLine(
+                path,
+                string.concat(
+                    "        codes[", vm.toString(i), '] = hex"', vm.replace(vm.toString(shards[i]), "0x", ""), '";'
+                )
+            );
+        }
+        vm.writeLine(path, "        return codes;");
+        vm.writeLine(path, "    }");
+        vm.writeLine(path, "}");
     }
 
     function genWrapperProxy() internal {
@@ -284,6 +333,7 @@ contract Build is Script, StoxDeploySuites {
     string constant GEN_V4_PATH = "src/generated/LibProdDeployV4.sol";
     string constant GEN_CURRENT_PATH = "src/generated/LibProdDeployCurrent.sol";
     string constant GEN_TOKEN_PROXY_PATH = "src/generated/LibStoxTokenProxy.sol";
+    string constant GEN_UNDERLYING_SNAPSHOT_PATH = "src/generated/LibUnderlyingSnapshotCode.sol";
     string constant GEN_WRAPPER_PROXY_PATH = "src/generated/LibStoxWrapperProxy.sol";
     string constant GEN_ORCHESTRATOR_PROXY_PATH = "src/generated/LibST0xOrchestratorProxy.sol";
     string constant GEN_OWNER = "0x8E4bdeec7CEB9570D440676345dA1dCe10329f5b";

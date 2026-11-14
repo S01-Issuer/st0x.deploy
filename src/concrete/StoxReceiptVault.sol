@@ -11,6 +11,7 @@ import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {AuthorizerMissingCorporateActionAdmin, CorporateActionsFacetNotDeployed} from "../error/ErrCorporateAction.sol";
+import {IStoxTokenConfigV1} from "../interface/IStoxTokenConfigV1.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -63,6 +64,64 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     event AccountMigrated(
         address indexed account, uint256 fromActionId, uint256 toActionId, uint256 oldBalance, uint256 newBalance
     );
+
+    /// @param data `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`.
+    function initialize(bytes memory data) public override returns (bytes32) {
+        // slither-disable-next-line low-level-calls
+        (bool success, bytes memory result) = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
+            .delegatecall(abi.encodeCall(IStoxTokenConfigV1.initializeStoxToken, (data)));
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(result, 0x20), mload(result))
+            }
+        }
+        return super.initialize(abi.decode(result, (bytes)));
+    }
+
+    /// @notice Forwarded to the corporate actions facet.
+    /// @return The name.
+    function name() public view virtual override returns (string memory) {
+        return forwardStringToFacetView();
+    }
+
+    /// @notice Forwarded to the corporate actions facet.
+    /// @return The symbol.
+    function symbol() public view virtual override returns (string memory) {
+        return forwardStringToFacetView();
+    }
+
+    /// @dev A view cannot delegatecall, so `forwardToFacet` is cast to a view;
+    /// the facet's `name` and `symbol` are views. The string return type is
+    /// nominal: `forwardToFacet` returns the facet's returndata itself.
+    /// @return Never reached.
+    function forwardStringToFacetView() internal view returns (string memory) {
+        function() internal f = forwardToFacet;
+        function() internal view returns (string memory) g;
+        assembly ("memory-safe") {
+            g := f
+        }
+        return g();
+    }
+
+    /// @dev Delegatecalls the facet with this call's calldata and returns or
+    /// reverts with its returndata; it never returns to the caller.
+    function forwardToFacet() internal {
+        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        bytes4 notDeployed = CorporateActionsFacetNotDeployed.selector;
+        assembly ("memory-safe") {
+            if iszero(extcodesize(facet)) {
+                mstore(0, notDeployed)
+                mstore(4, facet)
+                revert(0, 0x24)
+            }
+            calldatacopy(0, 0, calldatasize())
+            let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
+            returndatacopy(0, 0, returndatasize())
+            switch success
+            case 0 { revert(0, returndatasize()) }
+            default { return(0, returndatasize()) }
+        }
+    }
 
     /// @notice Returns `account`'s ERC20 balance including any pending rebase
     /// multipliers from completed corporate actions. Does NOT mutate state —
@@ -202,21 +261,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// per-function comments for the per-method argument that the
     /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
-        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
-        bytes4 notDeployed = CorporateActionsFacetNotDeployed.selector;
-        assembly ("memory-safe") {
-            if iszero(extcodesize(facet)) {
-                mstore(0, notDeployed)
-                mstore(4, facet)
-                revert(0, 0x24)
-            }
-            calldatacopy(0, 0, calldatasize())
-            let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
-            returndatacopy(0, 0, returndatasize())
-            switch success
-            case 0 { revert(0, returndatasize()) }
-            default { return(0, returndatasize()) }
-        }
+        forwardToFacet();
     }
 
     /// @notice Reject authorizers that don't configure admin hierarchies
