@@ -21,26 +21,27 @@ import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {LibTestTokenRows} from "../../lib/LibTestTokenRows.sol";
 import {DeployPreDeployCheckHarness} from "../../script/DeployPreDeployCheckHarness.sol";
 
-/// @title StoxDeploySuitesProductionTokensBaseForkTest
-/// @notice On a Base fork pinned before the release, with the release up, every production row's token suite deploys
-/// from a keyless address through the real `Deploy` pre-flight and is named from its listing at deploy; a front-run
-/// deploy by someone else is the same token at the same address.
+/// @title StoxDeploySuitesTokenRowsBaseForkTest
+/// @notice On a Base fork pinned before the release, with the release up, every token row, production and test, deploys
+/// its token suite from a keyless address through the real `Deploy` pre-flight, named from its listing at deploy; a
+/// front-run deploy by someone else is the same token at the same address.
 /// @dev Each suite runs the broadcaster's chain id and dependency checks and `preDeployCheck`, not its seat checks.
-contract StoxDeploySuitesProductionTokensBaseForkTest is Test, StoxDeploySuites {
+contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
     /// No release name is bound and no release suite is deployed at this block.
     uint256 internal constant BASE_BLOCK = 57530000;
 
     address internal constant DEPLOYER =
-        address(uint160(uint256(keccak256("st0x.test.production-tokens-base-fork.deployer"))));
+        address(uint160(uint256(keccak256("st0x.test.token-rows-base-fork.deployer"))));
     address internal constant FRONT_RUNNER =
-        address(uint160(uint256(keccak256("st0x.test.production-tokens-base-fork.front-runner"))));
+        address(uint160(uint256(keccak256("st0x.test.token-rows-base-fork.front-runner"))));
 
     DeployPreDeployCheckHarness internal harness;
     SupportedNetwork internal base;
@@ -136,9 +137,9 @@ contract StoxDeploySuitesProductionTokensBaseForkTest is Test, StoxDeploySuites 
         bindRbac(LibStoxConfig.RBAC_EU_NAME, LibAuthoriserInvariants.euAuthoriserForChainId(base.chainId));
     }
 
-    /// Production row `index`'s token suite, broadcast by `deployer`, in its own call frame.
+    /// Row `index`'s token suite, broadcast by `deployer`, in its own call frame.
     function broadcastRow(uint256 index, address deployer) external returns (address) {
-        TokenConfig memory config = LibProdTokenConfig.productionTokenConfigs()[index];
+        TokenConfig memory config = LibTestTokenRows.allRows()[index];
         return broadcast(declaration(), string.concat(TOKEN_PREFIX, lowercase(config.symbol)), deployer);
     }
 
@@ -156,8 +157,8 @@ contract StoxDeploySuitesProductionTokensBaseForkTest is Test, StoxDeploySuites 
         );
     }
 
-    function testEveryProductionRowDeploysKeylessAndIsNamedFromItsListing() external {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+    function testEveryTokenRowDeploysKeylessAndIsNamedFromItsListing() external {
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < configs.length; i++) {
             address token = ICloneableFactoryV7(params[i].factory)
@@ -172,7 +173,7 @@ contract StoxDeploySuitesProductionTokensBaseForkTest is Test, StoxDeploySuites 
 
     /// The broadcaster run after the front-run finds the token already there and deploys nothing.
     function testAFrontRunDeployIsTheSameTokenAtTheSameAddress() external {
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory configs = LibTestTokenRows.allRows();
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         for (uint256 i = 0; i < configs.length; i++) {
             vm.prank(FRONT_RUNNER);
