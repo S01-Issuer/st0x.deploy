@@ -80,6 +80,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant GOVERNANCE_TIMELOCK = "stox-governance-timelock";
     string constant UNDERLYING_SNAPSHOT_ROOT = "stox-underlying-snapshot-root";
     string constant UNDERLYING_SNAPSHOT_SHARD_PREFIX = "stox-underlying-snapshot-shard-";
+    string constant UNDERLYING_SNAPSHOT_ROOT_PATH =
+        "src/generated/LibUnderlyingSnapshotCode.sol:UnderlyingSnapshotRoot";
+    string constant UNDERLYING_SNAPSHOT_SHARD_PATH =
+        "src/generated/LibUnderlyingSnapshotCode.sol:UnderlyingSnapshotShard";
+    string constant UNDERLYING_SNAPSHOT_UNANCHORABLE_REASON =
+        "A data contract assembled from generated tables; no compiler produces its bytes.";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
     string constant RECEIPT_PATH = "src/concrete/StoxReceipt.sol:StoxReceipt";
@@ -310,9 +316,14 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     function underlyingSnapshotSuites() internal pure returns (DeployCandidate[] memory) {
         bytes[] memory shards = LibUnderlyingSnapshotCode.shardCreationCodes();
         DeployCandidate[] memory candidates = new DeployCandidate[](shards.length + 1);
-        candidates[0] = anchored(dataZoltu(UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE));
+        candidates[0] = unanchored(
+            dataZoltu(
+                UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE, UNDERLYING_SNAPSHOT_ROOT_PATH
+            )
+        );
         for (uint256 i = 0; i < shards.length; i++) {
-            candidates[i + 1] = anchored(dataZoltu(underlyingSnapshotShardSuite(i), shards[i]));
+            candidates[i + 1] =
+                unanchored(dataZoltu(underlyingSnapshotShardSuite(i), shards[i], UNDERLYING_SNAPSHOT_SHARD_PATH));
         }
         return candidates;
     }
@@ -327,7 +338,11 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     }
 
     /// Zoltu suite for a LibDataContract creation code; its runtime is the prefix's trailing 0x00 then the data.
-    function dataZoltu(string memory suite, bytes memory creationCode) internal pure returns (DeploySuite memory) {
+    function dataZoltu(string memory suite, bytes memory creationCode, string memory artifactPath)
+        internal
+        pure
+        returns (DeploySuite memory)
+    {
         bytes memory runtimeCode = new bytes(creationCode.length - (PREFIX_BYTES_LENGTH - 1));
         for (uint256 i = 0; i < runtimeCode.length; i++) {
             runtimeCode[i] = creationCode[i + (PREFIX_BYTES_LENGTH - 1)];
@@ -338,7 +353,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             LibRainDeploy.zoltuAddress(creationCode),
             keccak256(runtimeCode),
             runtimeCode,
-            "",
+            artifactPath,
             new DeployDependency[](0)
         );
     }
@@ -474,6 +489,10 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     function anchored(DeploySuite memory snapshot) internal pure returns (DeployCandidate memory) {
         return DeployCandidate({snapshot: snapshot, unanchorableReason: ""});
+    }
+
+    function unanchored(DeploySuite memory snapshot) internal pure returns (DeployCandidate memory) {
+        return DeployCandidate({snapshot: snapshot, unanchorableReason: UNDERLYING_SNAPSHOT_UNANCHORABLE_REASON});
     }
 
     function one(address deployedAddress, bytes memory runtimeCode) internal pure returns (DeployDependency[] memory) {
