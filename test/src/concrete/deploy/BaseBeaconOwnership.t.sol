@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
+import {LibTestPreBackfillFork} from "../../../lib/LibTestPreBackfillFork.sol";
 import {LibProdBeaconsBase} from "../../../../src/lib/LibProdBeaconsBase.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
@@ -20,9 +21,7 @@ import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.s
 /// implementations of are an unadopted Base deploy artifact. So the beacons
 /// production tokens on Base actually run on had their implementation
 /// unasserted on this chain, while every other chain pinned theirs.
-/// @dev Unpinned Base head fork, matching the other per-chain files: the
-/// point is drift detection against live state, which a pinned block would
-/// freeze.
+/// @dev Forked at `LibTestPreBackfillFork`'s pinned Base block, like the other per-chain files.
 contract BaseBeaconOwnershipTest is Test {
     /// @notice Base's three in-use token beacons carry the OZ
     /// `UpgradeableBeacon` codehash, are owned by Base's governance timelock,
@@ -33,8 +32,8 @@ contract BaseBeaconOwnershipTest is Test {
     /// as every other chain: the wrapped-token-vault beacon still serves the
     /// 0.1.1 impl, and the receipt + receipt-vault beacons were moved onto
     /// 0.1.30 by the fleet upgrade (20260825-upgrade-fleet-to-0-1-30). Each
-    /// expectation is an explicit pin rather than a read-back of the beacon's
-    /// own `implementation()`, so an unreviewed `upgradeTo` fails here.
+    /// expectation is an explicit pin, checked at the pinned block; an
+    /// `upgradeTo` after that block is not caught here.
     ///
     /// The orchestrator beacon is deliberately out of scope: its owner is
     /// asserted by `assertProdBeaconsOwnedByChainTimelock` and its build is a
@@ -42,7 +41,7 @@ contract BaseBeaconOwnershipTest is Test {
     function testBaseBeaconsAreTimelockOwnedAtTheirPinnedImpls() external {
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
 
-        vm.createSelectFork(LibRainDeploy.BASE);
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         address[4] memory beacons = LibProdBeaconsBase.beacons();
         address[4] memory impls = LibProdBeaconsBase.implementations();
         LibBeaconInvariants.assertBeaconInvariants(

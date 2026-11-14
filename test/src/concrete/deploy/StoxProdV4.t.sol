@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTestPreBackfillFork} from "../../../lib/LibTestPreBackfillFork.sol";
 import {LibBeaconInvariants} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {
@@ -33,8 +34,9 @@ contract StoxProdV4Test is Test {
     ///
     /// Beacon OWNERSHIP is asserted only for the beacons production tokens
     /// run on, via `LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`.
+    /// Each chain is forked at `LibTestPreBackfillFork`'s pinned block.
     function checkProd_0_1_1OnChain(string memory network) internal {
-        vm.createSelectFork(network);
+        LibTestPreBackfillFork.select(vm, network);
         bool oarvBeaconsAreInUse = keccak256(bytes(network)) != keccak256(bytes(LibRainDeploy.BASE));
         assertEq(
             IBeacon(LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1).implementation(),

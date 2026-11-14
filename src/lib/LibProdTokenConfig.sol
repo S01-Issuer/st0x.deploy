@@ -9,7 +9,7 @@ pragma solidity ^0.8.25;
 /// @param symbol The receipt vault's ERC-20 `symbol()`, verbatim from Base; fixed for a released row, whose V6 suite key derives from it.
 /// @param region Where the underlying is listed.
 /// @param underlyingName The issuer's current legal name without the ST0x suffix: the `name` argument of `setUnderlying`.
-/// @param assetId The listing-time asset id, the ISIN of the share line where one exists; a row has a V6 token suite iff it is non-empty.
+/// @param assetId The listing-time asset id: the share line's ISIN where one exists, else `ST0X` and one or more of `A-Z`, `0-9`, never 12 long; a row has a V6 token suite iff it is non-empty.
 struct TokenConfig {
     string underlying;
     string name;

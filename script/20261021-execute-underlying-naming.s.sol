@@ -21,7 +21,8 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 /// @param executor The broadcasting key.
 error UnderlyingNamingExecutorHoldsRole(address timelock, address executor);
 
-/// @notice Neither rollout operation is ready on this chain.
+/// @notice No rollout operation can execute: the beacon batch is not ready, and the rename batch is not ready or waits
+/// for the beacon batch.
 /// @param beaconId The beacon batch's operation id.
 /// @param beaconDone Whether the beacon batch has executed.
 /// @param renameId The rename batch's operation id.
@@ -53,7 +54,8 @@ function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration me
 /// @title ExecuteUnderlyingNaming
 /// @notice `execute()` executes the next ready underlying-naming operation on
 /// the active chain from the CI deploy key, which holds no role: the beacon
-/// batch if it is ready, otherwise the rename batch. One operation per
+/// batch if it is ready, otherwise the rename batch once the beacon batch is
+/// done. One operation per
 /// dispatch. Both operations are reconstructed by `LibUnderlyingNamingRollout`,
 /// the same library the scheduling scripts use, so only calldata committed in
 /// this repo can execute.
@@ -102,7 +104,8 @@ contract ExecuteUnderlyingNaming is SafeBundleScript, IStoxScript {
             if (!controller.isOperationDone(beaconId)) revert UnderlyingNamingOperationNotDone(beaconId);
             return;
         }
-        if (controller.isOperationReady(renameId)) {
+        // The rename's predecessor is the beacon batch, so it waits for it.
+        if (controller.isOperationReady(renameId) && controller.isOperationDone(beaconId)) {
             (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
                 LibUnderlyingNamingRollout.renameBatch(block.chainid);
             console2.log("Executing the rename batch:", vm.toString(renameId));
