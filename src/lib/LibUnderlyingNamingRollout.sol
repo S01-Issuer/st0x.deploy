@@ -111,7 +111,8 @@ library LibUnderlyingNamingRollout {
     address internal constant WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1;
 
     /// @notice Whether the implementation constants above alias a frozen, audited release; while false both schedule
-    /// scripts refuse. The target implementation constants alias the current-source candidate pins.
+    /// scripts refuse. The targets (`FACET`, `RECEIPT_VAULT_IMPLEMENTATION`, `WRAPPED_TOKEN_VAULT_IMPLEMENTATION` and
+    /// their codehashes) alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
