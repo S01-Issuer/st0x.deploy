@@ -424,7 +424,7 @@ The root line runs, after the backfill: `20261022-bind-beacon-initial-owner` →
 `20261021-execute-underlying-naming` →
 `20261109-schedule-revoke-service-signer-deposit-withdraw` →
 `20261109-execute-revoke-service-signer-deposit-withdraw` →
-`20261111-qsep-set-fleet-authoriser`.
+`20261111-qsep-set-fleet-authoriser` → `20261113-bind-orchestrator-config`.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over

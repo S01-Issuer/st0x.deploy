@@ -13,6 +13,7 @@ import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
 import {StoxGovernanceTimelock} from "../../src/concrete/StoxGovernanceTimelock.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {BindBeaconInitialOwnerHarness} from "../script/BindBeaconInitialOwnerHarness.sol";
+import {LibTestConfigRegistryDelegates} from "./LibTestConfigRegistryDelegates.sol";
 
 /// @title LibTestBeaconInitialOwnerBind
 /// @notice The beacon-initial-owner bind's ConfigRegistry state on a fork,
@@ -33,11 +34,9 @@ library LibTestBeaconInitialOwnerBind {
         return LibRainDeploy.etchAndDeployZoltu(vm, type(StoxGovernanceTimelock).creationCode);
     }
 
-    /// @notice The root approves `safe` to bind the beacon initial owner.
+    /// @notice The root approves `safe` unscoped, as on chain.
     function approveSafe(Vm vm, address safe) internal {
-        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
-        IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .approveV5(LibStoxConfig.BEACON_INITIAL_OWNER_NAME, safe);
+        LibTestConfigRegistryDelegates.approveUnscoped(vm, safe);
     }
 
     /// @notice Deploys the timelock, approves `safe` and executes the bind

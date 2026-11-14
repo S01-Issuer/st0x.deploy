@@ -137,6 +137,10 @@ library LibStoxMigrations {
     /// a later bundle.
     bytes32 internal constant QSEP_SET_FLEET_AUTHORISER = keccak256("script/20261111-qsep-set-fleet-authoriser.s.sol");
 
+    /// @notice `script/20261113-bind-orchestrator-config.s.sol`: the
+    /// orchestrator beacon and initial admin bound in the ConfigRegistry.
+    bytes32 internal constant BIND_ORCHESTRATOR_CONFIG = keccak256("script/20261113-bind-orchestrator-config.s.sol");
+
     /// @notice What `declared` is recorded after on the root line.
     /// @param declared The declaration.
     /// @return The prerequisites.

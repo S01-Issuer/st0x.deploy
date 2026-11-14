@@ -74,8 +74,12 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
         LibTimelockInvariants.assertTimelockState(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, chainSafe);
 
         LibStoxMigrations.assertNext(bindBeaconInitialOwnerDeclaration(), chainSafe);
-        if (!IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-                .approvedV5(LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe)) {
+        IConfigRegistryV5 registry = IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
+        if (
+            !registry.approvedV5(
+                    LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe
+                ) && !registry.approvedUnscopedV5(LibRegistryAuthority.ROOT_AUTHORITY, chainSafe)
+        ) {
             revert SafeNotBeaconInitialOwnerDelegate(chainSafe);
         }
     }
