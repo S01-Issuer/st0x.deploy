@@ -94,10 +94,6 @@ library LibStoxMigrations {
     bytes32 internal constant BACKFILL_MIGRATION_REGISTRY_V5 =
         keccak256("script/20261030-backfill-migration-registry-v5.s.sol");
 
-    /// @notice `script/20261113-bind-orchestrator-config.s.sol`: the
-    /// orchestrator beacon and initial admin bound in the ConfigRegistry.
-    bytes32 internal constant BIND_ORCHESTRATOR_CONFIG = keccak256("script/20261113-bind-orchestrator-config.s.sol");
-
     /// @notice `script/20261022-bind-beacon-initial-owner.s.sol`: the beacon
     /// initial owner bound to the governance timelock in the ConfigRegistry.
     bytes32 internal constant BIND_BEACON_INITIAL_OWNER = keccak256("script/20261022-bind-beacon-initial-owner.s.sol");
@@ -140,6 +136,10 @@ library LibStoxMigrations {
     /// V3 clone roles revoked, in one Safe MultiSend, recorded by the Safe in
     /// a later bundle.
     bytes32 internal constant QSEP_SET_FLEET_AUTHORISER = keccak256("script/20261111-qsep-set-fleet-authoriser.s.sol");
+
+    /// @notice `script/20261113-bind-orchestrator-config.s.sol`: the
+    /// orchestrator beacon and initial admin bound in the ConfigRegistry.
+    bytes32 internal constant BIND_ORCHESTRATOR_CONFIG = keccak256("script/20261113-bind-orchestrator-config.s.sol");
 
     /// @notice What `declared` is recorded after on the root line.
     /// @param declared The declaration.

@@ -32,13 +32,13 @@ error SafeNotOrchestratorConfigDelegate(bytes32 name, address safe);
 /// @param registeredAt When it was bound.
 error OrchestratorConfigBindingMismatch(bytes32 name, bytes value, uint256 registeredAt);
 
-/// @notice This script's declaration on the root line, after the
-/// backfill record.
+/// @notice This script's declaration on the root line, after the tQSEP
+/// migration.
 /// @return The declaration.
 function bindOrchestratorConfigDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG,
-        onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
+        onto: LibStoxMigrations.QSEP_SET_FLEET_AUTHORISER,
         history: false
     });
 }

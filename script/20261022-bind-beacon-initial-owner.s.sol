@@ -31,12 +31,12 @@ error SafeNotBeaconInitialOwnerDelegate(address safe);
 error BeaconInitialOwnerBindingMismatch(bytes value, uint256 registeredAt);
 
 /// @notice This script's declaration on the root line, after the
-/// orchestrator config record.
+/// backfill record.
 /// @return The declaration.
 function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
-        onto: LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG,
+        onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
         history: false
     });
 }
