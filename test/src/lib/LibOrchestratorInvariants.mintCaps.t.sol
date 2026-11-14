@@ -30,6 +30,8 @@ import {
     OrchestratorRoleMissing,
     OrchestratorRoleAdminUnexpected
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
+import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibOrchestratorInvariantsHarness} from "./LibOrchestratorInvariantsHarness.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTestOrchestratorDeploy} from "../../lib/LibTestOrchestratorDeploy.sol";
@@ -53,7 +55,8 @@ contract LibOrchestratorInvariantsMintCapsTest is Test {
 
     function setUp() external {
         harness = new LibOrchestratorInvariantsHarness();
-        timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTestDeploy.bindBeaconInitialOwner(vm, timelock);
         LibTestDeploy.bindOrchestratorInitialAdmin(vm, timelock);
         deployKey = LibProdDeployV4.BEACON_INITIAL_OWNER;
