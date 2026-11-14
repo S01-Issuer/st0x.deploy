@@ -88,8 +88,8 @@ contract LibIdealRolesTest is Test {
 
     function testMintCapsOrchestratorLists() external {
         SupportedNetwork[] memory nets = networks();
-        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         for (uint256 c = 0; c < nets.length; c++) {
+            (, address timelock) = principals(nets[c].chainId);
             ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[4];
             assertEq(roles.target, LibOrchestratorInvariants.mintCapsInstance());
 
@@ -98,6 +98,19 @@ contract LibIdealRolesTest is Test {
             push("BURN_ADMIN", timelock);
             push("EMERGENCY_ADMIN", timelock);
             assertWant(roles.expected);
+        }
+    }
+
+    function testMintCapsGranteesAreTheChainsProdTimelockNotTheCandidate() external pure {
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            (, address timelock) = principals(nets[c].chainId);
+            RoleGrant[] memory grants = LibIdealRoles.contractRoles(nets[c].chainId)[4].expected;
+            assertGt(grants.length, 0);
+            for (uint256 i = 0; i < grants.length; i++) {
+                assertEq(grants[i].grantee, timelock);
+                assertNotEq(grants[i].grantee, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+            }
         }
     }
 
