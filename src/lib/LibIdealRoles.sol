@@ -44,8 +44,7 @@ library LibIdealRoles {
         );
         roles[3] = ContractRoles(timelock, LibTimelockInvariants.expectedGrants(timelock, safe));
         roles[4] = ContractRoles(
-            LibOrchestratorInvariants.mintCapsInstance(),
-            LibOrchestratorInvariants.mintCapsExpectedGrants(timelock)
+            LibOrchestratorInvariants.mintCapsInstance(), LibOrchestratorInvariants.mintCapsExpectedGrants(timelock)
         );
         return roles;
     }
