@@ -132,8 +132,9 @@ library LibStoxMigrations {
         keccak256("script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol");
 
     /// @notice `script/20261111-qsep-set-fleet-authoriser.s.sol`: the Base
-    /// tQSEP vault moved onto the fleet authoriser by one direct Safe call,
-    /// recorded by the Safe in a later bundle.
+    /// tQSEP vault moved onto the fleet authoriser, and the retired signer's
+    /// V3 clone roles revoked, in one Safe MultiSend, recorded by the Safe in
+    /// a later bundle.
     bytes32 internal constant QSEP_SET_FLEET_AUTHORISER = keccak256("script/20261111-qsep-set-fleet-authoriser.s.sol");
 
     /// @notice What `declared` is recorded after on the root line.

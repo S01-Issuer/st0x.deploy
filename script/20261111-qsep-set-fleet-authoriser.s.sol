@@ -45,6 +45,21 @@ error OrchestratorLacksFleetRole(bytes32 role);
 /// @param authoriser The vault's authoriser.
 error QsepNotOnFleetAuthoriser(address authoriser);
 
+/// @notice The retired signer does not hold `role` on the V3 clone, so the
+/// bundle's revoke of it is not the live state the bundle was written for.
+/// @param role The role.
+error RetiredSignerLacksV3Role(bytes32 role);
+
+/// @notice The token-owner Safe does not hold `role`'s admin role on the V3
+/// clone, so its `revokeRole` of `role` would revert.
+/// @param role The role.
+error SafeCannotRevokeV3Role(bytes32 role);
+
+/// @notice The retired signer still holds `role` on the V3 clone after the
+/// bundle, or when its record is authored.
+/// @param role The role.
+error RetiredSignerStillHoldsV3Role(bytes32 role);
+
 /// @notice The root line already holds this script's record.
 /// @param id The migration id.
 error QsepSetFleetAuthoriserRecorded(bytes32 id);
@@ -63,25 +78,34 @@ function qsepSetFleetAuthoriserDeclaration() pure returns (ScriptDeclaration mem
 /// @title QsepSetFleetAuthoriser
 /// @notice Authors the token-owner Safe transaction that moves the tQSEP vault
 /// (`LibTokenInvariants.QSEP_RECEIPT_VAULT`, Base only) from the V3 authoriser
-/// clone onto the fleet authoriser `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`:
-/// one CALL of `setAuthorizer(STOX_PROD_AUTHORISER)` to the vault, value 0. The
-/// vault's `owner()` is still the Safe, so this is a direct Safe transaction,
-/// with no timelock delay (see `docs/TIMELOCK.md`).
+/// clone onto the fleet authoriser `LibAuthoriserInvariants.STOX_PROD_AUTHORISER`
+/// and, in the same transaction, revokes every role the retired signer
+/// `LibAuthoriserInvariants.V3_RETIRED_SIGNER_1C66` holds on the V3 clone. The
+/// vault's `owner()` and the V3 clone's `_ADMIN` roles are on the Safe, so this
+/// is a direct Safe transaction, with no timelock delay (see
+/// `docs/TIMELOCK.md`). The vault's `owner()` stays on the Safe.
 ///
 /// The bundle depends on live state, so a dispatch authors one of two bundles:
 ///
-/// - Base, vault on the V3 clone: the `setAuthorizer` call ALONE. The root line
-///   on Base is still at genesis (the V5 backfill has not executed), so the
-///   record cannot ride with the call; it is written later by the next mode.
+/// - Base, vault on the V3 clone: four CALLs, value 0, in this order:
+///   `setAuthorizer(STOX_PROD_AUTHORISER)` to the vault, then
+///   `revokeRole(role, V3_RETIRED_SIGNER_1C66)` to the V3 clone for each of
+///   `retiredSignerV3Roles()`. The root line on Base is still at genesis (the
+///   V5 backfill has not executed), so the record cannot ride with the calls;
+///   it is written later by the next mode.
 /// - Anywhere else (Base after the swap, and every other chain, where tQSEP
 ///   does not exist): the root-line record alone, once the line reaches this
-///   script's onto.
+///   script's onto. On Base it also requires that the retired signer holds
+///   none of those roles, so the record attests both effects.
 ///
-/// So after the swap executes, a re-dispatch never authors the call again.
+/// So after the swap executes, a re-dispatch never authors the calls again.
 ///
-/// Both bundles are ONE transaction. The Safe Transaction Builder sends a
-/// one-transaction batch as a direct CALL, not through `MultiSendCallOnly`, so
-/// the logged hash is that CALL's `safeTxHash`, not a MultiSend hash.
+/// The Safe Transaction Builder sends a batch of two or more transactions as
+/// one DELEGATECALL to `MultiSendCallOnly` v1.4.1
+/// (`LibSafe.SAFE_V1_4_1_MULTI_SEND_CALL_ONLY`, the contract every executed
+/// multi-call batch of this Safe went through), and a one-transaction batch
+/// as a direct CALL. The logged hash follows the same rule: the MultiSend
+/// hash for the four-call bundle, the direct CALL hash for the record.
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261111-qsep-set-fleet-authoriser`, `network = base`. A signer
@@ -96,7 +120,7 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
     /// @notice The Safe Transaction Builder `meta.name`.
     /// @return The name.
     function bundleName() internal view returns (string memory) {
-        if (swapPending()) return "ST0x tQSEP: setAuthorizer to the fleet authoriser";
+        if (swapPending()) return "ST0x tQSEP: setAuthorizer to the fleet authoriser, revoke 0x1c66 V3 roles";
         return "ST0x migration record: qsep-set-fleet-authoriser";
     }
 
@@ -121,6 +145,35 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
         if (authoriser == LibAuthoriserInvariants.STOX_PROD_AUTHORISER_V3_CLONE) return true;
         if (authoriser == LibAuthoriserInvariants.STOX_PROD_AUTHORISER) return false;
         revert QsepUnexpectedAuthoriser(authoriser);
+    }
+
+    /// @notice The roles the retired signer holds on the V3 clone, in the
+    /// order the bundle revokes them. They are every role the Safe granted it
+    /// there (Safe nonces 434 to 436); a Base head read of every role the
+    /// clone defines found no other.
+    /// @return roles DEPOSIT, WITHDRAW, CERTIFY.
+    function retiredSignerV3Roles() internal pure returns (bytes32[] memory roles) {
+        roles = new bytes32[](3);
+        roles[0] = keccak256("DEPOSIT");
+        roles[1] = keccak256("WITHDRAW");
+        roles[2] = keccak256("CERTIFY");
+    }
+
+    /// @notice Whether the retired signer holds `role` on the V3 clone.
+    /// @param role The role.
+    /// @return True if it holds it.
+    function retiredSignerHolds(bytes32 role) internal view returns (bool) {
+        return IAccessControl(LibAuthoriserInvariants.STOX_PROD_AUTHORISER_V3_CLONE)
+            .hasRole(role, LibAuthoriserInvariants.V3_RETIRED_SIGNER_1C66);
+    }
+
+    /// @notice Reverts `RetiredSignerStillHoldsV3Role` if the retired signer
+    /// holds any of `retiredSignerV3Roles()` on the V3 clone.
+    function assertRetiredSignerRevoked() internal view {
+        bytes32[] memory roles = retiredSignerV3Roles();
+        for (uint256 i = 0; i < roles.length; i++) {
+            if (retiredSignerHolds(roles[i])) revert RetiredSignerStillHoldsV3Role(roles[i]);
+        }
     }
 
     /// @notice The `setAuthorizer(STOX_PROD_AUTHORISER)` calldata.
@@ -149,28 +202,73 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
             if (!access.hasRole(keccak256("WITHDRAW"), orchestrator)) {
                 revert OrchestratorLacksFleetRole(keccak256("WITHDRAW"));
             }
+            IAccessControl v3 = IAccessControl(LibAuthoriserInvariants.STOX_PROD_AUTHORISER_V3_CLONE);
+            bytes32[] memory roles = retiredSignerV3Roles();
+            for (uint256 i = 0; i < roles.length; i++) {
+                if (!retiredSignerHolds(roles[i])) revert RetiredSignerLacksV3Role(roles[i]);
+                if (!v3.hasRole(v3.getRoleAdmin(roles[i]), chainSafe)) revert SafeCannotRevokeV3Role(roles[i]);
+            }
             return;
         }
+        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) assertRetiredSignerRevoked();
         bytes32 id = LibStoxMigrations.QSEP_SET_FLEET_AUTHORISER;
         if (LibStoxMigrations.applied(id) != 0) revert QsepSetFleetAuthoriserRecorded(id);
         LibStoxMigrations.assertNext(qsepSetFleetAuthoriserDeclaration(), chainSafe);
     }
 
-    /// @notice The bundle: one CALL, derived from live state.
-    /// @return The transactions.
-    function authorBundle() internal view returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](1);
-        if (swapPending()) {
-            txs[0] = SafeTx({
-                to: LibTokenInvariants.QSEP_RECEIPT_VAULT,
+    /// @notice The bundle, derived from live state: the swap and the revokes,
+    /// or the record alone.
+    /// @return txs The transactions.
+    function authorBundle() internal view returns (SafeTx[] memory txs) {
+        if (!swapPending()) {
+            txs = new SafeTx[](1);
+            txs[0] = LibStoxMigrations.recordTx(qsepSetFleetAuthoriserDeclaration());
+            return txs;
+        }
+        bytes32[] memory roles = retiredSignerV3Roles();
+        txs = new SafeTx[](1 + roles.length);
+        txs[0] = SafeTx({
+            to: LibTokenInvariants.QSEP_RECEIPT_VAULT,
+            value: 0,
+            data: setAuthorizerCalldata(),
+            operation: Enum.Operation.Call
+        });
+        for (uint256 i = 0; i < roles.length; i++) {
+            txs[1 + i] = SafeTx({
+                to: LibAuthoriserInvariants.STOX_PROD_AUTHORISER_V3_CLONE,
                 value: 0,
-                data: setAuthorizerCalldata(),
+                data: abi.encodeCall(
+                    IAccessControl.revokeRole, (roles[i], LibAuthoriserInvariants.V3_RETIRED_SIGNER_1C66)
+                ),
                 operation: Enum.Operation.Call
             });
-        } else {
-            txs[0] = LibStoxMigrations.recordTx(qsepSetFleetAuthoriserDeclaration());
         }
-        return txs;
+    }
+
+    /// @notice The transaction the Safe executes `txs` as, the way the Safe
+    /// Transaction Builder submits it: the one transaction itself, or a
+    /// DELEGATECALL to `MultiSendCallOnly` for two or more.
+    /// @param txs The bundle.
+    /// @return The executed transaction.
+    function executedTx(SafeTx[] memory txs) internal view returns (SafeTx memory) {
+        if (txs.length == 1) return txs[0];
+        return LibSafeTx.multiSendTx(txs);
+    }
+
+    /// @notice Logs the hash signers' devices show for `executed` at the
+    /// live nonce and at the three nonces after it, for a queue ahead of it.
+    /// @param bundleSafe The Safe.
+    /// @param executed The executed transaction, from `executedTx`.
+    /// @param nonce The live nonce.
+    function logHashes(Safe bundleSafe, SafeTx memory executed, uint256 nonce) internal view {
+        console2.log("Executed as:", executed.operation == Enum.Operation.Call ? "direct CALL" : "DELEGATECALL");
+        console2.log("Executed to:", executed.to);
+        for (uint256 i = 0; i < 4; i++) {
+            console2.log(
+                string.concat("SafeTxHash at nonce ", vm.toString(nonce + i), i == 0 ? " (live):" : ":"),
+                vm.toString(LibSafeTx.safeTxHash(bundleSafe, executed, nonce + i))
+            );
+        }
     }
 
     /// @notice Reverts unless the executed bundle produced its state.
@@ -185,6 +283,7 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
         if (authoriser != LibAuthoriserInvariants.STOX_PROD_AUTHORISER) revert QsepNotOnFleetAuthoriser(authoriser);
         address owner = IOwnable(vault).owner();
         if (owner != address(safe())) revert QsepVaultNotOwnedBySafe(owner);
+        assertRetiredSignerRevoked();
     }
 
     /// @notice Authors the bundle on the selected fork, executes it through the
@@ -192,7 +291,8 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
     /// the artifact and logs the hash the signers' devices show. Any artifact
     /// already at `artifactPath()` is removed first, so a refused run leaves
     /// nothing to sign.
-    /// @return The transaction's `safeTxHash` at the nonce before execution.
+    /// @return The executed transaction's `safeTxHash` at the nonce before
+    /// execution: the MultiSend hash for the four-call bundle.
     function run() external returns (bytes32) {
         string memory path = artifactPath();
         if (vm.exists(path)) vm.removeFile(path);
@@ -202,8 +302,9 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
         SafeTx[] memory txs = authorBundle();
         Safe bundleSafe = safe();
         uint256 nonce = bundleSafe.nonce();
-        bytes32 txHash = LibSafeTx.safeTxHash(bundleSafe, txs[0], nonce);
-        LibSafeFork.execute(vm, bundleSafe, txs[0]);
+        SafeTx memory executed = executedTx(txs);
+        bytes32 txHash = LibSafeTx.safeTxHash(bundleSafe, executed, nonce);
+        LibSafeFork.execute(vm, bundleSafe, executed);
         assertPostState(swap);
         string memory json = LibSafeTxBuilderJson.toJson(vm, address(bundleSafe), block.chainid, name, txs);
         vm.writeFile(path, json);
@@ -214,7 +315,7 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
         console2.log("Chain:", block.chainid);
         console2.log("Nonce:", nonce);
         console2.log("Transactions:", txs.length);
-        console2.log("SafeTxHash (direct CALL, one-transaction batch):", vm.toString(txHash));
+        logHashes(bundleSafe, executed, nonce);
         console2.log("Artifact:", path);
         return txHash;
     }
@@ -223,15 +324,16 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
     /// whose chain, Safe or transaction differ from it, then logs and returns
     /// the hash at the live nonce.
     /// @param jsonPath The artifact to check.
-    /// @return The transaction's `safeTxHash` at the live nonce.
+    /// @return The executed transaction's `safeTxHash` at the live nonce.
     function verify(string calldata jsonPath) external view returns (bytes32) {
         preflight();
         SafeTx[] memory expected = authorBundle();
         Safe bundleSafe = safe();
         LibSafeTxBuilderJson.requireMatches(vm, vm.readFile(jsonPath), address(bundleSafe), expected);
-        bytes32 txHash = LibSafeTx.safeTxHash(bundleSafe, expected[0], bundleSafe.nonce());
+        SafeTx memory executed = executedTx(expected);
+        uint256 nonce = bundleSafe.nonce();
         console2.log("Artifact verified against live state.");
-        console2.log("SafeTxHash (direct CALL, one-transaction batch):", vm.toString(txHash));
-        return txHash;
+        logHashes(bundleSafe, executed, nonce);
+        return LibSafeTx.safeTxHash(bundleSafe, executed, nonce);
     }
 }

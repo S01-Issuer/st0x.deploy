@@ -29,19 +29,28 @@ so the migration skipped it. Its `owner()` is still the token-owner Safe, so its
 owner freezes) are direct Safe transactions, with no delay. Its authoriser is
 the fleet authoriser `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` once the
 Safe calls `setAuthorizer` on the vault. Actions → `run-script` →
-`20261111-qsep-set-fleet-authoriser`, network `base`, authors that call as a
-one-transaction Safe bundle. The Safe Transaction Builder sends a
-one-transaction batch as a direct CALL, so the script logs that CALL's
-`SafeTxHash`, not a MultiSend hash. The root line on Base is still at genesis,
-so the call goes without its record; once it executes, a re-dispatch authors the
-record-only bundle, which the registry accepts after
-`20261109-execute-revoke-service-signer-deposit-withdraw`. From then on grants
-on that authoriser go through the timelock. Before that it is on the V3 clone
-(`STOX_PROD_AUTHORISER_V3_CLONE`), whose `_ADMIN` roles are on the Safe. Either
-way, tQSEP mint and burn authority is not delay-gated: the Safe, as vault owner,
-can point the vault at another authoriser (for example a new clone with the Safe
-as admin) with no delay. Moving the vault `owner()` to the timelock is a
-separate change that closes this.
+`20261111-qsep-set-fleet-authoriser`, network `base`, authors that call in one
+Safe bundle with three revokes on the V3 clone: `revokeRole` of `DEPOSIT`,
+`WITHDRAW` and `CERTIFY` from the retired Fireblocks signer
+`LibAuthoriserInvariants.V3_RETIRED_SIGNER_1C66` (`0x1c66…d1A9`), every role it
+holds there. The Safe holds each role's `_ADMIN` on the V3 clone, so the revokes
+have no delay. The pre-flight refuses if any of the three is not held, or if the
+Safe does not hold its admin. The bundle does not move the vault `owner()`: it
+stays on the Safe until the cutover is verified. The Safe Transaction Builder
+sends a batch of two or more transactions as one DELEGATECALL to
+`MultiSendCallOnly` v1.4.1 (`0x9641…02e2`), so the script logs that
+transaction's `SafeTxHash` at the live nonce and at the three nonces after it.
+The root line on Base is still at genesis, so the calls go without their record;
+once they execute, a re-dispatch authors the record-only bundle (one direct
+CALL), which the registry accepts after
+`20261109-execute-revoke-service-signer-deposit-withdraw`. On Base the record is
+refused while the retired signer still holds any of the three roles. Once the
+vault is on the fleet authoriser, grants that act on it go through the timelock.
+Before that it is on the V3 clone (`STOX_PROD_AUTHORISER_V3_CLONE`), whose
+`_ADMIN` roles are on the Safe. Either way, tQSEP mint and burn authority is not
+delay-gated: the Safe, as vault owner, can point the vault at another authoriser
+(for example a new clone with the Safe as admin) with no delay. Moving the vault
+`owner()` to the timelock is a separate change that closes this.
 
 **Why the beacons are in scope.** Every production token proxies through those
 beacons, and a beacon owner can `upgradeTo` a new implementation for all of them

@@ -16,6 +16,9 @@ import {
     QsepVaultNotOwnedBySafe,
     FleetAuthoriserCodehashMismatch,
     OrchestratorLacksFleetRole,
+    RetiredSignerLacksV3Role,
+    SafeCannotRevokeV3Role,
+    RetiredSignerStillHoldsV3Role,
     QsepSetFleetAuthoriserRecorded,
     qsepSetFleetAuthoriserDeclaration
 } from "../../script/20261111-qsep-set-fleet-authoriser.s.sol";
@@ -39,9 +42,9 @@ import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxM
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @title QsepSetFleetAuthoriserTest
-/// @notice The tQSEP `setAuthorizer` Safe bundle on Base before the swap, the
-/// refusals of its pre-flight, and the record-only bundle once the swap has
-/// executed or off Base.
+/// @notice The tQSEP `setAuthorizer` and retired-signer revoke Safe bundle on
+/// Base before the swap, the refusals of its pre-flight, and the record-only
+/// bundle once the swap has executed or off Base.
 /// @dev The swap tests fork Base at `PRE_SWAP_BLOCK`, where the vault is on
 /// the V3 clone and the orchestrator holds DEPOSIT and WITHDRAW on the fleet
 /// authoriser, so they do not change once the Safe transaction executes.
@@ -55,18 +58,66 @@ contract QsepSetFleetAuthoriserTest is RevokeServiceSignerDepositWithdrawFixture
 
     address internal constant VAULT = LibTokenInvariants.QSEP_RECEIPT_VAULT;
 
+    address internal constant V3 = LibAuthoriserInvariants.STOX_PROD_AUTHORISER_V3_CLONE;
+
+    address internal constant RETIRED = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
+
+    /// The MultiSendCallOnly v1.4.1 the Safe UI executes every multi-call
+    /// batch of this Safe through (Safe nonces 698 to 705, for example).
+    address internal constant MULTI_SEND_CALL_ONLY = 0x9641d764fc13c8B624c04430C7356C1C7C8102e2;
+
+    /// The exact bytes of the three revokes, in bundle order.
+    bytes internal constant REVOKE_DEPOSIT =
+        hex"d547741f87a7811f4bfedea3d341ad165680ae306b01aaeacc205d227629cf157dd9f8210000000000000000000000001c66d6708914c40239d54919320b4c48cae3d1a9";
+    bytes internal constant REVOKE_WITHDRAW =
+        hex"d547741f7a8dc26796a1e50e6e190b70259f58f6a4edd5b22280ceecc82b687b8e9828690000000000000000000000001c66d6708914c40239d54919320b4c48cae3d1a9";
+    bytes internal constant REVOKE_CERTIFY =
+        hex"d547741f50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d0533910000000000000000000000001c66d6708914c40239d54919320b4c48cae3d1a9";
+
+    function retiredRoles() internal pure returns (bytes32[3] memory) {
+        return [keccak256("DEPOSIT"), keccak256("WITHDRAW"), keccak256("CERTIFY")];
+    }
+
     QsepSetFleetAuthoriserHarness internal script;
 
     function forkPreSwap(string memory stem) internal {
         vm.createSelectFork(LibRainDeploy.BASE, PRE_SWAP_BLOCK);
         script = new QsepSetFleetAuthoriserHarness(stem);
-        assertEq(IAuthorisable(VAULT).authorizer(), LibAuthoriserInvariants.STOX_PROD_AUTHORISER_V3_CLONE, "pre-swap");
+        assertEq(IAuthorisable(VAULT).authorizer(), V3, "pre-swap");
+        bytes32[3] memory roles = retiredRoles();
+        for (uint256 i = 0; i < roles.length; i++) {
+            assertTrue(IAccessControl(V3).hasRole(roles[i], RETIRED), "retired signer holds the role pre-swap");
+        }
     }
 
     function sendAsSafe() internal {
         vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
         (bool ok,) = VAULT.call(SET_AUTHORIZER);
         assertTrue(ok, "the Safe sets the authoriser");
+    }
+
+    function revokeAsSafe() internal {
+        bytes32[3] memory roles = retiredRoles();
+        vm.startPrank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+        for (uint256 i = 0; i < roles.length; i++) {
+            IAccessControl(V3).revokeRole(roles[i], RETIRED);
+        }
+        vm.stopPrank();
+    }
+
+    /// The MultiSend hash, packed here by hand rather than through
+    /// `LibSafeTx`, so the test does not share the script's encoder.
+    function multiSendHash(SafeTx[] memory txs, uint256 nonce) internal view returns (bytes32) {
+        bytes memory packed = "";
+        for (uint256 i = 0; i < txs.length; i++) {
+            packed = bytes.concat(packed, bytes1(0x00), bytes20(txs[i].to), bytes32(txs[i].value));
+            packed = bytes.concat(packed, bytes32(txs[i].data.length), txs[i].data);
+        }
+        bytes memory data = abi.encodeWithSignature("multiSend(bytes)", packed);
+        return Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE))
+            .getTransactionHash(
+                MULTI_SEND_CALL_ONLY, 0, data, Enum.Operation.DelegateCall, 0, 0, 0, address(0), address(0), nonce
+            );
     }
 
     function directHash(SafeTx memory txn, uint256 nonce) internal view returns (bytes32) {
@@ -81,12 +132,13 @@ contract QsepSetFleetAuthoriserTest is RevokeServiceSignerDepositWithdrawFixture
         assertFalse(declared.history, "a record");
     }
 
-    /// The artifact is one CALL to the vault, value 0, with the exact
-    /// calldata, and the returned hash is that CALL's `safeTxHash` at the
-    /// Safe's nonce, which is what the Safe UI shows for a one-transaction
-    /// Transaction Builder batch.
-    function testRunAuthorsTheOneCallSwap() external {
-        forkPreSwap("testRunAuthorsTheOneCallSwap");
+    /// The artifact is four CALLs, value 0, with the exact calldata: the swap
+    /// on the vault, then the three revokes on the V3 clone. The returned hash
+    /// is the MultiSendCallOnly DELEGATECALL's `safeTxHash` at the Safe's
+    /// nonce, which is what the Safe UI shows for a multi-transaction
+    /// Transaction Builder batch. The Safe keeps its own V3 roles.
+    function testRunAuthorsTheSwapAndTheRevokes() external {
+        forkPreSwap("testRunAuthorsTheSwapAndTheRevokes");
         Safe safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
         uint256 nonce = safe.nonce();
         bytes32 logged = script.run();
@@ -99,12 +151,26 @@ contract QsepSetFleetAuthoriserTest is RevokeServiceSignerDepositWithdrawFixture
         (uint256 chainId, address artifactSafe, SafeTx[] memory txs) = LibSafeTxBuilderJson.fromJson(vm, json);
         assertEq(chainId, 8453, "chain");
         assertEq(artifactSafe, address(safe), "Safe");
-        assertEq(txs.length, 1, "one transaction");
-        assertEq(txs[0].to, VAULT, "to");
-        assertEq(txs[0].value, 0, "value");
-        assertEq(txs[0].data, SET_AUTHORIZER, "data");
-        assertEq(vm.parseJsonString(json, ".meta.name"), "ST0x tQSEP: setAuthorizer to the fleet authoriser");
-        assertEq(logged, directHash(txs[0], nonce), "direct CALL hash");
+        assertEq(txs.length, 4, "four transactions");
+        bytes[4] memory data = [SET_AUTHORIZER, REVOKE_DEPOSIT, REVOKE_WITHDRAW, REVOKE_CERTIFY];
+        for (uint256 i = 0; i < 4; i++) {
+            assertEq(txs[i].to, i == 0 ? VAULT : V3, "to");
+            assertEq(txs[i].value, 0, "value");
+            assertEq(txs[i].data, data[i], "data");
+            assertEq(uint8(txs[i].operation), uint8(Enum.Operation.Call), "CALL");
+        }
+        assertEq(
+            vm.parseJsonString(json, ".meta.name"),
+            "ST0x tQSEP: setAuthorizer to the fleet authoriser, revoke 0x1c66 V3 roles"
+        );
+        assertEq(logged, multiSendHash(txs, nonce), "MultiSend hash");
+        assertNotEq(logged, directHash(txs[0], nonce), "not the direct CALL hash");
+
+        bytes32[3] memory roles = retiredRoles();
+        for (uint256 i = 0; i < roles.length; i++) {
+            assertFalse(IAccessControl(V3).hasRole(roles[i], RETIRED), "retired signer revoked");
+            assertTrue(IAccessControl(V3).hasRole(roles[i], address(safe)), "Safe keeps its role");
+        }
     }
 
     /// `verify` accepts the artifact `run` wrote, on the state before it, and
@@ -120,6 +186,37 @@ contract QsepSetFleetAuthoriserTest is RevokeServiceSignerDepositWithdrawFixture
         string memory tampered =
             vm.replace(json, "315b16faa6ee413fabca877d3851b3818369f0cd", "35f9fa9d80aaf2b0fb27f0ff015641b3408d7456");
         LibTestTamperedArtifact.assertVerifyRefusesTamper(vm, address(script), json, tampered, "qsep-set-fleet");
+
+        // A revoke of another account than the retired signer.
+        tampered =
+            vm.replace(json, "1c66d6708914c40239d54919320b4c48cae3d1a9", "3d0cd66efa66c05d86c3d4316b03eae87ab9e8ae");
+        LibTestTamperedArtifact.assertVerifyRefusesTamper(vm, address(script), json, tampered, "qsep-revoke-account");
+
+        // A revoke of another role: CERTIFY_ADMIN in place of CERTIFY.
+        tampered = vm.replace(
+            json,
+            "50a07cb25d0d864370863300b20987dfdae089abad71b607faf639d09d053391",
+            "48ece560b6811ee496fa3dedc7d5be3dfce8c5eb8f1cc18626507e158a23169b"
+        );
+        LibTestTamperedArtifact.assertVerifyRefusesTamper(vm, address(script), json, tampered, "qsep-revoke-role");
+    }
+
+    /// `verify` refuses an artifact that drops a revoke.
+    function testVerifyRefusesAnArtifactWithoutARevoke() external {
+        forkPreSwap("testVerifyRefusesAnArtifactWithoutARevoke");
+        uint256 preRun = vm.snapshotState();
+        script.run();
+        vm.revertToState(preRun);
+        (uint256 chainId, address artifactSafe, SafeTx[] memory txs) =
+            LibSafeTxBuilderJson.fromJson(vm, vm.readFile(script.path()));
+        SafeTx[] memory short = new SafeTx[](3);
+        for (uint256 i = 0; i < 3; i++) {
+            short[i] = txs[i];
+        }
+        string memory path = "out/qsep-short-8453.json";
+        vm.writeFile(path, LibSafeTxBuilderJson.toJson(vm, artifactSafe, chainId, "short", short));
+        vm.expectRevert(abi.encodeWithSelector(LibSafeTxBuilderJson.ArtifactMismatch.selector, "txCount"));
+        script.verify(path);
     }
 
     function testRunRefusesAVaultTheSafeDoesNotOwn() external {
@@ -163,13 +260,54 @@ contract QsepSetFleetAuthoriserTest is RevokeServiceSignerDepositWithdrawFixture
         assertRefusesWithoutRole(keccak256("WITHDRAW"));
     }
 
+    /// Each revoke must be live: the pre-flight refuses if the retired signer
+    /// no longer holds the role.
+    function testRunRefusesARetiredSignerWithoutEachV3Role() external {
+        bytes32[3] memory roles = retiredRoles();
+        for (uint256 i = 0; i < roles.length; i++) {
+            forkPreSwap(string.concat("lacks-", vm.toString(roles[i])));
+            vm.prank(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE);
+            IAccessControl(V3).revokeRole(roles[i], RETIRED);
+            vm.expectRevert(abi.encodeWithSelector(RetiredSignerLacksV3Role.selector, roles[i]));
+            script.run();
+        }
+    }
+
+    /// The Safe must hold each role's admin on the V3 clone.
+    function testRunRefusesASafeWithoutEachV3RoleAdmin() external {
+        bytes32[3] memory roles = retiredRoles();
+        for (uint256 i = 0; i < roles.length; i++) {
+            forkPreSwap(string.concat("admin-", vm.toString(roles[i])));
+            bytes32 admin = IAccessControl(V3).getRoleAdmin(roles[i]);
+            vm.mockCall(
+                V3,
+                abi.encodeCall(IAccessControl.hasRole, (admin, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE)),
+                abi.encode(false)
+            );
+            vm.expectRevert(abi.encodeWithSelector(SafeCannotRevokeV3Role.selector, roles[i]));
+            script.run();
+            vm.clearMockedCalls();
+        }
+    }
+
     /// Once the swap has executed the call is never authored again: the bundle
     /// is the record, which the registry refuses until the line reaches this
     /// script's onto. On Base the line is at genesis before the backfill.
     function testRunRefusesTheSwapOnceExecuted() external {
         forkPreSwap("testRunRefusesTheSwapOnceExecuted");
         sendAsSafe();
+        revokeAsSafe();
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
+        script.run();
+        assertFalse(vm.exists(script.path()), "a refused run leaves no artifact");
+    }
+
+    /// If the swap executed without the revokes, the record is refused: it
+    /// attests both.
+    function testRunRefusesTheRecordWhileTheRetiredSignerHoldsAV3Role() external {
+        forkPreSwap("testRunRefusesTheRecordWhileTheRetiredSignerHoldsAV3Role");
+        sendAsSafe();
+        vm.expectRevert(abi.encodeWithSelector(RetiredSignerStillHoldsV3Role.selector, keccak256("DEPOSIT")));
         script.run();
         assertFalse(vm.exists(script.path()), "a refused run leaves no artifact");
     }
@@ -213,9 +351,10 @@ contract QsepSetFleetAuthoriserTest is RevokeServiceSignerDepositWithdrawFixture
         assertRecordOnly();
     }
 
-    /// On Base after the swap: the record alone.
+    /// On Base after the swap and the revokes: the record alone.
     function testRecordOnlyOnBaseAfterTheSwap() external {
         advanceToOnto(LibRainDeploy.BASE);
+        revokeAsSafe();
         vm.mockCall(
             VAULT,
             abi.encodeCall(IAuthorisable.authorizer, ()),
