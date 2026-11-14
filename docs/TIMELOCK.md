@@ -263,8 +263,11 @@ sequence on a fork of each chain.
    (`LibUnderlyingNamingRollout.pinnedOperationIds`). Once a chain's batch is
    scheduled, its pins and the rows and constants they hash must not change: a
    changed batch needs a new salt and a new script, not a re-pin. Each schedule
-   script's first Safe bundle ends in its root-line record (a reschedule after a
-   cancel is the schedule alone); no record rides in a timelock batch.
+   script's Safe bundle is the `scheduleBatch` alone; the batch's last call
+   writes its root-line record, as the timelock, at execution. The line is not
+   held during the 48h delay: a migration recorded onto the head meanwhile makes
+   the batch's record revert at execution, and the fix is cancel and
+   reschedule.
 2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
    one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
    beacon, then its in-use receipt-vault beacon
@@ -274,20 +277,14 @@ sequence on a fork of each chain.
    likewise rejects an implementation with no code. A reverted `executeBatch`
    rolls back and leaves the operation Ready with its delay spent: deploy what
    is missing and execute the same batch again. A new delay is needed only if
-   the operation is cancelled or its arguments change. To reschedule a batch the
-   Safe cancelled, dispatch its schedule script again: its record is already on
-   the root line, so it authors the schedule alone and the line does not move.
-   If both batches were cancelled, reschedule the beacon batch first, then the
-   rename. Both pre-flights refuse unless the derived operation id equals the
-   pinned one (`LibUnderlyingNamingRollout.pinnedOperationIds`). A reschedule is
-   valid only for an unchanged batch the Safe cancelled to pause this rollout,
-   never for one cancelled under the stale-batch rule below; before signing it,
-   check that no other beacon upgrade is pending. A rescheduling bundle is one
+   the operation is cancelled or its arguments change. Both pre-flights refuse
+   unless the derived operation id equals the pinned one
+   (`LibUnderlyingNamingRollout.pinnedOperationIds`). A schedule bundle is one
    call, which the Safe UI proposes as a direct call rather than the `MultiSend`
    that `verify` hashes: compare the call's target and data with the artifact
    instead of the `SafeTxHash`. To halt the rollout while the beacon batch is
    pending, cancel both: a rename left pending becomes executable again as soon
-   as a rescheduled beacon batch executes. Cancel the rename first, in its own
+   as a newly scheduled beacon batch executes. Cancel the rename first, in its own
    Safe transaction, then the beacon batch in another: in one bundle, a beacon
    batch that executes while signatures are collected makes its `cancel` revert
    and rolls back the rename's cancel too. The rollout is halted only once the
@@ -344,10 +341,8 @@ sequence on a fork of each chain.
    `execute()` from the CI deploy key, one operation per dispatch. On HyperEVM
    the rename batch needs more gas than a small block holds, so enable big
    blocks for the deploy key (`manual-hyperevm-big-blocks`) before executing it
-   there. After the rename batch executes, the Safe signs `run-script`
-   `20261021-execute-underlying-naming` `run()`. It writes the execution's
-   record, and until it lands the root line stays at the rename schedule and
-   every later migration on that chain refuses.
+   there. The script writes no record: the rename batch's record is the
+   execution's record.
 
 After the beacon batch, the in-use receipt-vault beacon serves a vault that
 initializes only from the ConfigRegistry (rain-vats 0.2.12, config V3). The
@@ -430,17 +425,16 @@ after these have landed, in this order: the V5 backfill
 (`20261030-backfill-migration-registry-v5`), the beacon initial owner bind
 (`20261022-bind-beacon-initial-owner`) and the orchestrator admin move
 (`20261006-orchestrator-admin-to-timelock`). Then come the
-beacon schedule, the rename schedule, the execution and its record, and then the
-service-signer revoke
+beacon batch's record, the rename batch's record, and then the service-signer
+revoke
 (`20261109-schedule-revoke-service-signer-deposit-withdraw` and its execute). V6
-tokens are named from the signed listing, which is no migration. While the
-rollout is in flight (two 48h delays), no other migration can land on that
-chain. The revoke holds the line too, from its schedule record to its execute
-record, and its execute waits for minting and redemption to run through the
-orchestrator, so the Safe schedules the revoke only once that precondition
-holds. An urgent migration in that window needs a new script declared onto the
-current head, and a reviewed PR that re-declares the remaining naming scripts
-onto it.
+tokens are named from the signed listing, which is no migration. A naming
+batch does not hold the line during its 48h delay: a migration recorded onto
+the head meanwhile makes the batch's record revert at execution, and the fix is
+cancel and reschedule. The revoke holds the line from its schedule record to
+its execute record, and its execute waits for minting and redemption to run
+through the orchestrator, so the Safe schedules the revoke only once that
+precondition holds.
 
 **Revoking the service signer's vault roles.** The service signer
 (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) loses `DEPOSIT` and `WITHDRAW`
