@@ -130,6 +130,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
         DeployCandidate[] memory candidates = new DeployCandidate[](13);
+        DeploySuite memory snapshotRoot = underlyingSnapshotRootSuite();
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -138,7 +139,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE,
                 V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
                 FACET_PATH,
-                one(TOFU_DECIMALS_ADDRESS, TOFU_DECIMALS_RUNTIME_CODE)
+                two(
+                    TOFU_DECIMALS_ADDRESS,
+                    TOFU_DECIMALS_RUNTIME_CODE,
+                    snapshotRoot.storedDeployedAddress,
+                    snapshotRoot.storedRuntimeCode
+                )
             )
         );
         candidates[1] = anchored(
@@ -316,16 +322,18 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     function underlyingSnapshotSuites() internal pure returns (DeployCandidate[] memory) {
         bytes[] memory shards = LibUnderlyingSnapshotCode.shardCreationCodes();
         DeployCandidate[] memory candidates = new DeployCandidate[](shards.length + 1);
-        candidates[0] = unanchored(
-            dataZoltu(
-                UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE, UNDERLYING_SNAPSHOT_ROOT_PATH
-            )
-        );
+        candidates[0] = unanchored(underlyingSnapshotRootSuite());
         for (uint256 i = 0; i < shards.length; i++) {
             candidates[i + 1] =
                 unanchored(dataZoltu(underlyingSnapshotShardSuite(i), shards[i], UNDERLYING_SNAPSHOT_SHARD_PATH));
         }
         return candidates;
+    }
+
+    function underlyingSnapshotRootSuite() internal pure returns (DeploySuite memory) {
+        return dataZoltu(
+            UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE, UNDERLYING_SNAPSHOT_ROOT_PATH
+        );
     }
 
     /// Suite keys allow only lowercase letters and hyphens, so the shard index is base-26 in a-z.
