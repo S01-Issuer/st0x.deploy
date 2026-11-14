@@ -22,8 +22,8 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// End-to-end naming for a token pair built as in production (registry beacon
 /// proxies over the candidate implementations): the tStock and its wrapper
-/// keep the initialized metadata until the owner sets the underlying ticker
-/// and name, then both carry the names built from it.
+/// carry the names built from the listing ticker and name until the owner
+/// sets the underlying ticker and name, then the names built from those.
 contract StoxUnderlyingIntegrationTest is Test {
     address internal constant AUTHORITY = address(uint160(uint256(keccak256("AUTHORITY"))));
     bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
@@ -47,7 +47,7 @@ contract StoxUnderlyingIntegrationTest is Test {
         );
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, address(this), authorizer);
         sVault = LibTestDeploy.newVault(
-            AUTHORITY, LibTestDeploy.vaultData("NVIDIA Corporation ST0x", "tNVDA", AUTHORITY, RBAC_NAME)
+            AUTHORITY, LibTestDeploy.vaultData("US67066G1040", "NVDA", "NVIDIA Corporation", AUTHORITY, RBAC_NAME)
         );
         sWrapper = LibTestDeploy.newWrapper(AUTHORITY, address(sVault));
     }
@@ -73,25 +73,25 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sWrapper.name(), string.concat(longName, ST0X_NAME_SUFFIX));
     }
 
-    /// Unset: the tStock reports its initialized metadata and the wrapper
-    /// derives "Wrapped " / "w" from it.
-    function testUnsetFallbacks() external view {
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "");
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "");
+    /// Unset: the underlying getters fall back to the listing ticker and
+    /// name, so both tokens carry the names built from them.
+    function testUnsetFallsBackToTheListingTickerAndName() external view {
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDA");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Corporation");
         assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation ST0x");
-        assertEq(sWrapper.symbol(), "wtNVDA");
-        assertEq(sWrapper.name(), "Wrapped NVIDIA Corporation ST0x");
+        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
+        assertEq(sWrapper.symbol(), "NVDAs");
+        assertEq(sWrapper.name(), "NVIDIA Corporation (ST0x)");
     }
 
     /// Set: both tokens carry the names built from the underlying ticker and
     /// name.
     function testDerivedFromUnderlying() external {
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
-        assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
-        assertEq(sWrapper.symbol(), "NVDAs");
-        assertEq(sWrapper.name(), "NVIDIA Corporation (ST0x)");
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
+        assertEq(sVault.symbol(), "tNVDX");
+        assertEq(sVault.name(), "NVIDIA Holdings (ST0x)");
+        assertEq(sWrapper.symbol(), "NVDXs");
+        assertEq(sWrapper.name(), "NVIDIA Holdings (ST0x)");
     }
 
     /// With no facet code at the pinned address, `setUnderlying` reverts
@@ -100,18 +100,18 @@ contract StoxUnderlyingIntegrationTest is Test {
         address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
         vm.etch(facet, "");
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
         assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation ST0x");
+        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
     }
 
     /// Once set, the tStock's metadata is plain ERC-20 storage: reading it
     /// needs no facet.
     function testSetMetadataReadsWithoutFacet() external {
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
         vm.etch(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "");
-        assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
+        assertEq(sVault.symbol(), "tNVDX");
+        assertEq(sVault.name(), "NVIDIA Holdings (ST0x)");
     }
 
     /// The ERC-1155 receipt builds its name and symbol from the vault's

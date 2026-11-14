@@ -11,6 +11,7 @@ import {LibTotalSupply} from "../lib/LibTotalSupply.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {AuthorizerMissingCorporateActionAdmin, CorporateActionsFacetNotDeployed} from "../error/ErrCorporateAction.sol";
+import {IStoxTokenConfigV1} from "../interface/IStoxTokenConfigV1.sol";
 
 /// @title StoxReceiptVault
 /// @notice An OffchainAssetReceiptVault that supports corporate actions such
@@ -63,6 +64,19 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     event AccountMigrated(
         address indexed account, uint256 fromActionId, uint256 toActionId, uint256 oldBalance, uint256 newBalance
     );
+
+    /// @param data `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`.
+    function initialize(bytes memory data) public override returns (bytes32) {
+        // slither-disable-next-line low-level-calls
+        (bool success, bytes memory result) = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
+            .delegatecall(abi.encodeCall(IStoxTokenConfigV1.initializeStoxToken, (data)));
+        if (!success) {
+            assembly ("memory-safe") {
+                revert(add(result, 0x20), mload(result))
+            }
+        }
+        return super.initialize(abi.decode(result, (bytes)));
+    }
 
     /// @notice Returns `account`'s ERC20 balance including any pending rebase
     /// multipliers from completed corporate actions. Does NOT mutate state —
