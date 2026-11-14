@@ -416,6 +416,32 @@
       },
       "id": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d",
       "script": "script/20261111-qsep-set-fleet-authoriser.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d"
+        }
+      },
+      "id": "0x5d10a7a02021ef39866cec3eebe58b030443648637c1fee80fa23d257d682e19",
+      "script": "script/20261113-bind-orchestrator-config.s.sol"
     }
   ],
   "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
