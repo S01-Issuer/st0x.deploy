@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {SignedContextV2} from "rainlang-0.2.35/src/interface/IInterpreterCallerV5.sol";
 
 import {ST0xOrchestratorBaseForkFixture} from "test/src/concrete/ST0xOrchestratorBaseForkFixture.sol";
 

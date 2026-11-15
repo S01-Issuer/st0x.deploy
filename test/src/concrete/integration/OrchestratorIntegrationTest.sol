@@ -5,19 +5,19 @@ pragma solidity =0.8.25;
 import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.8/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.10/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.2.20/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {EvaluableV4} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+} from "rain-vats-0.2.21/src/abstract/OffchainAssetReceiptVault.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.21/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.21/src/interface/IAuthorizeV1.sol";
+import {EvaluableV4} from "rainlang-0.2.35/src/interface/IInterpreterCallerV5.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
