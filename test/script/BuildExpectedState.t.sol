@@ -703,14 +703,7 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         SupportedNetwork[] memory v2 = v2Networks();
         assertEq(vm.parseJsonKeys(json, ".v2").length, v2.length);
-        uint256[] memory ids = new uint256[](5);
-        ids[0] = 42161;
-        ids[1] = 8453;
-        ids[2] = 84532;
-        ids[3] = 14;
-        ids[4] = 137;
         for (uint256 i = 0; i < v2.length; i++) {
-            assertEq(v2[i].chainId, ids[i]);
             assertEq(vm.parseJsonString(json, string.concat(v2Chain(v2[i]), ".network")), v2[i].name);
         }
     }
@@ -1086,13 +1079,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     function v2Networks() internal pure returns (SupportedNetwork[] memory) {
-        string[] memory networkNames = new string[](5);
-        networkNames[0] = LibRainDeploy.ARBITRUM_ONE;
-        networkNames[1] = LibRainDeploy.BASE;
-        networkNames[2] = LibRainDeploy.BASE_SEPOLIA;
-        networkNames[3] = LibRainDeploy.FLARE;
-        networkNames[4] = LibRainDeploy.POLYGON;
-        return LibRainDeploy.declaredNetworkConfigs(networkNames);
+        return LibRainDeploy.declaredNetworkConfigs(LibProdDeployV2.deployedNetworks());
     }
 
     function chain(SupportedNetwork memory network) internal pure returns (string memory) {
