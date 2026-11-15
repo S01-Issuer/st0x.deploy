@@ -92,4 +92,24 @@ contract LibProdDeployV2Test is Test {
             assertEq(deployed.codehash, contracts[i].expectedCodehash, string.concat(contracts[i].name, " codehash"));
         }
     }
+
+    /// V2 is live on exactly these five chains; order is free because V2 is keyed by chain id.
+    function testDeployedNetworksAreTheFiveV2Chains() external pure {
+        string[] memory names = LibProdDeployV2.deployedNetworks();
+        string[5] memory expected = [
+            LibRainDeploy.ARBITRUM_ONE,
+            LibRainDeploy.BASE,
+            LibRainDeploy.BASE_SEPOLIA,
+            LibRainDeploy.FLARE,
+            LibRainDeploy.POLYGON
+        ];
+        assertEq(names.length, expected.length, "network count");
+        for (uint256 i = 0; i < expected.length; i++) {
+            uint256 hits = 0;
+            for (uint256 j = 0; j < names.length; j++) {
+                if (keccak256(bytes(names[j])) == keccak256(bytes(expected[i]))) hits++;
+            }
+            assertEq(hits, 1, expected[i]);
+        }
+    }
 }
