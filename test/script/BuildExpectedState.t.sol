@@ -42,6 +42,7 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {LibTokenMetadata} from "../../src/lib/LibTokenMetadata.sol";
+import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
 /// @notice No `zoltu` row carries the key.
@@ -488,7 +489,7 @@ contract BuildExpectedStateTest is Test {
             field(json, row, "wrappedTokenVaultRenamedName"),
             field(json, row, "wrappedTokenVaultRenamedSymbol")
         );
-        assertEq(LibTokenMetadata.vaultRenamed(config, renamedName), renames);
+        assertEq(LibTestTokenMetadata.vaultRenamed(config, renamedName), renames);
     }
 
     function assertMetadataState(
@@ -502,7 +503,7 @@ contract BuildExpectedStateTest is Test {
         assertEq(name, LibTokenMetadata.vaultName(config, renamed));
         assertEq(wrappedName, LibTokenMetadata.wrappedName(config, renamed));
         assertEq(wrappedSymbol, LibTokenMetadata.wrappedSymbol(config, renamed));
-        assertTrue(LibTokenMetadata.consistent(config, name, symbol, wrappedName, wrappedSymbol));
+        assertTrue(LibTestTokenMetadata.consistent(config, name, symbol, wrappedName, wrappedSymbol));
     }
 
     function testTokenDecimalsAreTheVaultAndWrapperDecimals() external {

@@ -48,7 +48,7 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance, NoTokenTableForChain} from "../../src/lib/LibTokenInvariants.sol";
 import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
-import {LibTokenMetadata} from "../../src/lib/LibTokenMetadata.sol";
+import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,
     TickerNotBoundToVault,
@@ -358,9 +358,9 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             TokenInstance memory token = chainTokens[tokenIndex];
             TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
             string memory vaultName = IERC20Metadata(token.receiptVault).name();
-            assertTrue(LibTokenMetadata.vaultRenamed(config, vaultName), token.underlying);
+            assertTrue(LibTestTokenMetadata.vaultRenamed(config, vaultName), token.underlying);
             assertTrue(
-                LibTokenMetadata.consistent(
+                LibTestTokenMetadata.consistent(
                     config,
                     vaultName,
                     IERC20Metadata(token.receiptVault).symbol(),
