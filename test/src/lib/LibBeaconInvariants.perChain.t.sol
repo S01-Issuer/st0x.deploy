@@ -96,6 +96,15 @@ contract LibBeaconInvariantsPerChainTest is Test {
         }
     }
 
+    /// No token proxy runs on the orchestrator beacon, so its codehash entry is empty on every chain.
+    function testTokenProxyCodehashesLeaveTheOrchestratorEntryEmpty() external pure {
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 i = 0; i < nets.length; i++) {
+            bytes32[4] memory codehashes = LibBeaconInvariants.prodTokenProxyCodehashesForChainId(nets[i].chainId);
+            assertEq(codehashes[LibBeaconInvariants.ORCHESTRATOR_BEACON_INDEX], bytes32(0), nets[i].name);
+        }
+    }
+
     function testUndeployedChainHasNoExpectedImplementations(uint256 chainId) external {
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
