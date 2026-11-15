@@ -288,16 +288,6 @@ contract BuildExpectedState is Script {
         return vm.serializeString(key, "tokens", tokensJson(chainId, key));
     }
 
-    function v2Networks() internal pure returns (string[] memory) {
-        string[] memory names = new string[](5);
-        names[0] = LibRainDeploy.ARBITRUM_ONE;
-        names[1] = LibRainDeploy.BASE;
-        names[2] = LibRainDeploy.BASE_SEPOLIA;
-        names[3] = LibRainDeploy.FLARE;
-        names[4] = LibRainDeploy.POLYGON;
-        return names;
-    }
-
     function v2DeploymentJson(string memory key, uint256 i, string memory name, address deployed, bytes32 codehash)
         internal
         returns (string memory)
@@ -424,7 +414,7 @@ contract BuildExpectedState is Script {
         for (uint256 i = 0; i < networks.length; i++) {
             chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i]));
         }
-        SupportedNetwork[] memory v2 = LibRainDeploy.declaredNetworkConfigs(v2Networks());
+        SupportedNetwork[] memory v2 = LibRainDeploy.declaredNetworkConfigs(LibProdDeployV2.deployedNetworks());
         string memory v2Chains;
         for (uint256 i = 0; i < v2.length; i++) {
             v2Chains = vm.serializeString("v2", vm.toString(v2[i].chainId), v2Json(v2[i]));
