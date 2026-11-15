@@ -74,10 +74,10 @@ library LibUnderlying {
         if (name.length == 0) return false;
         uint256 end = Pointer.unwrap(LibBytes.endDataPointer(name));
         return LibParseChar.skipMask(
-            Pointer.unwrap(LibBytes.dataPointer(name)),
-            end,
-            ~((CMASK_ASCII & ~CMASK_PRINTABLE) | CMASK_QUOTATION_MARK | CMASK_BACKSLASH)
-        ) == end && !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
+                Pointer.unwrap(LibBytes.dataPointer(name)),
+                end,
+                ~((CMASK_ASCII & ~CMASK_PRINTABLE) | CMASK_QUOTATION_MARK | CMASK_BACKSLASH)
+            ) == end && !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
     }
 
     /// @notice Whether `isin` is 2 of `A-Z`, 9 of `A-Z` and `0-9`, then a
