@@ -16,7 +16,7 @@ import {
     MintCapKind,
     Digest
 } from "../../../src/interface/IST0xOrchestratorV2.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";

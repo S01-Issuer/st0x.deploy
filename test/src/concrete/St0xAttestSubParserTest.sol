@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.32/src/lib/LibRainDeploy.sol";
 import {SignedContextV2, SIGNED_CONTEXT_V2_TYPEHASH} from "rainlang-0.2.35/src/interface/IInterpreterCallerV5.sol";
 import {
     EvalV4,
@@ -30,7 +30,7 @@ import {
     DEPLOYED_ADDRESS as DECIMAL_FLOAT_ADDRESS,
     BYTECODE_HASH as DECIMAL_FLOAT_BYTECODE_HASH
 } from "rain-math-float-deploy-0.1.9/src/generated/0_1_6/DecimalFloat.sol";
-import {LibDecimalFloat, Float} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {LibDecimalFloat, Float} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
 
 import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";

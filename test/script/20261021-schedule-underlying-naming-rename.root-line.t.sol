@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.32/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.32/src/lib/LibSafeTx.sol";
 
 import {BeaconBatchNotScheduled} from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";

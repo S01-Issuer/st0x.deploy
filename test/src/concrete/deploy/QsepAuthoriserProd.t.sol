@@ -7,14 +7,14 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.32/src/lib/LibRainDeploy.sol";
 import {IReceiptVaultV3} from "rain-vats-0.2.21/src/interface/IReceiptVaultV3.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.21/src/abstract/OffchainAssetReceiptVault.sol";
 import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.21/src/interface/IAuthorizeV1.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../../src/error/ErrCorporateAction.sol";
 
 import {IST0xOrchestratorV1} from "../../../../src/interface/deprecated/IST0xOrchestratorV1.sol";
-import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.19/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.17/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 import {IAuthorisable} from "../../../../src/interface/IAuthorisable.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";

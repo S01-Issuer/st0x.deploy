@@ -18,7 +18,7 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.2.21/src/abstract/OffchainA
 import {IReceiptV3} from "rain-vats-0.2.21/src/interface/IReceiptV3.sol";
 import {ReceiptVault} from "rain-vats-0.2.21/src/abstract/ReceiptVault.sol";
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
 import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.5/src/lib/LibTOFUTokenDecimals.sol";
 import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
@@ -39,7 +39,7 @@ import {LibNamespace} from "rainlang-0.2.35/src/lib/ns/LibNamespace.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.19/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.17/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintCapKind, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";

@@ -10,7 +10,7 @@ import {
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
 } from "rain-vats-0.2.21/src/interface/IOffchainAssetReceiptVaultV1.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.32/src/lib/LibRegistryAuthority.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";

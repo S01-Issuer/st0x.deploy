@@ -14,10 +14,10 @@ import {ManyDeclarationsFixture} from "../fixture/declarations/many/ManyDeclarat
 import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
 import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclarationFixture.s.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.32/src/interface/IMigrationRegistryV5.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.32/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.32/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.32/src/lib/LibRegistryAuthority.sol";
 import {
     BuildMigrations,
     HistoryWithoutMoment,
