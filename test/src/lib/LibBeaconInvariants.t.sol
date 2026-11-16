@@ -10,6 +10,7 @@ import {
     BeaconNotDeployed,
     BeaconOwnerMismatch,
     BeaconImplementationMismatch,
+    CreateNonceOutOfRange,
     UnsupportedChainForProdBeacons
 } from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -17,12 +18,12 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
-import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibBeaconInvariantsHarness} from "./LibBeaconInvariantsHarness.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 /// The frozen 0.1.30 orchestrator beacon-set deployer's beacon getter.
 interface IOrchestratorBeaconSet0_1_30 {
@@ -30,25 +31,18 @@ interface IOrchestratorBeaconSet0_1_30 {
 }
 
 /// @title LibBeaconInvariantsTest
-/// @notice Inverted fork tests that exercise each invariant in
+/// @notice Inverted tests that exercise each invariant in
 /// `LibBeaconInvariants` by injecting drift via `vm.etch` / `vm.mockCall`
-/// and asserting the matching typed error is raised. The positive
-/// ("live state passes") cases live in the beacon-ownership migration's
-/// happy-path test, so this file focuses on coverage of every error path.
-/// @dev Uses an unpinned Base head fork (same precedent as
-/// `LibSafeInvariants.t.sol`). Pinning would freeze the invariant
-/// assertions against a stale snapshot and let new drift slip through
-/// unnoticed.
+/// into Base's production beacons built locally and asserting the matching
+/// typed error is raised, and the pass paths against each chain's.
 contract LibBeaconInvariantsTest is Test {
-    /// @notice External-call harness deployed fresh per test (via fork
-    /// rebuild). Each test calls `selectBaseFork` before deploying the
-    /// harness; the harness is recreated against the active fork.
     LibBeaconInvariantsHarness internal harness;
 
-    /// @notice Selects the Base fork at chain head — deliberately
-    /// unpinned. Live drift detector; see contract-level rationale.
-    function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+    /// @notice Base's production beacons built locally, with the active chain
+    /// id set to Base.
+    function selectLocalBase() internal {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibLocalProdState.beacons(vm, LibSafeInvariants.BASE_CHAIN_ID);
         harness = new LibBeaconInvariantsHarness();
     }
 
@@ -56,10 +50,10 @@ contract LibBeaconInvariantsTest is Test {
     /// the beacon's runtime codehash drifts from the pinned OZ
     /// `UpgradeableBeacon` bytecode. Simulated by `vm.etch`-ing a single
     /// `INVALID` opcode at the beacon address; `extcodehash` then returns the
-    /// hash of `0xFE`, which differs from the pinned codehash. Uses the live
+    /// hash of `0xFE`, which differs from the pinned codehash. Uses Base's
     /// receipt vault beacon as the victim.
     function testInvertedBeaconCodehashMismatch() external {
-        selectBaseFork();
+        selectLocalBase();
         address beacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
         bytes memory mutatedCode = hex"FE";
         vm.etch(beacon, mutatedCode);
@@ -82,9 +76,9 @@ contract LibBeaconInvariantsTest is Test {
 
     /// @notice `assertBeaconInvariants` trips `BeaconOwnerMismatch` when the
     /// beacon's `owner()` differs from the expected owner. Simulated by
-    /// mocking `owner()` on the live receipt vault beacon to a rogue address.
+    /// mocking `owner()` on Base's receipt vault beacon to a rogue address.
     function testInvertedBeaconOwnerMismatch() external {
-        selectBaseFork();
+        selectLocalBase();
         address beacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
         address rogueOwner = address(0xBADC0DE);
         vm.mockCall(beacon, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
@@ -100,12 +94,12 @@ contract LibBeaconInvariantsTest is Test {
 
     /// @notice `assertBeaconInvariants` trips `BeaconImplementationMismatch`
     /// when the beacon's `implementation()` differs from the expected
-    /// implementation. Simulated by mocking `implementation()` on the live
+    /// implementation. Simulated by mocking `implementation()` on Base's
     /// receipt vault beacon to a rogue address. The expected owner is the
-    /// governance timelock — the live owner — so the owner check passes and
+    /// governance timelock, the beacon's owner, so the owner check passes and
     /// the revert is specifically the implementation gate.
     function testInvertedBeaconImplementationMismatch() external {
-        selectBaseFork();
+        selectLocalBase();
         address beacon = LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1;
         address rogueImpl = address(0xBADBEEF);
         vm.mockCall(beacon, abi.encodeWithSelector(IBeacon.implementation.selector), abi.encode(rogueImpl));
@@ -126,8 +120,8 @@ contract LibBeaconInvariantsTest is Test {
     /// `LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1` (kept local so
     /// the beacon invariant does not reach into the V1 deploy lib). Pin the
     /// equality structurally: without this the two copies are tied only
-    /// transitively, through separate fork suites asserting each against the
-    /// same live beacons, and a drifted copy would surface as an on-chain
+    /// transitively, through separate suites asserting each against the same
+    /// beacons, and a drifted copy would surface as an on-chain
     /// "mismatch" instead of the source defect it is.
     function testUpgradeableBeaconCodehashMatchesV1DeployPin() external pure {
         assertEq(LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH, LibProdDeployV1.PROD_BEACON_BASE_RUNTIME_CODEHASH_V1);
@@ -138,7 +132,7 @@ contract LibBeaconInvariantsTest is Test {
     /// them, so returning those would assert ownership of a deploy artifact
     /// nothing runs on while leaving the live beacons unpinned.
     function testProdBeaconsForChainIdBaseIsTheV1Generation() external {
-        selectBaseFork();
+        harness = new LibBeaconInvariantsHarness();
         address[4] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.BASE_CHAIN_ID);
         assertEq(beacons[0], LibProdDeployV1.STOX_RECEIPT_BEACON_V1, "receipt beacon");
         assertEq(beacons[1], LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1, "receipt vault beacon");
@@ -150,7 +144,7 @@ contract LibBeaconInvariantsTest is Test {
     /// the wrapped beacon's own pin. Pinned against the source lib so the
     /// chain-id dispatch cannot silently answer with Base's set.
     function testProdBeaconsForChainIdEthereumIsThe011Set() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ETHEREUM);
+        LibLocalProdState.beacons(vm, LibSafeInvariants.ETHEREUM_CHAIN_ID);
         harness = new LibBeaconInvariantsHarness();
         address[4] memory beacons = harness.callProdBeaconsForChainId(LibSafeInvariants.ETHEREUM_CHAIN_ID);
         address[4] memory expected = LibProdBeacons0_1_1.beacons();
@@ -166,7 +160,7 @@ contract LibBeaconInvariantsTest is Test {
     /// would report that as a missing beacon rather than as an unsupported
     /// chain.
     function testProdBeaconsForChainIdRevertsForUnpinnedChain() external {
-        selectBaseFork();
+        harness = new LibBeaconInvariantsHarness();
         uint256 arbitrum = 42161;
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, arbitrum));
         harness.callProdBeaconsForChainId(arbitrum);
@@ -178,7 +172,7 @@ contract LibBeaconInvariantsTest is Test {
     /// production vault proxy on the chain, so the rogue owner here stands in
     /// for the whole class of compromise this assert exists to catch.
     function testInvertedProdBeaconOwnerMismatch() external {
-        selectBaseFork();
+        selectLocalBase();
         address beacon = LibProdBeaconsBase.beacons()[1];
         address rogueOwner = address(0xBADC0DE);
         vm.mockCall(beacon, abi.encodeWithSelector(IOwnable.owner.selector), abi.encode(rogueOwner));
@@ -198,7 +192,7 @@ contract LibBeaconInvariantsTest is Test {
     /// returning nothing, so without this guard the failure would surface as a
     /// decode revert that names neither the beacon nor the reason.
     function testInvertedProdBeaconNotDeployed() external {
-        selectBaseFork();
+        selectLocalBase();
         address beacon = LibProdBeaconsBase.beacons()[0];
         vm.etch(beacon, "");
         vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, beacon));
@@ -212,7 +206,7 @@ contract LibBeaconInvariantsTest is Test {
     /// the pin, a swapped beacon shadowing `owner()` satisfies the ownership
     /// sweep while serving arbitrary `upgradeTo` semantics.
     function testInvertedProdBeaconCodehashMismatch() external {
-        selectBaseFork();
+        selectLocalBase();
         address beacon = LibProdBeaconsBase.beacons()[1];
         vm.etch(beacon, hex"FE");
         bytes32 mutatedCodehash;
@@ -268,5 +262,78 @@ contract LibBeaconInvariantsTest is Test {
             LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH != LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30,
             "generation pins collapsed into one value"
         );
+    }
+
+    /// @notice On every chain the four in-use beacons at their pinned
+    /// codehashes, owned by the chain's timelock, pass.
+    function testAssertProdBeaconsOwnedByChainTimelockOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.beacons(vm, chainIds[i]);
+            LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(chainIds[i]);
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice On every chain each token beacon passes the V1-generation
+    /// beacon assertion with the chain's timelock and its expected
+    /// implementation.
+    function testAssertBeaconInvariantsHoldsForEveryTokenBeacon() external {
+        uint256[3] memory tokenBeacons = [
+            LibBeaconInvariants.RECEIPT_BEACON_INDEX,
+            LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX,
+            LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX
+        ];
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.beacons(vm, chainIds[i]);
+            address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(chainIds[i]);
+            address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainIds[i]);
+            for (uint256 j = 0; j < tokenBeacons.length; j++) {
+                LibBeaconInvariants.assertBeaconInvariants(
+                    beacons[tokenBeacons[j]],
+                    LibTimelockInvariants.timelockForChainId(chainIds[i]),
+                    impls[tokenBeacons[j]]
+                );
+            }
+            vm.revertToState(snapshot);
+        }
+    }
+
+    function testFuzzCreateAddressIsTheCreateAtThatNonce(address deployer, uint8 nonce) external pure {
+        nonce = uint8(bound(nonce, 1, 0x7f));
+        assertEq(LibBeaconInvariants.createAddress(deployer, nonce), vm.computeCreateAddress(deployer, nonce));
+    }
+
+    function testFuzzCreateAddressRevertsAtNonceZero(address deployer) external {
+        LibBeaconInvariantsHarness nonceHarness = new LibBeaconInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(CreateNonceOutOfRange.selector, uint8(0)));
+        nonceHarness.callCreateAddress(deployer, 0);
+    }
+
+    function testFuzzCreateAddressRevertsAboveTheSingleByteRange(address deployer, uint8 nonce) external {
+        LibBeaconInvariantsHarness nonceHarness = new LibBeaconInvariantsHarness();
+        nonce = uint8(bound(nonce, 0x80, type(uint8).max));
+        vm.expectRevert(abi.encodeWithSelector(CreateNonceOutOfRange.selector, nonce));
+        nonceHarness.callCreateAddress(deployer, nonce);
+    }
+
+    /// @notice The derived set is the set the chain resolves: off Base the
+    /// receipt and receipt-vault beacons are the ones the real set deployer's
+    /// constructor created; on Base it is the pinned set.
+    function testDerivedBeaconsAreTheResolvedBeaconsOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.beacons(vm, chainIds[i]);
+            address[4] memory derived = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainIds[i]);
+            address[4] memory resolved = LibBeaconInvariants.prodBeaconsForChainId(chainIds[i]);
+            for (uint256 j = 0; j < resolved.length; j++) {
+                assertEq(derived[j], resolved[j]);
+            }
+            vm.revertToState(snapshot);
+        }
     }
 }
