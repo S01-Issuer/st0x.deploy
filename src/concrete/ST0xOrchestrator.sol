@@ -19,7 +19,7 @@ import {IReceiptV3} from "rain-vats-0.2.22/src/interface/IReceiptV3.sol";
 import {ReceiptVault} from "rain-vats-0.2.22/src/abstract/ReceiptVault.sol";
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
-import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
+import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.4/src/lib/LibLeakyBucket.sol";
 import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.5/src/lib/LibTOFUTokenDecimals.sol";
 import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
 import {

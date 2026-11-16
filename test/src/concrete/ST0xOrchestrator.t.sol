@@ -38,7 +38,7 @@ import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {
     LeakyBucketNegativeCapacity,
     LeakyBucketNegativeLeakRate
-} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
+} from "rain-lib-leakybucket-0.5.4/src/lib/LibLeakyBucket.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
 import {EvaluableV4, SignedContextV2} from "rainlang-0.2.36/src/interface/IInterpreterCallerV5.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";

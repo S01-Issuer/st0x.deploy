@@ -6,7 +6,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
-import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
+import {LeakyBucketZeroAmount, LeakyBucketNegativeAmount} from "rain-lib-leakybucket-0.5.4/src/lib/LibLeakyBucket.sol";
 import {
     IInterpreterCallerV5,
     EvaluableV4,
