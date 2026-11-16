@@ -6,7 +6,7 @@ import {
     MigrateMultisigThreshold,
     NoMultisigThresholdMigrationOnChain
 } from "../../script/20260619-migrate-multisig-threshold.s.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.32/src/interface/IMigrationRegistryV5.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
 import {HistoryMigrationScriptTest} from "../lib/HistoryMigrationScriptTest.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 

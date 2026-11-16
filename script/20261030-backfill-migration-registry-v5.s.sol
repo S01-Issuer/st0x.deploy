@@ -4,21 +4,21 @@ pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.32/src/abstract/SafeBundleScript.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.32/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.33/src/abstract/SafeBundleScript.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.33/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {
     DEPLOYED_ADDRESS as REGISTRY_V2,
     BYTECODE_HASH as REGISTRY_V2_CODEHASH
-} from "rain-deploy-0.1.32/src/generated/0_1_18/MigrationRegistry.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.32/src/lib/LibMigrationRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.32/src/lib/LibRegistryAuthority.sol";
-import {SafeTx} from "rain-deploy-0.1.32/src/lib/LibSafeTx.sol";
+} from "rain-deploy-0.1.33/src/generated/0_1_18/MigrationRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.32/src/interface/IMigrationRegistryV5.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
 import {MigrateMultisigThreshold} from "./20260619-migrate-multisig-threshold.s.sol";
 import {TimelockRehearsalSchedule} from "./20260813-timelock-rehearsal-schedule.s.sol";
 import {TimelockRehearsalCancel} from "./20260813-timelock-rehearsal-cancel.s.sol";

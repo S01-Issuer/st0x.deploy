@@ -7,15 +7,15 @@ import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/l
 import {
     CERTIFY,
     CERTIFY_ADMIN
-} from "rain-vats-0.2.21/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.22/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,
     SCHEDULE_CORPORATE_ACTION_ADMIN,
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {Unauthorized} from "rain-vats-0.2.21/src/interface/IAuthorizeV1.sol";
+import {Unauthorized} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.10/src/concrete/CloneFactory.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.11/src/concrete/CloneFactory.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// @title StoxCorporateActionsFacetAuthorizerIntegrationTest

@@ -6,8 +6,8 @@ import {
     DeployDeclaration,
     DeploySuite,
     UnknownDeploymentSuite
-} from "rain-deploy-0.1.32/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.32/src/lib/LibRainDeploy.sol";
+} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
 import {Deploy} from "../../script/Deploy.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 

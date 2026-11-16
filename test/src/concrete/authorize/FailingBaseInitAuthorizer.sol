@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {
     OffchainAssetReceiptVaultAuthorizerV1,
     OffchainAssetReceiptVaultAuthorizerV1Config
-} from "rain-vats-0.2.21/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.22/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 /// @dev A base authorizer whose _initialize returns a non-success value.
 contract FailingBaseInitAuthorizer is OffchainAssetReceiptVaultAuthorizerV1 {
