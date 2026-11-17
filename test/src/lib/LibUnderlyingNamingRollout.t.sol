@@ -11,7 +11,7 @@ import {
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
 import {FrozenReleaseRenameHarness} from "../../script/FrozenReleaseRenameHarness.sol";
@@ -216,5 +216,27 @@ contract LibUnderlyingNamingRolloutTest is Test {
         TokenInstance[] memory shorter = new TokenInstance[](count - 1);
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingTokenTableShort.selector, uint256(1), count, count - 1));
         this.externalLeadingRows(1, shorter);
+    }
+
+    /// `renamesRow` holds for exactly the table rows whose vault the rename batch targets.
+    function testRenamesRowIsTheRenameBatchTargets() external pure {
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
+            (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainIds[chainIndex]);
+            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainIds[chainIndex]);
+            for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
+                bool targeted = false;
+                for (uint256 targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+                    if (targets[targetIndex] == table[rowIndex].receiptVault) targeted = true;
+                }
+                assertEq(LibUnderlyingNamingRollout.renamesRow(rowIndex), targeted, table[rowIndex].underlying);
+            }
+        }
     }
 }
