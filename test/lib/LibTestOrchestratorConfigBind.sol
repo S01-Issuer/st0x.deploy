@@ -3,8 +3,8 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.30/src/lib/LibConfigRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.33/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibTestConfigRegistryDelegates} from "./LibTestConfigRegistryDelegates.sol";
