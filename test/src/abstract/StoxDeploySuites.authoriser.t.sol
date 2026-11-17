@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {
