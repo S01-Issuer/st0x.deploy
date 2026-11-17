@@ -12,14 +12,16 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
-import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.33/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.33/src/lib/LibSafe.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
-import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
+
+/// @dev A Base block at which the Safe holds its pinned threshold and roster.
+uint256 constant MULTISIG_THRESHOLD_FORK_BLOCK_BASE = 53922000;
 
 /// @title MigrateMultisigThresholdTest
 /// @notice End-to-end fork tests for the multisig threshold migration
@@ -31,18 +33,17 @@ contract MigrateMultisigThresholdTest is Test {
     /// @notice The script under test, deployed fresh per fork.
     MigrateMultisigThreshold internal script;
 
-    /// @notice Live Safe handle.
+    /// @notice The forked Safe.
     Safe internal safe;
 
-    /// @notice Selects Base at its pinned pre-backfill block, where the
-    /// threshold migration is not yet recorded.
+    /// @notice Selects the Base fork at `MULTISIG_THRESHOLD_FORK_BLOCK_BASE`.
     function selectBaseFork() internal {
-        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        vm.createSelectFork(LibRainDeploy.BASE, MULTISIG_THRESHOLD_FORK_BLOCK_BASE);
         script = new MigrateMultisigThreshold();
         safe = Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE));
     }
 
-    /// @notice `run()` dry-run completes against the live pre-state,
+    /// @notice `run()` dry-run completes against the pinned pre-state,
     /// writes the artifact, and the artifact has the expected single-tx
     /// shape. The final fork state must show the threshold back at the
     /// pinned pre-migration value — this is the n+1 reversibility check's
