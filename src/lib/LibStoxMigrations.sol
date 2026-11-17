@@ -3,14 +3,14 @@
 pragma solidity ^0.8.25;
 
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
-import {IRegistryDelegatesV3} from "rain-deploy-0.1.30/src/interface/IRegistryDelegatesV3.sol";
-import {Prerequisite} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistryDeploy.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.33/src/interface/IRegistryDelegatesV3.sol";
+import {Prerequisite} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
 
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 
 import {ScriptDeclaration} from "../interface/IStoxScript.sol";
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
@@ -122,6 +122,20 @@ library LibStoxMigrations {
 
     /// @notice `script/20261021-execute-underlying-naming.s.sol`.
     bytes32 internal constant EXECUTE_UNDERLYING_NAMING = keccak256("script/20261021-execute-underlying-naming.s.sol");
+
+    /// @notice `script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol`.
+    bytes32 internal constant SCHEDULE_REVOKE_SERVICE_SIGNER =
+        keccak256("script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol");
+
+    /// @notice `script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol`.
+    bytes32 internal constant EXECUTE_REVOKE_SERVICE_SIGNER =
+        keccak256("script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol");
+
+    /// @notice `script/20261111-qsep-set-fleet-authoriser.s.sol`: the Base
+    /// tQSEP vault moved onto the fleet authoriser, and the retired signer's
+    /// V3 clone roles revoked, in one Safe MultiSend, recorded by the Safe in
+    /// a later bundle.
+    bytes32 internal constant QSEP_SET_FLEET_AUTHORISER = keccak256("script/20261111-qsep-set-fleet-authoriser.s.sol");
 
     /// @notice What `declared` is recorded after on the root line.
     /// @param declared The declaration.
