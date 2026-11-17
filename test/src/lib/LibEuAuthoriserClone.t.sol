@@ -3,12 +3,12 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibICloneableFactoryV5} from "rain-factory-0.2.11/src/lib/LibICloneableFactoryV5.sol";
+import {LibICloneableFactoryV5} from "rain-factory-0.2.14/src/lib/LibICloneableFactoryV5.sol";
 
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../../../src/lib/LibEuAuthoriserClone.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS
-} from "rain-factory-deploy-0.2.8/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.11/src/generated/0_1_15/CloneFactory.sol";
 import {LibAuthoriserInvariants, RoleGrant} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -170,6 +170,23 @@ contract LibEuAuthoriserCloneTest is Test {
                 LibAuthoriserInvariants.euAuthoriserForChainId(chainIds[i]),
                 LibEuAuthoriserClone.cloneDeployedAddress(chainIds[i]),
                 "pin matches the derivation"
+            );
+        }
+    }
+
+    function testEuPinIsNotTheProductionAuthoriser() external pure {
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            assertTrue(
+                LibAuthoriserInvariants.euAuthoriserForChainId(chainIds[i])
+                    != LibAuthoriserInvariants.authoriserForChainId(chainIds[i]),
+                "the EU clone is not the production clone"
             );
         }
     }
