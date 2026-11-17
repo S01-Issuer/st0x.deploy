@@ -7,7 +7,7 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
-import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
@@ -15,6 +15,7 @@ import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 import {LibUnderlying} from "./LibUnderlying.sol";
+import {MalformedUnderlyingIsin} from "../error/ErrUnderlying.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
@@ -39,9 +40,9 @@ error TickerNotBoundToVault(string underlying, address vault, string symbol);
 /// non-empty, has no `"`, `\` or control byte (the receipt's `uri()` builds
 /// JSON from the vault symbol without escaping), and does not already carry
 /// the ST0x suffix.
-/// @param underlying The row's ticker.
+/// @param ticker The row's ticker.
 /// @param underlyingName The row's underlying name.
-error MalformedUnderlying(string underlying, string underlyingName);
+error MalformedUnderlying(string ticker, string underlyingName);
 
 /// @notice The downstream services are not yet confirmed to accept the
 /// renamed wrapper symbols, so the rename may not be scheduled.
@@ -59,8 +60,8 @@ error DownstreamNotReadyForRename();
 ///    facet address with no code reverts with `CorporateActionsFacetNotDeployed`
 ///    in the new vault implementation, so the whole batch rolls back if the
 ///    facet is missing at execution.
-/// 2. The rename batch: `setUnderlying(ticker, underlyingName)` on every
-///    production vault of the chain, scheduled with the beacon batch as its
+/// 2. The rename batch: `setUnderlying(ticker, underlyingName, isin)` on
+///    every production vault of the chain, scheduled with the beacon batch as its
 ///    predecessor, so the timelock refuses to execute it first.
 ///
 /// The implementations are the current-source candidate pins. They are the
@@ -198,9 +199,9 @@ library LibUnderlyingNamingRollout {
         payloads[2] = abi.encodeCall(ICorporateActionsV1.completedActionCount, ());
     }
 
-    /// @notice The rename batch's calls: `setUnderlying(underlying,
-    /// underlyingName)` on every production vault of the chain, in table
-    /// order.
+    /// @notice The rename batch's calls: `setUnderlying(ticker,
+    /// underlyingName, isin)` on every production vault of the chain, in
+    /// table order.
     /// @param chainId The chain id.
     /// @return targets The call targets.
     /// @return values The call values, all zero.
@@ -218,7 +219,7 @@ library LibUnderlyingNamingRollout {
             TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
             targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
             payloads[tokenIndex] =
-                abi.encodeCall(IStoxUnderlyingV1.setUnderlying, (config.underlying, config.underlyingName));
+                abi.encodeCall(IStoxUnderlyingV2.setUnderlying, (config.ticker, config.underlyingName, config.isin));
         }
     }
 
@@ -259,15 +260,17 @@ library LibUnderlyingNamingRollout {
     }
 
     /// @notice Reverts `MalformedUnderlying` unless `config`'s ticker and
-    /// underlying name are well formed.
+    /// underlying name are well formed, and `MalformedUnderlyingIsin` unless
+    /// its ISIN is.
     /// @param config The row.
     function assertUnderlyingWellFormed(TokenConfig memory config) internal pure {
         if (
-            !LibUnderlying.tickerWellFormed(bytes(config.underlying))
+            !LibUnderlying.tickerWellFormed(bytes(config.ticker))
                 || !LibUnderlying.nameWellFormed(bytes(config.underlyingName))
         ) {
-            revert MalformedUnderlying(config.underlying, config.underlyingName);
+            revert MalformedUnderlying(config.ticker, config.underlyingName);
         }
+        if (!LibUnderlying.isinWellFormed(config.isin)) revert MalformedUnderlyingIsin(config.isin);
     }
 
     /// @notice The beacon batch's operation id on `timelock`.

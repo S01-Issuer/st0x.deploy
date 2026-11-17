@@ -56,8 +56,9 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// @title ScheduleUnderlyingNamingRename
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch
 /// (rollout step 3 in `docs/TIMELOCK.md`): `setUnderlying(ticker,
-/// underlyingName)` on every production vault of the chain, ticker from
-/// `TokenConfig.underlying` and name from `TokenConfig.underlyingName`. Two
+/// underlyingName, isin)` on every production vault of the chain, ticker from
+/// `TokenConfig.ticker`, name from `TokenConfig.underlyingName` and ISIN
+/// from `TokenConfig.isin`. Two
 /// Safe calls: `timelock.scheduleBatch(...)`, with the beacon batch as
 /// predecessor so the timelock refuses to execute the rename first, then the
 /// Safe's root-line record.
@@ -215,12 +216,12 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
             TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
             string memory vaultName = string.concat(config.underlyingName, ST0X_NAME_SUFFIX);
             assertMetadata(
-                token.receiptVault, string.concat("t", token.underlying), IERC20Metadata(token.receiptVault).symbol()
+                token.receiptVault, string.concat("t", config.ticker), IERC20Metadata(token.receiptVault).symbol()
             );
             assertMetadata(token.receiptVault, vaultName, IERC20Metadata(token.receiptVault).name());
             assertMetadata(
                 token.wrappedTokenVault,
-                string.concat(token.underlying, "s"),
+                string.concat(config.ticker, "s"),
                 IERC20Metadata(token.wrappedTokenVault).symbol()
             );
             assertMetadata(token.wrappedTokenVault, vaultName, IERC20Metadata(token.wrappedTokenVault).name());

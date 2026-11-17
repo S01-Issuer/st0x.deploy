@@ -29,7 +29,8 @@ pragma solidity ^0.8.25;
 /// token tracks, and are the token's `StoxTokenConfigV1` init data.
 ///
 /// The underlying snapshot is built from `ticker`, `underlyingName` and
-/// `isin`.
+/// `isin`; the vault owner overrides them per token with
+/// `IStoxUnderlyingV2.setUnderlying`.
 /// @param assetId The ISIN of the underlying, as the Final Terms state it.
 /// @param listingTicker The underlying's ticker as listed.
 /// @param listingName The underlying's name as listed.

@@ -15,7 +15,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurrent.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
-import {IStoxUnderlyingV1} from "../../../../src/interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../../../../src/interface/IStoxUnderlyingV2.sol";
 import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../../src/error/ErrCorporateAction.sol";
 
@@ -93,7 +93,7 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
 
     function setNvda() internal {
         vm.prank(OwnableUpgradeable(address(VAULT)).owner());
-        IStoxUnderlyingV1(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV2(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation", "US67066G1040");
     }
 
     function assertSupplyIntact() internal view {
@@ -129,7 +129,7 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         assertSupplyIntact();
 
         upgradeVault();
-        assertEq(IStoxUnderlyingV1(address(VAULT)).underlyingSymbol(), "");
+        assertEq(IStoxUnderlyingV2(address(VAULT)).underlyingSymbol(), "");
         assertMetadataUnchanged();
         assertSupplyIntact();
 
@@ -171,7 +171,7 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         address owner = OwnableUpgradeable(address(VAULT)).owner();
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         vm.prank(owner);
-        IStoxUnderlyingV1(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV2(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation", "US67066G1040");
     }
 
     /// Only the vault owner sets the underlying on a live vault.
@@ -180,6 +180,6 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         vm.assume(caller != OwnableUpgradeable(address(VAULT)).owner());
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, caller));
         vm.prank(caller);
-        IStoxUnderlyingV1(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV2(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation", "US67066G1040");
     }
 }

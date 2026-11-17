@@ -35,7 +35,7 @@ import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.s
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 
 import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
-import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../../src/interface/IStoxUnderlyingV2.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
@@ -107,9 +107,9 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         }
     }
 
-    /// @notice The rename batch is exactly one `setUnderlying(underlying,
-    /// underlyingName)` per production token of the chain, in table order,
-    /// and every row's symbol is `"t" + underlying`.
+    /// @notice The rename batch is exactly one `setUnderlying(ticker,
+    /// underlyingName, isin)` per production token of the chain, in table
+    /// order, and every row's symbol is `"t" + underlying`.
     function assertRenameBatchExact(uint256 chainId, string memory network) internal pure {
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
@@ -123,9 +123,11 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             assertEq(config.symbol, string.concat("t", ticker), label);
             assertEq(targets[tokenIndex], chainTokens[tokenIndex].receiptVault, label);
             assertEq(values[tokenIndex], 0, label);
-            (string memory setTicker, string memory setName) = decodeSetUnderlying(payloads[tokenIndex]);
-            assertEq(setTicker, ticker, label);
+            (string memory setTicker, string memory setName, string memory setIsin) =
+                decodeSetUnderlying(payloads[tokenIndex]);
+            assertEq(setTicker, config.ticker, label);
             assertEq(setName, config.underlyingName, label);
+            assertEq(setIsin, config.isin, label);
         }
     }
 
@@ -133,9 +135,9 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
     function decodeSetUnderlying(bytes memory payload)
         internal
         pure
-        returns (string memory ticker, string memory plainName)
+        returns (string memory, string memory, string memory)
     {
-        bytes memory selector = abi.encodePacked(IStoxUnderlyingV1.setUnderlying.selector);
+        bytes memory selector = abi.encodePacked(IStoxUnderlyingV2.setUnderlying.selector);
         for (uint256 byteIndex = 0; byteIndex < selector.length; byteIndex++) {
             assertEq(payload[byteIndex], selector[byteIndex], "selector");
         }
@@ -143,7 +145,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         for (uint256 byteIndex = 0; byteIndex < args.length; byteIndex++) {
             args[byteIndex] = payload[byteIndex + 4];
         }
-        (ticker, plainName) = abi.decode(args, (string, string));
+        return abi.decode(args, (string, string, string));
     }
 
     /// @notice The rollout renames 56 rows on every chain, from MSTR to DIS,
