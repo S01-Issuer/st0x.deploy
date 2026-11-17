@@ -14,36 +14,36 @@ import {IERC1155Receiver} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 import {SignatureChecker} from "@openzeppelin-contracts-5.7.0/utils/cryptography/SignatureChecker.sol";
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.20/src/interface/IReceiptV3.sol";
-import {ReceiptVault} from "rain-vats-0.2.20/src/abstract/ReceiptVault.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.22/src/abstract/OffchainAssetReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.22/src/interface/IReceiptV3.sol";
+import {ReceiptVault} from "rain-vats-0.2.22/src/abstract/ReceiptVault.sol";
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
-import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.4/src/lib/LibTOFUTokenDecimals.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.4/src/lib/LibLeakyBucket.sol";
+import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.5/src/lib/LibTOFUTokenDecimals.sol";
 import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV5,
     EvaluableV4,
     SignedContextV2
-} from "rainlang-0.2.34/src/interface/IInterpreterCallerV5.sol";
+} from "rainlang-0.2.36/src/interface/IInterpreterCallerV5.sol";
 import {
     EvalV4,
     SourceIndexV2,
     StackItem,
     StateNamespace,
     DEFAULT_STATE_NAMESPACE
-} from "rainlang-0.2.34/src/interface/IInterpreterV4.sol";
-import {LibNamespace} from "rainlang-0.2.34/src/lib/ns/LibNamespace.sol";
+} from "rainlang-0.2.36/src/interface/IInterpreterV4.sol";
+import {LibNamespace} from "rainlang-0.2.36/src/lib/ns/LibNamespace.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.19/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintCapKind, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
-import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.11/src/interface/ICloneableV2.sol";
+import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.14/src/interface/ICloneableV2.sol";
 
 /// @dev The orchestrator's role ids at file level, so a library can name them:
 /// a contract's `public constant` is not reachable as `ST0xOrchestrator.X`.

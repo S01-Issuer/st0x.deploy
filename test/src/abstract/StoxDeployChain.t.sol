@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {RainDeployVerifyChain} from "rain-deploy-0.1.30/src/abstract/RainDeployVerifyChain.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {RainDeployVerifyChain} from "rain-deploy-0.1.33/src/abstract/RainDeployVerifyChain.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.33/src/generated/0_1_29/ConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";

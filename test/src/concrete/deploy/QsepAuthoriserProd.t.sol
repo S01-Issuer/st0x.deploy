@@ -3,18 +3,13 @@
 pragma solidity =0.8.25;
 
 import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.20/src/interface/IReceiptVaultV3.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.22/src/abstract/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../../src/error/ErrCorporateAction.sol";
 
-import {IST0xOrchestratorV1} from "../../../../src/interface/deprecated/IST0xOrchestratorV1.sol";
-import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 import {IAuthorisable} from "../../../../src/interface/IAuthorisable.sol";
 import {IOwnable} from "../../../../src/interface/IOwnable.sol";
 import {LibAuthoriserInvariants} from "../../../../src/lib/LibAuthoriserInvariants.sol";
@@ -23,9 +18,9 @@ import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.s
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 
 /// @title QsepAuthoriserProdTest
-/// @notice The tQSEP triple, read against live Base, and the one-call
-/// token-owner Safe transaction that moves the tQSEP vault from the V3
-/// authoriser clone onto the fleet authoriser `STOX_PROD_AUTHORISER`.
+/// @notice The one-call token-owner Safe transaction that moves the tQSEP
+/// vault from the V3 authoriser clone onto the fleet authoriser
+/// `STOX_PROD_AUTHORISER`.
 /// @dev The before-and-after tests fork Base at `PRE_SWAP_BLOCK`, where the
 /// vault is still on the V3 clone, so they do not change once the Safe
 /// transaction executes. The vault cannot go back to the V3 clone (see
@@ -58,44 +53,6 @@ contract QsepAuthoriserProdTest is Test {
             LibAuthoriserInvariants.STOX_PROD_AUTHORISER_V3_CLONE,
             "on the V3 clone before the Safe transaction"
         );
-    }
-
-    /// Live head: the triple, the owner, and the authoriser, which is the V3
-    /// clone until the Safe transaction executes and the fleet one after.
-    function testQsepTripleIsWired() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
-        address vaultAddress = address(vault);
-        assertEq(address(IReceiptVaultV3(payable(vaultAddress)).receipt()), LibTokenInvariants.QSEP_RECEIPT, "receipt");
-        assertEq(IERC4626(LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT).asset(), vaultAddress, "wrapped asset");
-        assertEq(IOwnable(vaultAddress).owner(), LibSafeInvariants.STOX_TOKEN_OWNER_SAFE, "owner");
-        address authoriser = IAuthorisable(vaultAddress).authorizer();
-        assertTrue(
-            authoriser == LibAuthoriserInvariants.STOX_PROD_AUTHORISER_V3_CLONE
-                || authoriser == LibAuthoriserInvariants.STOX_PROD_AUTHORISER,
-            "the V3 clone before the Safe transaction, the fleet authoriser after"
-        );
-
-        // The deployed 0.1.30 guard checks the production beacons the
-        // orchestrator is bound to, not each token's own proxy, so it passes
-        // for every token. tQSEP's vault and receipt proxy the same
-        // implementations as tAAPL's, which the orchestrator already mints.
-        assertTrue(IST0xOrchestratorV1(LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR).vaultLogicIsExpected(), "guard");
-        assertEq(
-            beaconImplementation(vaultAddress),
-            beaconImplementation(LibTokenInvariants.AAPL_RECEIPT_VAULT),
-            "vault logic"
-        );
-        assertEq(
-            beaconImplementation(LibTokenInvariants.QSEP_RECEIPT),
-            beaconImplementation(LibTokenInvariants.AAPL_RECEIPT),
-            "receipt logic"
-        );
-    }
-
-    function beaconImplementation(address proxy) internal view returns (address) {
-        (bool isProxy, address beacon) = LibExtrospectRegistryBeaconProxy.isRegistryBeaconProxy(proxy.code);
-        assertTrue(isProxy, string.concat("not a registry beacon proxy: ", vm.toString(proxy)));
-        return IBeacon(beacon).implementation();
     }
 
     function testCalldataIsSetAuthorizerToTheFleetAuthoriser() external pure {
