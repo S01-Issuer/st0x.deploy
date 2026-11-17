@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
@@ -13,6 +13,7 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {RoleGrant} from "../../../src/lib/RoleGrant.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 contract LibIdealRolesTest is Test {
     RoleGrant[] internal want;
@@ -118,13 +119,16 @@ contract LibIdealRolesTest is Test {
         SupportedNetwork[] memory nets = networks();
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         for (uint256 c = 0; c < nets.length; c++) {
-            vm.createSelectFork(nets[c].name);
+            uint256 snapshot = vm.snapshotState();
+            vm.chainId(nets[c].chainId);
+            LibLocalProdState.orchestrator(vm, nets[c].chainId);
             ST0xOrchestrator instance = ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
             (address safe,) = principals(nets[c].chainId);
             RoleGrant[] memory expected = LibIdealRoles.contractRoles(nets[c].chainId)[2].expected;
             assertTrue(contains(expected, RoleGrant(instance.MINT_ROLE(), signer)));
             assertTrue(contains(expected, RoleGrant(instance.BURN_ROLE(), signer)));
             assertTrue(contains(expected, RoleGrant(instance.EMERGENCY_ROLE(), safe)));
+            vm.revertToState(snapshot);
         }
     }
 

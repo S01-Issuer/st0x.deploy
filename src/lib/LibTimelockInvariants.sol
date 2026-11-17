@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
+import {LibTimelockController} from "rain-deploy-0.1.33/src/lib/LibTimelockController.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     CREATION_CODE as TIMELOCK_CREATION_CODE
-} from "rain-deploy-0.1.30/src/generated/0_1_18/TimelockController.sol";
+} from "rain-deploy-0.1.33/src/generated/0_1_18/TimelockController.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
@@ -201,13 +201,23 @@ library LibTimelockInvariants {
         return grants;
     }
 
+    /// @notice The runtime codehash the governance timelock at `timelock`
+    /// must have: the suite codehash at the suite timelock's address, the
+    /// per-Safe codehash at every other address.
+    /// @param timelock The governance timelock.
+    /// @return The expected runtime codehash.
+    function timelockCodehash(address timelock) internal pure returns (bytes32) {
+        return timelock == LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+            ? LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH
+            : TIMELOCK_BYTECODE_HASH;
+    }
+
     /// @notice Assert the governance timelock at `timelock` is in its pinned
-    /// state: `LibTimelockController.assertTimelockState` at
-    /// `TIMELOCK_MIN_DELAY` with `proposerSafe` as the proposer, and, once
-    /// `TIMELOCK_CANCELLER` is hydrated, that canceller holding
-    /// `CANCELLER_ROLE`. The suite timelock's address requires the suite
-    /// codehash; every other address requires the per-Safe codehash. Reverts
-    /// with `LibTimelockController`'s typed errors.
+    /// state: `LibTimelockController.assertTimelockState` against
+    /// `timelockCodehash(timelock)` at `TIMELOCK_MIN_DELAY` with
+    /// `proposerSafe` as the proposer, and, once `TIMELOCK_CANCELLER` is
+    /// hydrated, that canceller holding `CANCELLER_ROLE`. Reverts with
+    /// `LibTimelockController`'s typed errors.
     /// @param timelock The governance timelock to validate.
     /// @param proposerSafe The chain's token-owner Safe, the timelock's
     /// proposer.
@@ -216,9 +226,8 @@ library LibTimelockInvariants {
         if (TIMELOCK_CANCELLER != address(0)) {
             cancellers[0] = TIMELOCK_CANCELLER;
         }
-        bytes32 codehash = timelock == LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
-            ? LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH
-            : TIMELOCK_BYTECODE_HASH;
-        LibTimelockController.assertTimelockState(codehash, timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers);
+        LibTimelockController.assertTimelockState(
+            timelockCodehash(timelock), timelock, TIMELOCK_MIN_DELAY, proposerSafe, cancellers
+        );
     }
 }
