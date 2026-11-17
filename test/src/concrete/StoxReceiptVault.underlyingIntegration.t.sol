@@ -3,11 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.20/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.20/src/interface/IReceiptV3.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.8/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.22/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.22/src/interface/IReceiptV3.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.11/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -18,6 +18,7 @@ import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {LibTokenMetadata} from "../../../src/lib/LibTokenMetadata.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// End-to-end naming for a token pair built as in production (registry beacon
@@ -135,5 +136,10 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sVault.symbol(), "tMETA");
         assertEq(sWrapper.symbol(), "METAs");
         assertEq(sWrapper.name(), "Meta Platforms, Inc. (ST0x)");
+    }
+
+    function testVaultAndWrapperHaveTheTokenMetadataDecimals() external view {
+        assertEq(sVault.decimals(), LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
+        assertEq(sWrapper.decimals(), LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
     }
 }

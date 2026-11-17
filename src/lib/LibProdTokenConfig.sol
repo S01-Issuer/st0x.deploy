@@ -15,9 +15,25 @@ pragma solidity ^0.8.25;
 /// `name` + `symbol` are the ONLY free initialization inputs, and this table
 /// holds exactly those.
 ///
+/// The underlying ticker and name are not deploy inputs: the vault owner sets
+/// them after deployment with `IStoxUnderlyingV1.setUnderlying`. The ticker
+/// is this table's `underlying` key (every row's `symbol` is
+/// `"t" + underlying`) and the name is `underlyingName`. Once both are set,
+/// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
+/// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
+/// Until then the receipt vault reports the `name` + `symbol` it was
+/// initialized with, and the wrapped token vault `"Wrapped " + name` /
+/// `"w" + symbol`.
+///
+/// `assetId`, `listingTicker` and `listingName` record the listing each
+/// token tracks, and are the token's `StoxTokenConfigV1` init data.
+///
 /// The underlying snapshot is built from `ticker`, `underlyingName` and
 /// `isin`; the vault owner overrides them per token with
 /// `IStoxUnderlyingV2.setUnderlying`.
+/// @param assetId The ISIN of the underlying, as the Final Terms state it.
+/// @param listingTicker The underlying's ticker as listed.
+/// @param listingName The underlying's name as listed.
 /// @param underlying The frozen chain-agnostic join key, matching
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param ticker The current underlying ticker, as the snapshot records it.
@@ -59,10 +75,8 @@ error UnknownUnderlying(string underlying);
 /// chain's token set can be deployed byte-identical to Base. This is the
 /// deploy-input companion to `LibTokenInvariants` (which holds the deployed
 /// addresses): the deploy script reads this to author the
-/// `newTokenAndWrapperVault` calls, and it is the CANONICAL BASELINE the
-/// cross-chain parity pin asserts every chain's live `name`/`symbol` against
-/// (Base included — `LibProdTokenConfigTest` pins this table to live Base, so
-/// the baseline itself is validated, not just chain-vs-chain).
+/// `newTokenAndWrapperVault` calls, and it is the expected `name`/`symbol`
+/// per token in expected-state.json.
 ///
 /// @dev Entries are in the same order as
 /// `LibTokenInvariants.productionTokensBase()` so the two tables pair by

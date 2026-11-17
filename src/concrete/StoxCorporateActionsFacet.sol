@@ -16,9 +16,9 @@ import {
     NODE_NONE
 } from "../lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "../lib/LibStockSplit.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.22/src/abstract/OffchainAssetReceiptVault.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
@@ -39,7 +39,7 @@ import {LibStoxTokenConfig} from "../lib/LibStoxTokenConfig.sol";
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.22/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
