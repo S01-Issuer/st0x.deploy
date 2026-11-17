@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.22/src/abstract/OffchainAssetReceiptVault.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 
 /// Initializes from `OffchainAssetReceiptVaultConfigV3` as vaults did before
