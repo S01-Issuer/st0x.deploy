@@ -20,13 +20,13 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.20/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.20/src/interface/IReceiptV3.sol";
-import {IAuthorizableV1} from "rain-vats-0.2.20/src/interface/IAuthorizableV1.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {ICertifiableV1} from "rain-vats-0.2.20/src/interface/ICertifiableV1.sol";
-import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.22/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.22/src/interface/IReceiptV3.sol";
+import {IAuthorizableV1} from "rain-vats-0.2.22/src/interface/IAuthorizableV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.22/src/interface/ICertifiableV1.sol";
+import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.19/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @dev A Base block after the governance-timelock migration, so the receipt
 /// vault beacon is owned by `PROD_BEACON_OWNER`.
