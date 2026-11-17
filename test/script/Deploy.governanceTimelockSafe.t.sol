@@ -3,11 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
+import {DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.33/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.33/src/generated/0_1_29/ConfigRegistry.sol";
 import {TimelockInitialProposerMismatch} from "../../script/Deploy.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";

@@ -417,15 +417,6 @@ records imply:
    `20261022-bind-beacon-initial-owner`, which follows the backfill, so the
    registry refuses it on a chain where step 1 has not executed.
 
-The root line runs, after the backfill: `20261022-bind-beacon-initial-owner` →
-`20261006-orchestrator-admin-to-timelock` →
-`20261021-schedule-underlying-naming-beacons` →
-`20261021-schedule-underlying-naming-rename` →
-`20261021-execute-underlying-naming` →
-`20261109-schedule-revoke-service-signer-deposit-withdraw` →
-`20261109-execute-revoke-service-signer-deposit-withdraw` →
-`20261111-qsep-set-fleet-authoriser`.
-
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over
 as history, per chain, before step 2 can run.
