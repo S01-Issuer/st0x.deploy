@@ -3,21 +3,21 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
+import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.33/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS
-} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
-import {ICloneableFactoryV7} from "rain-factory-0.2.11/src/interface/ICloneableFactoryV7.sol";
+} from "rain-factory-deploy-0.2.11/src/generated/0_2_5/CloneFactory.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.14/src/interface/ICloneableFactoryV7.sol";
 import {
     LibRainDeployCloneMechanism,
     REGISTRY_BEACON_PROXY_MECHANISM
-} from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
-import {RegistryBeaconProxyParams} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVaultConfigV3} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-factory-0.2.14/src/lib/LibRainDeployCloneMechanism.sol";
+import {RegistryBeaconProxyParams} from "rain-factory-0.2.14/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVaultConfigV3} from "rain-vats-0.2.22/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";

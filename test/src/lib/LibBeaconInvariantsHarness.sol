@@ -21,4 +21,8 @@ contract LibBeaconInvariantsHarness {
     function callAssertProdBeaconsOwnedByChainTimelock(uint256 chainId) external view {
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(chainId);
     }
+
+    function callCreateAddress(address deployer, uint8 nonce) external pure returns (address) {
+        return LibBeaconInvariants.createAddress(deployer, nonce);
+    }
 }
