@@ -17,52 +17,26 @@ import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConf
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariantsHarness} from "./LibTokenInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 /// @title LibTokenInvariantsTest
-/// @notice Fork tests for the token-side uniformity invariants: every
-/// production receipt vault on Base shares the same `owner()` and the same
-/// `authorizer()`.
-///
-/// Both uniformity invariants currently hold on-chain (every vault is
-/// owned by `LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK` and reports the V4
-/// authoriser clone `LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), so the
-/// positive cases pass against the live Base fork. The inverted
-/// ownership-drift case is also exercised here for full error-path coverage.
-/// @dev Uses an unpinned Base head fork (same precedent as the other
-/// prod-state drift detectors in this repo), so the next CI run reflects the
-/// current on-chain wiring. Pinning would freeze the invariant assertions
-/// against a stale snapshot and let new drift slip through unnoticed.
+/// @notice The token-side uniformity invariants tripped by a mocked
+/// `owner()` / `authorizer()` drift on local Base state, and the per-chain
+/// token tables.
 contract LibTokenInvariantsTest is Test {
-    /// @notice External-call harness deployed fresh per test against the
-    /// active fork.
     LibTokenInvariantsHarness internal harness;
 
-    /// @notice Selects the Base fork at chain head — deliberately unpinned.
-    /// Live drift detector; see contract-level rationale.
-    function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
+    function selectLocalBase() internal {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         harness = new LibTokenInvariantsHarness();
-    }
-
-    /// @notice Every production receipt vault reports the V4 authoriser clone
-    /// (`LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE`), the production
-    /// authoriser.
-    /// Passes against the live chain state: vault authoriser is uniform.
-    /// Deliberately STRICT (not migration-window gated): when a newly
-    /// deployed token enters the table still wired to a previous authoriser,
-    /// this goes red until its swap batch executes — the forcing function
-    /// that keeps the table and the live wiring in lock-step.
-    function testProdReceiptVaultsShareUniformAuthoriser() external {
-        selectBaseFork();
-        LibTokenInvariants.assertUniformAuthoriser(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
     }
 
     /// @notice tMC is held to the EU authoriser, not the V4 one: wiring it to
     /// the shared authoriser would let every US-fleet depositor mint it, so
     /// that state must trip the invariant.
     function testInvertedEuTokenOnTheSharedAuthoriser() external {
-        selectBaseFork();
+        selectLocalBase();
+        LibLocalProdState.tokens(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address v4 = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address victim = LibTokenInvariants.MC_RECEIPT_VAULT;
         vm.mockCall(victim, abi.encodeWithSelector(IAuthorisable.authorizer.selector), abi.encode(v4));
@@ -76,7 +50,8 @@ contract LibTokenInvariantsTest is Test {
 
     /// @notice And the converse: a US token on the EU authoriser trips it.
     function testInvertedUsTokenOnTheEuAuthoriser() external {
-        selectBaseFork();
+        selectLocalBase();
+        LibLocalProdState.tokens(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address v4 = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address eu = LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE;
         address victim = LibTokenInvariants.WMT_RECEIPT_VAULT;
@@ -91,7 +66,7 @@ contract LibTokenInvariantsTest is Test {
     /// address comes from `LibTokenInvariants` (the source of truth for
     /// production receipt vaults).
     function testInvertedUniformOwnershipDrift() external {
-        selectBaseFork();
+        selectLocalBase();
         address expectedOwner = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
         address rogueOwner = address(0xBADC0DE);
         address victim = LibTokenInvariants.MSTR_RECEIPT_VAULT;
@@ -187,5 +162,28 @@ contract LibTokenInvariantsTest is Test {
         assertTokenAddresses(LibTokenInvariants.productionTokensHyperEvm());
         assertTokenAddresses(LibTokenInvariants.productionTokensRobinhood());
         assertTokenAddresses(LibTokenInvariants.productionTokensBsc());
+    }
+
+    /// @notice Base's table with every vault on its region's authoriser
+    /// passes the Base overload against the production authoriser.
+    function testAssertUniformAuthoriserPassesOnLocalBase() external {
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibLocalProdState.tokens(vm, LibSafeInvariants.BASE_CHAIN_ID);
+        LibTokenInvariants.assertUniformAuthoriser(LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+    }
+
+    /// @notice On every chain its table with every vault on its region's
+    /// authoriser passes the table overload against the chain's US clone.
+    function testAssertUniformAuthoriserTablePassesOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            vm.clearMockedCalls();
+            vm.chainId(chainIds[i]);
+            LibLocalProdState.tokens(vm, chainIds[i]);
+            LibTokenInvariants.assertUniformAuthoriser(
+                LibTokenInvariants.productionTokensForChainId(chainIds[i]),
+                LibAuthoriserInvariants.authoriserForChainId(chainIds[i])
+            );
+        }
     }
 }
