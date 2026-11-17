@@ -18,15 +18,14 @@ import {ERC20_STORAGE_LOCATION} from "../../../src/lib/LibERC20Storage.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
 import {UnderlyingSetForwarder} from "../../concrete/UnderlyingSetForwarder.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
-/// `IStoxUnderlyingV2.setUnderlying` on a bare vault, whose stored ERC-20
-/// name and symbol start empty.
+/// `IStoxUnderlyingV2.setUnderlying` on a bare vault that no snapshot row
+/// names, so every set value is an override that applies.
 contract StoxReceiptVaultUnderlyingTest is Test {
     address internal constant OWNER = address(0x0123);
     string internal constant NVDA_ISIN = "US67066G1040";
     string internal constant META_ISIN = "US30303M1027";
-    /// `NVDA_ISIN` as a short string in storage.
-    bytes32 internal constant NVDA_ISIN_WORD = 0x5553363730363647313034300000000000000000000000000000000000000018;
 
     StoxReceiptVault internal sVault;
 
@@ -36,19 +35,12 @@ contract StoxReceiptVaultUnderlyingTest is Test {
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE
         );
+        LibTestDeploy.deployUnderlyingSnapshot(vm);
         sVault = new OwnedStoxReceiptVault(OWNER);
     }
 
     function underlying() internal view returns (IStoxUnderlyingV2) {
         return IStoxUnderlyingV2(address(sVault));
-    }
-
-    function storedIsin() internal view returns (bytes32) {
-        return vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 2));
-    }
-
-    function storedTimestamp() internal view returns (uint256) {
-        return uint256(vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)));
     }
 
     function wellFormedTicker(bytes memory seed) internal pure returns (string memory) {
@@ -97,8 +89,13 @@ contract StoxReceiptVaultUnderlyingTest is Test {
             vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 1)),
             bytes32(0x4e5649444941000000000000000000000000000000000000000000000000000c)
         );
-        assertEq(storedIsin(), NVDA_ISIN_WORD);
-        assertEq(storedTimestamp(), 1_800_000_000);
+        assertEq(
+            vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 2)),
+            bytes32(0x5553363730363647313034300000000000000000000000000000000000000018)
+        );
+        assertEq(
+            vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)), bytes32(uint256(1_800_000_000))
+        );
     }
 
     function testSetUnderlyingStampsBlockTimestamp(uint32 timestamp) external {
@@ -106,25 +103,20 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         vm.warp(timestamp);
         vm.prank(OWNER);
         underlying().setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
-        assertEq(storedTimestamp(), timestamp);
+        assertEq(
+            vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)), bytes32(uint256(timestamp))
+        );
     }
 
-    /// "tNVDA" into `_symbol` (root + 4), "NVIDIA (ST0x)" into `_name` (root + 3).
-    function testSetUnderlyingWritesOzErc20Slots() external {
+    function testSetUnderlyingLeavesOzErc20SlotsUntouched() external {
         vm.prank(OWNER);
         underlying().setUnderlying("NVDA", "NVIDIA", NVDA_ISIN);
-        assertEq(
-            vm.load(address(sVault), bytes32(uint256(ERC20_STORAGE_LOCATION) + 4)),
-            bytes32(0x744e56444100000000000000000000000000000000000000000000000000000a)
-        );
-        assertEq(
-            vm.load(address(sVault), bytes32(uint256(ERC20_STORAGE_LOCATION) + 3)),
-            bytes32(0x4e5649444941202853543078290000000000000000000000000000000000001a)
-        );
+        assertEq(vm.load(address(sVault), bytes32(uint256(ERC20_STORAGE_LOCATION) + 3)), bytes32(0));
+        assertEq(vm.load(address(sVault), bytes32(uint256(ERC20_STORAGE_LOCATION) + 4)), bytes32(0));
     }
 
-    /// Underlying values written without `setUnderlying` rename nothing.
-    function testUnderlyingStorageAloneDoesNotRename() external {
+    /// Only the timestamp marks an override as set.
+    function testUnderlyingValuesWithoutTimestampAreNotAnOverride() external {
         vm.store(
             address(sVault),
             UNDERLYING_STORAGE_LOCATION,
@@ -135,7 +127,8 @@ contract StoxReceiptVaultUnderlyingTest is Test {
             bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 1),
             bytes32(0x4e5649444941000000000000000000000000000000000000000000000000000c)
         );
-        assertEq(underlying().underlyingSymbol(), "NVDA");
+        assertEq(underlying().underlyingSymbol(), "");
+        assertEq(underlying().underlyingName(), "");
         assertEq(sVault.symbol(), "");
         assertEq(sVault.name(), "");
     }
@@ -143,8 +136,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
     function testGettersUnset() external view {
         assertEq(underlying().underlyingSymbol(), "");
         assertEq(underlying().underlyingName(), "");
-        assertEq(storedIsin(), bytes32(0));
-        assertEq(storedTimestamp(), 0);
+        assertEq(underlying().underlyingIsin(), "");
     }
 
     function testSymbolAndNameUnsetFallBackToStoredValues() external {
@@ -167,7 +159,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         underlying().setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
         assertEq(underlying().underlyingSymbol(), "NVDA");
         assertEq(underlying().underlyingName(), "NVIDIA Corporation");
-        assertEq(storedIsin(), NVDA_ISIN_WORD);
+        assertEq(underlying().underlyingIsin(), NVDA_ISIN);
     }
 
     function testSymbolAndNameDerivedFromUnderlying() external {
@@ -222,10 +214,10 @@ contract StoxReceiptVaultUnderlyingTest is Test {
 
         assertEq(underlying().underlyingSymbol(), "META");
         assertEq(underlying().underlyingName(), "Meta Platforms Inc");
-        assertEq(storedIsin(), NVDA_ISIN_WORD);
+        assertEq(underlying().underlyingIsin(), NVDA_ISIN);
         assertEq(sVault.symbol(), "tMETA");
         assertEq(sVault.name(), "Meta Platforms Inc (ST0x)");
-        assertEq(storedTimestamp(), 200);
+        assertEq(vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)), bytes32(uint256(200)));
     }
 
     function testSetUnderlyingNonOwnerReverts(address caller) external {
@@ -244,8 +236,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         forwarder.forward(underlying(), "NVDA", "NVIDIA Corporation", NVDA_ISIN);
         assertEq(underlying().underlyingSymbol(), "");
         assertEq(underlying().underlyingName(), "");
-        assertEq(storedIsin(), bytes32(0));
-        assertEq(storedTimestamp(), 0);
+        assertEq(underlying().underlyingIsin(), "");
     }
 
     function testSetUnderlyingRejectsNonOwnerSenderWithOwnerOrigin(address caller) external {
@@ -342,8 +333,8 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         underlying().setUnderlying("AAPL", "Apple Inc.", "US67066G1041");
         assertEq(sVault.symbol(), "tNVDA");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
-        assertEq(storedIsin(), NVDA_ISIN_WORD);
-        assertEq(storedTimestamp(), 100);
+        assertEq(underlying().underlyingIsin(), NVDA_ISIN);
+        assertEq(vm.load(address(sVault), bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)), bytes32(uint256(100)));
     }
 
     function testFacetCallsRevertWithoutFacet() external {
@@ -355,7 +346,11 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         underlying().underlyingSymbol();
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
-        underlying().underlyingName();
+        underlying().underlyingIsin();
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        sVault.symbol();
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        sVault.name();
     }
 
     function testFacetDirectCallsRevert() external {
@@ -365,6 +360,12 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         facet.underlyingSymbol();
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facet.underlyingName();
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facet.underlyingIsin();
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facet.name();
+        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
+        facet.symbol();
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facet.setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
     }

@@ -26,7 +26,7 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxTokenConfigV1} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol";
-import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
@@ -262,12 +262,17 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     function assertToken(
         StoxReceiptVault token,
         TokenConfig memory config,
+        bool inSnapshot,
         IAuthorizeV1 authorizer,
         string memory label
     ) internal view {
         bool us = config.region == Region.US;
-        assertEq(token.name(), string.concat(config.listingName, ST0X_NAME_SUFFIX), label);
-        assertEq(token.symbol(), string.concat("t", config.listingTicker), label);
+        assertEq(
+            token.name(),
+            string.concat(inSnapshot ? config.underlyingName : config.listingName, ST0X_NAME_SUFFIX),
+            label
+        );
+        assertEq(token.symbol(), string.concat("t", inSnapshot ? config.ticker : config.listingTicker), label);
         assertEq(token.owner(), us ? US_OWNER : EU_OWNER, label);
         assertEq(address(token.authorizer()), address(authorizer), label);
         assertEq(
@@ -288,36 +293,43 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
     function testEveryTokenAndWrapperSuiteLandsAtItsStoredAddressOnEveryNetwork() external {
         (IAuthorizeV1 usAuthorizer, IAuthorizeV1 euAuthorizer) =
             LibTestTokenEnvironment.deploy(vm, TIMELOCK, US_OWNER, EU_OWNER);
-        address wrapperBeacon = LibRainDeploy.deployZoltu(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_CANDIDATE);
         LibTestDeploy.bind(
             vm,
             LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.WRAPPER_BEACON_NAME,
             "address",
-            abi.encode(wrapperBeacon)
+            abi.encode(LibRainDeploy.deployZoltu(V4.STOX_WRAPPED_TOKEN_VAULT_BEACON_CREATION_CODE_CANDIDATE))
         );
         DeployDeclaration memory declared = declaration();
         DeploySuite[] memory all = allSuites(declared);
         SupportedNetwork[] memory networks = LibRainDeploy.declaredNetworkConfigs(declared.deployNetworks);
         assertTrue(networks.length > 0, "networks");
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
+        uint256 snapshotRows = LibProdTokenConfig.productionTokenConfigs().length;
         for (uint256 i = 0; i < networks.length; i++) {
             uint256 preDeploy = vm.snapshotState();
             vm.chainId(networks[i].chainId);
             for (uint256 j = 0; j < configs.length; j++) {
-                string memory key = tokenKey(configs[j]);
-                string memory label = string.concat(key, " on ", networks[i].name);
-                address token = deploySuite(declared, all, key, networks[i]);
-                assertToken(
-                    StoxReceiptVault(payable(token)),
-                    configs[j],
-                    configs[j].region == Region.US ? usAuthorizer : euAuthorizer,
-                    label
-                );
-                address wrapper = deploySuite(declared, all, string.concat(key, WRAPPER_SUFFIX), networks[i]);
-                assertEq(StoxWrappedTokenVault(wrapper).asset(), token, label);
+                IAuthorizeV1 authorizer = configs[j].region == Region.US ? usAuthorizer : euAuthorizer;
+                deployTokenAndWrapper(declared, all, networks[i], configs[j], j < snapshotRows, authorizer);
             }
             assertTrue(vm.revertToState(preDeploy), networks[i].name);
         }
+    }
+
+    function deployTokenAndWrapper(
+        DeployDeclaration memory declared,
+        DeploySuite[] memory all,
+        SupportedNetwork memory network,
+        TokenConfig memory config,
+        bool inSnapshot,
+        IAuthorizeV1 authorizer
+    ) internal {
+        string memory key = tokenKey(config);
+        string memory label = string.concat(key, " on ", network.name);
+        address token = deploySuite(declared, all, key, network);
+        assertToken(StoxReceiptVault(payable(token)), config, inSnapshot, authorizer, label);
+        address wrapper = deploySuite(declared, all, string.concat(key, WRAPPER_SUFFIX), network);
+        assertEq(StoxWrappedTokenVault(wrapper).asset(), token, label);
     }
 }

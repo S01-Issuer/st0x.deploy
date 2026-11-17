@@ -20,6 +20,7 @@ import {
     VALID_ACTION_TYPES_MASK
 } from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CompletionFilter} from "../../../../src/lib/LibCorporateActionNode.sol";
+import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
 import {IReceiptVaultV3} from "rain-vats-0.2.22/src/interface/IReceiptVaultV3.sol";
 import {IReceiptV3} from "rain-vats-0.2.22/src/interface/IReceiptV3.sol";
@@ -95,6 +96,7 @@ contract V3UpgradeShadowForkTest is Test {
             "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
             LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET
         );
+        LibTestDeploy.deployUnderlyingSnapshot(vm);
 
         // 2. The beacon is owned by the governance timelock at the pinned block.
         assertEq(Ownable(BEACON).owner(), LibBeaconInvariants.PROD_BEACON_OWNER, "beacon not timelock-owned");

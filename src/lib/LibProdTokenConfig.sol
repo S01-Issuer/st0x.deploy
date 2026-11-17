@@ -30,7 +30,12 @@ pragma solidity ^0.8.25;
 ///
 /// The underlying snapshot is built from `ticker`, `underlyingName` and
 /// `isin`; the vault owner overrides them per token with
-/// `IStoxUnderlyingV2.setUnderlying`.
+/// `IStoxUnderlyingV2.setUnderlying`. Once resolved, the receipt vault reports
+/// `"t" + ticker` / `underlyingName + " (ST0x)"` and the wrapped token vault
+/// `ticker + "s"` / the receipt vault's name. A legacy token with no
+/// snapshot row and no override reports the `name` + `symbol` it was
+/// initialized with, and the wrapped token vault `"Wrapped " + name` /
+/// `"w" + symbol`.
 /// @param assetId The ISIN of the underlying, as the Final Terms state it.
 /// @param listingTicker The underlying's ticker as listed.
 /// @param listingName The underlying's name as listed.
