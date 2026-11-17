@@ -19,6 +19,7 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenCo
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
+import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
@@ -27,6 +28,7 @@ error ReceiptBeaconMismatch(address bound, address expected);
 error WrapperBeaconMismatch(address bound, address expected);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
 error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
+error AuthoriserInitialAdminMismatch(address bound, address expected);
 
 /// @title Deploy
 /// @notice `RainDeployBroadcast` over `StoxDeploySuites`: broadcasts the suite
@@ -54,6 +56,12 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             address bound = LibStoxConfig.beaconInitialOwner();
             if (bound != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+            }
+        } else if (name == keccak256(bytes(AUTHORISER))) {
+            address bound = boundAddress(LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME);
+            address expected = LibTimelockInvariants.timelockForChainId(block.chainid);
+            if (bound != expected) {
+                revert AuthoriserInitialAdminMismatch(bound, expected);
             }
         } else {
             checkTokenSuites(name, LibProdTokenConfig.productionTokenConfigs());
