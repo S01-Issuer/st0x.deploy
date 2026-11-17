@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibParseMeta} from "rainlang-0.2.32/src/lib/parse/LibParseMeta.sol";
+import {LibParseMeta} from "rainlang-0.2.36/src/lib/parse/LibParseMeta.sol";
 import {MalformedUnderlyingSnapshot} from "../error/ErrUnderlying.sol";
 import {LibDataContract} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 
