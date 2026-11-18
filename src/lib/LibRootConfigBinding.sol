@@ -39,8 +39,9 @@ library LibRootConfigBinding {
     {
         (bytes memory value, uint256 registeredAt, bytes32 typeHash) =
             LibConfigRegistryRegister.currentBinding(LibRegistryAuthority.ROOT_AUTHORITY, name);
+        // slither-disable-next-line incorrect-equality
         // forge-lint: disable-next-line(block-timestamp)
-        if (registeredAt != block.timestamp) return (false, value, registeredAt);
-        return (LibConfigRegistryRegister.isBound(value, typeHash, binding), value, registeredAt);
+        bool bound = LibConfigRegistryRegister.isBound(value, typeHash, binding) && registeredAt == block.timestamp;
+        return (bound, value, registeredAt);
     }
 }
