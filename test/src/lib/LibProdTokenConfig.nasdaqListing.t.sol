@@ -18,11 +18,11 @@ struct DirectoryListing {
 /// @notice Every US production row's listing ticker is a symbol in Nasdaq's directories, and its listing name is
 /// that symbol's Security Name.
 contract LibProdTokenConfigNasdaqListingTest is NasdaqSymbolDirectoryTest {
-    function directoryListing(SymbolDirectory memory nasdaqListed, SymbolDirectory memory otherListed, string memory ticker)
-        internal
-        pure
-        returns (DirectoryListing memory)
-    {
+    function directoryListing(
+        SymbolDirectory memory nasdaqListed,
+        SymbolDirectory memory otherListed,
+        string memory ticker
+    ) internal pure returns (DirectoryListing memory) {
         string[] memory fields = listing(nasdaqListed, "Symbol", ticker);
         if (fields.length > 0) {
             return DirectoryListing({

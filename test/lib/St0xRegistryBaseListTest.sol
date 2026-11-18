@@ -37,11 +37,7 @@ abstract contract St0xRegistryBaseListTest is UrlFetchTest {
     }
 
     /// The index of the list's wrapped token `wt<underlying>`, or `NOT_IN_REGISTRY`.
-    function registryIndexOf(RegistryToken[] memory tokens, string memory underlying)
-        internal
-        pure
-        returns (uint256)
-    {
+    function registryIndexOf(RegistryToken[] memory tokens, string memory underlying) internal pure returns (uint256) {
         bytes32 symbol = keccak256(bytes(string.concat("wt", underlying)));
         for (uint256 i = 0; i < tokens.length; i++) {
             if (keccak256(bytes(tokens[i].symbol)) == symbol) return i;

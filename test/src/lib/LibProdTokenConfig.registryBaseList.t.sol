@@ -27,7 +27,9 @@ contract LibProdTokenConfigRegistryBaseListTest is St0xRegistryBaseListTest {
             covered++;
             (string memory table, string memory list) = values(configs[i], tokens[index]);
             if (keccak256(bytes(table)) != keccak256(bytes(list))) {
-                console.log(string.concat(configs[i].underlying, " ", field, ": table '", table, "', list '", list, "'"));
+                console.log(
+                    string.concat(configs[i].underlying, " ", field, ": table '", table, "', list '", list, "'")
+                );
                 mismatches++;
             }
         }
