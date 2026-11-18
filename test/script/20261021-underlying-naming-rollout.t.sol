@@ -47,7 +47,7 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance, NoTokenTableForChain} from "../../src/lib/LibTokenInvariants.sol";
 import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
-import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "../../src/lib/LibSecurity.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,

@@ -17,7 +17,7 @@ import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActi
 import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {LibTokenMetadata} from "../../../src/lib/LibTokenMetadata.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
