@@ -3,12 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.33/src/abstract/SafeBundleScript.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.33/src/interface/IConfigRegistryV5.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.33/src/lib/LibConfigRegistry.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibConfigRegistryDeploy.sol";
-import {ConfigBinding, LibConfigRegistryRegister} from "rain-deploy-0.1.33/src/lib/LibConfigRegistryRegister.sol";
+import {ConfigBinding} from "rain-deploy-0.1.33/src/lib/LibConfigRegistryRegister.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 import {LibRegistryDelegates} from "rain-deploy-0.1.33/src/lib/LibRegistryDelegates.sol";
 import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
@@ -16,6 +15,7 @@ import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibProdOrchestratorParams} from "../src/lib/LibProdOrchestratorParams.sol";
+import {LibRootConfigBinding} from "../src/lib/LibRootConfigBinding.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
@@ -98,31 +98,18 @@ contract BindOrchestratorConfig is SafeBundleScript, IStoxScript {
         return ConfigBinding("", "address", abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK), "");
     }
 
-    function registerTx(bytes32 name, ConfigBinding memory binding) internal pure returns (SafeTx memory) {
-        return SafeTx({
-            to: LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS,
-            value: 0,
-            data: LibConfigRegistryRegister.registerCalldata(LibRegistryAuthority.ROOT_AUTHORITY, name, binding),
-            operation: Enum.Operation.Call
-        });
-    }
-
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
         SafeTx[] memory txs = new SafeTx[](3);
-        txs[0] = registerTx(LibStoxConfig.ORCHESTRATOR_BEACON_NAME, beaconBinding());
-        txs[1] = registerTx(LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, initialAdminBinding());
+        txs[0] = LibRootConfigBinding.registerTx(LibStoxConfig.ORCHESTRATOR_BEACON_NAME, beaconBinding());
+        txs[1] = LibRootConfigBinding.registerTx(LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, initialAdminBinding());
         txs[2] = LibStoxMigrations.recordTx(bindOrchestratorConfigDeclaration());
         return txs;
     }
 
     function assertBound(bytes32 name, ConfigBinding memory binding) internal view {
-        (bytes memory value, uint256 registeredAt, bytes32 typeHash) =
-            LibConfigRegistryRegister.currentBinding(LibRegistryAuthority.ROOT_AUTHORITY, name);
-        // forge-lint: disable-next-line(block-timestamp)
-        if (!LibConfigRegistryRegister.isBound(value, typeHash, binding) || registeredAt != block.timestamp) {
-            revert OrchestratorConfigBindingMismatch(name, value, registeredAt);
-        }
+        (bool bound, bytes memory value, uint256 registeredAt) = LibRootConfigBinding.boundThisBlock(name, binding);
+        if (!bound) revert OrchestratorConfigBindingMismatch(name, value, registeredAt);
     }
 
     /// @inheritdoc SafeBundleScript
