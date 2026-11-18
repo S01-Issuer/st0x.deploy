@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
@@ -15,9 +16,9 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 
 /// @title BuildPrivilegedAddresses
-/// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, and
-/// per deployment network the Safe, timelock, authoriser, EU authoriser, production beacons and receipt vaults.
-/// `address(0)` is none.
+/// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, the
+/// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, production
+/// beacons and receipt vaults. `address(0)` is none.
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 
@@ -67,6 +68,7 @@ contract BuildPrivilegedAddresses is Script {
             "root", "authoriserImplementation", LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1
         );
         vm.serializeString("root", "beaconOwners", beaconOwners);
+        vm.serializeAddress("root", "registryRootAuthority", LibRegistryAuthority.ROOT_AUTHORITY);
         return vm.serializeString("root", "chains", chains);
     }
 
