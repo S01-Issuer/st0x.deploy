@@ -91,8 +91,7 @@ function handSafeOwnedBaseVaultsToTimelockDeclaration() pure returns (ScriptDecl
 /// @title HandSafeOwnedBaseVaultsToTimelock
 /// @notice Per-chain Safe bundle: on Base, `transferOwnership(timelock)` on each of tWMT, tMC, tDIS, tIFX, tSOI and
 /// tTPRO the Safe still owns, then this migration's root-line record; elsewhere the record alone.
-/// @dev A vault the timelock already owns is skipped, so after Base Safe nonce 706 executes the Base bundle is the
-/// record alone.
+/// @dev A vault the timelock already owns is skipped.
 contract HandSafeOwnedBaseVaultsToTimelock is SafeBundleScript, IStoxScript {
     bytes32 internal constant PROOF_SALT = keccak256("st0x.hand-safe-owned-base-vaults-to-timelock.proof");
 
@@ -205,10 +204,8 @@ contract HandSafeOwnedBaseVaultsToTimelock is SafeBundleScript, IStoxScript {
                 if (owner != chainTimelock) revert VaultNotOnTimelock(vault, owner);
                 continue;
             }
-            // Already on the timelock: nothing to move.
             if (owner == chainTimelock) continue;
             if (owner != chainSafe) revert HandoverVaultNotOnSafe(vault, owner);
-            // Policy: a vault frozen by its owner, inclusive of the deadline, is not handed over.
             uint256 frozenUntil = IOwnerFreezableV1(vault).ownerFrozenUntil();
             // forge-lint: disable-next-line(block-timestamp)
             if (frozenUntil >= block.timestamp) revert HandoverVaultOwnerFrozen(vault, frozenUntil);
