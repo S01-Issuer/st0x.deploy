@@ -407,6 +407,9 @@ contract BuildExpectedStateTest is Test {
                 string memory row = index(list, i);
                 TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".underlying")), tokens[i].underlying);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".assetId")), config.assetId);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".listingTicker")), config.listingTicker);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".listingName")), config.listingName);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".name")), config.name);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".symbol")), config.symbol);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptVault")), tokens[i].receiptVault);

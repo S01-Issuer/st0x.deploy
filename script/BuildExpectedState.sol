@@ -33,7 +33,8 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
-/// token's renamed metadata), and per production token under `tokens`: `underlying`, `name`, `renamedName`, `symbol`,
+/// token's renamed metadata), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
+/// `listingName`, `name`, `renamedName`, `symbol`,
 /// `decimals`, `wrappedTokenVaultName`, `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
 /// `receiptVaultReceipt` (`receiptVault.receipt()`), `receiptManager` (`receipt.manager()`), `wrappedTokenVaultAsset`
@@ -137,6 +138,9 @@ contract BuildExpectedState is Script {
     function tokenMetadataJson(string memory row, uint256 i, string memory underlying) internal {
         TokenConfig memory config = LibProdTokenConfig.configOf(underlying);
         vm.serializeString(row, "underlying", underlying);
+        vm.serializeString(row, "assetId", config.assetId);
+        vm.serializeString(row, "listingTicker", config.listingTicker);
+        vm.serializeString(row, "listingName", config.listingName);
         bool renames = LibUnderlyingNamingRollout.renamesRow(i);
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
         vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
