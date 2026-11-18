@@ -274,6 +274,7 @@ library LibBeaconInvariants {
     }
 
     /// @notice Whether the chain runs Base's V1 beacon set rather than the deterministic 0.1.1 set.
+    /// @dev 0G runs the 0.1.1 set, like Robinhood Chain.
     /// @param chainId The chain id.
     /// @return True for Base's set, false for the 0.1.1 set.
     function runsBaseBeaconSet(uint256 chainId) internal pure returns (bool) {
@@ -281,6 +282,7 @@ library LibBeaconInvariants {
         if (
             chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID
                 || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID || chainId == LibSafeInvariants.BSC_CHAIN_ID
+                || chainId == LibSafeInvariants.ZEROG_CHAIN_ID
         ) return false;
         revert UnsupportedChainForProdBeacons(chainId);
     }

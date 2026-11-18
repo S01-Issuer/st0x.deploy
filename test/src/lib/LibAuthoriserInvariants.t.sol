@@ -65,6 +65,11 @@ contract LibAuthoriserInvariantsTest is Test {
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC,
             "bsc"
         );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ZEROG_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG,
+            "zerog"
+        );
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
         harness.callAuthoriserForChainId(123456);
@@ -79,6 +84,17 @@ contract LibAuthoriserInvariantsTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AuthoriserNotReady.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD)
         );
+        harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice The 0G clone slot is a placeholder until the 0G clone deploy
+    /// runs, and the placeholder is refused as not ready rather than passing
+    /// as a deployed authoriser.
+    function testZerogAuthoriserPlaceholderIsRefused() external {
+        assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG, address(0), "zerog slot hydrated");
+        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
         harness.callActiveChainAuthoriser();
     }
 

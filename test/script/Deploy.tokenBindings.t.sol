@@ -20,10 +20,12 @@ import {
     WrapperBeaconMismatch
 } from "../../script/Deploy.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
-import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariants, AuthoriserNotReady} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {LibTestTokenRows} from "../lib/LibTestTokenRows.sol";
 import {DeployPreDeployCheckHarness} from "./DeployPreDeployCheckHarness.sol";
@@ -161,6 +163,21 @@ contract DeployTokenBindingsTest is Test {
             }
         }
         return sample;
+    }
+
+    /// A US token on 0G, whose authoriser slot is a placeholder, is refused
+    /// even when its RBAC binds the zero authoriser the slot reads as.
+    function testUsTokenRefusesPlaceholderAuthoriserSlot() external {
+        TokenConfig[] memory us = new TokenConfig[](1);
+        us[0] = oneRowPerRegion(0, 0)[0];
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(us);
+        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        bindPinnedBeacons();
+        bindRbac(LibStoxConfig.RBAC_US_NAME, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, address(0));
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
+        harness.exposedPreDeployCheck(
+            tokens[0], SupportedNetwork(LibStoxDeployNetworks.ZEROG, LibSafeInvariants.ZEROG_CHAIN_ID, "", "")
+        );
     }
 
     function testTokensRefuseOtherVaultBeacon(address wrong, uint256 usSeed, uint256 euSeed) external {
