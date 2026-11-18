@@ -29,6 +29,7 @@ fs_permissions = [
   { access = "read-write", path = "src/generated" },
   { access = "read-write", path = "src/lib" },
   { access = "read-write", path = "meta" },
+  { access = "read-write", path = "test/composed" },
   # `script/Build.sol` reads the canonical release version from `[package].version`
   # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
   { access = "read", path = "foundry.toml" },

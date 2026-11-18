@@ -165,7 +165,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     }
 
     /// One attestation, the lead's, of `[attestedSymbol, price, now]` under
-    /// `LEAD_DOMAIN`.
+    /// `priceDomain()`.
     function _lead(string memory attestedSymbol, int256 price) internal view returns (SignedContextV2[] memory) {
         SignedContextV2[] memory attestations = new SignedContextV2[](1);
         attestations[0] = attest(LEAD_KEY, symbol(attestedSymbol), float(price), float(int256(block.timestamp)));
