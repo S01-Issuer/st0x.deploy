@@ -260,7 +260,7 @@ contract BuildMigrations is Script {
         for (uint256 i = 0; i < paths.length; i++) {
             rows[i] = migrationJson(i, paths[i], declarations, instances, networks);
         }
-        vm.serializeUint("root", "version", 1);
+        vm.serializeUint("root", "version", 2);
         vm.serializeBytes32("root", "genesis", MIGRATION_HEAD_GENESIS);
         vm.serializeAddress("root", "writer", LibRegistryAuthority.ROOT_AUTHORITY);
         vm.serializeBytes32("root", "namespace", LibStoxMigrations.NAMESPACE);
