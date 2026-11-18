@@ -10,6 +10,7 @@ import {LibConfigRegistry} from "rain-deploy-0.1.33/src/lib/LibConfigRegistry.so
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibConfigRegistryDeploy.sol";
 import {ConfigBinding, LibConfigRegistryRegister} from "rain-deploy-0.1.33/src/lib/LibConfigRegistryRegister.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {LibRegistryDelegates} from "rain-deploy-0.1.33/src/lib/LibRegistryDelegates.sol";
 import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
@@ -75,11 +76,9 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
 
         LibStoxMigrations.assertNext(bindBeaconInitialOwnerDeclaration(), chainSafe);
         IConfigRegistryV5 registry = IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
-        if (
-            !registry.approvedV5(
-                    LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe
-                ) && !registry.approvedUnscopedV5(LibRegistryAuthority.ROOT_AUTHORITY, chainSafe)
-        ) {
+        if (!LibRegistryDelegates.approved(
+                registry, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe
+            )) {
             revert SafeNotBeaconInitialOwnerDelegate(chainSafe);
         }
     }
