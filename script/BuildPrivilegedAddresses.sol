@@ -17,8 +17,8 @@ import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 
 /// @title BuildPrivilegedAddresses
 /// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, the
-/// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, production beacons and receipt vaults.
-/// `address(0)` is none.
+/// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, production
+/// beacons and receipt vaults. `address(0)` is none.
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 
