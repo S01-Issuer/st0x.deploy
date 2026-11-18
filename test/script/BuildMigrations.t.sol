@@ -76,7 +76,7 @@ contract BuildMigrationsTest is Test {
     }
 
     function testVersionIsOne() external {
-        assertEq(vm.parseJsonUint(build.renderDir(LINE), ".version"), 1);
+        assertEq(vm.parseJsonUint(build.renderDir(LINE), ".version"), 2);
     }
 
     function testGenesisIsTheRegistryGenesis() external {
