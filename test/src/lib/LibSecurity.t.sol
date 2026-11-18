@@ -3,9 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibUnderlying} from "../../../src/lib/LibUnderlying.sol";
+import {LibSecurity} from "../../../src/lib/LibSecurity.sol";
 
-contract LibUnderlyingTest is Test {
+contract LibSecurityTest is Test {
     bytes internal constant ALPHANUMERIC = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
     function isLetter(bytes1 c) internal pure returns (bool) {
@@ -62,13 +62,13 @@ contract LibUnderlyingTest is Test {
     }
 
     function wellFormed(bytes memory isin) internal pure returns (bool) {
-        return LibUnderlying.isinWellFormed(string(isin));
+        return LibSecurity.isinWellFormed(string(isin));
     }
 
     function testIsinAcceptsKnownValidIsins() external pure {
         string[4] memory isins = ["US0378331005", "US88160R1014", "NL0010273215", "US67066G1040"];
         for (uint256 i = 0; i < isins.length; i++) {
-            assertTrue(LibUnderlying.isinWellFormed(isins[i]), isins[i]);
+            assertTrue(LibSecurity.isinWellFormed(isins[i]), isins[i]);
             assertTrue(oracle(bytes(isins[i])), isins[i]);
         }
     }
@@ -88,9 +88,9 @@ contract LibUnderlyingTest is Test {
     /// Each candidate carries a Luhn-valid check digit, so only the length
     /// rule can refuse it.
     function testIsinRejectsEveryLengthOtherThanTwelve() external pure {
-        assertFalse(LibUnderlying.isinWellFormed(""));
-        assertFalse(LibUnderlying.isinWellFormed("U"));
-        assertFalse(LibUnderlying.isinWellFormed("US"));
+        assertFalse(LibSecurity.isinWellFormed(""));
+        assertFalse(LibSecurity.isinWellFormed("U"));
+        assertFalse(LibSecurity.isinWellFormed("US"));
         for (uint256 length = 3; length <= 64; length++) {
             bytes memory prefix = new bytes(length - 1);
             prefix[0] = "U";
@@ -104,11 +104,11 @@ contract LibUnderlyingTest is Test {
     }
 
     function testIsinRejectsLowercase() external pure {
-        assertFalse(LibUnderlying.isinWellFormed("us0378331005"));
-        assertFalse(LibUnderlying.isinWellFormed("uS0378331005"));
-        assertFalse(LibUnderlying.isinWellFormed("Us0378331005"));
-        assertFalse(LibUnderlying.isinWellFormed("nl0010273215"));
-        assertFalse(LibUnderlying.isinWellFormed("US88160r1014"));
+        assertFalse(LibSecurity.isinWellFormed("us0378331005"));
+        assertFalse(LibSecurity.isinWellFormed("uS0378331005"));
+        assertFalse(LibSecurity.isinWellFormed("Us0378331005"));
+        assertFalse(LibSecurity.isinWellFormed("nl0010273215"));
+        assertFalse(LibSecurity.isinWellFormed("US88160r1014"));
     }
 
     /// The candidates carry a Luhn-valid check digit, so only the
@@ -168,45 +168,45 @@ contract LibUnderlyingTest is Test {
     }
 
     function testTickerShape() external pure {
-        assertTrue(LibUnderlying.tickerWellFormed("NVDA"));
-        assertTrue(LibUnderlying.tickerWellFormed("BRK.B"));
-        assertTrue(LibUnderlying.tickerWellFormed("A"));
-        assertTrue(LibUnderlying.tickerWellFormed("ABCDEFGHIJKLMNOP"));
-        assertFalse(LibUnderlying.tickerWellFormed(""));
-        assertFalse(LibUnderlying.tickerWellFormed("ABCDEFGHIJKLMNOPQ"));
-        assertFalse(LibUnderlying.tickerWellFormed("tNVDA"));
-        assertFalse(LibUnderlying.tickerWellFormed("NV DA"));
-        assertFalse(LibUnderlying.tickerWellFormed("NV\"DA"));
-        assertFalse(LibUnderlying.tickerWellFormed("NV\\DA"));
+        assertTrue(LibSecurity.tickerWellFormed("NVDA"));
+        assertTrue(LibSecurity.tickerWellFormed("BRK.B"));
+        assertTrue(LibSecurity.tickerWellFormed("A"));
+        assertTrue(LibSecurity.tickerWellFormed("ABCDEFGHIJKLMNOP"));
+        assertFalse(LibSecurity.tickerWellFormed(""));
+        assertFalse(LibSecurity.tickerWellFormed("ABCDEFGHIJKLMNOPQ"));
+        assertFalse(LibSecurity.tickerWellFormed("tNVDA"));
+        assertFalse(LibSecurity.tickerWellFormed("NV DA"));
+        assertFalse(LibSecurity.tickerWellFormed("NV\"DA"));
+        assertFalse(LibSecurity.tickerWellFormed("NV\\DA"));
     }
 
     function testNameShape() external pure {
-        assertTrue(LibUnderlying.nameWellFormed("NVIDIA Corporation"));
-        assertTrue(LibUnderlying.nameWellFormed(bytes(unicode"LVMH Moët Hennessy Louis Vuitton SE")));
-        assertTrue(LibUnderlying.nameWellFormed("Meta Platforms, Inc."));
-        assertFalse(LibUnderlying.nameWellFormed(""));
-        assertFalse(LibUnderlying.nameWellFormed("NVIDIA Corporation ST0x"));
-        assertFalse(LibUnderlying.nameWellFormed("NVIDIA Corporation (ST0x)"));
-        assertFalse(LibUnderlying.nameWellFormed("NVIDIA \"Corp\""));
-        assertFalse(LibUnderlying.nameWellFormed("NVIDIA\\Corp"));
-        assertFalse(LibUnderlying.nameWellFormed("NVIDIA\nCorp"));
-        assertFalse(LibUnderlying.nameWellFormed(hex"4e56494449417f"));
+        assertTrue(LibSecurity.nameWellFormed("NVIDIA Corporation"));
+        assertTrue(LibSecurity.nameWellFormed(bytes(unicode"LVMH Moët Hennessy Louis Vuitton SE")));
+        assertTrue(LibSecurity.nameWellFormed("Meta Platforms, Inc."));
+        assertFalse(LibSecurity.nameWellFormed(""));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA Corporation ST0x"));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA Corporation (ST0x)"));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA \"Corp\""));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA\\Corp"));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA\nCorp"));
+        assertFalse(LibSecurity.nameWellFormed(hex"4e56494449417f"));
     }
 
     /// The boundaries the NatSpec states: digits 0 and 9 are tickers, the
     /// bytes either side are not; a space is the lowest name byte, 0x1f is
     /// not; a name shorter than the suffix is checked without underflow.
     function testShapeBoundaries() external pure {
-        assertTrue(LibUnderlying.tickerWellFormed("0"));
-        assertTrue(LibUnderlying.tickerWellFormed("9"));
-        assertTrue(LibUnderlying.tickerWellFormed("A0Z9."));
-        assertFalse(LibUnderlying.tickerWellFormed("/"));
-        assertFalse(LibUnderlying.tickerWellFormed(":"));
-        assertFalse(LibUnderlying.tickerWellFormed("@"));
-        assertFalse(LibUnderlying.tickerWellFormed("["));
-        assertTrue(LibUnderlying.nameWellFormed("3M"));
-        assertTrue(LibUnderlying.nameWellFormed(" "));
-        assertFalse(LibUnderlying.nameWellFormed(hex"1f"));
-        assertFalse(LibUnderlying.nameWellFormed("ST0x"));
+        assertTrue(LibSecurity.tickerWellFormed("0"));
+        assertTrue(LibSecurity.tickerWellFormed("9"));
+        assertTrue(LibSecurity.tickerWellFormed("A0Z9."));
+        assertFalse(LibSecurity.tickerWellFormed("/"));
+        assertFalse(LibSecurity.tickerWellFormed(":"));
+        assertFalse(LibSecurity.tickerWellFormed("@"));
+        assertFalse(LibSecurity.tickerWellFormed("["));
+        assertTrue(LibSecurity.nameWellFormed("3M"));
+        assertTrue(LibSecurity.nameWellFormed(" "));
+        assertFalse(LibSecurity.nameWellFormed(hex"1f"));
+        assertFalse(LibSecurity.nameWellFormed("ST0x"));
     }
 }

@@ -25,13 +25,13 @@ bytes32 constant UNDERLYING_STORAGE_LOCATION =
 /// ST0x token built from it, e.g. "NVIDIA Corporation" + " (ST0x)".
 string constant ST0X_NAME_SUFFIX = " (ST0x)";
 
-/// @title LibUnderlying
+/// @title LibSecurity
 /// @notice Storage for the ticker and name of the off-chain asset a
 /// `StoxReceiptVault` tokenizes. The vault's own ERC-20 `symbol()` / `name()`
 /// and the wrapping `StoxWrappedTokenVault`'s `symbol()` / `name()` are all
 /// built from these two values, so neither is ever recovered by trimming
 /// another token's string.
-library LibUnderlying {
+library LibSecurity {
     /// @custom:storage-location erc7201:rain.storage.underlying.1
     /// @dev **DO NOT REORDER — APPEND ONLY.** This struct lives at a fixed
     /// ERC-7201 namespaced slot inside an upgradeable beacon-proxy vault, so
