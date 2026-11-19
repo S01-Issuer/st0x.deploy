@@ -23,7 +23,7 @@ import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/acce
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
-import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
+import {LibSecurity, ST0X_NAME_SUFFIX} from "../lib/LibSecurity.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying.sol";
 
@@ -42,7 +42,7 @@ import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying
 /// Corporate-action storage lives at the ERC-7201 namespace
 /// `rain.storage.corporate-action.1` (see `LibCorporateAction`). The facet
 /// also implements `IStoxUnderlyingV1`, whose ticker and name live at
-/// `rain.storage.underlying.1` (see `LibUnderlying`). Any future external
+/// `rain.storage.underlying.1` (see `LibSecurity`). Any future external
 /// entry points added here (e.g. list traversal) must also carry
 /// `onlyDelegatecalled`.
 contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
@@ -211,12 +211,12 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
 
     /// @inheritdoc IStoxUnderlyingV1
     function underlyingSymbol() external view override onlyDelegatecalled returns (string memory) {
-        return LibUnderlying.getStorage().symbol;
+        return LibSecurity.getStorage().symbol;
     }
 
     /// @inheritdoc IStoxUnderlyingV1
     function underlyingName() external view override onlyDelegatecalled returns (string memory) {
-        return LibUnderlying.getStorage().name;
+        return LibSecurity.getStorage().name;
     }
 
     /// @inheritdoc IStoxUnderlyingV1
@@ -237,7 +237,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
         if (bytes(newSymbol).length == 0) revert EmptyUnderlyingSymbol();
         if (bytes(newName).length == 0) revert EmptyUnderlyingName();
 
-        LibUnderlying.UnderlyingStorage storage underlyingStorage = LibUnderlying.getStorage();
+        LibSecurity.UnderlyingStorage storage underlyingStorage = LibSecurity.getStorage();
         emit UnderlyingSet(msg.sender, underlyingStorage.symbol, underlyingStorage.name, newSymbol, newName);
         underlyingStorage.symbol = newSymbol;
         underlyingStorage.name = newName;

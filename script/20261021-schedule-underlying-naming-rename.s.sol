@@ -19,7 +19,7 @@ import {
     UnderlyingNamingReleaseNotFrozen,
     DownstreamNotReadyForRename
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
-import {ST0X_NAME_SUFFIX} from "../src/lib/LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "../src/lib/LibSecurity.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 

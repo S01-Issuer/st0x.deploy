@@ -54,7 +54,7 @@ import {
     ReceiptVaultOwnerMismatch
 } from "../../src/lib/LibTokenInvariants.sol";
 import {BeaconImplementationMismatch, BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
-import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "../../src/lib/LibSecurity.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,
