@@ -18,6 +18,8 @@ import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
 import {LibEuAuthoriserClone} from "../../../src/lib/LibEuAuthoriserClone.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.11/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
@@ -96,6 +98,17 @@ contract LibAuthoriserInvariantsTest is Test {
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
         harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice Every deploy network resolves to a nonzero authoriser. The Build
+    /// generators write the slot as is, so a chain that joins the deploy list
+    /// with an unpinned placeholder fails here instead of publishing zero.
+    function testEveryDeploymentNetworkHasAPinnedAuthoriser() external pure {
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertNotEq(LibAuthoriserInvariants.authoriserForChainId(networks[i].chainId), address(0), networks[i].name);
+        }
     }
 
     /// @notice A pin carrying bytecode other than the EIP-1167 clone is
