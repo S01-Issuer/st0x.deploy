@@ -21,7 +21,8 @@ import {
     ScheduleUnderlyingNamingBeacons,
     ImplementationNotDeployed,
     BeaconAlreadyUpgraded,
-    OperationAlreadyScheduled
+    OperationAlreadyScheduled,
+    BeaconUpgradeMovedMetadata
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 import {
     ScheduleUnderlyingNamingRename,
@@ -52,7 +53,7 @@ import {
     NoTokenTableForChain,
     ReceiptVaultOwnerMismatch
 } from "../../src/lib/LibTokenInvariants.sol";
-import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
+import {BeaconImplementationMismatch, BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
@@ -521,6 +522,69 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         Ownable(vault).transferOwnership(safe);
         vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, vault, timelock, safe));
         rename.callPreflight();
+    }
+
+    /// @notice The beacon pre-flight refuses a beacon that serves anything but
+    /// its pinned from-implementation, so a batch is never scheduled over an
+    /// upgrade it does not know about.
+    function testBeaconPreflightRefusesAnUnknownFromImplementation() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        plantImplementations();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("from-impl");
+        beacons.callPreflight();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address[2] memory beaconAddresses = [
+            LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid),
+            LibUnderlyingNamingRollout.wrappedTokenVaultBeacon(block.chainid)
+        ];
+        address[2] memory froms = [
+            LibUnderlyingNamingRollout.RECEIPT_VAULT_FROM_IMPLEMENTATION,
+            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION
+        ];
+        // Any deployed implementation that is neither side of the batch.
+        address other = LibUnderlyingNamingRollout.FACET;
+        for (uint256 beaconIndex = 0; beaconIndex < beaconAddresses.length; beaconIndex++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.prank(timelock);
+            UpgradeableBeacon(beaconAddresses[beaconIndex]).upgradeTo(other);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    BeaconImplementationMismatch.selector, beaconAddresses[beaconIndex], froms[beaconIndex], other
+                )
+            );
+            beacons.callPreflight();
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice The beacon batch's execution proof refuses a wrapper whose name
+    /// or a vault whose symbol moved across the upgrade.
+    function testBeaconProofRefusesEachBrokenUpgrade() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        landBeaconSchedule();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("proof-refusals");
+        TokenInstance memory first = LibUnderlyingNamingRollout.tokens(block.chainid)[0];
+
+        uint256 snapshot = vm.snapshotState();
+        // A value read before the batch and another after it: the first wrapper's name, the last vault's symbol.
+        bytes[] memory moved = new bytes[](2);
+        moved[0] = abi.encode("Before");
+        moved[1] = abi.encode("After");
+        vm.mockCalls(first.wrappedTokenVault, abi.encodeWithSignature("name()"), moved);
+        vm.expectRevert(
+            abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, first.wrappedTokenVault, "Before", "After")
+        );
+        beacons.callProveExecution();
+        vm.revertToState(snapshot);
+        vm.clearMockedCalls();
+
+        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
+        address lastVault = chainTokens[chainTokens.length - 1].receiptVault;
+        vm.mockCalls(lastVault, abi.encodeWithSignature("symbol()"), moved);
+        vm.expectRevert(abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, lastVault, "Before", "After"));
+        beacons.callProveExecution();
     }
 
     /// @notice The rename pre-flight refuses once the rename is registered.
