@@ -10,14 +10,14 @@ import {
     CONFISCATE_SHARES,
     DEPOSIT,
     WITHDRAW
-} from "rain-vats-0.2.24/src/abstract/OffchainAssetReceiptVault.sol";
+} from "rain-vats-0.2.25/src/abstract/OffchainAssetReceiptVault.sol";
 import {
     CERTIFY_ADMIN,
     CONFISCATE_RECEIPT_ADMIN,
     CONFISCATE_SHARES_ADMIN,
     DEPOSIT_ADMIN,
     WITHDRAW_ADMIN
-} from "rain-vats-0.2.24/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../src/lib/LibCorporateAction.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1,

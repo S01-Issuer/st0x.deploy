@@ -8,12 +8,12 @@ import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.24/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.24/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.25/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.24/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ICertifiableV1} from "rain-vats-0.2.24/src/interface/ICertifiableV1.sol";
+} from "rain-vats-0.2.25/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.25/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
@@ -22,7 +22,7 @@ import {LibExtrospectBytecode} from "rain-extrospection-0.1.31/src/lib/LibExtros
 import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.31/src/lib/LibExtrospectMetamorphic.sol";
 import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.31/src/lib/EVMOpcodes.sol";
 import {IExtrospectV1} from "rain-extrospection-0.1.31/src/interface/IExtrospectV1.sol";
-import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.5/src/generated/0_1_0/Extrospect.sol";
+import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.6/src/generated/0_1_0/Extrospect.sol";
 import {IBeacon} from "rain-extrospection-0.1.31/src/interface/IBeacon.sol";
 
 /// @notice A pinned wrapped symbol is not of the initialized `wt<TICKER>`

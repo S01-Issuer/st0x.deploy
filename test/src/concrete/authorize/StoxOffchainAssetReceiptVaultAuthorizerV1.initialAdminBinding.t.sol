@@ -6,10 +6,10 @@ import {
     NonCanonicalInitialAdmin,
     ZeroInitialAdmin,
     INITIAL_ADMIN_VALUE_TYPE_HASH
-} from "rain-vats-0.2.24/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.36/src/interface/IConfigRegistryV5.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.36/src/lib/LibConfigRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.36/src/lib/LibRegistryAuthority.sol";
+} from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.37/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.37/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.37/src/lib/LibRegistryAuthority.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";

@@ -2,29 +2,29 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.36/src/abstract/RainDeployVerifyDeclaration.sol";
-import {ExternalDeployment} from "rain-deploy-0.1.36/src/abstract/RainDeployDeclarationChecks.sol";
-import {DeployDeclaration, RainDeploySuitesBase} from "rain-deploy-0.1.36/src/abstract/RainDeploySuitesBase.sol";
+import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.37/src/abstract/RainDeployVerifyDeclaration.sol";
+import {ExternalDeployment} from "rain-deploy-0.1.37/src/abstract/RainDeployDeclarationChecks.sol";
+import {DeployDeclaration, RainDeploySuitesBase} from "rain-deploy-0.1.37/src/abstract/RainDeploySuitesBase.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
-} from "rain-factory-deploy-0.2.13/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.14/src/generated/0_1_15/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_V8_CODEHASH
-} from "rain-factory-deploy-0.2.13/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.14/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
-} from "rain-deploy-0.1.36/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.37/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
-} from "rain-tofu-erc20-decimals-deploy-0.1.8/src/generated/0_1_0/TOFUTokenDecimals.sol";
+} from "rain-tofu-erc20-decimals-deploy-0.1.9/src/generated/0_1_0/TOFUTokenDecimals.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
-} from "rain-deploy-0.1.36/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.37/src/generated/0_1_29/ConfigRegistry.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";

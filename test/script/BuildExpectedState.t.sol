@@ -3,14 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.36/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.36/src/lib/LibSafe.sol";
-import {DeploySuite} from "rain-deploy-0.1.36/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.36/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.37/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.37/src/lib/LibSafe.sol";
+import {DeploySuite} from "rain-deploy-0.1.37/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.37/src/lib/LibRainDeployZoltuMechanism.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     RUNTIME_CODE as TIMELOCK_RUNTIME_CODE
-} from "rain-deploy-0.1.36/src/generated/0_1_18/TimelockController.sol";
+} from "rain-deploy-0.1.37/src/generated/0_1_18/TimelockController.sol";
 import {
     LibExtrospectRegistryBeaconProxy,
     REGISTRY_BEACON_PROXY_PREFIX,
@@ -19,7 +19,7 @@ import {
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.24/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+} from "rain-vats-0.2.25/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
 import {BuildExpectedState} from "../../script/BuildExpectedState.sol";
 import {BuildExpectedStateHarness} from "./BuildExpectedStateHarness.sol";
 import {LibLocalProdState} from "../lib/LibLocalProdState.sol";
