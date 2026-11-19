@@ -29,7 +29,7 @@ import {LibProdDeployV4 as V4} from "../../../src/generated/LibProdDeployV4.sol"
 import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
 import {LibTestTokenRows} from "../../lib/LibTestTokenRows.sol";

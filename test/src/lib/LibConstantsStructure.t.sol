@@ -22,7 +22,7 @@ import {
 import {CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION} from "src/lib/LibCorporateActionReceipt.sol";
 import {ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
 import {ERC1155_STORAGE_LOCATION} from "src/lib/LibERC1155Storage.sol";
-import {UNDERLYING_STORAGE_LOCATION} from "../../../src/lib/LibUnderlying.sol";
+import {UNDERLYING_STORAGE_LOCATION} from "../../../src/lib/LibSecurity.sol";
 import {NODE_NONE} from "src/lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "src/lib/LibStockSplit.sol";
 import {

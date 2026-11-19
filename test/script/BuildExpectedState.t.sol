@@ -407,6 +407,9 @@ contract BuildExpectedStateTest is Test {
                 string memory row = index(list, i);
                 TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".underlying")), tokens[i].underlying);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".assetId")), config.assetId);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".listingTicker")), config.listingTicker);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".listingName")), config.listingName);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".name")), config.name);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".symbol")), config.symbol);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptVault")), tokens[i].receiptVault);
@@ -442,6 +445,27 @@ contract BuildExpectedStateTest is Test {
                 sawMc = true;
             } else if (underlying == keccak256("MSTR")) {
                 assertEq(authoriser, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE);
+                sawMstr = true;
+            }
+        }
+        assertTrue(sawMc && sawMstr);
+    }
+
+    /// Fixed examples on Base: tMC is EU, tMSTR is US.
+    function testBaseMcRegionIsEuAndMstrRegionIsUs() external {
+        string memory json = build.render();
+        string memory list = ".chains.8453.tokens";
+        uint256 n = LibTokenInvariants.productionTokensBase().length;
+        bool sawMc;
+        bool sawMstr;
+        for (uint256 i = 0; i < n; i++) {
+            string memory row = index(list, i);
+            bytes32 underlying = keccak256(bytes(field(json, row, "underlying")));
+            if (underlying == keccak256("MC")) {
+                assertEq(field(json, row, "region"), "EU");
+                sawMc = true;
+            } else if (underlying == keccak256("MSTR")) {
+                assertEq(field(json, row, "region"), "US");
                 sawMstr = true;
             }
         }
@@ -1013,31 +1037,35 @@ contract BuildExpectedStateTest is Test {
     }
 
     function tokenFields() internal pure returns (string[] memory) {
-        string[] memory fields = new string[](24);
+        string[] memory fields = new string[](28);
         fields[0] = "underlying";
-        fields[1] = "name";
-        fields[2] = "renamedName";
-        fields[3] = "symbol";
-        fields[4] = "decimals";
-        fields[5] = "wrappedTokenVaultName";
-        fields[6] = "wrappedTokenVaultRenamedName";
-        fields[7] = "wrappedTokenVaultSymbol";
-        fields[8] = "wrappedTokenVaultRenamedSymbol";
-        fields[9] = "wrappedTokenVaultDecimals";
-        fields[10] = "receiptVault";
-        fields[11] = "receipt";
-        fields[12] = "wrappedTokenVault";
-        fields[13] = "receiptVaultReceipt";
-        fields[14] = "receiptManager";
-        fields[15] = "wrappedTokenVaultAsset";
-        fields[16] = "receiptVaultBeacon";
-        fields[17] = "receiptBeacon";
-        fields[18] = "wrappedTokenVaultBeacon";
-        fields[19] = "receiptVaultCodehash";
-        fields[20] = "receiptCodehash";
-        fields[21] = "wrappedTokenVaultCodehash";
-        fields[22] = "owner";
-        fields[23] = "authoriser";
+        fields[1] = "assetId";
+        fields[2] = "listingTicker";
+        fields[3] = "listingName";
+        fields[4] = "region";
+        fields[5] = "name";
+        fields[6] = "renamedName";
+        fields[7] = "symbol";
+        fields[8] = "decimals";
+        fields[9] = "wrappedTokenVaultName";
+        fields[10] = "wrappedTokenVaultRenamedName";
+        fields[11] = "wrappedTokenVaultSymbol";
+        fields[12] = "wrappedTokenVaultRenamedSymbol";
+        fields[13] = "wrappedTokenVaultDecimals";
+        fields[14] = "receiptVault";
+        fields[15] = "receipt";
+        fields[16] = "wrappedTokenVault";
+        fields[17] = "receiptVaultReceipt";
+        fields[18] = "receiptManager";
+        fields[19] = "wrappedTokenVaultAsset";
+        fields[20] = "receiptVaultBeacon";
+        fields[21] = "receiptBeacon";
+        fields[22] = "wrappedTokenVaultBeacon";
+        fields[23] = "receiptVaultCodehash";
+        fields[24] = "receiptCodehash";
+        fields[25] = "wrappedTokenVaultCodehash";
+        fields[26] = "owner";
+        fields[27] = "authoriser";
         return fields;
     }
 
@@ -1046,7 +1074,7 @@ contract BuildExpectedStateTest is Test {
         string[] memory token = tokenFields();
         string[] memory fields = new string[](14);
         for (uint256 i = 0; i < fields.length; i++) {
-            fields[i] = token[i + 10];
+            fields[i] = token[i + 14];
         }
         return fields;
     }

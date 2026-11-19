@@ -76,7 +76,7 @@ contract BuildMigrationsDeclaredTest is Test {
 
     function testTheManifestIsTheRootLine() external view {
         (string memory json,) = manifest();
-        assertEq(vm.parseJsonUint(json, ".version"), 1);
+        assertEq(vm.parseJsonUint(json, ".version"), 2);
         assertEq(vm.parseJsonBytes32(json, ".genesis"), MIGRATION_HEAD_GENESIS);
         assertEq(vm.parseJsonAddress(json, ".writer"), LibRegistryAuthority.ROOT_AUTHORITY);
         assertEq(vm.parseJsonBytes32(json, ".namespace"), LibStoxMigrations.NAMESPACE);

@@ -207,7 +207,7 @@ library LibProdTokenConfig {
             underlying: "SGOV",
             assetId: "US46436E7186",
             listingTicker: "SGOV",
-            listingName: " iShares 0-3 Month Treasury Bond ETF",
+            listingName: "iShares 0-3 Month Treasury Bond ETF",
             name: " iShares 0-3 Month Treasury Bond ETF ST0x",
             symbol: "tSGOV",
             region: Region.US,

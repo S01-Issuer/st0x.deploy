@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
+import {LibAffix} from "rain-string-0.3.10/src/lib/affix/LibAffix.sol";
 import {LibParseChar} from "rain-string-0.3.10/src/lib/parse/LibParseChar.sol";
 import {
     CMASK_ASCII,
@@ -24,13 +25,13 @@ bytes32 constant UNDERLYING_STORAGE_LOCATION =
 /// ST0x token built from it, e.g. "NVIDIA Corporation" + " (ST0x)".
 string constant ST0X_NAME_SUFFIX = " (ST0x)";
 
-/// @title LibUnderlying
+/// @title LibSecurity
 /// @notice Storage for the ticker and name of the off-chain asset a
 /// `StoxReceiptVault` tokenizes. The vault's own ERC-20 `symbol()` / `name()`
 /// and the wrapping `StoxWrappedTokenVault`'s `symbol()` / `name()` are all
 /// built from these two values, so neither is ever recovered by trimming
 /// another token's string.
-library LibUnderlying {
+library LibSecurity {
     /// @custom:storage-location erc7201:rain.storage.underlying.1
     /// @dev **DO NOT REORDER — APPEND ONLY.** This struct lives at a fixed
     /// ERC-7201 namespaced slot inside an upgradeable beacon-proxy vault, so
@@ -77,7 +78,7 @@ library LibUnderlying {
                 Pointer.unwrap(LibBytes.dataPointer(name)),
                 end,
                 ~((CMASK_ASCII & ~CMASK_PRINTABLE) | CMASK_QUOTATION_MARK | CMASK_BACKSLASH)
-            ) == end && !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
+            ) == end && !LibAffix.endsWith(name, "ST0x") && !LibAffix.endsWith(name, "(ST0x)");
     }
 
     /// @notice Whether `isin` is 2 of `A-Z`, 9 of `A-Z` and `0-9`, then a
@@ -114,18 +115,5 @@ library LibUnderlying {
             } while (code > 0);
         }
         return sum % 10 == 0;
-    }
-
-    /// @notice Whether `value` ends with `suffix`.
-    /// @param value The value.
-    /// @param suffix The suffix.
-    /// @return Whether it does.
-    function endsWith(bytes memory value, bytes memory suffix) internal pure returns (bool) {
-        if (value.length < suffix.length) return false;
-        uint256 offset = value.length - suffix.length;
-        for (uint256 i = 0; i < suffix.length; i++) {
-            if (value[offset + i] != suffix[i]) return false;
-        }
-        return true;
     }
 }

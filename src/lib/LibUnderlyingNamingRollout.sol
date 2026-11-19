@@ -14,7 +14,7 @@ import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
-import {LibUnderlying} from "./LibUnderlying.sol";
+import {LibSecurity} from "./LibSecurity.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
@@ -263,8 +263,8 @@ library LibUnderlyingNamingRollout {
     /// @param config The row.
     function assertUnderlyingWellFormed(TokenConfig memory config) internal pure {
         if (
-            !LibUnderlying.tickerWellFormed(bytes(config.underlying))
-                || !LibUnderlying.nameWellFormed(bytes(config.underlyingName))
+            !LibSecurity.tickerWellFormed(bytes(config.underlying))
+                || !LibSecurity.nameWellFormed(bytes(config.underlyingName))
         ) {
             revert MalformedUnderlying(config.underlying, config.underlyingName);
         }

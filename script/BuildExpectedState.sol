@@ -18,7 +18,7 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
-import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibTokenMetadata} from "../src/lib/LibTokenMetadata.sol";
 import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
@@ -33,7 +33,8 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
-/// token's renamed metadata), and per production token under `tokens`: `underlying`, `name`, `renamedName`, `symbol`,
+/// token's renamed metadata), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
+/// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`,
 /// `decimals`, `wrappedTokenVaultName`, `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
 /// `receiptVaultReceipt` (`receiptVault.receipt()`), `receiptManager` (`receipt.manager()`), `wrappedTokenVaultAsset`
@@ -137,6 +138,10 @@ contract BuildExpectedState is Script {
     function tokenMetadataJson(string memory row, uint256 i, string memory underlying) internal {
         TokenConfig memory config = LibProdTokenConfig.configOf(underlying);
         vm.serializeString(row, "underlying", underlying);
+        vm.serializeString(row, "assetId", config.assetId);
+        vm.serializeString(row, "listingTicker", config.listingTicker);
+        vm.serializeString(row, "listingName", config.listingName);
+        vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
         bool renames = LibUnderlyingNamingRollout.renamesRow(i);
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
         vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));

@@ -9,7 +9,7 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {MalformedAssetId} from "../../../src/error/ErrStoxTokenConfig.sol";
 import {Region} from "../../../src/lib/LibProdTokenConfig.sol";
-import {LibUnderlying} from "../../../src/lib/LibUnderlying.sol";
+import {LibSecurity} from "../../../src/lib/LibSecurity.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 
 contract StoxReceiptVaultMalformedAssetIdTest is Test {
@@ -54,7 +54,7 @@ contract StoxReceiptVaultMalformedAssetIdTest is Test {
     }
 
     function testFuzzInitializeRefusesAMalformedAssetIdCarryingIt(string memory assetId) external {
-        vm.assume(!LibUnderlying.isinWellFormed(assetId));
+        vm.assume(!LibSecurity.isinWellFormed(assetId));
         assertInitializeRefuses(assetId);
     }
 }
