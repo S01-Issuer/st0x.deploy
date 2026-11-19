@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 import {BuildPrivilegedAddresses} from "../../script/BuildPrivilegedAddresses.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
@@ -49,6 +50,10 @@ contract BuildPrivilegedAddressesTest is Test {
         assertEq(
             vm.parseJsonAddress(json, ".beaconOwners.v2BaseVault"), LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER
         );
+    }
+
+    function testRegistryRootAuthorityIsTheRainDeployRoot() external {
+        assertEq(vm.parseJsonAddress(build.render(), ".registryRootAuthority"), LibRegistryAuthority.ROOT_AUTHORITY);
     }
 
     function testChainsAreTheDeploymentNetworksKeyedByChainId() external {

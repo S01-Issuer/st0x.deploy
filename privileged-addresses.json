@@ -462,6 +462,7 @@
       "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
     }
   },
+  "registryRootAuthority": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
   "safePolicy": {
     "owners": [
       "0x4746095B1Ea1A84446d34448f44e74D3d51f92F2",
