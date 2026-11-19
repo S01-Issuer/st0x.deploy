@@ -78,4 +78,10 @@ contract LibSafeInvariantsTest is Test {
             vm.revertToState(snapshot);
         }
     }
+
+    /// @notice 0G mainnet (Aristotle) chain id, from the 0G network docs.
+    /// 0G is not in `deploymentNetworks()`, so no catalogue check covers it.
+    function testZerogChainIdIsZerogMainnet() external pure {
+        assertEq(LibSafeInvariants.ZEROG_CHAIN_ID, 16661);
+    }
 }

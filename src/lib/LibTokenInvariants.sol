@@ -12,6 +12,11 @@ import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 /// @param chainId The chain id.
 error NoTokenTableForChain(uint256 chainId);
 
+/// @notice A chain whose production token table still holds placeholder
+/// addresses, because the token deploy has not run there yet.
+/// @param chainId The chain id.
+error TokenTableNotHydrated(uint256 chainId);
+
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
 /// "tMSTR" / "wtMSTR") is the chain-agnostic join key: it matches the
@@ -2468,7 +2473,9 @@ library LibTokenInvariants {
         return vaults;
     }
 
-    /// @notice The chain's production token table.
+    /// @notice The chain's production token table. Reverts
+    /// `NoTokenTableForChain` on a chain with no table and
+    /// `TokenTableNotHydrated` on a chain whose table is still a placeholder.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function productionTokensForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
@@ -2477,7 +2484,20 @@ library LibTokenInvariants {
         if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();
         if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return productionTokensRobinhood();
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return productionTokensBsc();
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return hydrated(chainId, productionTokensZerog());
         revert NoTokenTableForChain(chainId);
+    }
+
+    /// @notice `tokens`, unless a row has no receipt vault yet, so consumers
+    /// fail closed on a placeholder table instead of targeting `address(0)`.
+    /// @param chainId The chain id, for the revert.
+    /// @param tokens The chain's token table.
+    /// @return The same table.
+    function hydrated(uint256 chainId, TokenInstance[] memory tokens) internal pure returns (TokenInstance[] memory) {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i].receiptVault == address(0)) revert TokenTableNotHydrated(chainId);
+        }
+        return tokens;
     }
 
     /// @notice Assert that every production receipt vault reports the same
