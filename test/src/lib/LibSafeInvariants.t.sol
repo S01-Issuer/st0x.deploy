@@ -4,7 +4,9 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 /// @title LibSafeInvariantsTest
@@ -79,9 +81,14 @@ contract LibSafeInvariantsTest is Test {
         }
     }
 
-    /// @notice 0G mainnet (Aristotle) chain id, from the 0G network docs.
-    /// 0G is not in `deploymentNetworks()`, so no catalogue check covers it.
-    function testZerogChainIdIsZerogMainnet() external pure {
-        assertEq(LibSafeInvariants.ZEROG_CHAIN_ID, 16661);
+    /// @notice The 0G chain id is the one the `rain-deploy` catalogue gives
+    /// the `zerog` network, under both this repo's name and `rain-deploy`'s.
+    function testZerogChainIdIsTheCatalogueChainId() external pure {
+        string[] memory names = new string[](2);
+        names[0] = LibStoxDeployNetworks.ZEROG;
+        names[1] = LibRainDeploy.ZEROG;
+        SupportedNetwork[] memory configs = LibRainDeploy.declaredNetworkConfigs(names);
+        assertEq(configs[0].chainId, LibSafeInvariants.ZEROG_CHAIN_ID, "st0x name");
+        assertEq(configs[1].chainId, LibSafeInvariants.ZEROG_CHAIN_ID, "rain-deploy name");
     }
 }

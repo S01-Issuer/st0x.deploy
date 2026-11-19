@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {DeployDependency} from "rain-deploy-0.1.37/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.37/src/lib/LibRegistryAuthority.sol";
+import {DeployDependency} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyParams
@@ -15,7 +15,7 @@ import {
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.37/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG

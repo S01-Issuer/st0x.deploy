@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {LibRainDeploy} from "rain-deploy-0.1.37/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.37/src/lib/LibSafeTx.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.sol";

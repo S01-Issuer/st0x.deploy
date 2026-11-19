@@ -3,8 +3,8 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.37/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.37/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyParams

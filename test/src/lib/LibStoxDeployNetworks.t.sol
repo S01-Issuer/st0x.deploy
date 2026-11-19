@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.37/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title LibStoxDeployNetworksTest
@@ -34,12 +34,17 @@ contract LibStoxDeployNetworksTest is Test {
         assertEq(LibStoxDeployNetworks.BSC, "bsc", "expected bsc rpc alias");
     }
 
+    /// The locally-declared 0G network name is `rain-deploy`'s catalogue name.
+    function testZerogNetworkName() external pure {
+        assertEq(LibStoxDeployNetworks.ZEROG, LibRainDeploy.ZEROG, "expected zerog rpc alias");
+    }
+
     function testZerogIsRpcAlias() external view {
         assertGt(bytes(vm.rpcUrl(LibStoxDeployNetworks.ZEROG)).length, 0, LibStoxDeployNetworks.ZEROG);
     }
 
     /// The `zerog` alias forks 0G mainnet. 0G is not in `deploymentNetworks`,
-    /// so no catalogue or deploy fork test checks its chain id.
+    /// so no deploy fork test checks its chain id.
     function testZerogForksChain16661() external {
         vm.createSelectFork(LibStoxDeployNetworks.ZEROG);
         assertEq(block.chainid, 16661, LibStoxDeployNetworks.ZEROG);
