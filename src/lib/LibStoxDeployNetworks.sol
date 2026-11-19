@@ -44,6 +44,9 @@ library LibStoxDeployNetworks {
     /// chain.
     string internal constant BSC = "bsc";
 
+    /// @notice 0G mainnet (chain id 16661), the `foundry.toml` rpc alias.
+    string internal constant ZEROG = "zerog";
+
     /// @notice Every network ST0x deploys to, as `foundry.toml` rpc aliases.
     /// @dev The deploy scripts hand this whole list to
     /// `LibRainDeploy.deployToNetworks`, which forks each in turn and skips any

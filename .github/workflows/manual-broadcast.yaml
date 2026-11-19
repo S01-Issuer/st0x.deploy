@@ -56,6 +56,7 @@ on:
           - 'hyperevm'
           - 'robinhood'
           - 'bsc'
+          - 'zerog'
           # Dispatches an operational broadcast script from `script/` and sends the
           # resulting transactions from the CI deploy key (`secrets.PRIVATE_KEY`).
           #
@@ -115,6 +116,7 @@ jobs:
           HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
           ROBINHOOD_RPC_URL: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
           BSC_RPC_URL: ${{ secrets.RPC_URL_BSC_FORK }}
+          ZEROG_RPC_URL: ${{ secrets.RPC_URL_ZEROG_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so the dispatched values are used as literal
           # arguments and cannot inject shell.
