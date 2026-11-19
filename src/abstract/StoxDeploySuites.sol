@@ -8,33 +8,33 @@ import {
     DeployDependency,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployDeclaration} from "rain-deploy-0.1.30/src/lib/LibRainDeployDeclaration.sol";
-import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.30/src/lib/LibRainDeployZoltuMechanism.sol";
-import {CloneDeploy} from "rain-factory-0.2.11/src/lib/LibRainDeployClone.sol";
-import {LibCloneCandidates} from "rain-factory-0.2.11/src/lib/LibCloneCandidates.sol";
-import {LibRainDeployCloneMechanism} from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
+} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.33/src/lib/LibRainDeployDeclaration.sol";
+import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.33/src/lib/LibRainDeployZoltuMechanism.sol";
+import {CloneDeploy} from "rain-factory-0.2.14/src/lib/LibRainDeployClone.sol";
+import {LibCloneCandidates} from "rain-factory-0.2.14/src/lib/LibCloneCandidates.sol";
+import {LibRainDeployCloneMechanism} from "rain-factory-0.2.14/src/lib/LibRainDeployCloneMechanism.sol";
 import {
     RegistryBeaconProxyDeploy,
     RegistryBeaconProxyParams
-} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+} from "rain-factory-0.2.14/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.11/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.33/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.8/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.11/src/generated/0_1_15/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     RUNTIME_CODE as TOFU_DECIMALS_RUNTIME_CODE
-} from "rain-tofu-erc20-decimals-deploy-0.1.4/src/generated/0_1_0/TOFUTokenDecimals.sol";
+} from "rain-tofu-erc20-decimals-deploy-0.1.6/src/generated/0_1_0/TOFUTokenDecimals.sol";
 
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
@@ -110,7 +110,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
         LibCloneCandidates.addClones(declared, euAuthoriserClones());
-        addTokenSuites(declared, tokenConfigs());
+        addTokenSuites(declared, LibProdTokenConfig.productionTokenConfigs());
         addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         return declared;
@@ -126,14 +126,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE,
                 V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
                 FACET_PATH,
-                three(
-                    TOFU_DECIMALS_ADDRESS,
-                    TOFU_DECIMALS_RUNTIME_CODE,
-                    CONFIG_REGISTRY_ADDRESS,
-                    CONFIG_REGISTRY_RUNTIME_CODE,
-                    V4.STOX_GOVERNANCE_TIMELOCK_CANDIDATE,
-                    V4.STOX_GOVERNANCE_TIMELOCK_RUNTIME_CODE_CANDIDATE
-                )
+                one(TOFU_DECIMALS_ADDRESS, TOFU_DECIMALS_RUNTIME_CODE)
             )
         );
         candidates[1] = anchored(
@@ -346,13 +339,6 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibCloneCandidates.addRegistryBeaconProxies(declared, wrapperSuites(configs));
     }
 
-    /// The production rows that get a token suite: those with a non-empty asset id.
-    /// @return The rows.
-    function tokenConfigs() internal pure returns (TokenConfig[] memory) {
-        return LibProdTokenConfig.v6TokenConfigs();
-    }
-
-    /// One registry beacon proxy suite per row, keyed `TOKEN_PREFIX` + the lowercased `symbol`.
     function tokenSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](params.length);

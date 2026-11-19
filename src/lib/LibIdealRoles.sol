@@ -3,7 +3,6 @@
 pragma solidity ^0.8.25;
 
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
-import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibOrchestratorInvariants} from "./LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
@@ -21,7 +20,8 @@ struct ContractRoles {
 /// @notice The ideal role state of every role-bearing contract st0x runs, per chain.
 library LibIdealRoles {
     /// @notice The V4 authoriser, EU authoriser, orchestrator, governance timelock
-    /// and mint-caps orchestrator on a chain, in that order.
+    /// and mint-caps orchestrator on a chain, in that order. Every timelock
+    /// holder is the chain's prod governance timelock.
     /// @param chainId The chain id.
     /// @return The contracts' ideal role state.
     function contractRoles(uint256 chainId) internal pure returns (ContractRoles[] memory) {
@@ -44,8 +44,7 @@ library LibIdealRoles {
         );
         roles[3] = ContractRoles(timelock, LibTimelockInvariants.expectedGrants(timelock, safe));
         roles[4] = ContractRoles(
-            LibOrchestratorInvariants.mintCapsInstance(),
-            LibOrchestratorInvariants.mintCapsExpectedGrants(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
+            LibOrchestratorInvariants.mintCapsInstance(), LibOrchestratorInvariants.mintCapsExpectedGrants(timelock)
         );
         return roles;
     }

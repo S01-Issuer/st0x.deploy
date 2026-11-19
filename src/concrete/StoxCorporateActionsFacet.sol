@@ -16,12 +16,9 @@ import {
     NODE_NONE
 } from "../lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "../lib/LibStockSplit.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {
-    OffchainAssetReceiptVault,
-    UnknownConfigVersion
-} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.22/src/abstract/OffchainAssetReceiptVault.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
@@ -29,30 +26,6 @@ import {IOwnable} from "../interface/IOwnable.sol";
 import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying.sol";
-import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
-import {
-    OffchainAssetReceiptVaultConfigV3,
-    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
-import {IStoxAssetIdV1} from "../interface/IStoxAssetIdV1.sol";
-import {IStoxListingV1} from "../interface/IStoxListingV1.sol";
-import {LibListing} from "../lib/LibListing.sol";
-import {
-    ListingAlreadyNamed,
-    ListingAssetIdMismatch,
-    ListingProofInvalid,
-    ListingSignerMismatch,
-    ListingTokenHasNoAssetId
-} from "../error/ErrListing.sol";
-import {ECDSA} from "@openzeppelin-contracts-5.7.0/utils/cryptography/ECDSA.sol";
-import {MerkleProof} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MerkleProof.sol";
-import {LibAssetId, ASSET_ID_INITIALIZED} from "../lib/LibAssetId.sol";
-import {
-    AssetIdAlreadySet,
-    AssetIdNotInitializing,
-    NonEmptyInitialName,
-    NonEmptyInitialSymbol
-} from "../error/ErrAssetId.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
@@ -69,18 +42,10 @@ import {
 /// Corporate-action storage lives at the ERC-7201 namespace
 /// `rain.storage.corporate-action.1` (see `LibCorporateAction`). The facet
 /// also implements `IStoxUnderlyingV1`, whose ticker and name live at
-/// `rain.storage.underlying.1` (see `LibUnderlying`), and `IStoxAssetIdV1`,
-/// whose asset id lives at `rain.storage.asset-id.1` (see `LibAssetId`), and
-/// `IStoxListingV1`, which first-names a token from a signed listing. Any
-/// future external entry points added here (e.g. list traversal) must also
-/// carry `onlyDelegatecalled`. It inherits `Initializable` only to read the vault's `_isInitializing()`.
-contract StoxCorporateActionsFacet is
-    ICorporateActionsV1,
-    IStoxUnderlyingV1,
-    IStoxAssetIdV1,
-    IStoxListingV1,
-    Initializable
-{
+/// `rain.storage.underlying.1` (see `LibUnderlying`). Any future external
+/// entry points added here (e.g. list traversal) must also carry
+/// `onlyDelegatecalled`.
+contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -269,42 +234,6 @@ contract StoxCorporateActionsFacet is
         if (msg.sender != IOwnable(address(this)).owner()) {
             revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
         }
-        writeUnderlying(newSymbol, newName);
-    }
-
-    /// @inheritdoc IStoxListingV1
-    /// @dev Reverts unless the token has an asset id equal to `listedAssetId` and no underlying ticker or name, the
-    /// leaf of `address(this)` and the listed fields is in `root`, and the bound listing signer signed `root`.
-    function nameListing(
-        string calldata listedAssetId,
-        string calldata newSymbol,
-        string calldata newName,
-        bytes32[] calldata proof,
-        bytes32 root,
-        bytes calldata signature
-    ) external override onlyDelegatecalled {
-        string memory stored = LibAssetId.getStorage().assetId;
-        if (bytes(stored).length == 0) revert ListingTokenHasNoAssetId();
-        if (keccak256(bytes(stored)) != keccak256(bytes(listedAssetId))) {
-            revert ListingAssetIdMismatch(stored, listedAssetId);
-        }
-        LibUnderlying.UnderlyingStorage storage underlyingStorage = LibUnderlying.getStorage();
-        if (bytes(underlyingStorage.symbol).length != 0 || bytes(underlyingStorage.name).length != 0) {
-            revert ListingAlreadyNamed();
-        }
-        bytes32 leaf = LibListing.leaf(address(this), listedAssetId, newSymbol, newName);
-        if (!MerkleProof.verifyCalldata(proof, root, leaf)) revert ListingProofInvalid(leaf, root);
-        address signer = LibListing.signer();
-        address recovered = ECDSA.recoverCalldata(LibListing.digest(root), signature);
-        if (recovered != signer) revert ListingSignerMismatch(recovered, signer);
-        writeUnderlying(newSymbol, newName);
-        emit ListingNamed(msg.sender, root);
-    }
-
-    /// @dev Writes the underlying ticker and name and the vault's ERC-20 `symbol()` / `name()` built from them.
-    /// @param newSymbol The underlying ticker.
-    /// @param newName The underlying name.
-    function writeUnderlying(string calldata newSymbol, string calldata newName) internal {
         if (bytes(newSymbol).length == 0) revert EmptyUnderlyingSymbol();
         if (bytes(newName).length == 0) revert EmptyUnderlyingName();
 
@@ -316,29 +245,6 @@ contract StoxCorporateActionsFacet is
         ERC20Upgradeable.ERC20Storage storage erc20Storage = LibERC20Storage.getStorage();
         erc20Storage._symbol = string.concat("t", newSymbol);
         erc20Storage._name = string.concat(newName, ST0X_NAME_SUFFIX);
-    }
-
-    /// @inheritdoc IStoxAssetIdV1
-    function assetId() external view override onlyDelegatecalled returns (string memory) {
-        return LibAssetId.getStorage().assetId;
-    }
-
-    /// @notice Stores the asset id in `data`; reverts unless the vault is initializing, the name and symbol are empty and no id is stored.
-    /// @param data The vault's `initialize(bytes)` argument, which the vault's `_initialize` forwards.
-    /// @return `ASSET_ID_INITIALIZED`.
-    function initializeAssetId(bytes calldata data) external onlyDelegatecalled returns (bytes32) {
-        if (!_isInitializing()) revert AssetIdNotInitializing();
-        (bytes32 tag, OffchainAssetReceiptVaultConfigV3 memory config) =
-            abi.decode(data, (bytes32, OffchainAssetReceiptVaultConfigV3));
-        if (tag != OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG) revert UnknownConfigVersion(tag);
-        if (bytes(config.name).length != 0) revert NonEmptyInitialName();
-        if (bytes(config.symbol).length != 0) revert NonEmptyInitialSymbol();
-        string memory id = LibAssetId.decodeMetadata(config.metadata);
-        LibAssetId.AssetIdStorage storage s = LibAssetId.getStorage();
-        if (bytes(s.assetId).length != 0) revert AssetIdAlreadySet();
-        s.assetId = id;
-        emit AssetIdSet(msg.sender, id);
-        return ASSET_ID_INITIALIZED;
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is

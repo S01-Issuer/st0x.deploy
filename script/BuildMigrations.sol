@@ -4,10 +4,10 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibScriptDeclarations} from "../src/lib/LibScriptDeclarations.sol";
 import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
@@ -260,7 +260,7 @@ contract BuildMigrations is Script {
         for (uint256 i = 0; i < paths.length; i++) {
             rows[i] = migrationJson(i, paths[i], declarations, instances, networks);
         }
-        vm.serializeUint("root", "version", 1);
+        vm.serializeUint("root", "version", 2);
         vm.serializeBytes32("root", "genesis", MIGRATION_HEAD_GENESIS);
         vm.serializeAddress("root", "writer", LibRegistryAuthority.ROOT_AUTHORITY);
         vm.serializeBytes32("root", "namespace", LibStoxMigrations.NAMESPACE);

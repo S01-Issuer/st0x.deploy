@@ -22,6 +22,36 @@ After the migration executes, the timelock is:
   `20261006-orchestrator-admin-to-timelock` executes) — so granting or revoking
   `MINT`, `BURN` and `EMERGENCY` on the orchestrator is delay-gated.
 
+**Exception: tQSEP on Base.** The tQSEP vault
+(`LibTokenInvariants.QSEP_RECEIPT_VAULT`) is outside the production token table,
+so the migration skipped it. Its `owner()` is still the token-owner Safe, so its
+`onlyOwner` surfaces (`setAuthorizer`, `setUnderlying`, `transferOwnership`,
+owner freezes) are direct Safe transactions, with no delay. Its authoriser is
+the fleet authoriser `LibAuthoriserInvariants.STOX_PROD_AUTHORISER` once the
+Safe calls `setAuthorizer` on the vault. Actions → `run-script` →
+`20261111-qsep-set-fleet-authoriser`, network `base`, authors that call in one
+Safe bundle with three revokes on the V3 clone: `revokeRole` of `DEPOSIT`,
+`WITHDRAW` and `CERTIFY` from the retired Fireblocks signer
+`LibAuthoriserInvariants.V3_RETIRED_SIGNER_1C66` (`0x1c66…d1A9`), every role it
+holds there. The Safe holds each role's `_ADMIN` on the V3 clone, so the revokes
+have no delay. The pre-flight refuses if any of the three is not held, or if the
+Safe does not hold its admin. The bundle does not move the vault `owner()`: it
+stays on the Safe until the cutover is verified. The Safe Transaction Builder
+sends a batch of two or more transactions as one DELEGATECALL to
+`MultiSendCallOnly` v1.4.1 (`0x9641…02e2`), so the script logs that
+transaction's `SafeTxHash` at the live nonce and at the three nonces after it.
+The root line on Base is still at genesis, so the calls go without their record;
+once they execute, a re-dispatch authors the record-only bundle (one direct
+CALL), which the registry accepts after
+`20261109-execute-revoke-service-signer-deposit-withdraw`. On Base the record is
+refused while the retired signer still holds any of the three roles. Once the
+vault is on the fleet authoriser, grants that act on it go through the timelock.
+Before that it is on the V3 clone (`STOX_PROD_AUTHORISER_V3_CLONE`), whose
+`_ADMIN` roles are on the Safe. Either way, tQSEP mint and burn authority is not
+delay-gated: the Safe, as vault owner, can point the vault at another authoriser
+(for example a new clone with the Safe as admin) with no delay. Moving the vault
+`owner()` to the timelock is a separate change that closes this.
+
 **Why the beacons are in scope.** Every production token proxies through those
 beacons, and a beacon owner can `upgradeTo` a new implementation for all of them
 in a single transaction — a hostile implementation could re-take vault ownership
@@ -180,15 +210,71 @@ chain whose timelock is the `stox-governance-timelock` suite.
    grants to the timelock → N vault `transferOwnership` → one beacon
    `transferOwnership` per in-use beacon (four) → 7 Safe renounces.
 5. **Post-execution flip** — every production invariant asserts the timelock
-   exactly: vault owner (`LibTokenInvariants.assertAll` / `LibInvariants`),
-   beacon owner (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,
+   exactly: beacon owner
+   (`LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock`,
    `LibOrchestratorInvariants.assertBeaconSet`) and `_ADMIN` holder
    (`LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock)`).
    The migration has executed on all five chains, so this is the current state.
+   Vault owner is asserted only by the migration scripts' own pre-flights and
+   post-states: the post-states and the rename pre-flight call
+   `LibTokenInvariants.assertUniformOwnership`, and the handover and governance
+   pre-flights read `owner()` in their own loops, since they accept the Safe or
+   the timelock.
 
 `GovernanceTimelockMigration.t.sol` pins the governed state on every chain. The
 migration script's own tests rewind each fork to the pre-migration state with
 the timelock's powers, so the script stays re-dispatchable and proven.
+
+### Safe-owned Base vaults: tWMT, tMC, tDIS, tIFX, tSOI and tTPRO
+
+These six are the token-table Base vaults still owned by the Safe; every other
+token-table Base vault is timelock-owned. tQSEP
+(`0x4A9a9FC94a507559481270d0BFf3315Ab92Fcefa`) is not in the token table, so
+this migration does not move it, and the Safe still owns it. The rename batch
+calls `setUnderlying` on tWMT, tMC and tDIS, so those must be on the timelock
+first, and nothing else can move tIFX, tSOI and tTPRO once the V5 backfill
+records the 2026-07-29 governance migration.
+
+`20261103-hand-safe-owned-base-vaults-to-timelock` sits on every chain's root
+line after the orchestrator admin move, which follows the beacon initial owner
+bind and the V5 backfill. On Base its bundle is one
+`transferOwnership(timelock)` per vault of the six the Safe still owns, plus the
+record; elsewhere it is the record alone. On every chain the pre-flight requires
+every other token-table vault to be timelock-owned. A vault of the six that the
+timelock already owns is skipped.
+
+Decide Base Safe nonce 706 first. It is the Safe's older queued MultiSend that
+moves the same six (from `20260729-migrate-governance-to-timelock`), and it is
+the Safe's next nonce, so the V5 backfill and every later Safe bundle on Base
+wait on it. Before signing the backfill, either execute 706, and this
+migration's Base bundle is the record alone, or reject it, and the bundle moves
+the six. To execute, per chain:
+
+1. On Base, before signing, cancel any pending timelock operation against the
+   six vaults: once the timelock owns them, anyone can execute it. Find them on
+   the rain-org-health dashboard's Role changes tab
+   (<https://rainlanguage.github.io/rain-org-health/deployments.html>), or with
+   the same read against the RBAC subgraph (`st0x-rbac-base`, version `prod`):
+   `{ timelockOperations(where: {timelock: "<timelock>", status: PENDING, targets_contains: ["<vault>"]}) { operationId readyAt calls { target data } } }`
+   per vault. `cancel` reverts on anything not pending.
+2. Actions → `run-script` → `20261103-hand-safe-owned-base-vaults-to-timelock`,
+   the network, `run()`.
+3. Every signer, the proposer included, unzips the artifact into `out/` and runs
+   `forge script script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol --sig 'verify(string)' out/<artifact>.json --rpc-url <network>`
+   before signing.
+4. One signer imports the CI artifact into the Safe Tx Builder and proposes it
+   without executing. When the bundle has more than one transaction, the
+   `SafeTxHash` that `verify` printed must equal the one in the Safe UI. A
+   one-transaction bundle (the record alone, off Base or on Base after 706) is
+   proposed by the Safe UI as a direct call rather than the `MultiSend` that
+   `verify` hashes, so compare the call's target and data with the artifact
+   instead. Then sign to threshold and execute.
+
+Rollback on Base: the Safe schedules `transferOwnership(safe)` on the moved
+vaults through the timelock; anyone executes it after 48h. Trap: the record and
+the root-line head stay, so this migration cannot run again, and the rename
+pre-flight refuses the vaults back on the Safe. Rolling forward again needs a
+new migration.
 
 ## Rehearsing the timelock
 
@@ -253,6 +339,12 @@ order on every chain; `LibUnderlyingNamingRollout` reconstructs both timelock
 operations, and `20261021-underlying-naming-rollout.t.sol` runs the whole
 sequence on a fork of each chain.
 
+0. The chain's root line must already hold, in order, the V5 backfill
+   (`20261030-backfill-migration-registry-v5`), the beacon initial owner bind
+   (`20261022-bind-beacon-initial-owner`), the orchestrator admin move
+   (`20261006-orchestrator-admin-to-timelock`), and the Safe-owned Base vault
+   handover (`20261103-hand-safe-owned-base-vaults-to-timelock`, the record
+   alone off Base). The beacon schedule refuses at any other head.
 1. Deploy the three implementations at their Zoltu addresses (permissionless):
    the facet, the receipt-vault implementation and the wrapped-token-vault
    implementation named in `LibUnderlyingNamingRollout`, by dispatching the
@@ -276,9 +368,9 @@ sequence on a fork of each chain.
    orchestrator's vault-logic lock reads the 0.1.30 beacon-set deployer's
    beacons, not the in-use ones, so it does not cover this upgrade: minting and
    burning keep running across it (the Base fork test mints and burns through
-   the live orchestrator after the batch), and the orchestrator steps under
-   Orchestrator roles do not have to precede it. It also means the lock does not
-   watch the logic production tokens run; pointing it at the in-use beacons is a
+   the live orchestrator after the batch); the orchestrator admin move still
+   comes first on the root line (step 0). It also means the lock does not watch
+   the logic production tokens run; pointing it at the in-use beacons is a
    separate orchestrator change.
 
    The pre-flight also requires each beacon to still serve the implementation
@@ -339,86 +431,6 @@ that beacon to serve `LibProdDeployCurrent.STOX_RECEIPT`, so upgrading the
 orchestrator to it needs a receipt-beacon upgrade first, or every token halts
 mint and burn. The live 0.1.30 orchestrator does not check the in-use beacons.
 
-After the beacon batch, every new vault on a beacon that serves this
-implementation must be initialized nameless with an asset id (RAI-4373): its
-`initialize` reverts unless the config's name and symbol are empty and its
-metadata is `LibAssetId.encodeMetadata(assetId)` with a non-empty id. The hook
-is init-only, so live tokens are unaffected and report `assetId() == ""`.
-
-**V6 listings are deployed nameless.** A V6 token's address commits to its asset
-id, region, authority and beacon names, not to its name or symbol. It deploys
-with an empty name and symbol. Its owner is the RBAC owner of its region, which
-`Deploy.preDeployCheck` requires to be the Zoltu-deployed
-`LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` (not the per-Safe timelocks that
-own the live tokens). Anyone names it from a signed listing (`nameListing`,
-below); after that only that timelock renames it, with `setUnderlying` and the
-48h delay. Rollout rule: do not publish a V6 token to the st0x.registry,
-activate it in the bots, give it mint traffic, or trade it until it is named and
-its `name()` and `symbol()` read back as expected. Until then the vault reports
-`""` / `""` and the wrapper `"Wrapped "` / `"w"`, which the liquidity parser
-does not accept. A token's address commits to the vault beacon name, not to the
-implementation the beacon serves, so `VAULT_BEACON_NAME` must only ever resolve
-to a beacon that serves an implementation with the asset id hook and the
-`assetId()` getter. `Deploy.preDeployCheck` refuses a token suite unless the
-bound vault beacon serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll
-a V6 vault beacon back to an implementation without the hook: the asset ids are
-public, so any undeployed pinned row could then be deployed with no asset id,
-forever.
-
-**Naming V6 tokens from a signed listing.** `nameListing` on a V6 token takes
-its asset id, ticker and underlying name, a proof, a root and a signature, and
-sets the ticker and name as `setUnderlying` does, once. It reverts unless the
-token has that asset id and no ticker or name yet, the leaf of the token's own
-address and the three fields is in the root, and the listing signer signed the
-root. The leaf is OpenZeppelin's `StandardMerkleTree` leaf of
-`(address, string, string, string)`. The digest (`LibListing.digest`) is EIP-712
-with no chain id and no verifying contract, and a V6 token's address is the same
-on every chain, so one signature names the same tokens on every chain, including
-chains added later.
-
-- **The signer binding.** `nameListing` reads `st0x.listing-signer.v1` from the
-  `ConfigRegistry` under `LibListing.LISTING_AUTHORITY`, the governance timelock
-  itself, at every call. Only the timelock writes under it, so binding or
-  rotating the signer is a timelock operation: the Safe schedules
-  `registerV5(LISTING_AUTHORITY, LISTING_SIGNER_NAME, "address", abi.encode(signer), "")`
-  on the registry, and anyone executes it after 48h. The timelock never approves
-  a registry delegate: a delegate could rebind at once. Operations never expire,
-  so before a bind or rotation check that no other pending operation targets the
-  registry or the timelock itself, and cancel abandoned binds. The signer key
-  signs listing roots and nothing else.
-- **Stale roots and a lost key.** A signed root never expires: a leaf can still
-  name a fresh token of its asset id on a new chain after the issuer renamed.
-  Rotating the signer on a chain retires every root the old key signed there;
-  sign the current roots again with the new key. A compromised key can name
-  unnamed V6 tokens with any name and symbol, which also feeds the mint
-  weighting's price key (`symbol()`); named tokens refuse. The response is to
-  rotate the signer and rename the affected tokens with `setUnderlying`, 48h
-  each.
-- **Deploy and name in one transaction.** Send Multicall3
-  (`0xcA11bde05977b3631167028862bE2a173976CA11`) `aggregate3` with the token's
-  factory call and its `nameListing` call, both with `allowFailure = false`, so
-  a refused naming deploys nothing. If the token already has code, send the
-  `nameListing` call alone. Check Multicall3's code on a chain before its first
-  listing.
-
-**Root-line order.** Every script is a migration on the root line, and each one
-sits onto exactly one predecessor. On each chain the naming rollout runs only
-after these have landed, in this order: the V5 backfill
-(`20261030-backfill-migration-registry-v5`), the beacon initial owner bind
-(`20261022-bind-beacon-initial-owner`) and the orchestrator admin move
-(`20261006-orchestrator-admin-to-timelock`). Then come the
-beacon schedule, the rename schedule, the execution and its record, and then the
-service-signer revoke
-(`20261109-schedule-revoke-service-signer-deposit-withdraw` and its execute). V6
-tokens are named from the signed listing, which is no migration. While the
-rollout is in flight (two 48h delays), no other migration can land on that
-chain. The revoke holds the line too, from its schedule record to its execute
-record, and its execute waits for minting and redemption to run through the
-orchestrator, so the Safe schedules the revoke only once that precondition
-holds. An urgent migration in that window needs a new script declared onto the
-current head, and a reviewed PR that re-declares the remaining naming scripts
-onto it.
-
 **Revoking the service signer's vault roles.** The service signer
 (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) loses `DEPOSIT` and `WITHDRAW`
 on the chain's authoriser and keeps `CERTIFY`. The timelock holds
@@ -478,15 +490,9 @@ records imply:
 2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
    the Safe to the timelock, recorded on the root line after
    `20261022-bind-beacon-initial-owner`, which follows the backfill, so the
-   registry refuses it on a chain where step 1 has not executed.
-
-The root line runs, after the backfill: `20261022-bind-beacon-initial-owner` →
-`20261006-orchestrator-admin-to-timelock` →
-`20261021-schedule-underlying-naming-beacons` →
-`20261021-schedule-underlying-naming-rename` →
-`20261021-execute-underlying-naming` →
-`20261109-schedule-revoke-service-signer-deposit-withdraw` →
-`20261109-execute-revoke-service-signer-deposit-withdraw`.
+   registry refuses it on a chain where step 1 has not executed. The Safe-owned
+   Base vault handover (`20261103-hand-safe-owned-base-vaults-to-timelock`)
+   comes after it.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over

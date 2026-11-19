@@ -5,10 +5,11 @@ pragma solidity =0.8.25;
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
 
 import {
     ExecuteUnderlyingNaming,
@@ -21,10 +22,7 @@ import {
     ImplementationNotDeployed,
     BeaconAlreadyUpgraded,
     OperationAlreadyScheduled,
-    BeaconUpgradeMovedMetadata,
-    UpgradedVaultHasAssetId,
-    UpgradedVaultMissingAssetIdHook,
-    scheduleUnderlyingNamingBeaconsDeclaration
+    BeaconUpgradeMovedMetadata
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 import {
     ScheduleUnderlyingNamingRename,
@@ -40,14 +38,10 @@ import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxM
 
 import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
-import {IStoxAssetIdV1} from "../../src/interface/IStoxAssetIdV1.sol";
-import {StoxCorporateActionsFacet} from "../../src/concrete/StoxCorporateActionsFacet.sol";
-import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
-import {AssetIdNotInitializing} from "../../src/error/ErrAssetId.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
-import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
+import {LibTimelockController} from "rain-deploy-0.1.33/src/lib/LibTimelockController.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -262,7 +256,9 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         vm.expectPartialRevert(ImplementationNotDeployed.selector);
         beacons.callPreflight();
         vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
+            abi.encodeWithSelector(
+                UnexpectedMigrationLine.selector, LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
+            )
         );
         rename.callPreflight();
         plantImplementations();
@@ -272,7 +268,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
             string.concat(network, ": beacon record")
         );
-        completeOwnershipHandover(chainId, rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         assertEq(
             LibStoxMigrations.head(),
@@ -294,7 +289,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         execution.execute();
         assertTrue(controller.isOperationDone(renameId), string.concat(network, ": rename executed"));
         rename.callAssertRenamed(chainId);
-        assertLiveTokensHaveNoAssetId(chainId);
 
         vm.expectPartialRevert(NoUnderlyingNamingOperationReady.selector);
         execution.execute();
@@ -305,18 +299,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
             string.concat(network, ": line at the execution")
         );
-    }
-
-    /// @notice After the beacon batch every live vault and wrapper reports no asset id, and every live vault refuses
-    /// `initializeAssetId` with `AssetIdNotInitializing`.
-    function assertLiveTokensHaveNoAssetId(uint256 chainId) internal {
-        TokenInstance[] memory live = LibUnderlyingNamingRollout.tokens(chainId);
-        for (uint256 i = 0; i < live.length; i++) {
-            assertEq(IStoxAssetIdV1(live[i].receiptVault).assetId(), "", live[i].underlying);
-            assertEq(StoxWrappedTokenVault(live[i].wrappedTokenVault).assetId(), "", live[i].underlying);
-            vm.expectRevert(AssetIdNotInitializing.selector);
-            StoxCorporateActionsFacet(live[i].receiptVault).initializeAssetId("");
-        }
     }
 
     /// @notice Logs the gas the rename batch's `executeBatch` alone takes, on a
@@ -354,7 +336,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("nvda");
         authorVerifyExecute(address(beacons), beacons.callArtifactPath());
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("nvda");
-        completeOwnershipHandover(chainId, rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
@@ -577,39 +558,16 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         }
     }
 
-    /// @notice The beacon batch's execution proof refuses a live vault that
-    /// reports an asset id, one whose `initializeAssetId` does not refuse with
-    /// `AssetIdNotInitializing`, and a wrapper whose name moved across the
-    /// upgrade.
+    /// @notice The beacon batch's execution proof refuses a wrapper whose name
+    /// or a vault whose symbol moved across the upgrade.
     function testBeaconProofRefusesEachBrokenUpgrade() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         advanceRootLineToBeaconSchedule();
         landBeaconSchedule();
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("proof-refusals");
         TokenInstance memory first = LibUnderlyingNamingRollout.tokens(block.chainid)[0];
-        address vault = first.receiptVault;
 
         uint256 snapshot = vm.snapshotState();
-        vm.mockCall(vault, abi.encodeWithSelector(IStoxAssetIdV1.assetId.selector), abi.encode("US0000000000"));
-        vm.expectRevert(abi.encodeWithSelector(UpgradedVaultHasAssetId.selector, vault, "US0000000000"));
-        beacons.callProveExecution();
-        vm.revertToState(snapshot);
-        vm.clearMockedCalls();
-
-        bytes memory initialized = abi.encode(bytes32(0));
-        vm.mockCall(vault, abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))), initialized);
-        vm.expectRevert(abi.encodeWithSelector(UpgradedVaultMissingAssetIdHook.selector, vault, initialized));
-        beacons.callProveExecution();
-        vm.revertToState(snapshot);
-        vm.clearMockedCalls();
-
-        bytes memory otherError = abi.encodeWithSignature("Error(string)", "no hook");
-        vm.mockCallRevert(vault, abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))), otherError);
-        vm.expectRevert(abi.encodeWithSelector(UpgradedVaultMissingAssetIdHook.selector, vault, otherError));
-        beacons.callProveExecution();
-        vm.revertToState(snapshot);
-        vm.clearMockedCalls();
-
         // A value read before the batch and another after it: the first wrapper's name, the last vault's symbol.
         bytes[] memory moved = new bytes[](2);
         moved[0] = abi.encode("Before");
@@ -634,7 +592,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("refusals");
-        prepareRename(rename);
+        prepareRename();
         rename.callPreflight();
         executePrefix(rename.callAuthorBundle(), 1);
         vm.expectRevert(
@@ -711,7 +669,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
     function testRenamePreflightRefusesAMismatchedTicker() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("ticker");
-        prepareRename(rename);
+        prepareRename();
         rename.callPreflight();
         TokenInstance memory last =
             LibUnderlyingNamingRollout.tokens(block.chainid)[LibUnderlyingNamingRollout.TOKEN_COUNT - 1];

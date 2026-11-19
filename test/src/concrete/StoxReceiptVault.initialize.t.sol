@@ -8,16 +8,16 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {IERC165} from "@openzeppelin-contracts-5.7.0/utils/introspection/IERC165.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {Base64} from "@openzeppelin-contracts-5.7.0/utils/Base64.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultPaymentMintAuthorizerV1Config
-} from "rain-vats-0.2.20/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
+} from "rain-vats-0.2.22/src/concrete/authorize/OffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {
     StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultPaymentMintAuthorizerV1.sol";
 import {VerifyAlwaysApproved} from "rain-verify-interface-0.1.0/src/concrete/VerifyAlwaysApproved.sol";
 import {MockERC20} from "../../concrete/MockERC20.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.8/src/concrete/CloneFactory.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.11/src/concrete/CloneFactory.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {
@@ -27,7 +27,7 @@ import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorpo
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../../src/lib/LibCorporateAction.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
@@ -83,7 +83,7 @@ contract StoxReceiptVaultInitializeTest is Test {
     }
 
     function _data() internal pure returns (bytes memory) {
-        return LibTestDeploy.vaultData("ST0XTEST", AUTHORITY, RBAC_NAME);
+        return LibTestDeploy.vaultData("Test tStock", "tTEST", AUTHORITY, RBAC_NAME);
     }
 
     /// The RBAC's authorizer and owner are installed, replacing the vault
@@ -204,12 +204,9 @@ contract StoxReceiptVaultInitializeTest is Test {
 
     /// The receipt's `uri` is vats' receipt JSON with the off-chain asset
     /// named, where the generic receipt reads `asset()` at `address(0)`.
-    /// The token is initialized nameless, so its receipt names it once the
-    /// owner has set the underlying.
     function testReceiptUriNamesTheOffchainAsset() external {
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
-        StoxReceipt receipt =
-            StoxReceipt(address(LibTestDeploy.newNamedVault(vm, AUTHORITY, _data(), OWNER, "TEST", "Test").receipt()));
+        StoxReceipt receipt = StoxReceipt(address(LibTestDeploy.newVault(AUTHORITY, _data()).receipt()));
         assertEq(
             receipt.uri(0),
             string.concat(
