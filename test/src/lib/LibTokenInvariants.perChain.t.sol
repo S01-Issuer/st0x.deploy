@@ -125,6 +125,8 @@ contract LibTokenInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        // 0G is not a deployment network, but it has an EU slot.
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, chainId));
         lib.expectedAuthoriser("MC", address(0xA11CE), chainId);
     }

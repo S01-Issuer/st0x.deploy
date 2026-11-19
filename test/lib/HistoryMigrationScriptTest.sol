@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title HistoryMigrationScriptTest
@@ -52,6 +53,10 @@ abstract contract HistoryMigrationScriptTest is Test {
 
     function testDeclarationIsItsHistoryRecord(uint256 chainId) external view {
         assertDeclaration(chainId);
+    }
+
+    function testDeclarationIsItsRecordOnZerog() external view {
+        assertDeclaration(LibSafeInvariants.ZEROG_CHAIN_ID);
     }
 
     function testDeclarationIsItsHistoryRecordOnEveryDeploymentChain() external view {

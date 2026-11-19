@@ -36,6 +36,7 @@ on:
           - 20261109-execute-revoke-service-signer-deposit-withdraw
           - 20261111-qsep-set-fleet-authoriser
           - 20261113-bind-orchestrator-config
+          - 20261119-create-zerog-tokens
       network:
         description: 'Network to author against (default: base)'
         required: true

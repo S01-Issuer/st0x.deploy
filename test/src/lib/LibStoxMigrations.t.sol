@@ -49,6 +49,33 @@ contract LibStoxMigrationsTest is Test {
         assertEq(LibStoxMigrations.NAMESPACE, keccak256("st0x.deploy"));
     }
 
+    /// @notice The chains with a root line are the deployment networks, in
+    /// their order, then 0G under its `foundry.toml` alias.
+    function testLineNetworksAreTheDeploymentNetworksThenZerog() external pure {
+        SupportedNetwork[] memory deployed =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        SupportedNetwork[] memory lines = LibStoxMigrations.lineNetworks();
+        assertEq(lines.length, deployed.length + 1);
+        for (uint256 i = 0; i < deployed.length; i++) {
+            assertEq(lines[i].name, deployed[i].name);
+            assertEq(lines[i].chainId, deployed[i].chainId);
+            assertNotEq(lines[i].chainId, LibSafeInvariants.ZEROG_CHAIN_ID);
+        }
+        assertEq(lines[deployed.length].name, LibStoxDeployNetworks.ZEROG);
+        assertEq(lines[deployed.length].chainId, LibSafeInvariants.ZEROG_CHAIN_ID);
+    }
+
+    /// @notice Only 0G joined after the backfilled history ran everywhere else.
+    function testOnlyZerogIsWithoutHistory(uint256 chainId) external pure {
+        assertEq(LibStoxMigrations.withoutHistory(chainId), chainId == LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertTrue(LibStoxMigrations.withoutHistory(LibSafeInvariants.ZEROG_CHAIN_ID));
+        SupportedNetwork[] memory deployed =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < deployed.length; i++) {
+            assertFalse(LibStoxMigrations.withoutHistory(deployed[i].chainId), deployed[i].name);
+        }
+    }
+
     /// @notice A catalogued network ST0x does not deploy to has no moment.
     function testUndeployedCataloguedChainReverts() external {
         LibStoxMigrationsHarness ext = new LibStoxMigrationsHarness();

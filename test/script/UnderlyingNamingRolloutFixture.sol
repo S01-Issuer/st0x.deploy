@@ -30,8 +30,9 @@ import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollo
 /// rollout's steps as the Safe and the executing key would.
 abstract contract UnderlyingNamingRolloutFixture is Test {
     /// @notice Lands, as the Safe would, the root-line records before the
-    /// beacon schedule: the V5 backfill, the beacon-initial-owner bind, the
-    /// orchestrator admin move, then the Safe-owned Base vault handover.
+    /// beacon schedule: the V5 backfill, the 0G token creation record, the
+    /// beacon-initial-owner bind, the orchestrator admin move, then the
+    /// Safe-owned Base vault handover.
     function advanceRootLineToBeaconSchedule() internal {
         Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
         BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("underlying-naming");

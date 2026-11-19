@@ -24,7 +24,8 @@ import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 /// @title BindBeaconInitialOwnerTest
 /// @notice The bind on every deployment network at its pinned pre-backfill
-/// block, with the V5 backfill bundle executed first, the root's unscoped
+/// block, with the V5 backfill and the 0G token creation's record executed
+/// first, the root's unscoped
 /// approval of the Safe and the governance timelock written on the fork.
 contract BindBeaconInitialOwnerTest is Test {
     function executeBackfill(address safe, string memory tag) internal {
@@ -57,6 +58,11 @@ contract BindBeaconInitialOwnerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
         script.callPreflight();
         executeBackfill(safe, network);
+        vm.expectRevert(
+            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5)
+        );
+        script.callPreflight();
+        LibTestBeaconInitialOwnerBind.executeZerogTokensRecord(vm, safe, network);
 
         uint256 preRun = vm.snapshotState();
         script.run();
@@ -86,6 +92,7 @@ contract BindBeaconInitialOwnerTest is Test {
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         deployTimelock(safe);
         executeBackfill(safe, tag);
+        LibTestBeaconInitialOwnerBind.executeZerogTokensRecord(vm, safe, tag);
         LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
         return (script, safe);
     }
