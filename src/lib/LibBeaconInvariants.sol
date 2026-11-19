@@ -274,7 +274,6 @@ library LibBeaconInvariants {
     }
 
     /// @notice Whether the chain runs Base's V1 beacon set rather than the deterministic 0.1.1 set.
-    /// @dev 0G runs the 0.1.1 set, like Robinhood Chain.
     /// @param chainId The chain id.
     /// @return True for Base's set, false for the 0.1.1 set.
     function runsBaseBeaconSet(uint256 chainId) internal pure returns (bool) {

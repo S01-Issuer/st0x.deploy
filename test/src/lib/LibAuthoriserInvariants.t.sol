@@ -16,6 +16,7 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
+import {LibEuAuthoriserClone} from "../../../src/lib/LibEuAuthoriserClone.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.11/src/generated/0_1_1/CloneFactory.sol";
 
@@ -87,11 +88,10 @@ contract LibAuthoriserInvariantsTest is Test {
         harness.callActiveChainAuthoriser();
     }
 
-    /// @notice The 0G clone slot is a placeholder until the 0G clone deploy
-    /// runs, and the placeholder is refused as not ready rather than passing
-    /// as a deployed authoriser.
+    /// @notice The 0G placeholder slot is refused as not ready even when the
+    /// zero address carries the clone runtime, so only the zero check reverts.
     function testZerogAuthoriserPlaceholderIsRefused() external {
-        assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG, address(0), "zerog slot hydrated");
+        vm.etch(address(0), LibEuAuthoriserClone.cloneRuntimeCode());
         vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
