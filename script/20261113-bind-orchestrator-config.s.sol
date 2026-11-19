@@ -19,6 +19,13 @@ import {LibRootConfigBinding} from "../src/lib/LibRootConfigBinding.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
+
+/// @notice The orchestrator beacon does not have its pinned runtime codehash.
+/// @param beacon The beacon.
+/// @param expected The pinned codehash.
+/// @param actual The codehash on chain.
+error OrchestratorBeaconCodehashMismatch(address beacon, bytes32 expected, bytes32 actual);
 
 /// @notice The root authority has not approved the Safe to bind an
 /// orchestrator config name.
@@ -75,6 +82,13 @@ contract BindOrchestratorConfig is SafeBundleScript, IStoxScript {
     function preflight() internal view override {
         LibConfigRegistry.checkCodeHash();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        LibTimelockInvariants.assertTimelockState(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, chainSafe);
+        address beacon = LibProdOrchestratorParams.orchestratorParams().beacon;
+        if (beacon.codehash != LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH) {
+            revert OrchestratorBeaconCodehashMismatch(
+                beacon, LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH, beacon.codehash
+            );
+        }
 
         LibStoxMigrations.assertNext(bindOrchestratorConfigDeclaration(), chainSafe);
         assertDelegate(LibStoxConfig.ORCHESTRATOR_BEACON_NAME, chainSafe);
