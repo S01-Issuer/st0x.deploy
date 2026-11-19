@@ -30,7 +30,6 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
-import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {LibTestConfigRegistryDelegates} from "../lib/LibTestConfigRegistryDelegates.sol";
 import {LibTestOrchestratorConfigBind} from "../lib/LibTestOrchestratorConfigBind.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
@@ -55,12 +54,15 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
         BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         bytes32 id = LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG;
-        LibTestOrchestratorConfigBind.deployTargets(vm, safe);
         LibTestOrchestratorConfigBind.approveSafe(vm, safe);
 
+        uint256 genesis = vm.snapshotState();
+        LibTestOrchestratorConfigBind.deployTargets(vm, safe);
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
         script.callPreflight();
+        vm.revertToState(genesis);
         advanceRootLineToQsepOnto();
+        LibTestOrchestratorConfigBind.deployBeacon(vm);
         vm.expectRevert(
             abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.EXECUTE_REVOKE_SERVICE_SIGNER)
         );
@@ -102,8 +104,8 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
         LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
         BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness(tag);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
-        LibTestOrchestratorConfigBind.deployTargets(vm, safe);
         advanceRootLineToQsepOnto();
+        LibTestOrchestratorConfigBind.deployBeacon(vm);
         writeRecord(qsepSetFleetAuthoriserDeclaration());
         LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
         return (script, safe);
@@ -121,6 +123,9 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
 
     function testPreflightRefusesAnUndeployedTimelock() external {
         (BindOrchestratorConfigHarness script,) = qsepRecordedApproved("no-timelock");
+        LibTestOrchestratorConfigBind.deployBeacon(vm);
+        script.callPreflight();
+        vm.etch(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, "");
         vm.expectRevert(
             abi.encodeWithSelector(
                 LibTimelockController.TimelockNotDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
@@ -130,9 +135,9 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
     }
 
     function testPreflightRefusesAnUndeployedBeacon() external {
-        (BindOrchestratorConfigHarness script, address safe) = qsepRecordedApproved("no-beacon");
-        LibTestBeaconInitialOwnerBind.deployTimelock(vm, safe);
+        (BindOrchestratorConfigHarness script,) = qsepRecordedApproved("no-beacon");
         address beacon = LibProdOrchestratorParams.orchestratorParams().beacon;
+        assertEq(beacon.code.length, 0, "beacon undeployed");
         vm.expectRevert(
             abi.encodeWithSelector(
                 OrchestratorBeaconCodehashMismatch.selector,
@@ -141,6 +146,8 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
                 beacon.codehash
             )
         );
+        script.callPreflight();
+        LibTestOrchestratorConfigBind.deployBeacon(vm);
         script.callPreflight();
     }
 

@@ -55,7 +55,7 @@ contract BindOrchestratorConfigRootLineTest is RevokeServiceSignerDepositWithdra
         advanceRootLineToRevokeSchedule();
         writeRecord(scheduleRevokeServiceSignerDeclaration());
         writeRecord(executeRevokeServiceSignerDeclaration());
-        LibTestOrchestratorConfigBind.deployTargets(vm, safeAddress());
+        LibTestOrchestratorConfigBind.deployBeacon(vm);
         LibTestOrchestratorConfigBind.approveSafe(vm, safeAddress());
     }
 

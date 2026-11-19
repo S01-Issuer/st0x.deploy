@@ -21,8 +21,16 @@ library LibTestOrchestratorConfigBind {
         LibTestConfigRegistryDelegates.approveUnscoped(vm, safe);
     }
 
+    /// @notice Deploys the candidate orchestrator beacon, owned by the bound
+    /// beacon initial owner.
+    function deployBeacon(Vm vm) internal {
+        LibRainDeploy.etchZoltuFactory(vm);
+        LibTestOrchestratorDeploy.deployBeacon();
+    }
+
     /// @notice Deploys the governance timelock with `safe` as its proposer,
-    /// then the candidate orchestrator beacon owned by it.
+    /// binds it as the beacon initial owner, then deploys the candidate
+    /// orchestrator beacon owned by it.
     function deployTargets(Vm vm, address safe) internal {
         address timelock = LibTestBeaconInitialOwnerBind.deployTimelock(vm, safe);
         LibTestDeploy.bind(
@@ -32,8 +40,7 @@ library LibTestOrchestratorConfigBind {
             "address",
             abi.encode(timelock)
         );
-        LibRainDeploy.etchZoltuFactory(vm);
-        LibTestOrchestratorDeploy.deployBeacon();
+        deployBeacon(vm);
     }
 
     /// @notice The bound orchestrator beacon.
