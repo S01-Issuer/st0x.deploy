@@ -16,7 +16,10 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
+import {LibEuAuthoriserClone} from "../../../src/lib/LibEuAuthoriserClone.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.37/src/lib/LibRainDeploy.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.14/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
@@ -65,6 +68,11 @@ contract LibAuthoriserInvariantsTest is Test {
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC,
             "bsc"
         );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ZEROG_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG,
+            "zerog"
+        );
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
         harness.callAuthoriserForChainId(123456);
@@ -80,6 +88,27 @@ contract LibAuthoriserInvariantsTest is Test {
             abi.encodeWithSelector(AuthoriserNotReady.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD)
         );
         harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice The 0G placeholder slot is refused as not ready even when the
+    /// zero address carries the clone runtime, so only the zero check reverts.
+    function testZerogAuthoriserPlaceholderIsRefused() external {
+        vm.etch(address(0), LibEuAuthoriserClone.cloneRuntimeCode());
+        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
+        harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice Every deploy network resolves to a nonzero authoriser. The Build
+    /// generators write the slot as is, so a chain that joins the deploy list
+    /// with an unpinned placeholder fails here instead of publishing zero.
+    function testEveryDeploymentNetworkHasAPinnedAuthoriser() external pure {
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertNotEq(LibAuthoriserInvariants.authoriserForChainId(networks[i].chainId), address(0), networks[i].name);
+        }
     }
 
     /// @notice A pin carrying bytecode other than the EIP-1167 clone is

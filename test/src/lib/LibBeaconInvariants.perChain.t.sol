@@ -34,6 +34,7 @@ contract LibBeaconInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
         lib.runsBaseBeaconSet(chainId);
     }
@@ -58,6 +59,22 @@ contract LibBeaconInvariantsPerChainTest is Test {
             for (uint256 j = 0; j < v1.length; j++) {
                 assertEq(v1[j], address(0));
             }
+        }
+    }
+
+    /// 0G is outside `deploymentNetworks` until it has a `rain-deploy`
+    /// catalogue entry, so its 0.1.1 arm is pinned on its own: the 0.1.1
+    /// beacon set deployer, the 0.1.1 bootstrap implementations, and no V1
+    /// history.
+    function testZerogLookupsAreThe011Lib() external pure {
+        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
+        assertFalse(LibBeaconInvariants.runsBaseBeaconSet(id));
+        assertEq(LibBeaconInvariants.prodPinnedBeaconsForChainId(id), LibProdBeacons0_1_1.pinnedBeacons());
+        assertEq(LibBeaconInvariants.prodBeaconSetDeployerForChainId(id), LibProdBeacons0_1_1.beaconSetDeployer());
+        assertEq(LibBeaconInvariants.prodImplementationsForChainId(id), LibProdBeacons0_1_1.implementations());
+        address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(id);
+        for (uint256 j = 0; j < v1.length; j++) {
+            assertEq(v1[j], address(0));
         }
     }
 
@@ -110,6 +127,7 @@ contract LibBeaconInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
         lib.prodExpectedImplementationsForChainId(chainId);
     }

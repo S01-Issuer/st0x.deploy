@@ -8,7 +8,12 @@ import {LibAuthoriserInvariants, UnsupportedChainForAuthoriser} from "../../../s
 import {LibProdTokenConfig, Region, TokenConfig, UnknownUnderlying} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {
+    LibTokenInvariants,
+    NoTokenTableForChain,
+    TokenInstance,
+    TokenTableNotHydrated
+} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibTokenInvariantsPerChainHarness} from "./LibTokenInvariantsPerChainHarness.sol";
 
 contract LibTokenInvariantsPerChainTest is Test {
@@ -65,12 +70,20 @@ contract LibTokenInvariantsPerChainTest is Test {
         );
     }
 
+    /// 0G's table is still all placeholders, so the resolver refuses it
+    /// rather than hand consumers `address(0)` targets.
+    function testZerogPlaceholderTableIsRefused() external {
+        vm.expectRevert(abi.encodeWithSelector(TokenTableNotHydrated.selector, LibSafeInvariants.ZEROG_CHAIN_ID));
+        lib.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+    }
+
     function testUndeployedChainHasNoTable(uint256 chainId) external {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, chainId));
         lib.productionTokensForChainId(chainId);
     }

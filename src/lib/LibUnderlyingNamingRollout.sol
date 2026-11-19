@@ -130,7 +130,8 @@ library LibUnderlyingNamingRollout {
 
     /// @notice The production tokens this rollout renames on the chain: the
     /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
-    /// `NoTokenTableForChain` on a chain with no table.
+    /// `NoTokenTableForChain` on a chain with no table and
+    /// `TokenTableNotHydrated` on a placeholder one.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {

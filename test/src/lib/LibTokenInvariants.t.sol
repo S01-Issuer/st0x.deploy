@@ -120,6 +120,30 @@ contract LibTokenInvariantsTest is Test {
         }
     }
 
+    /// The 0G token table mirrors Base row-for-row on the `underlying` key.
+    /// Its addresses are placeholders until the token deploy executes there;
+    /// this guards only the shared shape.
+    function testZerogTokenTableMirrorsBaseUnderlyings() external pure {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
+        assertEq(zerog.length, base.length, "0G token table length diverges from Base");
+        for (uint256 i = 0; i < base.length; i++) {
+            assertEq(zerog[i].underlying, base[i].underlying, "0G token underlying diverges from Base");
+        }
+    }
+
+    /// Every leg of every 0G row stays `address(0)` until the 0G token deploy
+    /// executes, so a partial hydration fails. Hydration deletes this test and
+    /// adds 0G to `testProductionTokenAddressesAreNonzeroAndUniquePerChain`.
+    function testZerogTokenTableIsAllPlaceholders() external pure {
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
+        for (uint256 i = 0; i < zerog.length; i++) {
+            assertEq(zerog[i].receipt, address(0), zerog[i].underlying);
+            assertEq(zerog[i].receiptVault, address(0), zerog[i].underlying);
+            assertEq(zerog[i].wrappedTokenVault, address(0), zerog[i].underlying);
+        }
+    }
+
     function testDiscardedEuBatchIsNotListed() external pure {
         string[6] memory discarded = ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();

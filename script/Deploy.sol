@@ -14,7 +14,7 @@ import {
 } from "rain-vats-0.2.25/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
-import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariants, AuthoriserNotReady} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
@@ -95,6 +95,9 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         address expectedAuthorizer = region == Region.US
             ? LibAuthoriserInvariants.authoriserForChainId(block.chainid)
             : LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
+        // A placeholder slot reads as zero, which an RBAC binding with no
+        // authoriser would otherwise match.
+        if (expectedAuthorizer == address(0)) revert AuthoriserNotReady(expectedAuthorizer);
         // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(
             LibRegistryAuthority.ROOT_AUTHORITY, rbacName, OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
