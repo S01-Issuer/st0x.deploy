@@ -3,17 +3,18 @@
 pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.36/src/abstract/SafeBundleScript.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.36/src/interface/IConfigRegistryV5.sol";
 import {LibConfigRegistry} from "rain-deploy-0.1.36/src/lib/LibConfigRegistry.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.36/src/lib/LibConfigRegistryDeploy.sol";
-import {ConfigBinding, LibConfigRegistryRegister} from "rain-deploy-0.1.36/src/lib/LibConfigRegistryRegister.sol";
+import {ConfigBinding} from "rain-deploy-0.1.36/src/lib/LibConfigRegistryRegister.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.36/src/lib/LibRegistryAuthority.sol";
+import {LibRegistryDelegates} from "rain-deploy-0.1.36/src/lib/LibRegistryDelegates.sol";
 import {SafeTx} from "rain-deploy-0.1.36/src/lib/LibSafeTx.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
+import {LibRootConfigBinding} from "../src/lib/LibRootConfigBinding.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
@@ -74,8 +75,10 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
         LibTimelockInvariants.assertTimelockState(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, chainSafe);
 
         LibStoxMigrations.assertNext(bindBeaconInitialOwnerDeclaration(), chainSafe);
-        if (!IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-                .approvedV5(LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe)) {
+        IConfigRegistryV5 registry = IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
+        if (!LibRegistryDelegates.approved(
+                registry, LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, chainSafe
+            )) {
             revert SafeNotBeaconInitialOwnerDelegate(chainSafe);
         }
     }
@@ -88,27 +91,16 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
         SafeTx[] memory txs = new SafeTx[](2);
-        txs[0] = SafeTx({
-            to: LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS,
-            value: 0,
-            data: LibConfigRegistryRegister.registerCalldata(
-                LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, timelockBinding()
-            ),
-            operation: Enum.Operation.Call
-        });
+        txs[0] = LibRootConfigBinding.registerTx(LibStoxConfig.BEACON_INITIAL_OWNER_NAME, timelockBinding());
         txs[1] = LibStoxMigrations.recordTx(bindBeaconInitialOwnerDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
-        (bytes memory value, uint256 registeredAt, bytes32 typeHash) = LibConfigRegistryRegister.currentBinding(
-            LibRegistryAuthority.ROOT_AUTHORITY, LibStoxConfig.BEACON_INITIAL_OWNER_NAME
-        );
-        // forge-lint: disable-next-line(block-timestamp)
-        if (!LibConfigRegistryRegister.isBound(value, typeHash, timelockBinding()) || registeredAt != block.timestamp) {
-            revert BeaconInitialOwnerBindingMismatch(value, registeredAt);
-        }
+        (bool bound, bytes memory value, uint256 registeredAt) =
+            LibRootConfigBinding.boundThisBlock(LibStoxConfig.BEACON_INITIAL_OWNER_NAME, timelockBinding());
+        if (!bound) revert BeaconInitialOwnerBindingMismatch(value, registeredAt);
         LibStoxMigrations.assertRecorded(bindBeaconInitialOwnerDeclaration());
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
     }
