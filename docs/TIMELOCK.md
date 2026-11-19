@@ -372,6 +372,15 @@ sequence on a fork of each chain.
    comes first on the root line (step 0). It also means the lock does not watch
    the logic production tokens run; pointing it at the in-use beacons is a
    separate orchestrator change.
+
+   The pre-flight also requires each beacon to still serve the implementation
+   the batch moves it from (`RECEIPT_VAULT_FROM_IMPLEMENTATION`,
+   `WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION`), owned by the chain's timelock,
+   with the pinned beacon codehash. **Stale batches:** before the Safe schedules
+   any other upgrade of a chain's receipt-vault or wrapper beacon, it must
+   `cancel` that chain's pending beacon batch and its rename batch. Otherwise
+   the stale batch stays Ready after its delay and anyone can execute it later,
+   which rolls the beacons back to this rollout's implementations.
 3. Schedule the rename batch (`20261021-schedule-underlying-naming-rename`): one
    `scheduleBatch` of `setUnderlying(ticker, underlyingName)` on every
    production vault, with the beacon batch as its predecessor, so the timelock
@@ -400,23 +409,27 @@ sequence on a fork of each chain.
    `setUnderlying` overwrites the stored ERC-20 name and symbol and rejects
    empty values. The Safe can still `cancel` the operation during its delay.
 
+4. Execute each matured batch with `20261021-execute-underlying-naming`
+   `execute()` from the CI deploy key, one operation per dispatch. On HyperEVM
+   the rename batch needs more gas than a small block holds, so enable big
+   blocks for the deploy key (`manual-hyperevm-big-blocks`) before executing it
+   there. After the rename batch executes, the Safe signs `run-script`
+   `20261021-execute-underlying-naming` `run()`. It writes the execution's
+   record, and until it lands the root line stays at the rename schedule and
+   every later migration on that chain refuses.
+
 After the beacon batch, the in-use receipt-vault beacon serves a vault that
 initializes only from the ConfigRegistry (rain-vats 0.2.12, config V3). The
 deployers that make a `BeaconProxy` on that beacon with a V2 config (the 0.1.1
-unified deployer behind `20260807-deploy-missing-tokens`, and Base's V1
-beacon-set path) then revert `UnknownConfigVersion`. New listings must move to
-the V6 factory path of the registry release before step 2 runs on a chain.
+unified deployer and Base's V1 beacon-set path) then revert
+`UnknownConfigVersion`. New listings must move to the V6 factory path of the
+registry release before step 2 runs on a chain.
 
 The beacon batch leaves the chain's receipt beacon on its current
 implementation. The current-source orchestrator's vault-logic check requires
 that beacon to serve `LibProdDeployCurrent.STOX_RECEIPT`, so upgrading the
 orchestrator to it needs a receipt-beacon upgrade first, or every token halts
 mint and burn. The live 0.1.30 orchestrator does not check the in-use beacons.
-
-Execute each matured batch with `20261021-execute-underlying-naming` `execute()`
-from the CI deploy key, one operation per dispatch. On HyperEVM the rename batch
-needs more gas than a small block holds, so enable big blocks for the deploy key
-(`manual-hyperevm-big-blocks`) before executing it there.
 
 **Revoking the service signer's vault roles.** The service signer
 (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) loses `DEPOSIT` and `WITHDRAW`
