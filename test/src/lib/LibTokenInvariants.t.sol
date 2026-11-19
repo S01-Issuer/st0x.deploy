@@ -132,6 +132,18 @@ contract LibTokenInvariantsTest is Test {
         }
     }
 
+    /// Every leg of every 0G row stays `address(0)` until the 0G token deploy
+    /// executes, so a partial hydration fails. Hydration deletes this test and
+    /// adds 0G to `testProductionTokenAddressesAreNonzeroAndUniquePerChain`.
+    function testZerogTokenTableIsAllPlaceholders() external pure {
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
+        for (uint256 i = 0; i < zerog.length; i++) {
+            assertEq(zerog[i].receipt, address(0), zerog[i].underlying);
+            assertEq(zerog[i].receiptVault, address(0), zerog[i].underlying);
+            assertEq(zerog[i].wrappedTokenVault, address(0), zerog[i].underlying);
+        }
+    }
+
     function testDiscardedEuBatchIsNotListed() external pure {
         string[6] memory discarded = ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();

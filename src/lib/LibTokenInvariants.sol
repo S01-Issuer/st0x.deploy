@@ -2379,7 +2379,8 @@ library LibTokenInvariants {
     ///
     /// **ALL PLACEHOLDERS** (`address(0)`) until the 0G token deployment
     /// executes and the post-execution pin PR hydrates every entry in one
-    /// reviewed change; all-or-nothing, as for every other chain's table.
+    /// reviewed change; all-or-nothing, as for every other chain's table
+    /// (`testZerogTokenTableIsAllPlaceholders` pins it until then).
     /// @return tokens The production token instances on 0G.
     function productionTokensZerog() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](59);
