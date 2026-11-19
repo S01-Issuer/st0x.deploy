@@ -7,10 +7,10 @@ on:
         required: true
         type: choice
         options:
-          # Append-only registry: add new entries at the bottom; never reorder
-          # or delete. Re-dispatching a historical (executed) script must
-          # remain possible — a signer/auditor may want to re-derive its
-          # bundle to verify what landed on-chain.
+          # Append-only registry: add new entries at the bottom; never reorder.
+          # An entry may leave the list only when its script is history-only:
+          # its `run()` refuses and the V5 backfill writes its root-line
+          # record.
           #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # Safe Tx Builder JSON emitting script under `script/`. Convention:
