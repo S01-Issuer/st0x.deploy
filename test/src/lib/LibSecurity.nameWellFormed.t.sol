@@ -15,6 +15,29 @@ contract LibSecurityNameWellFormedTest is NasdaqSymbolDirectoryTest {
         console.log(url, names.length);
     }
 
+    function testNameShape() external pure {
+        assertTrue(LibSecurity.nameWellFormed("NVIDIA Corporation"));
+        assertTrue(LibSecurity.nameWellFormed(bytes(unicode"LVMH Moët Hennessy Louis Vuitton SE")));
+        assertTrue(LibSecurity.nameWellFormed("Meta Platforms, Inc."));
+        assertFalse(LibSecurity.nameWellFormed(""));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA Corporation ST0x"));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA Corporation (ST0x)"));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA(ST0x)"));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA \"Corp\""));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA\\Corp"));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA\nCorp"));
+        assertFalse(LibSecurity.nameWellFormed(hex"4e56494449417f"));
+    }
+
+    /// A space is the lowest name byte, 0x1f is not; a name shorter than the
+    /// suffix is checked without underflow.
+    function testNameBoundaries() external pure {
+        assertTrue(LibSecurity.nameWellFormed("3M"));
+        assertTrue(LibSecurity.nameWellFormed(" "));
+        assertFalse(LibSecurity.nameWellFormed(hex"1f"));
+        assertFalse(LibSecurity.nameWellFormed("ST0x"));
+    }
+
     function testNameAcceptsEveryNasdaqListedSecurityName() external {
         checkEveryListedNameAccepted(NASDAQ_LISTED);
     }
