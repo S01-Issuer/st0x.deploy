@@ -1,0 +1,15 @@
+st0x-attest-subparser=0x28Df1347eae93f7d85bCBe4b6605034a2F6F1cBD
+lead-signer=0xB05Da3f2e145C6b156D97872386Bc8645B34b668
+lead-source="alpaca"
+max-time-spread=600
+min-price=100
+max-price=1000
+operator-1=0xAC8060AD1Dd83600ecA7354FC69C3743c9b92Fee
+operator-2=0x728A622778F567db1554aD121a4066e62925fd4d
+operator-3=0x9b4Fe8400530Aec2C9dB758195E355F8b37d921b
+operator-4=0x9821d24af0dD88AE2a655e247E5eC673c8aA2F8E
+operator-5=0x13943A2e84e66a28FfF57641cF769361F410C0C1
+operator-6=0x260976eDD64D602989E7df01B2860f4b15432402
+pool-source-0="yahoo"
+pool-source-1="alpaca"
+max-deviation=0.01
