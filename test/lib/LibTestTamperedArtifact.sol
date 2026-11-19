@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.37/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
 
 interface IArtifactVerifier {
     function verify(string calldata jsonPath) external view;

@@ -3,9 +3,9 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.37/src/interface/IConfigRegistryV5.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.37/src/lib/LibConfigRegistryDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.37/src/lib/LibRegistryAuthority.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 
 /// @title LibTestConfigRegistryDelegates
 /// @notice The root's `ConfigRegistry` approvals of a delegate on a fork.

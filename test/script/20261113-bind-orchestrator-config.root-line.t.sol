@@ -3,12 +3,12 @@
 pragma solidity =0.8.25;
 
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.37/src/interface/IConfigRegistryV5.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.37/src/lib/LibConfigRegistry.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.37/src/lib/LibConfigRegistryDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.37/src/lib/LibSafeTx.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.37/src/lib/LibRegistryAuthority.sol";
-import {LibSafe} from "rain-deploy-0.1.37/src/lib/LibSafe.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 
 import {OrchestratorConfigBindingMismatch} from "../../script/20261113-bind-orchestrator-config.s.sol";
 import {

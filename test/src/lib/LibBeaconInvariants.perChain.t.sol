@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.37/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibBeaconInvariants, UnsupportedChainForProdBeacons} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
@@ -62,8 +62,8 @@ contract LibBeaconInvariantsPerChainTest is Test {
         }
     }
 
-    /// 0G is outside `deploymentNetworks` until it has a `rain-deploy`
-    /// catalogue entry, so its 0.1.1 arm is pinned on its own: the 0.1.1
+    /// 0G is outside `deploymentNetworks` until its migration line and token
+    /// table are settled, so its 0.1.1 arm is pinned on its own: the 0.1.1
     /// beacon set deployer, the 0.1.1 bootstrap implementations, and no V1
     /// history.
     function testZerogLookupsAreThe011Lib() external pure {
