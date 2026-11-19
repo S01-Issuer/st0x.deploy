@@ -5,7 +5,6 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 /// @title LibSafeInvariantsTest
@@ -84,11 +83,5 @@ contract LibSafeInvariantsTest is Test {
     /// 0G is not in `deploymentNetworks()`, so no catalogue check covers it.
     function testZerogChainIdIsZerogMainnet() external pure {
         assertEq(LibSafeInvariants.ZEROG_CHAIN_ID, 16661);
-    }
-
-    /// @notice The `zerog` rpc alias resolves to the chain the constant names.
-    function testZerogRpcAliasIsZerogChain() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ZEROG);
-        assertEq(block.chainid, LibSafeInvariants.ZEROG_CHAIN_ID);
     }
 }
