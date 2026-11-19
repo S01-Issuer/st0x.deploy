@@ -20,6 +20,9 @@ on:
           # `manual-sol-artifacts.yaml` suite `stox-eu-assets-authoriser`, and
           # its run id is pinned beside `STOX_EU_AUTHORISER_CLONE`.
           #
+          # An entry may also leave when its script is history-only: its
+          # `run()` refuses and the V5 backfill writes its root-line record.
+          #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # broadcast script under `script/`. Convention:
           # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
