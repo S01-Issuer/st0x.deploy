@@ -4,10 +4,10 @@ pragma solidity =0.8.25;
 
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {ECDSA} from "@openzeppelin-contracts-5.7.0/utils/cryptography/ECDSA.sol";
-import {SignedContextV2} from "rainlang-0.2.36/src/interface/IInterpreterCallerV5.sol";
-import {InvalidSignature} from "rainlang-0.2.36/src/lib/caller/LibContext.sol";
-import {LibDecimalFloat, Float} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
-import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.4/src/lib/LibIntOrAString.sol";
+import {SignedContextV2} from "rainlang-0.2.39/src/interface/IInterpreterCallerV5.sol";
+import {InvalidSignature} from "rainlang-0.2.39/src/lib/caller/LibContext.sol";
+import {LibDecimalFloat, Float} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
+import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.5/src/lib/LibIntOrAString.sol";
 
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 import {LibSt0xAttestContext, CONTEXT_LEAD_COLUMN, CONTEXT_ATTESTOR_0_COLUMN} from "src/lib/LibSt0xAttestContext.sol";

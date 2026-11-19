@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.36/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.36/src/lib/LibSafeTx.sol";
 
 import {HandSafeOwnedBaseVaultsToTimelockRootLineTest} from "./HandSafeOwnedBaseVaultsToTimelockRootLineTest.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";

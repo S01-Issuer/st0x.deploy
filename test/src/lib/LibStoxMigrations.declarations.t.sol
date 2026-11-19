@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {Prerequisite} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {Prerequisite} from "rain-deploy-0.1.36/src/interface/IMigrationRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.36/src/lib/LibRegistryAuthority.sol";
 
 import {ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";

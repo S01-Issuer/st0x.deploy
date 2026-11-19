@@ -4,15 +4,15 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistry.sol";
-import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
-import {IRegistryDelegatesV3} from "rain-deploy-0.1.33/src/interface/IRegistryDelegatesV3.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.36/src/lib/LibMigrationRegistry.sol";
+import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.36/src/interface/IMigrationRegistryV5.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.36/src/interface/IRegistryDelegatesV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.36/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.36/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.36/src/lib/LibRainDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.33/src/generated/candidate/MigrationRegistry.sol";
+} from "rain-deploy-0.1.36/src/generated/candidate/MigrationRegistry.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";

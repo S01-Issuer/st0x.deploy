@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibTimelockRehearsal} from "rain-deploy-0.1.33/src/lib/LibTimelockRehearsal.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.36/src/lib/LibRainDeploy.sol";
+import {LibTimelockRehearsal} from "rain-deploy-0.1.36/src/lib/LibTimelockRehearsal.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
 import {TimelockRehearsalSchedule} from "../../script/20260813-timelock-rehearsal-schedule.s.sol";

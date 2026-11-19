@@ -3,11 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.33/src/lib/LibSafe.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployDeclaration} from "rain-deploy-0.1.33/src/lib/LibRainDeployDeclaration.sol";
-import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.33/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.36/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.36/src/lib/LibSafe.sol";
+import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.36/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.36/src/lib/LibRainDeployDeclaration.sol";
+import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.36/src/lib/LibRainDeployZoltuMechanism.sol";
 import {LibReleasedSuites} from "../src/lib/LibReleasedSuites.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
