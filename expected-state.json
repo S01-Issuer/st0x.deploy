@@ -19,14 +19,14 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0xCAA2aA64D8a599EAb2d5E7Fd30621D9Ca2f05A56"
+          "renamedImplementation": "0xEC06a604BAA9fcd35E9a03E9831A0E127F52A4E9"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x8330588c9A52Fd2Bd5c3E05A980F12d895c91Fe4"
+          "renamedImplementation": "0x8e3cf25BcaF9837Cf1cA9A88A589F0baa0De59c1"
         },
         {
           "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -1958,14 +1958,14 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0xCAA2aA64D8a599EAb2d5E7Fd30621D9Ca2f05A56"
+          "renamedImplementation": "0xEC06a604BAA9fcd35E9a03E9831A0E127F52A4E9"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x8330588c9A52Fd2Bd5c3E05A980F12d895c91Fe4"
+          "renamedImplementation": "0x8e3cf25BcaF9837Cf1cA9A88A589F0baa0De59c1"
         },
         {
           "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -3897,14 +3897,14 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0xCAA2aA64D8a599EAb2d5E7Fd30621D9Ca2f05A56"
+          "renamedImplementation": "0xEC06a604BAA9fcd35E9a03E9831A0E127F52A4E9"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x8330588c9A52Fd2Bd5c3E05A980F12d895c91Fe4"
+          "renamedImplementation": "0x8e3cf25BcaF9837Cf1cA9A88A589F0baa0De59c1"
         },
         {
           "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -5836,14 +5836,14 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
-          "renamedImplementation": "0xCAA2aA64D8a599EAb2d5E7Fd30621D9Ca2f05A56"
+          "renamedImplementation": "0xEC06a604BAA9fcd35E9a03E9831A0E127F52A4E9"
         },
         {
           "beacon": "0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8",
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
           "owner": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
-          "renamedImplementation": "0x8330588c9A52Fd2Bd5c3E05A980F12d895c91Fe4"
+          "renamedImplementation": "0x8e3cf25BcaF9837Cf1cA9A88A589F0baa0De59c1"
         },
         {
           "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -7791,14 +7791,14 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0xCAA2aA64D8a599EAb2d5E7Fd30621D9Ca2f05A56"
+          "renamedImplementation": "0xEC06a604BAA9fcd35E9a03E9831A0E127F52A4E9"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x8330588c9A52Fd2Bd5c3E05A980F12d895c91Fe4"
+          "renamedImplementation": "0x8e3cf25BcaF9837Cf1cA9A88A589F0baa0De59c1"
         },
         {
           "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
