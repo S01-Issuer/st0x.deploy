@@ -13,6 +13,9 @@ from the repo and are deliberately absent — do not re-add them.
   an audit trail of what is deployed on chain.** Never delete one for looking
   unreferenced, and never update one to match a newer deployment — a redeploy
   gets a new release-tag suffix or a new library, keeping the old values intact.
+  Exception: an `address(0)` placeholder slot for a chain whose clone is not
+  deployed yet is pinned in place in `script/Build.sol` once the deploy lands,
+  and its placeholder test is replaced by the pin.
 
 - **Every compiler setting stays in the single `[profile.default]`.** Tests
   assert `addr.codehash` against constants derived from _deployed_ bytecode, so

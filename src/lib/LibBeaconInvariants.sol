@@ -281,6 +281,7 @@ library LibBeaconInvariants {
         if (
             chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID
                 || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID || chainId == LibSafeInvariants.BSC_CHAIN_ID
+                || chainId == LibSafeInvariants.ZEROG_CHAIN_ID
         ) return false;
         revert UnsupportedChainForProdBeacons(chainId);
     }

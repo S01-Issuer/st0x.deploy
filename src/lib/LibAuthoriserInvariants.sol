@@ -80,6 +80,9 @@ library LibAuthoriserInvariants {
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
         }
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG;
+        }
         revert UnsupportedChainForAuthoriser(chainId);
     }
 
