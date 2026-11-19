@@ -154,7 +154,7 @@ contract RevokeServiceSignerDepositWithdrawRolloutTest is RevokeServiceSignerDep
     }
 
     function testRolloutOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertRollout(networks[i]);
         }

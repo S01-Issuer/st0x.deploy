@@ -48,6 +48,7 @@ contract LibTokenInvariantsPerChainTest is Test {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         for (uint256 i = 0; i < nets.length; i++) {
             if (nets[i].chainId == LibSafeInvariants.BASE_CHAIN_ID) continue;
+            if (!LibTokenInvariants.tokenTableHydrated(nets[i].chainId)) continue;
             TokenInstance[] memory other = LibTokenInvariants.productionTokensForChainId(nets[i].chainId);
             assertTrue(other.length != base.length || other[0].receiptVault != base[0].receiptVault);
         }
@@ -57,6 +58,7 @@ contract LibTokenInvariantsPerChainTest is Test {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < nets.length; i++) {
+            if (!LibTokenInvariants.tokenTableHydrated(nets[i].chainId)) continue;
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[i].chainId);
             address[] memory vaults = LibTokenInvariants.productionReceiptVaultsForChainId(nets[i].chainId);
             assertEq(vaults.length, tokens.length);
@@ -68,6 +70,17 @@ contract LibTokenInvariantsPerChainTest is Test {
             LibTokenInvariants.productionReceiptVaults(),
             LibTokenInvariants.productionReceiptVaultsForChainId(LibSafeInvariants.BASE_CHAIN_ID)
         );
+    }
+
+    /// Every table but 0G's names each token's receipt vault. 0G's is
+    /// placeholders, so a generator skips its token output.
+    function testOnlyZerogsTokenTableIsNotHydrated() external pure {
+        assertFalse(LibTokenInvariants.tokenTableHydrated(LibSafeInvariants.ZEROG_CHAIN_ID), "0G");
+        SupportedNetwork[] memory nets =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        for (uint256 i = 0; i < nets.length; i++) {
+            assertTrue(LibTokenInvariants.tokenTableHydrated(nets[i].chainId), nets[i].name);
+        }
     }
 
     /// 0G's table is still all placeholders, so the resolver refuses it
@@ -83,7 +96,6 @@ contract LibTokenInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
-        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, chainId));
         lib.productionTokensForChainId(chainId);
     }
@@ -125,8 +137,6 @@ contract LibTokenInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
-        // 0G is not a deployment network, but it has an EU slot.
-        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, chainId));
         lib.expectedAuthoriser("MC", address(0xA11CE), chainId);
     }

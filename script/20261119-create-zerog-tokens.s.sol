@@ -203,8 +203,8 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
         }
     }
 
-    /// @notice Reverts unless the four beacons are owned by the timelock and each token beacon serves the
-    /// implementation every other 0.1.1 chain serves.
+    /// @notice Reverts unless the in-use beacons (the three token beacons: 0G runs no orchestrator) are owned by the
+    /// timelock and each serves the implementation every other 0.1.1 chain serves.
     function assertBeacons() internal view {
         LibBeaconInvariants.assertProdBeaconsOwnedBy(block.chainid, timelock());
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);

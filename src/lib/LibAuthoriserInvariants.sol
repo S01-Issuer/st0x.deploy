@@ -278,9 +278,10 @@ library LibAuthoriserInvariants {
     /// @notice Where the orchestrator's two pairs start in `expectedGrants`. They are its last two.
     uint256 internal constant ORCHESTRATOR_GRANT_INDEX = 11;
 
-    /// @notice Whether the US authoriser on `chainId` grants the orchestrator. Not on 0G: there the
-    /// orchestrator's pinned address is the first `deploy(owner)` of the permissionless 0.1.30 beacon-set
-    /// deployer, so whoever calls it first chooses the admin. A grant to that address would let them mint.
+    /// @notice Whether the US authoriser on `chainId` grants the orchestrator, which is whether the chain runs
+    /// one. Not on 0G: there the orchestrator's pinned address is the first `deploy(owner)` of the permissionless
+    /// 0.1.30 beacon-set deployer, so whoever calls it first chooses the admin, and a grant to that address would
+    /// let them mint. That set deployer is not deployed on 0G (`LibStoxReleasedNetworks.releasesNotOnZerog`).
     /// @param chainId The chain id.
     /// @return Whether the chain's US authoriser grants the orchestrator.
     function grantsOrchestrator(uint256 chainId) internal pure returns (bool) {

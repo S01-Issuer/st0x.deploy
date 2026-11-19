@@ -2488,6 +2488,22 @@ library LibTokenInvariants {
         revert NoTokenTableForChain(chainId);
     }
 
+    /// @notice Whether `chainId`'s token table names every token's receipt
+    /// vault. A table of placeholders (0G's, whose tokens the 0G token
+    /// creation makes) does not. A generator skips the token output of a chain whose table is not hydrated
+    /// and says so; every other consumer goes through
+    /// `productionTokensForChainId`, which refuses that table.
+    /// @param chainId The chain id.
+    /// @return Whether every row has a receipt vault.
+    function tokenTableHydrated(uint256 chainId) internal pure returns (bool) {
+        TokenInstance[] memory tokens =
+            chainId == LibSafeInvariants.ZEROG_CHAIN_ID ? productionTokensZerog() : productionTokensForChainId(chainId);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i].receiptVault == address(0)) return false;
+        }
+        return true;
+    }
+
     /// @notice `tokens`, unless a row has no receipt vault yet, so consumers
     /// fail closed on a placeholder table instead of targeting `address(0)`.
     /// @param chainId The chain id, for the revert.

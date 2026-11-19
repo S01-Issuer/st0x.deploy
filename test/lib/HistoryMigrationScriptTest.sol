@@ -32,12 +32,16 @@ abstract contract HistoryMigrationScriptTest is Test {
         vm.makePersistent(sHistoryScript);
     }
 
-    function deploymentNetworks() internal pure returns (SupportedNetwork[] memory) {
-        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+    /// @dev The networks the history migrations ran on: every deployment
+    /// network before 0G. 0G ran none of them, so it has no moment for any,
+    /// and the backfill records each there record-only
+    /// (`LibStoxMigrations.withoutHistory`).
+    function historyNetworks() internal pure returns (SupportedNetwork[] memory) {
+        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
     }
 
-    function onDeploymentChain(uint256 chainId) internal pure returns (bool) {
-        SupportedNetwork[] memory networks = deploymentNetworks();
+    function ranHistoryOn(uint256 chainId) internal pure returns (bool) {
+        SupportedNetwork[] memory networks = historyNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             if (networks[i].chainId == chainId) return true;
         }
@@ -60,7 +64,7 @@ abstract contract HistoryMigrationScriptTest is Test {
     }
 
     function testDeclarationIsItsHistoryRecordOnEveryDeploymentChain() external view {
-        SupportedNetwork[] memory networks = deploymentNetworks();
+        SupportedNetwork[] memory networks = historyNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             assertDeclaration(networks[i].chainId);
         }

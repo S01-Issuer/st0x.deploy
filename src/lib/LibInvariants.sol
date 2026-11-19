@@ -87,7 +87,9 @@ library LibInvariants {
         LibTimelockInvariants.assertTimelockState(timelock, safe);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
         LibTokenInvariants.assertUniformAuthoriser(tokens, authoriser);
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
+        LibAuthoriserInvariants.assertHeld(
+            authoriser, LibAuthoriserInvariants.expectedGrantsOn(block.chainid, safe, timelock)
+        );
     }
 
     /// @notice Full-args Base bundle. Use when overriding the Safe-side

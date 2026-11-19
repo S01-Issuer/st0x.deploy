@@ -26,7 +26,7 @@ import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {EU_AUTHORISER_SALT} from "../../src/lib/LibEuAuthoriserClone.sol";
-import {LibReleasedSuites} from "../../src/lib/LibReleasedSuites.sol";
+import {LibStoxReleasedNetworks} from "../../src/lib/LibStoxReleasedNetworks.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
@@ -59,7 +59,6 @@ abstract contract ZerogTokenCreationFixture is Test {
         deployReleased("stox-receipt@0_1_30");
         deployReleased("stox-receipt-vault@0_1_30");
         deployReleased("stox-orchestrator@0_1_30");
-        deployReleased("stox-orchestrator-beacon-set-deployer@0_1_30");
         deployReleased("stox-offchain-asset-receipt-vault-authorizer@0_1_1");
 
         address safe = address(
@@ -84,7 +83,8 @@ abstract contract ZerogTokenCreationFixture is Test {
     }
 
     /// @notice What rainlang.eth signs on 0G before any token exists: the receipt and receipt-vault beacons onto
-    /// 0.1.30, then all four beacons to the timelock.
+    /// 0.1.30, then the three in-use beacons to the timelock. 0G has no orchestrator beacon: its set deployer is not
+    /// deployed there (`LibStoxReleasedNetworks.releasesNotOnZerog`).
     /// @param timelock The 0G timelock.
     function handBeaconsTo(address timelock) internal {
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
@@ -93,7 +93,7 @@ abstract contract ZerogTokenCreationFixture is Test {
             .upgradeTo(LibProdDeployV4.STOX_RECEIPT_0_1_30);
         UpgradeableBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX])
             .upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30);
-        for (uint256 i = 0; i < beacons.length; i++) {
+        for (uint256 i = 0; i < LibBeaconInvariants.prodBeaconsInUse(LibSafeInvariants.ZEROG_CHAIN_ID); i++) {
             Ownable(beacons[i]).transferOwnership(timelock);
         }
         vm.stopPrank();
@@ -149,10 +149,13 @@ abstract contract ZerogTokenCreationFixture is Test {
     /// @notice Zoltu-deploys the released suite `name` as `manual-sol-artifacts` would, etching any declared
     /// dependency not yet on the fork.
     /// @param name The suite.
+    /// @dev Refuses a release 0G does not run, so the fixture deploys only what 0G's dispatches do.
     function deployReleased(string memory name) internal {
-        DeploySuite[] memory suites = LibReleasedSuites.releasedSuites();
+        DeploySuite[] memory suites = LibStoxReleasedNetworks.releasedSuites();
         for (uint256 i = 0; i < suites.length; i++) {
             if (keccak256(bytes(suites[i].suite)) != keccak256(bytes(name))) continue;
+            // A release with no networks is required on every deployment network, 0G included.
+            assertEq(suites[i].networks.length, 0, string.concat(name, " is not required on 0G"));
             DeployDependency[] memory dependencies = suites[i].dependencies;
             for (uint256 d = 0; d < dependencies.length; d++) {
                 if (dependencies[d].deployedAddress.code.length == 0) {

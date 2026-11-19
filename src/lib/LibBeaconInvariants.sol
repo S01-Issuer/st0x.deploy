@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibProdBeaconsBase} from "./LibProdBeaconsBase.sol";
 import {LibProdBeacons0_1_1} from "./LibProdBeacons0_1_1.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
@@ -273,6 +274,21 @@ library LibBeaconInvariants {
         return runsBaseBeaconSet(chainId) ? LibProdBeaconsBase.beacons() : LibProdBeacons0_1_1.beacons();
     }
 
+    /// @notice How many of `prodBeaconsForChainId`'s beacons, from the first,
+    /// are in use on `chainId`: all four, or the three token beacons on a chain
+    /// that runs no orchestrator (0G, `LibAuthoriserInvariants.grantsOrchestrator`).
+    /// There the 0.1.30 orchestrator beacon-set deployer, whose constructor
+    /// creates the orchestrator beacon, is not deployed
+    /// (`LibStoxReleasedNetworks.releasesNotOnZerog`).
+    /// @param chainId The chain id.
+    /// @return The number of in-use beacons.
+    function prodBeaconsInUse(uint256 chainId) internal pure returns (uint256) {
+        return
+            LibAuthoriserInvariants.grantsOrchestrator(chainId)
+                ? ORCHESTRATOR_BEACON_INDEX + 1
+                : ORCHESTRATOR_BEACON_INDEX;
+    }
+
     /// @notice Whether the chain runs Base's V1 beacon set rather than the deterministic 0.1.1 set.
     /// @param chainId The chain id.
     /// @return True for Base's set, false for the 0.1.1 set.
@@ -384,7 +400,7 @@ library LibBeaconInvariants {
         return impls;
     }
 
-    /// @notice Assert the active chain's four IN-USE production beacons are
+    /// @notice Assert the active chain's IN-USE production beacons (`prodBeaconsInUse`) are
     /// deployed and owned by THAT chain's governance timelock. This is the
     /// ownership invariant that matters operationally: whoever owns an in-use
     /// beacon can repoint every production vault proxy on the chain, so each
@@ -398,7 +414,7 @@ library LibBeaconInvariants {
     }
 
     /// @notice Owner-parametric `assertProdBeaconsOwnedByChainTimelock`: assert
-    /// the active chain's four IN-USE production beacons are deployed and
+    /// the active chain's IN-USE production beacons (`prodBeaconsInUse`) are deployed and
     /// owned by `expectedOwner`. Parameterised because the beacon owner is a
     /// principal an operational script deliberately mutates — the
     /// governance-timelock migration's authoring and tests assert it against
@@ -414,7 +430,8 @@ library LibBeaconInvariants {
     function assertProdBeaconsOwnedBy(uint256 chainId, address expectedOwner) internal view {
         address[4] memory beacons = prodBeaconsForChainId(chainId);
         bytes32[4] memory codehashes = prodBeaconCodehashesForChainId(chainId);
-        for (uint256 i = 0; i < beacons.length; i++) {
+        uint256 inUse = prodBeaconsInUse(chainId);
+        for (uint256 i = 0; i < inUse; i++) {
             _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
             address actualOwner = IOwnable(beacons[i]).owner();
             if (actualOwner != expectedOwner) {
