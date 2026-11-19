@@ -9,7 +9,12 @@ import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.33/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.33/src/lib/LibSafeTxBuilderJson.sol";
 
-import {SafeNotOrchestratorConfigDelegate} from "../../script/20261113-bind-orchestrator-config.s.sol";
+import {LibTimelockController} from "rain-deploy-0.1.33/src/lib/LibTimelockController.sol";
+
+import {
+    OrchestratorBeaconCodehashMismatch,
+    SafeNotOrchestratorConfigDelegate
+} from "../../script/20261113-bind-orchestrator-config.s.sol";
 import {
     scheduleRevokeServiceSignerDeclaration
 } from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
@@ -25,6 +30,7 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {LibTestConfigRegistryDelegates} from "../lib/LibTestConfigRegistryDelegates.sol";
 import {LibTestOrchestratorConfigBind} from "../lib/LibTestOrchestratorConfigBind.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
@@ -49,6 +55,7 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
         BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness(network);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         bytes32 id = LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG;
+        LibTestOrchestratorConfigBind.deployTargets(vm, safe);
         LibTestOrchestratorConfigBind.approveSafe(vm, safe);
 
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
@@ -95,10 +102,46 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
         LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
         BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness(tag);
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibTestOrchestratorConfigBind.deployTargets(vm, safe);
         advanceRootLineToQsepOnto();
         writeRecord(qsepSetFleetAuthoriserDeclaration());
         LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
         return (script, safe);
+    }
+
+    function qsepRecordedApproved(string memory tag) internal returns (BindOrchestratorConfigHarness, address) {
+        LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
+        BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness(tag);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        LibTestOrchestratorConfigBind.approveSafe(vm, safe);
+        advanceRootLineToQsepOnto();
+        writeRecord(qsepSetFleetAuthoriserDeclaration());
+        return (script, safe);
+    }
+
+    function testPreflightRefusesAnUndeployedTimelock() external {
+        (BindOrchestratorConfigHarness script,) = qsepRecordedApproved("no-timelock");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockNotDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+            )
+        );
+        script.callPreflight();
+    }
+
+    function testPreflightRefusesAnUndeployedBeacon() external {
+        (BindOrchestratorConfigHarness script, address safe) = qsepRecordedApproved("no-beacon");
+        LibTestBeaconInitialOwnerBind.deployTimelock(vm, safe);
+        address beacon = LibProdOrchestratorParams.orchestratorParams().beacon;
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OrchestratorBeaconCodehashMismatch.selector,
+                beacon,
+                LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH,
+                beacon.codehash
+            )
+        );
+        script.callPreflight();
     }
 
     function testBindLandsFromASafeTheRootApprovesForEachNameAlone() external {
