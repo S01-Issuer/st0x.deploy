@@ -34,12 +34,6 @@ contract LibStoxDeployNetworksTest is Test {
         assertEq(LibStoxDeployNetworks.BSC, "bsc", "expected bsc rpc alias");
     }
 
-    /// The locally-declared 0G network name matches the foundry.toml rpc
-    /// alias convention.
-    function testZerogNetworkName() external pure {
-        assertEq(LibStoxDeployNetworks.ZEROG, "zerog", "expected zerog rpc alias");
-    }
-
     /// The 0G name is a declared `[rpc_endpoints]` alias and resolves in the
     /// test environment. A CI dispatch with `--rpc-url zerog` still needs the
     /// `RPC_URL_ZEROG_FORK` secret.

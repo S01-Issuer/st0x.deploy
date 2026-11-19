@@ -44,13 +44,7 @@ library LibStoxDeployNetworks {
     /// chain.
     string internal constant BSC = "bsc";
 
-    /// @notice 0G mainnet (chain id 16661) network name, matching the
-    /// `[rpc_endpoints]` alias in `foundry.toml` (resolved from
-    /// `ZEROG_RPC_URL`).
-    /// @dev Spelled `zerog` because an env var name cannot start with a digit.
-    /// Kept out of `deploymentNetworks` until 0G has a `rain-deploy`
-    /// catalogue entry: the deploy scripts fork every network in that list,
-    /// and `declaredNetworkConfigs` resolves each one.
+    /// @notice 0G mainnet (chain id 16661), the `foundry.toml` rpc alias.
     string internal constant ZEROG = "zerog";
 
     /// @notice Every network ST0x deploys to, as `foundry.toml` rpc aliases.
