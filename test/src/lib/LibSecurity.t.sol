@@ -19,6 +19,15 @@ contract LibSecurityTest is Test {
         assertFalse(LibSecurity.tickerWellFormed("NV\\DA"));
     }
 
+    function testTickerAcceptsOnlyUpperAlphanumericAndFullStopBytes() external pure {
+        for (uint256 b = 0; b < 256; b++) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            bytes1 c = bytes1(uint8(b));
+            bool expected = (c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == ".";
+            assertEq(LibSecurity.tickerWellFormed(bytes.concat("NV", c, "DA")), expected);
+        }
+    }
+
     function testNameShape() external pure {
         assertTrue(LibSecurity.nameWellFormed("NVIDIA Corporation"));
         assertTrue(LibSecurity.nameWellFormed(bytes(unicode"LVMH Moët Hennessy Louis Vuitton SE")));
@@ -26,6 +35,7 @@ contract LibSecurityTest is Test {
         assertFalse(LibSecurity.nameWellFormed(""));
         assertFalse(LibSecurity.nameWellFormed("NVIDIA Corporation ST0x"));
         assertFalse(LibSecurity.nameWellFormed("NVIDIA Corporation (ST0x)"));
+        assertFalse(LibSecurity.nameWellFormed("NVIDIA(ST0x)"));
         assertFalse(LibSecurity.nameWellFormed("NVIDIA \"Corp\""));
         assertFalse(LibSecurity.nameWellFormed("NVIDIA\\Corp"));
         assertFalse(LibSecurity.nameWellFormed("NVIDIA\nCorp"));
