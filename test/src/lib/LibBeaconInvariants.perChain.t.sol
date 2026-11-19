@@ -127,6 +127,7 @@ contract LibBeaconInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
         lib.prodExpectedImplementationsForChainId(chainId);
     }
