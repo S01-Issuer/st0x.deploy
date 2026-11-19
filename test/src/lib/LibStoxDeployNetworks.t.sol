@@ -38,6 +38,13 @@ contract LibStoxDeployNetworksTest is Test {
         assertGt(bytes(vm.rpcUrl(LibStoxDeployNetworks.ZEROG)).length, 0, LibStoxDeployNetworks.ZEROG);
     }
 
+    /// The `zerog` alias forks 0G mainnet. 0G is not in `deploymentNetworks`,
+    /// so no catalogue or deploy fork test checks its chain id.
+    function testZerogForksChain16661() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ZEROG);
+        assertEq(block.chainid, 16661, LibStoxDeployNetworks.ZEROG);
+    }
+
     /// The deploy list is exactly the five production chains, in a fixed
     /// order.
     function testDeploymentNetworks() external pure {
