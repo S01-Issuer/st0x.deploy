@@ -7,12 +7,12 @@ import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.33/src/abstract/SafeBundleScript.sol";
-import {IOwnerFreezableV1} from "rain-vats-0.2.22/src/interface/IOwnerFreezableV1.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.22/src/interface/IReceiptVaultV3.sol";
-import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.19/src/lib/LibExtrospectRegistryBeaconProxy.sol";
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.33/src/lib/LibSafeFork.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.37/src/abstract/SafeBundleScript.sol";
+import {IOwnerFreezableV1} from "rain-vats-0.2.25/src/interface/IOwnerFreezableV1.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.25/src/interface/IReceiptVaultV3.sol";
+import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.31/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+import {SafeTx} from "rain-deploy-0.1.37/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.37/src/lib/LibSafeFork.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";

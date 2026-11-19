@@ -11,12 +11,12 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.33/src/lib/LibSafe.sol";
-import {LibTimelockController} from "rain-deploy-0.1.33/src/lib/LibTimelockController.sol";
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.33/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.33/src/lib/LibSafeTxBuilderJson.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.37/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.37/src/lib/LibSafe.sol";
+import {LibTimelockController} from "rain-deploy-0.1.37/src/lib/LibTimelockController.sol";
+import {SafeTx} from "rain-deploy-0.1.37/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.37/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.37/src/lib/LibSafeTxBuilderJson.sol";
 
 import {
     DirectTransferNotRefused,
@@ -37,9 +37,9 @@ import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibTestRegistryBeaconProxy} from "../lib/LibTestRegistryBeaconProxy.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
-import {IOwnerFreezableV1} from "rain-vats-0.2.22/src/interface/IOwnerFreezableV1.sol";
-import {IReceiptV3} from "rain-vats-0.2.22/src/interface/IReceiptV3.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.22/src/interface/IReceiptVaultV3.sol";
+import {IOwnerFreezableV1} from "rain-vats-0.2.25/src/interface/IOwnerFreezableV1.sol";
+import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.25/src/interface/IReceiptVaultV3.sol";
 import {ExpectedGrantMissing, LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {BeaconOwnerMismatch, LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {RoleGrant} from "../../src/lib/RoleGrant.sol";
