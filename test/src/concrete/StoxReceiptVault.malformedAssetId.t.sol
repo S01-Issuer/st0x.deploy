@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
-import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../../src/interface/IStoxTokenConfigV1.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {MalformedAssetId} from "../../../src/error/ErrStoxTokenConfig.sol";
 import {Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSecurity} from "../../../src/lib/LibSecurity.sol";
@@ -28,6 +28,7 @@ contract StoxReceiptVaultMalformedAssetIdTest is Test {
             STOX_TOKEN_CONFIG_V1_TAG,
             StoxTokenConfigV1({
                 assetId: assetId,
+                assetIdKind: AssetIdKind.ISIN,
                 listingTicker: "AAPL",
                 listingName: "Apple Inc.",
                 region: Region.US,
