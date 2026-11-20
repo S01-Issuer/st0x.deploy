@@ -2,13 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {AssetIdKind} from "../interface/IStoxTokenConfigV1.sol";
-
 error InvalidStoxTokenConfigTag(bytes32 tag);
 
 error NonCanonicalStoxTokenConfig();
-
-error UnsupportedAssetIdKind(AssetIdKind kind);
 
 error MalformedAssetId(string assetId);
 
