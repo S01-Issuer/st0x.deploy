@@ -31,6 +31,8 @@ import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
+import {IStoxTokenConfigV1, StoxTokenConfigV1, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
+import {STOX_TOKEN_CONFIG_STORAGE_LOCATION} from "../../../src/lib/LibStoxTokenConfig.sol";
 
 /// @title StoxReceiptVault initialize
 /// @notice A vault built by the clone factory resolves its authorizer from
@@ -177,6 +179,55 @@ contract StoxReceiptVaultInitializeTest is Test {
         vm.expectRevert(
             abi.encodeWithSelector(AuthorizerMissingCorporateActionAdmin.selector, bad, CANCEL_CORPORATE_ACTION)
         );
+        vault.initialize(_data());
+    }
+
+    /// The kind byte is dirtied first, since ISIN is the zero value.
+    function testInitializeStoresAndEmitsTheIsinKind() external {
+        LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
+        StoxReceiptVault vault = _uninitializedVault();
+        bytes32 regionAndKindSlot = bytes32(uint256(STOX_TOKEN_CONFIG_STORAGE_LOCATION) + 3);
+        vm.store(address(vault), regionAndKindSlot, bytes32(uint256(0xff) << 8));
+
+        vm.recordLogs();
+        vault.initialize(_data());
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(
+            uint8(uint256(vm.load(address(vault), regionAndKindSlot)) >> 8), uint8(AssetIdKind.ISIN), "stored kind"
+        );
+        uint256 count = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].emitter == address(vault)
+                    && logs[i].topics[0] == IStoxTokenConfigV1.StoxTokenInitialized.selector
+            ) {
+                (, StoxTokenConfigV1 memory config) = abi.decode(logs[i].data, (address, StoxTokenConfigV1));
+                assertEq(uint8(config.assetIdKind), uint8(AssetIdKind.ISIN), "emitted kind");
+                count++;
+            }
+        }
+        assertEq(count, 1, "one StoxTokenInitialized");
+    }
+
+    /// The same vault then accepts the ISIN data, so the kind word alone is
+    /// refused.
+    function testFuzzInitializeRefusesANonIsinKindWord(uint256 kind) external {
+        kind = bound(kind, uint256(AssetIdKind.ISIN) + 1, type(uint256).max);
+        LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
+        StoxReceiptVault vault = _uninitializedVault();
+        bytes memory data = _data();
+        // Tag, config offset, then the config head: assetId offset, kind.
+        uint256 isinWord;
+        assembly ("memory-safe") {
+            isinWord := mload(add(data, 0x80))
+            mstore(add(data, 0x80), kind)
+        }
+        assertEq(isinWord, uint256(AssetIdKind.ISIN), "kind word");
+
+        vm.expectRevert(bytes(""));
+        vault.initialize(data);
+
         vault.initialize(_data());
     }
 

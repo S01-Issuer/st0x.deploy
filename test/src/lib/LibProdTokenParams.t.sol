@@ -23,7 +23,7 @@ import {LibStoxTokenProxy} from "../../../src/generated/LibStoxTokenProxy.sol";
 import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../../src/interface/IStoxTokenConfigV1.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
@@ -67,6 +67,7 @@ contract LibProdTokenParamsTest is Test {
             assertEq(abi.encode(tag, config), params[i].data, "canonical");
             assertEq(tag, STOX_TOKEN_CONFIG_V1_TAG, "tag");
             assertEq(config.assetId, configs[i].assetId, "asset id");
+            assertEq(uint8(config.assetIdKind), uint8(AssetIdKind.ISIN), "asset id kind");
             assertEq(config.listingTicker, configs[i].listingTicker, "listing ticker");
             assertEq(config.listingName, configs[i].listingName, "listing name");
             assertEq(uint8(config.region), uint8(configs[i].region), "region");
