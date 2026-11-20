@@ -2,19 +2,19 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {RainDeployBroadcast} from "rain-deploy-0.1.33/src/abstract/RainDeployBroadcast.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.33/src/lib/LibConfigRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {RainDeployBroadcast} from "rain-deploy-0.1.38/src/abstract/RainDeployBroadcast.sol";
+import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     LibOffchainAssetReceiptVaultRbac,
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
-} from "rain-vats-0.2.22/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.25/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
-import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariants, AuthoriserNotReady} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
@@ -95,6 +95,9 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         address expectedAuthorizer = region == Region.US
             ? LibAuthoriserInvariants.authoriserForChainId(block.chainid)
             : LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
+        // A placeholder slot reads as zero, which an RBAC binding with no
+        // authoriser would otherwise match.
+        if (expectedAuthorizer == address(0)) revert AuthoriserNotReady(expectedAuthorizer);
         // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(
             LibRegistryAuthority.ROOT_AUTHORITY, rbacName, OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH

@@ -3,15 +3,15 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.33/src/interface/IConfigRegistryV5.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.22/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.25/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     VaultBeaconMismatch,
     ReceiptBeaconMismatch,
@@ -20,10 +20,12 @@ import {
     WrapperBeaconMismatch
 } from "../../script/Deploy.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
-import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariants, AuthoriserNotReady} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {LibTestTokenRows} from "../lib/LibTestTokenRows.sol";
 import {DeployPreDeployCheckHarness} from "./DeployPreDeployCheckHarness.sol";
@@ -161,6 +163,21 @@ contract DeployTokenBindingsTest is Test {
             }
         }
         return sample;
+    }
+
+    /// A US token on 0G, whose authoriser slot is a placeholder, is refused
+    /// even when its RBAC binds the zero authoriser the slot reads as.
+    function testUsTokenRefusesPlaceholderAuthoriserSlot() external {
+        TokenConfig[] memory us = new TokenConfig[](1);
+        us[0] = oneRowPerRegion(0, 0)[0];
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(us);
+        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        bindPinnedBeacons();
+        bindRbac(LibStoxConfig.RBAC_US_NAME, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, address(0));
+        vm.expectRevert(abi.encodeWithSelector(AuthoriserNotReady.selector, address(0)));
+        harness.exposedPreDeployCheck(
+            tokens[0], SupportedNetwork(LibStoxDeployNetworks.ZEROG, LibSafeInvariants.ZEROG_CHAIN_ID, "", "")
+        );
     }
 
     function testTokensRefuseOtherVaultBeacon(address wrong, uint256 usSeed, uint256 euSeed) external {

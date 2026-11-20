@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibBeaconInvariants, UnsupportedChainForProdBeacons} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdBeaconsBase} from "../../../src/lib/LibProdBeaconsBase.sol";
@@ -34,6 +34,7 @@ contract LibBeaconInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
         lib.runsBaseBeaconSet(chainId);
     }
@@ -58,6 +59,22 @@ contract LibBeaconInvariantsPerChainTest is Test {
             for (uint256 j = 0; j < v1.length; j++) {
                 assertEq(v1[j], address(0));
             }
+        }
+    }
+
+    /// 0G is outside `deploymentNetworks` until its migration line and token
+    /// table are settled, so its 0.1.1 arm is pinned on its own: the 0.1.1
+    /// beacon set deployer, the 0.1.1 bootstrap implementations, and no V1
+    /// history.
+    function testZerogLookupsAreThe011Lib() external pure {
+        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
+        assertFalse(LibBeaconInvariants.runsBaseBeaconSet(id));
+        assertEq(LibBeaconInvariants.prodPinnedBeaconsForChainId(id), LibProdBeacons0_1_1.pinnedBeacons());
+        assertEq(LibBeaconInvariants.prodBeaconSetDeployerForChainId(id), LibProdBeacons0_1_1.beaconSetDeployer());
+        assertEq(LibBeaconInvariants.prodImplementationsForChainId(id), LibProdBeacons0_1_1.implementations());
+        address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(id);
+        for (uint256 j = 0; j < v1.length; j++) {
+            assertEq(v1[j], address(0));
         }
     }
 
@@ -110,6 +127,7 @@ contract LibBeaconInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
         lib.prodExpectedImplementationsForChainId(chainId);
     }

@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibAffix} from "rain-string-0.3.10/src/lib/affix/LibAffix.sol";
-import {LibParseChar} from "rain-string-0.3.10/src/lib/parse/LibParseChar.sol";
+import {LibAffix} from "rain-string-0.3.11/src/lib/affix/LibAffix.sol";
+import {LibParseChar} from "rain-string-0.3.11/src/lib/parse/LibParseChar.sol";
 import {
     CMASK_ASCII,
     CMASK_BACKSLASH,
@@ -12,7 +12,7 @@ import {
     CMASK_PRINTABLE,
     CMASK_QUOTATION_MARK,
     CMASK_UPPER_ALPHA_A_Z
-} from "rain-string-0.3.10/src/lib/parse/LibParseCMask.sol";
+} from "rain-string-0.3.11/src/lib/parse/LibParseCMask.sol";
 import {LibBytes} from "rain-solmem-0.1.28/src/lib/LibBytes.sol";
 import {Pointer} from "rain-solmem-0.1.28/src/lib/LibPointer.sol";
 

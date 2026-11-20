@@ -12,7 +12,7 @@ import {LibProdDeployV1} from "./LibProdDeployV1.sol";
 import {
     REGISTRY_BEACON_PROXY_PREFIX,
     REGISTRY_BEACON_PROXY_SUFFIX
-} from "rain-extrospection-0.1.19/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+} from "rain-extrospection-0.1.31/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 
 /// @notice Minimal `Ownable`-like surface used to read a beacon's owner.
 /// Every OpenZeppelin `UpgradeableBeacon` exposes `owner()`; this library
@@ -281,6 +281,7 @@ library LibBeaconInvariants {
         if (
             chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID
                 || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID || chainId == LibSafeInvariants.BSC_CHAIN_ID
+                || chainId == LibSafeInvariants.ZEROG_CHAIN_ID
         ) return false;
         revert UnsupportedChainForProdBeacons(chainId);
     }

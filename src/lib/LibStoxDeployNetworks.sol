@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 /// @title LibStoxDeployNetworks
 /// @notice The ST0x deploy network set: the name constants `rain-deploy`'s
@@ -43,6 +43,9 @@ library LibStoxDeployNetworks {
     /// deterministic deploys land at the same addresses as on every other
     /// chain.
     string internal constant BSC = "bsc";
+
+    /// @notice 0G mainnet (chain id 16661), the `foundry.toml` rpc alias.
+    string internal constant ZEROG = "zerog";
 
     /// @notice Every network ST0x deploys to, as `foundry.toml` rpc aliases.
     /// @dev The deploy scripts hand this whole list to
