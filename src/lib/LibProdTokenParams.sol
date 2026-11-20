@@ -19,7 +19,7 @@ import {
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
-import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../interface/IStoxTokenConfigV1.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind} from "../interface/IStoxTokenConfigV1.sol";
 import {Region, TokenConfig} from "./LibProdTokenConfig.sol";
 
 library LibProdTokenParams {
@@ -45,6 +45,7 @@ library LibProdTokenParams {
             STOX_TOKEN_CONFIG_V1_TAG,
             StoxTokenConfigV1({
                 assetId: config.assetId,
+                assetIdKind: AssetIdKind.ISIN,
                 listingTicker: config.listingTicker,
                 listingName: config.listingName,
                 region: config.region,
