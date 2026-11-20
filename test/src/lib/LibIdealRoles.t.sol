@@ -190,4 +190,28 @@ contract LibIdealRolesTest is Test {
         }
         delete want;
     }
+
+    /// @notice 0G's ideal V4 authoriser list is the per-chain map: the Safe,
+    /// the timelock and the signer, with no orchestrator `DEPOSIT` or
+    /// `WITHDRAW`. On 0G the orchestrator's pinned address goes to whoever
+    /// first calls the permissionless 0.1.30 beacon-set deployer. This pins
+    /// 0G's row directly, whether or not 0G is a deployment network.
+    function testZerogV4AuthoriserListLeavesOutTheOrchestrator() external {
+        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
+        assertFalse(LibAuthoriserInvariants.grantsOrchestrator(id));
+        (address safe, address timelock) = principals(id);
+        ContractRoles memory roles = LibIdealRoles.contractRoles(id)[0];
+        assertEq(roles.target, LibAuthoriserInvariants.authoriserForChainId(id));
+        assertEq(roles.expected.length, LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX);
+        for (uint256 i = 0; i < roles.expected.length; i++) {
+            assertNotEq(roles.expected[i].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        }
+
+        pushEach(adminRoles(), timelock);
+        push("DEPOSIT", safe);
+        push("WITHDRAW", safe);
+        push("CERTIFY", safe);
+        push("CERTIFY", LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
+        assertWant(roles.expected);
+    }
 }

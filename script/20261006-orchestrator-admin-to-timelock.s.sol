@@ -76,10 +76,13 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// `renounceRole` itself immediately.
 ///
 /// The record is applied onto the beacon-initial-owner bind record, which
-/// follows the migration-registry-v5 backfill record, which follows the
-/// EMERGENCY grant's, so the registry refuses it on a chain where
-/// that grant has not executed: the Safe must be granted `EMERGENCY_ROLE` while
-/// it can still do so directly.
+/// follows the 0G token creation record and the migration-registry-v5
+/// backfill record before it, which follows the EMERGENCY grant's, so the
+/// registry refuses it on a chain where that grant has not executed: the Safe
+/// must be granted `EMERGENCY_ROLE` while it can still do so directly. On 0G
+/// (`LibStoxMigrations.withoutHistory`) the backfill writes the EMERGENCY
+/// grant's record record-only, without the grant, so there the line proves
+/// nothing about it. The pre-flight's own `EMERGENCY_ROLE` check covers 0G.
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a

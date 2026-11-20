@@ -30,7 +30,7 @@ library LibIdealRoles {
         ContractRoles[] memory roles = new ContractRoles[](5);
         roles[0] = ContractRoles(
             LibAuthoriserInvariants.authoriserForChainId(chainId),
-            LibAuthoriserInvariants.expectedGrants(safe, timelock)
+            LibAuthoriserInvariants.expectedGrantsOn(chainId, safe, timelock)
         );
         roles[1] = ContractRoles(
             LibAuthoriserInvariants.euAuthoriserForChainId(chainId),

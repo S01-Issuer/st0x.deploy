@@ -114,12 +114,13 @@ contract LibEuAuthoriserCloneTest is Test {
     /// @notice The init data is the initial admin alone, so the minter is role
     /// state granted afterwards and cannot move the clone's address.
     function testCloneDataIsTheChainsOwnSafe() external pure {
-        uint256[5] memory chainIds = [
+        uint256[6] memory chainIds = [
             LibSafeInvariants.BASE_CHAIN_ID,
             LibSafeInvariants.ETHEREUM_CHAIN_ID,
             LibSafeInvariants.HYPEREVM_CHAIN_ID,
             LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
+            LibSafeInvariants.BSC_CHAIN_ID,
+            LibSafeInvariants.ZEROG_CHAIN_ID
         ];
         for (uint256 i = 0; i < chainIds.length; i++) {
             assertEq(
@@ -158,12 +159,13 @@ contract LibEuAuthoriserCloneTest is Test {
     /// chain. Either one drifting from the other is caught here rather than by
     /// a live-state read against an address nothing deployed.
     function testPinnedAddressesMatchTheDerivation() external pure {
-        uint256[5] memory chainIds = [
+        uint256[6] memory chainIds = [
             LibSafeInvariants.BASE_CHAIN_ID,
             LibSafeInvariants.ETHEREUM_CHAIN_ID,
             LibSafeInvariants.HYPEREVM_CHAIN_ID,
             LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
+            LibSafeInvariants.BSC_CHAIN_ID,
+            LibSafeInvariants.ZEROG_CHAIN_ID
         ];
         for (uint256 i = 0; i < chainIds.length; i++) {
             assertEq(
@@ -175,12 +177,13 @@ contract LibEuAuthoriserCloneTest is Test {
     }
 
     function testEuPinIsNotTheProductionAuthoriser() external pure {
-        uint256[5] memory chainIds = [
+        uint256[6] memory chainIds = [
             LibSafeInvariants.BASE_CHAIN_ID,
             LibSafeInvariants.ETHEREUM_CHAIN_ID,
             LibSafeInvariants.HYPEREVM_CHAIN_ID,
             LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
+            LibSafeInvariants.BSC_CHAIN_ID,
+            LibSafeInvariants.ZEROG_CHAIN_ID
         ];
         for (uint256 i = 0; i < chainIds.length; i++) {
             assertTrue(

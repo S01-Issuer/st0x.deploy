@@ -16,7 +16,7 @@ import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclar
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     BuildMigrations,
@@ -32,7 +32,6 @@ import {BuildMigrationsHarness} from "./BuildMigrationsHarness.sol";
 import {ZeroMomentFixture} from "./ZeroMomentFixture.sol";
 import {ForkedLine, MigrationWithoutRecord} from "../../src/lib/LibScriptDeclarations.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 contract BuildMigrationsTest is Test {
@@ -45,7 +44,7 @@ contract BuildMigrationsTest is Test {
     BuildMigrationsHarness internal build = new BuildMigrationsHarness();
 
     function networks() internal pure returns (SupportedNetwork[] memory) {
-        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        return LibStoxMigrations.lineNetworks();
     }
 
     function endsWith(string memory text, string memory suffix) internal pure returns (bool) {
@@ -89,7 +88,7 @@ contract BuildMigrationsTest is Test {
         assertEq(vm.parseJsonBytes32(json, ".namespace"), LibStoxMigrations.NAMESPACE);
     }
 
-    function testNetworksAreTheDeploymentNetworksWithTheRegistry() external {
+    function testNetworksAreTheLineNetworksWithTheRegistry() external {
         string memory json = build.renderDir(LINE);
         SupportedNetwork[] memory nets = networks();
         assertEq(vm.parseJsonKeys(json, ".networks").length, nets.length);

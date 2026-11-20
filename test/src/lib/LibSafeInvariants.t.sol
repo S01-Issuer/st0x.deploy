@@ -24,6 +24,7 @@ contract LibSafeInvariantsTest is Test {
         assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.HYPEREVM_CHAIN_ID), derived, "hyperevm");
         assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.ROBINHOOD_CHAIN_ID), derived, "robinhood");
         assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.BSC_CHAIN_ID), derived, "bsc");
+        assertEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.ZEROG_CHAIN_ID), derived, "zerog");
         assertNotEq(LibSafeInvariants.safeForChainId(LibSafeInvariants.BASE_CHAIN_ID), derived, "base");
     }
 

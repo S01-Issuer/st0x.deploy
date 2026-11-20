@@ -85,6 +85,13 @@ library LibSafeInvariants {
     /// Asserted against the shared policy by `assertTokenOwnerSafePolicy`.
     address internal constant STOX_TOKEN_OWNER_SAFE_BSC = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
 
+    /// @notice The ST0x token-owner Safe on **0G** (chain id 16661). The same
+    /// CREATE2 address again: the canonical v1.4.1 proxy factory is live on
+    /// 16661, and the address commits to the identical initializer and salt
+    /// nonce, so only this owner set can be created there. Asserted against
+    /// the shared policy by `assertTokenOwnerSafePolicy`.
+    address internal constant STOX_TOKEN_OWNER_SAFE_ZEROG = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
+
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
     /// 3-of-6 against the post-rotation owner roster. Scripts and the
     /// prod-state invariant pin treat this as the canonical current truth
@@ -204,6 +211,9 @@ library LibSafeInvariants {
         }
         if (chainId == BSC_CHAIN_ID) {
             return STOX_TOKEN_OWNER_SAFE_BSC;
+        }
+        if (chainId == ZEROG_CHAIN_ID) {
+            return STOX_TOKEN_OWNER_SAFE_ZEROG;
         }
         revert UnsupportedChainForTokenOwnerSafe(chainId);
     }
