@@ -2,6 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+
 import {QsepSetFleetAuthoriser} from "../../script/20261111-qsep-set-fleet-authoriser.s.sol";
 
 /// @title QsepSetFleetAuthoriserHarness
@@ -20,5 +22,22 @@ contract QsepSetFleetAuthoriserHarness is QsepSetFleetAuthoriser {
 
     function path() external view returns (string memory) {
         return artifactPath();
+    }
+
+    function callArtifactPath() external view returns (string memory) {
+        return artifactPath();
+    }
+
+    function callPreflight() external view {
+        preflight();
+    }
+
+    function callAuthorBundle() external view returns (SafeTx[] memory) {
+        return authorBundle();
+    }
+
+    /// @dev The record-only post-state, as `run()` checks it when no swap is pending.
+    function callAssertPostState() external view {
+        assertPostState(false);
     }
 }

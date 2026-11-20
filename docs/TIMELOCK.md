@@ -276,6 +276,59 @@ the root-line head stay, so this migration cannot run again, and the rename
 pre-flight refuses the vaults back on the Safe. Rolling forward again needs a
 new migration.
 
+## 0G's root line after the token creation
+
+0G's line holds every migration, like every other chain's. After
+`20261119-create-zerog-tokens`, each later migration has a 0G arm, or it refuses
+0G with `ZerogArmPendingDecision` until a decision is made. 0G's line cannot go
+past a refusing migration. Every 0G arm below is the record alone, and its
+pre-flight and post-state check the 0G state directly, never an earlier record.
+
+- `20261022-bind-beacon-initial-owner`: the record alone. No current-source
+  suite deploys on 0G (`StoxDeploySuites.setCandidateNetworks`), so no beacon
+  there reads the binding. The arm refuses if the name is bound on 0G, or if the
+  suite timelock has code there.
+- `20261006-orchestrator-admin-to-timelock`: refuses. The 0G orchestrator was
+  created with the timelock as `DEFAULT_ADMIN_ROLE`, but the 0G Safe holds no
+  `EMERGENCY_ROLE`. Waits on the decision whether it must. A new migration can
+  only go after the line's head, so a grant either executes outside the line
+  before this arm runs, or rides in this arm's bundle as a timelock schedule, or
+  comes in a later migration after a record-only arm.
+- `20261103-hand-safe-owned-base-vaults-to-timelock`: the record alone, as
+  everywhere off Base. The pre-flight reads 0G's token table, so it fails closed
+  with `TokenTableNotHydrated` until the table holds the created tokens.
+- `20261021-schedule-underlying-naming-beacons`, `-rename`,
+  `20261021-execute-underlying-naming`: refuse. Wait on the decision whether the
+  underlying naming applies on 0G. The beacon batch moves the beacons onto
+  current-source implementations, which no 0G dispatch deploys.
+  `BuildExpectedState.renameMigration` is zero on 0G.
+- `20261109-schedule-revoke-service-signer-deposit-withdraw`: the record alone.
+  0G's US authoriser never granted the service signer `DEPOSIT` or `WITHDRAW`.
+  The arm requires the timelock to hold both `_ADMIN` roles, the signer to hold
+  neither role, and no pending revoke batch. A batch that already executed
+  changed nothing on 0G and does not block the record.
+- `20261109-execute-revoke-service-signer-deposit-withdraw`: the record alone.
+  `execute()` refuses, because no batch exists. The pre-flight requires no
+  pending revoke batch and the signer to hold neither role.
+- `20261111-qsep-set-fleet-authoriser`: the record alone, as everywhere off
+  Base.
+- `20261113-bind-orchestrator-config`: the record alone. The bindings serve the
+  current-source orchestrator, which does not deploy on 0G. The arm refuses if
+  either name is bound on 0G, or if its beacon or the suite timelock has code
+  there.
+
+`ZerogRootLine.t.sol` and the `*.zerog.root-line.t.sol` tests walk 0G's line on
+a fork from the state #620 leaves, with the 0.1.30 orchestrator live 0G runs. A
+refusing migration is written there by its record alone, in its place.
+
+The repo still models 0G as running no orchestrator
+(`LibAuthoriserInvariants.grantsOrchestrator`,
+`LibBeaconInvariants.prodBeaconsInUse`, `LibStoxReleasedNetworks`). Live 0G has
+the 0.1.30 orchestrator anyway: its beacon-set deployer, its beacon on the
+timelock, and the instance claimed with the timelock as `DEFAULT_ADMIN_ROLE` (0G
+block 50776661). No 0G arm here reads or changes it. Adopting it waits on the
+same decision as its roles.
+
 ## Rehearsing the timelock
 
 The rehearsed operation (rain-deploy's `LibTimelockRehearsal`, salt
@@ -503,9 +556,9 @@ as history, per chain, before step 2 can run.
 
 On 0G (`LibStoxMigrations.withoutHistory`) none of the backfilled steps ran. The
 backfill writes each of their records there record-only, so a record on 0G does
-not mean its step ran. The admin move's pre-flight checks the Safe's
-`EMERGENCY_ROLE` itself, so it still refuses 0G until a reviewed 0G arm decides
-that role there.
+not mean its step ran. The admin move refuses 0G with `ZerogArmPendingDecision`
+until the Safe's `EMERGENCY_ROLE` there is decided (see "0G's root line after
+the token creation").
 
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a

@@ -48,7 +48,12 @@ function scheduleRevokeServiceSignerDeclaration() pure returns (ScriptDeclaratio
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the timelock batch
 /// revoking `DEPOSIT` and `WITHDRAW` from the service signer on the chain's
 /// authoriser, then writes the Safe's root-line record. The timelock holds
-/// `DEPOSIT_ADMIN` and `WITHDRAW_ADMIN`, so it is the only route.
+/// `DEPOSIT_ADMIN` and `WITHDRAW_ADMIN`, so it is the only route. On 0G the
+/// bundle is the record alone: the 0G token creation requires 0G's US
+/// authoriser to hold exactly `LibAuthoriserInvariants.expectedGrantsOn`, the
+/// map after the revoke, so the service signer never held `DEPOSIT` or
+/// `WITHDRAW` there. The pre-flight and the post-state check that state
+/// directly.
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261109-schedule-revoke-service-signer-deposit-withdraw` per chain.
@@ -96,6 +101,10 @@ contract ScheduleRevokeServiceSignerDepositWithdraw is SafeBundleScript, IStoxSc
         if (!access.hasRole(keccak256("WITHDRAW_ADMIN"), timelock())) {
             revert TimelockLacksAdminRole(timelock(), keccak256("WITHDRAW_ADMIN"));
         }
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            assertZerogRevoked(authoriser);
+            return;
+        }
         if (!access.hasRole(keccak256("DEPOSIT"), signer)) revert ServiceSignerLacksRole(keccak256("DEPOSIT"));
         if (!access.hasRole(keccak256("WITHDRAW"), signer)) revert ServiceSignerLacksRole(keccak256("WITHDRAW"));
 
@@ -103,9 +112,25 @@ contract ScheduleRevokeServiceSignerDepositWithdraw is SafeBundleScript, IStoxSc
         if (TimelockController(payable(timelock())).isOperation(id)) revert RevokeAlreadyScheduled(id);
     }
 
+    /// @notice 0G's state: the service signer holds neither `DEPOSIT` nor
+    /// `WITHDRAW` on `authoriser`, and no revoke batch is pending. A batch that
+    /// already executed changed nothing there and cannot be cancelled, so it
+    /// does not block the record.
+    /// @param authoriser 0G's US authoriser.
+    function assertZerogRevoked(address authoriser) internal view {
+        LibServiceSignerRevoke.assertRevoked(authoriser);
+        bytes32 id = LibServiceSignerRevoke.operationId(timelock(), block.chainid);
+        if (TimelockController(payable(timelock())).isOperationPending(id)) revert RevokeAlreadyScheduled(id);
+    }
+
     /// @inheritdoc SafeBundleScript
-    /// @dev The schedule, then the record.
+    /// @dev The schedule, then the record. On 0G, the record alone.
     function authorBundle() internal view override returns (SafeTx[] memory) {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            SafeTx[] memory record = new SafeTx[](1);
+            record[0] = LibStoxMigrations.recordTx(scheduleRevokeServiceSignerDeclaration());
+            return record;
+        }
         SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
             to: timelock(),
@@ -119,6 +144,11 @@ contract ScheduleRevokeServiceSignerDepositWithdraw is SafeBundleScript, IStoxSc
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            assertZerogRevoked(LibAuthoriserInvariants.activeChainAuthoriser());
+            LibStoxMigrations.assertRecorded(scheduleRevokeServiceSignerDeclaration());
+            return;
+        }
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibServiceSignerRevoke.operationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
@@ -129,6 +159,8 @@ contract ScheduleRevokeServiceSignerDepositWithdraw is SafeBundleScript, IStoxSc
 
     /// @inheritdoc SafeBundleScript
     function assertReversible() internal override {
+        // 0G schedules nothing, so there is nothing to execute.
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) return;
         uint256 postBundle = vm.snapshotState();
         proveExecution();
         vm.revertToState(postBundle);
