@@ -160,17 +160,11 @@ library LibStoxMigrations {
     /// Recorded right after the backfill on every chain.
     bytes32 internal constant CREATE_ZEROG_TOKENS = keccak256("script/20261119-create-zerog-tokens.s.sol");
 
-    /// @notice Every chain with a root line: each deployment network, then 0G,
-    /// which is not a deployment network yet (no suite dispatch forks it).
+    /// @notice Every chain with a root line: each deployment network, 0G
+    /// included. Every line holds every migration.
     /// @return The networks, in manifest order.
     function lineNetworks() internal pure returns (SupportedNetwork[] memory) {
-        string[] memory deployed = LibStoxDeployNetworks.deploymentNetworks();
-        string[] memory names = new string[](deployed.length + 1);
-        for (uint256 i = 0; i < deployed.length; i++) {
-            names[i] = deployed[i];
-        }
-        names[deployed.length] = LibStoxDeployNetworks.ZEROG;
-        return LibRainDeploy.declaredNetworkConfigs(names);
+        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
     /// @notice Whether `chainId` joined after the migrations the backfill

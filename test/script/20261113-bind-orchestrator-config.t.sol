@@ -190,7 +190,7 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
     }
 
     function testBindBundleOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertBundle(networks[i]);
         }
@@ -199,7 +199,7 @@ contract BindOrchestratorConfigTest is RevokeServiceSignerDepositWithdrawFixture
     function testArtifactIsTheChainsJsonUnderOut() external {
         BindOrchestratorConfigHarness script = new BindOrchestratorConfigHarness("path");
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             assertEq(

@@ -50,19 +50,18 @@ contract LibStoxMigrationsTest is Test {
     }
 
     /// @notice The chains with a root line are the deployment networks, in
-    /// their order, then 0G under its `foundry.toml` alias.
-    function testLineNetworksAreTheDeploymentNetworksThenZerog() external pure {
+    /// their order, 0G last.
+    function testLineNetworksAreTheDeploymentNetworks() external pure {
         SupportedNetwork[] memory deployed =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         SupportedNetwork[] memory lines = LibStoxMigrations.lineNetworks();
-        assertEq(lines.length, deployed.length + 1);
+        assertEq(lines.length, deployed.length);
         for (uint256 i = 0; i < deployed.length; i++) {
             assertEq(lines[i].name, deployed[i].name);
             assertEq(lines[i].chainId, deployed[i].chainId);
-            assertNotEq(lines[i].chainId, LibSafeInvariants.ZEROG_CHAIN_ID);
         }
-        assertEq(lines[deployed.length].name, LibStoxDeployNetworks.ZEROG);
-        assertEq(lines[deployed.length].chainId, LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertEq(lines[deployed.length - 1].name, LibStoxDeployNetworks.ZEROG);
+        assertEq(lines[deployed.length - 1].chainId, LibSafeInvariants.ZEROG_CHAIN_ID);
     }
 
     /// @notice Only 0G joined after the backfilled history ran everywhere else.
@@ -70,7 +69,7 @@ contract LibStoxMigrationsTest is Test {
         assertEq(LibStoxMigrations.withoutHistory(chainId), chainId == LibSafeInvariants.ZEROG_CHAIN_ID);
         assertTrue(LibStoxMigrations.withoutHistory(LibSafeInvariants.ZEROG_CHAIN_ID));
         SupportedNetwork[] memory deployed =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 i = 0; i < deployed.length; i++) {
             assertFalse(LibStoxMigrations.withoutHistory(deployed[i].chainId), deployed[i].name);
         }
@@ -110,11 +109,12 @@ contract LibStoxMigrationsTest is Test {
         LibMigrationRegistry.checkCodeHash();
     }
 
-    /// @notice Every network ST0x deploys to has a pinned execution moment,
-    /// and it is the chain's own record of the migration.
+    /// @notice Every network ST0x deployed to before 0G has a pinned execution
+    /// moment, and it is the chain's own record of the migration. 0G ran none
+    /// of it: its line holds the record record-only, with no moment.
     function testGovernanceTimelockExecutionOnEveryDeploymentNetwork() external {
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 i = 0; i < networks.length; i++) {
             assertExecution(networks[i]);
         }

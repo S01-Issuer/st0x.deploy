@@ -188,7 +188,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
 
     function testRenameBatchExactOnEveryDeploymentNetwork() external pure {
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 i = 0; i < networks.length; i++) {
             assertRenameBatchExact(networks[i].chainId, networks[i].name);
         }
@@ -314,7 +314,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
     }
 
     function testRolloutOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertRollout(networks[i]);
         }

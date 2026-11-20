@@ -34,7 +34,7 @@ contract GrantOrchestratorEmergencyTest is BackfilledHistoryScriptTest {
     }
 
     function ranOn(uint256 chainId) internal pure override returns (bool) {
-        return onDeploymentChain(chainId);
+        return ranHistoryOn(chainId);
     }
 
     function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {

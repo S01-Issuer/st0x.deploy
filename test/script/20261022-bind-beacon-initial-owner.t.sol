@@ -112,7 +112,7 @@ contract BindBeaconInitialOwnerTest is Test {
     }
 
     function testBindBundleOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertBundle(networks[i]);
         }
@@ -121,7 +121,7 @@ contract BindBeaconInitialOwnerTest is Test {
     function testArtifactIsTheChainsJsonUnderOut() external {
         BindBeaconInitialOwnerHarness script = new BindBeaconInitialOwnerHarness("path");
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             assertEq(

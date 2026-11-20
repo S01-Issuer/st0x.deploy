@@ -34,7 +34,6 @@ contract LibBeaconInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
-        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
         lib.runsBaseBeaconSet(chainId);
     }
@@ -62,10 +61,8 @@ contract LibBeaconInvariantsPerChainTest is Test {
         }
     }
 
-    /// 0G is outside `deploymentNetworks` until its migration line and token
-    /// table are settled, so its 0.1.1 arm is pinned on its own: the 0.1.1
-    /// beacon set deployer, the 0.1.1 bootstrap implementations, and no V1
-    /// history.
+    /// 0G runs the 0.1.1 arm: the 0.1.1 beacon set deployer, the 0.1.1
+    /// bootstrap implementations, and no V1 history.
     function testZerogLookupsAreThe011Lib() external pure {
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
         assertFalse(LibBeaconInvariants.runsBaseBeaconSet(id));
@@ -127,7 +124,6 @@ contract LibBeaconInvariantsPerChainTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             vm.assume(chainId != nets[i].chainId);
         }
-        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForProdBeacons.selector, chainId));
         lib.prodExpectedImplementationsForChainId(chainId);
     }
