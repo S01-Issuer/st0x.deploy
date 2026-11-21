@@ -12,7 +12,8 @@ struct UnderlyingIsin {
 }
 
 /// @title LibProdTokenConfigIsinTest
-/// @notice Every production row's asset id is the ISIN of the share line it tracks, and each row has one source.
+/// @notice Every production and Ethereum-only row's asset id is the ISIN of the share line it tracks, and each row has
+/// one source.
 contract LibProdTokenConfigIsinTest is Test {
     /// `extensions.isin` of every `wt<TICKER>` in st0x.registry `token-lists/base.json` at commit `e9e47a6`, keyed by
     /// the ticker. The other chains' lists agree with it except wtSMCI, where they still carry the pre-split ISIN
@@ -97,6 +98,43 @@ contract LibProdTokenConfigIsinTest is Test {
         isins[3] = UnderlyingIsin({underlying: "SNES", isin: "US81720R6045"});
         isins[4] = UnderlyingIsin({underlying: "DIS", isin: "US2546871060"});
         return isins;
+    }
+
+    /// The Ethereum-only rows' ISINs, each the ordinary share line the listing ticker trades on its home exchange.
+    /// Sources:
+    /// - AIR.PA: Airbus's "Share price and information" investor page gives ISIN NL0000235190; Euronext Paris lists
+    ///   Airbus under NL0000235190-XPAR.
+    /// - BMW.DE: BMW Group's "BMW shares" investor page gives the ordinary share ISIN DE0005190003, WKN 519000.
+    /// - MC.PA: LVMH's investor FAQ gives ISIN FR0000121014, Bloomberg MC FP; Euronext Paris lists LVMH under
+    ///   FR0000121014-XPAR.
+    /// - SIE.DE: Siemens' "Basic Data & Key Share Figures" investor page gives ISIN DE0007236101, symbol SIE.
+    /// - MBG.DE: Deutsche Börse's Mercedes-Benz Group company details give ISIN DE0007100000, WKN 710000, symbol MBG.
+    /// - RHM.DE: Rheinmetall's "Basic information" share page gives ISIN DE0007030009, WKN 703000.
+    function ethereumOnlyIsins() internal pure returns (UnderlyingIsin[] memory) {
+        UnderlyingIsin[] memory isins = new UnderlyingIsin[](6);
+        isins[0] = UnderlyingIsin({underlying: "AIR.PA", isin: "NL0000235190"});
+        isins[1] = UnderlyingIsin({underlying: "BMW.DE", isin: "DE0005190003"});
+        isins[2] = UnderlyingIsin({underlying: "MC.PA", isin: "FR0000121014"});
+        isins[3] = UnderlyingIsin({underlying: "SIE.DE", isin: "DE0007236101"});
+        isins[4] = UnderlyingIsin({underlying: "MBG.DE", isin: "DE0007100000"});
+        isins[5] = UnderlyingIsin({underlying: "RHM.DE", isin: "DE0007030009"});
+        return isins;
+    }
+
+    /// Each Ethereum-only row carries its sourced ISIN, and the sourced list covers every Ethereum-only row once.
+    function testEthereumOnlyRowsCarryTheSourcedIsin() external pure {
+        UnderlyingIsin[] memory isins = ethereumOnlyIsins();
+        TokenConfig[] memory rows = LibProdTokenConfig.ethereumOnlyTokenConfigs();
+        assertEq(rows.length, isins.length, "count");
+        for (uint256 i = 0; i < rows.length; i++) {
+            uint256 matches = 0;
+            for (uint256 j = 0; j < isins.length; j++) {
+                if (keccak256(bytes(isins[j].underlying)) != keccak256(bytes(rows[i].underlying))) continue;
+                matches++;
+                assertEq(rows[i].assetId, isins[j].isin, rows[i].underlying);
+            }
+            assertEq(matches, 1, rows[i].underlying);
+        }
     }
 
     function assertRowsHaveIsins(UnderlyingIsin[] memory isins) internal pure {
