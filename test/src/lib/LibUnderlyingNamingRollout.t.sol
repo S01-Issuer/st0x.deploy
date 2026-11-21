@@ -48,10 +48,12 @@ contract LibUnderlyingNamingRolloutTest is Test {
             listingTicker: ticker,
             listingName: underlyingName,
             underlying: ticker,
+            ticker: ticker,
             name: string.concat(underlyingName, " ST0x"),
             symbol: string.concat("t", ticker),
             region: Region.US,
-            underlyingName: underlyingName
+            underlyingName: underlyingName,
+            isin: isin
         });
     }
 

@@ -16,10 +16,12 @@ contract LibTestTokenMetadataTest is Test {
             listingTicker: "NVDA",
             listingName: "NVIDIA Corporation",
             underlying: "NVDA",
+            ticker: "NVDA",
             name: "NVIDIA Corporation ST0x",
             symbol: "tNVDA",
             region: Region.US,
-            underlyingName: "NVIDIA Corporation"
+            underlyingName: "NVIDIA Corporation",
+            isin: "US67066G1040"
         });
     }
 
