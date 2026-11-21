@@ -13,6 +13,7 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {ZerogArmPendingDecision} from "./LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 import {LibSecurity} from "./LibSecurity.sol";
@@ -105,6 +106,23 @@ library LibUnderlyingNamingRollout {
     /// @notice Whether the implementation constants above alias a frozen, audited release; while false both schedule
     /// scripts refuse. The target implementation constants alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
+
+    /// @notice Reverts `ZerogArmPendingDecision` for `migration` on 0G, so each
+    /// of the three naming scripts refuses there before any other check.
+    /// @dev TODO(RAI-4871): a 0G arm for each of the three naming migrations,
+    /// once David decides whether the underlying naming applies on 0G. 0G's
+    /// tokens are created with the current names, and the beacon batch moves
+    /// the beacons onto current-source implementations, which no 0G dispatch
+    /// deploys (`StoxDeploySuites.setCandidateNetworks`). If the naming
+    /// applies, 0G needs those implementations and its own two batches; if
+    /// not, each of the three is the record alone. Until then
+    /// `BuildExpectedState.renameMigration` is zero on 0G.
+    /// @param migration The naming migration.
+    function refuseZerog(bytes32 migration) internal view {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            revert ZerogArmPendingDecision(migration, "whether the underlying naming applies on 0G");
+        }
+    }
 
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
     /// the st0x.registry token lists accept both `wt<TICKER>` and

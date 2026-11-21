@@ -3,10 +3,16 @@
 pragma solidity ^0.8.25;
 
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
 import {ConfigBinding, LibConfigRegistryRegister} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryRegister.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+
+/// @notice `name` is bound under the root, where the caller requires it unbound.
+/// @param name The config name.
+/// @param registeredAt When it was bound.
+error RootNameBound(bytes32 name, uint256 registeredAt);
 
 /// @title LibRootConfigBinding
 /// @notice Binds config names under `LibRegistryAuthority.ROOT_AUTHORITY` in
@@ -23,6 +29,17 @@ library LibRootConfigBinding {
             data: LibConfigRegistryRegister.registerCalldata(LibRegistryAuthority.ROOT_AUTHORITY, name, binding),
             operation: Enum.Operation.Call
         });
+    }
+
+    /// @notice Reverts `RootNameBound` if `name` is bound under the root.
+    /// Verifies the registry's code hash first.
+    /// @param name The config name.
+    function assertUnbound(bytes32 name) internal view {
+        LibConfigRegistry.checkCodeHash();
+        // slither-disable-next-line unused-return
+        (, uint256 registeredAt, bytes32 typeHash) =
+            LibConfigRegistryRegister.currentBinding(LibRegistryAuthority.ROOT_AUTHORITY, name);
+        if (registeredAt != 0 || typeHash != bytes32(0)) revert RootNameBound(name, registeredAt);
     }
 
     /// @notice Whether `name` is bound under the root to `binding` in this

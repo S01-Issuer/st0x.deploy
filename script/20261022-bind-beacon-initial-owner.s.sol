@@ -44,7 +44,11 @@ function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration mem
 /// @notice Authors the per-chain Safe bundle that binds
 /// `LibStoxConfig.BEACON_INITIAL_OWNER_NAME` under the root authority to
 /// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, as the root's approved
-/// delegate, and records it.
+/// delegate, and records it. On 0G the bundle is the record alone: the
+/// binding is read only by the constructor of a current-source beacon, and no
+/// current-source suite deploys on 0G (`StoxDeploySuites.setCandidateNetworks`).
+/// The 0G arm requires the name still unbound there, so no such beacon can be
+/// deployed, and the suite timelock the binding names still without code.
 contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
@@ -68,6 +72,10 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function preflight() internal view override {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            preflightZerog();
+            return;
+        }
         LibConfigRegistry.checkCodeHash();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, chainSafe);
@@ -81,6 +89,22 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
         }
     }
 
+    /// @notice 0G's pre-flight: the Safe, 0G's timelock and the line, then
+    /// `assertNothingToBindOnZerog`.
+    function preflightZerog() internal view {
+        address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.timelockForChainId(block.chainid), chainSafe);
+        LibStoxMigrations.assertNext(bindBeaconInitialOwnerDeclaration(), chainSafe);
+        assertNothingToBindOnZerog();
+    }
+
+    /// @notice Reverts unless the name is unbound under the root and the suite
+    /// timelock it would name has no code on this chain.
+    function assertNothingToBindOnZerog() internal view {
+        LibRootConfigBinding.assertUnbound(LibStoxConfig.BEACON_INITIAL_OWNER_NAME);
+        LibStoxMigrations.assertNoCurrentSourceOnZerog(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+    }
+
     /// @notice `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` as an `address`.
     function timelockBinding() internal pure returns (ConfigBinding memory) {
         return ConfigBinding("", "address", abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK), "");
@@ -88,6 +112,11 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            SafeTx[] memory record = new SafeTx[](1);
+            record[0] = LibStoxMigrations.recordTx(bindBeaconInitialOwnerDeclaration());
+            return record;
+        }
         SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = LibRootConfigBinding.registerTx(LibStoxConfig.BEACON_INITIAL_OWNER_NAME, timelockBinding());
         txs[1] = LibStoxMigrations.recordTx(bindBeaconInitialOwnerDeclaration());
@@ -96,6 +125,12 @@ contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            LibStoxMigrations.assertRecorded(bindBeaconInitialOwnerDeclaration());
+            LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
+            assertNothingToBindOnZerog();
+            return;
+        }
         (bool bound, bytes memory value, uint256 registeredAt) =
             LibRootConfigBinding.boundThisBlock(LibStoxConfig.BEACON_INITIAL_OWNER_NAME, timelockBinding());
         if (!bound) revert BeaconInitialOwnerBindingMismatch(value, registeredAt);

@@ -15,7 +15,7 @@ import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, ZerogArmPendingDecision} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 /// @notice `holder` does not hold `role` on the orchestrator.
@@ -82,7 +82,8 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// must be granted `EMERGENCY_ROLE` while it can still do so directly. On 0G
 /// (`LibStoxMigrations.withoutHistory`) the backfill writes the EMERGENCY
 /// grant's record record-only, without the grant, so there the line proves
-/// nothing about it. The pre-flight's own `EMERGENCY_ROLE` check covers 0G.
+/// nothing about it. The pre-flight refuses 0G with `ZerogArmPendingDecision`
+/// until the Safe's `EMERGENCY_ROLE` there is decided (see `preflight`).
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a
@@ -170,8 +171,29 @@ contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
     /// @inheritdoc SafeBundleScript
     /// @dev The Safe, the timelock and the orchestrator are what this repo
     /// pins, the root line is at the beacon-initial-owner bind, the Safe may
-    /// write it, and the Safe holds `EMERGENCY_ROLE`.
+    /// write it, and the Safe holds `EMERGENCY_ROLE`. On 0G it refuses first,
+    /// with `ZerogArmPendingDecision`.
     function preflight() internal view override {
+        // TODO(RAI-4871): a 0G arm, once David decides whether the 0G Safe
+        // holds `EMERGENCY_ROLE` on the orchestrator as on every other chain.
+        // On 0G the move itself has nothing to do: the orchestrator was
+        // created with the timelock as `DEFAULT_ADMIN_ROLE` and the Safe holds
+        // no admin. The Safe holds no `EMERGENCY_ROLE` either, which this
+        // pre-flight requires everywhere else, and only a timelock operation
+        // can grant it there now. A new migration can only go after the line's
+        // head, so the options are:
+        // (a) the Safe schedules the grant outside the line, it executes after
+        //     48h, and the 0G arm then requires it like every other chain;
+        // (b) the 0G arm's bundle schedules the grant, and its post-state can
+        //     only see the grant pending;
+        // (c) the 0G arm is the record alone after the admin checks, and a
+        //     later migration grants the role if 0G needs it.
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            revert ZerogArmPendingDecision(
+                LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+                "whether the 0G Safe holds EMERGENCY_ROLE on the orchestrator"
+            );
+        }
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
         LibOrchestratorInvariants.assertBeaconSet();

@@ -43,6 +43,18 @@ error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 /// @param head The line's head.
 error LineHeadMismatch(bytes32 head);
 
+/// @notice On 0G, `migration`'s arm waits on a decision that is not made yet,
+/// so its script refuses there instead of guessing. 0G's line stops before it
+/// until a reviewed 0G arm replaces this refusal.
+/// @param migration The migration.
+/// @param decision The decision it waits on.
+error ZerogArmPendingDecision(bytes32 migration, string decision);
+
+/// @notice A current-source contract has code on 0G. A 0G arm that records a
+/// bind alone relies on 0G running no current-source suite, so it refuses.
+/// @param deployed The contract.
+error ZerogCurrentSourceDeployed(address deployed);
+
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's scripts record what they applied
 /// in `rain-deploy`'s `MigrationRegistry`, and the calls that write and read
@@ -65,7 +77,9 @@ error LineHeadMismatch(bytes32 head);
 ///
 /// Every chain's line holds every migration. A migration with nothing to do on
 /// a chain is recorded there alone, record-only: the rehearsals off Base, the
-/// backfilled history on 0G (`withoutHistory`), the 0G token creation off 0G.
+/// backfilled history on 0G (`withoutHistory`), the 0G token creation off 0G,
+/// and on 0G each later migration whose change 0G does not need. A 0G arm that
+/// waits on a decision refuses with `ZerogArmPendingDecision` instead.
 /// On a `withoutHistory` chain a backfilled record proves only that the line
 /// passed it, not that its step ran: a script there asserts the state it
 /// depends on directly.
@@ -176,6 +190,16 @@ library LibStoxMigrations {
     /// @return True on 0G.
     function withoutHistory(uint256 chainId) internal pure returns (bool) {
         return chainId == LibSafeInvariants.ZEROG_CHAIN_ID;
+    }
+
+    /// @notice Reverts `ZerogCurrentSourceDeployed` if `deployed` has code. A
+    /// 0G arm that records a ConfigRegistry bind alone checks what the bind
+    /// names with this. No current-source suite deploys on 0G
+    /// (`StoxDeploySuites.setCandidateNetworks`), so no constructor there reads
+    /// the binding, and the contracts the binding names have no code there.
+    /// @param deployed The contract the bind names.
+    function assertNoCurrentSourceOnZerog(address deployed) internal view {
+        if (deployed.code.length != 0) revert ZerogCurrentSourceDeployed(deployed);
     }
 
     /// @notice What `declared` is recorded after on the root line.
