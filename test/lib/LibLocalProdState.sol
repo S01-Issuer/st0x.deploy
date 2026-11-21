@@ -6,8 +6,8 @@ import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.33/src/lib/LibSafe.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
@@ -30,13 +30,19 @@ import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariant
 /// pinned addresses, one facet per function, every value read from `src`.
 /// Facets deploy their own Zoltu dependencies, so any subset composes.
 library LibLocalProdState {
-    /// @notice The chain id of every deployment network, in declaration order.
+    /// @notice The chain id of every deployment network whose production state
+    /// is pinned, in declaration order: each one whose token table is
+    /// hydrated (`LibTokenInvariants.tokenTableHydrated`).
     function chainIds() internal pure returns (uint256[] memory) {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         uint256[] memory ids = new uint256[](networks.length);
+        uint256 count = 0;
         for (uint256 i = 0; i < networks.length; i++) {
-            ids[i] = networks[i].chainId;
+            if (LibTokenInvariants.tokenTableHydrated(networks[i].chainId)) ids[count++] = networks[i].chainId;
+        }
+        assembly ("memory-safe") {
+            mstore(ids, count)
         }
         return ids;
     }
@@ -93,9 +99,11 @@ library LibLocalProdState {
         );
     }
 
-    /// @notice The chain's four in-use beacons, each serving its expected
-    /// implementation and owned by the chain's timelock. Base's V1 beacons
-    /// carry the runtime and storage of their local 0.1.1 counterparts.
+    /// @notice The chain's in-use beacons (`LibBeaconInvariants.prodBeaconsInUse`),
+    /// each serving its expected implementation and owned by the chain's
+    /// timelock. Base's V1 beacons carry the runtime and storage of their local
+    /// 0.1.1 counterparts. A chain that runs no orchestrator (0G) gets no
+    /// orchestrator set, as on chain.
     function beacons(Vm vm, uint256 chainId) internal {
         LibRainDeploy.etchZoltuFactory(vm);
         deployOnce(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_1, LibProdDeployV4.STOX_RECEIPT_0_1_1);
@@ -112,13 +120,13 @@ library LibLocalProdState {
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1
         );
         deployReceiptSet0_1_30();
-        deployOrchestratorSet0_1_30();
+        if (LibAuthoriserInvariants.grantsOrchestrator(chainId)) deployOrchestratorSet0_1_30();
 
         address[4] memory local = LibProdBeacons0_1_1.beacons();
         address[4] memory live = LibBeaconInvariants.prodBeaconsForChainId(chainId);
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
         address chainTimelock = LibTimelockInvariants.timelockForChainId(chainId);
-        for (uint256 i = 0; i < live.length; i++) {
+        for (uint256 i = 0; i < LibBeaconInvariants.prodBeaconsInUse(chainId); i++) {
             if (live[i] != local[i]) {
                 vm.etch(live[i], local[i].code);
                 vm.copyStorage(local[i], live[i]);

@@ -4,13 +4,12 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibScriptDeclarations} from "../src/lib/LibScriptDeclarations.sol";
-import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice The scripts directory holds a directory, whose scripts discovery does not read.
@@ -40,10 +39,11 @@ error HistoryWithoutMoment(string script, uint256 chainId);
 
 /// @title BuildMigrations
 /// @notice Reads every `script/*.s.sol`'s own declaration, reverts unless all
-/// of them are valid together on every deployment network, and writes
-/// `migrations.json`: the root line's writer and namespace, per deployment
-/// network the registry, and every migration's id, script and, per network,
-/// the head it is applied onto and its execution moment if recorded as history.
+/// of them are valid together on every network with a root line
+/// (`LibStoxMigrations.lineNetworks`), and writes `migrations.json`: the root
+/// line's writer and namespace, per network the registry, and every
+/// migration's id, script and, per network, the head it is applied onto and
+/// its execution moment if recorded as history.
 contract BuildMigrations is Script {
     string internal constant PATH = "migrations.json";
     string internal constant SCRIPTS = "script";
@@ -244,7 +244,7 @@ contract BuildMigrations is Script {
     /// @param dir The directory.
     /// @return The JSON.
     function renderDir(string memory dir) public returns (string memory) {
-        return renderFor(dir, LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks()));
+        return renderFor(dir, LibStoxMigrations.lineNetworks());
     }
 
     /// @dev `migrations.json` for the scripts in `dir` on `networks`; reverts on no network.

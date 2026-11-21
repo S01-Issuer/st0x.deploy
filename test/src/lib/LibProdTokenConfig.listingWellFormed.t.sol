@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSecurity} from "../../../src/lib/LibSecurity.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
@@ -27,6 +27,7 @@ contract LibProdTokenConfigListingWellFormedTest is Test {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 netIndex = 0; netIndex < nets.length; netIndex++) {
+            if (!LibTokenInvariants.tokenTableHydrated(nets[netIndex].chainId)) continue;
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[netIndex].chainId);
             for (uint256 rowIndex = 0; rowIndex < tokens.length; rowIndex++) {
                 assertListingWellFormed(

@@ -3,9 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.33/src/interface/IConfigRegistryV5.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibConfigRegistryDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
