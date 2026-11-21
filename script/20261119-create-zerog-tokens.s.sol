@@ -27,7 +27,7 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibClosureInvariants} from "../src/lib/LibClosureInvariants.sol";
-import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -143,21 +143,22 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
         return LibTimelockInvariants.timelockForChainId(block.chainid);
     }
 
-    /// @notice The rows this migration creates: every production row on 0G, none elsewhere.
+    /// @notice The rows this migration creates: on 0G, Ethereum's creation sequence, so each 0G address is the token
+    /// Ethereum and HyperEVM hold at the same deployer nonce; none elsewhere.
     /// @return The configs.
     function configs() internal view returns (TokenConfig[] memory) {
         if (block.chainid != LibSafeInvariants.ZEROG_CHAIN_ID) return new TokenConfig[](0);
-        return LibProdTokenConfig.productionTokenConfigs();
+        return LibProdTokenConfig.zerogTokenConfigs();
     }
 
-    /// @notice The authoriser row `row`'s vault is pointed at: the chain's EU clone for an EU underlying, its V4 clone
-    /// otherwise, as `LibTokenInvariants` expects of every production vault.
+    /// @notice The authoriser row `row`'s vault is pointed at: the chain's EU clone for an EU row, its V4 clone
+    /// otherwise.
     /// @param row The row's config.
     /// @return The authoriser.
     function authoriserFor(TokenConfig memory row) internal view returns (address) {
-        return LibTokenInvariants.expectedAuthoriser(
-            row.underlying, LibAuthoriserInvariants.authoriserForChainId(block.chainid), block.chainid
-        );
+        return row.region == Region.EU
+            ? LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid)
+            : LibAuthoriserInvariants.authoriserForChainId(block.chainid);
     }
 
     /// @inheritdoc SafeBundleScript
@@ -319,7 +320,7 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
         return txs;
     }
 
-    /// @notice 0G's token table, which the pre-flight holds to placeholders in config order.
+    /// @notice 0G's token table, which the pre-flight holds to placeholders in creation order.
     /// @dev Virtual so a test can stand in another table.
     /// @return The table.
     function zerogTable() internal view virtual returns (TokenInstance[] memory) {

@@ -685,6 +685,120 @@ library LibProdTokenConfig {
         });
     }
 
+    /// @notice Tokens live on Ethereum that no Base row carries, with Ethereum's verbatim names and symbols. Ethereum
+    /// points them at its US authoriser, so their region routes them there.
+    /// @return configs The rows.
+    function ethereumOnlyTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
+        configs = new TokenConfig[](6);
+        configs[0] = TokenConfig({
+            underlying: "AIR.PA",
+            assetId: "NL0000235190",
+            listingTicker: "AIR",
+            listingName: "Airbus SE",
+            name: "Airbus SE ST0x",
+            symbol: "tAIR.PA",
+            region: Region.US,
+            underlyingName: "Airbus SE"
+        });
+        configs[1] = TokenConfig({
+            underlying: "BMW.DE",
+            assetId: "DE0005190003",
+            listingTicker: "BMW",
+            listingName: "Bayerische Motoren Werke Aktiengesellschaft",
+            name: "Bayerische Motoren Werke Aktiengesellschaft ST0x",
+            symbol: "tBMW.DE",
+            region: Region.US,
+            underlyingName: "Bayerische Motoren Werke Aktiengesellschaft"
+        });
+        configs[2] = TokenConfig({
+            underlying: "MC.PA",
+            assetId: "FR0000121014",
+            listingTicker: "MC",
+            listingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
+            name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x",
+            symbol: "tMC.PA",
+            region: Region.US,
+            underlyingName: unicode"LVMH Moët Hennessy Louis Vuitton SE"
+        });
+        configs[3] = TokenConfig({
+            underlying: "SIE.DE",
+            assetId: "DE0007236101",
+            listingTicker: "SIE",
+            listingName: "Siemens Aktiengesellschaft",
+            name: "Siemens Aktiengesellschaft ST0x",
+            symbol: "tSIE.DE",
+            region: Region.US,
+            underlyingName: "Siemens Aktiengesellschaft"
+        });
+        configs[4] = TokenConfig({
+            underlying: "MBG.DE",
+            assetId: "DE0007100000",
+            listingTicker: "MBG",
+            listingName: "Mercedes-Benz Group AG",
+            name: "Mercedes-Benz Group AG ST0x",
+            symbol: "tMBG.DE",
+            region: Region.US,
+            underlyingName: "Mercedes-Benz Group AG"
+        });
+        configs[5] = TokenConfig({
+            underlying: "RHM.DE",
+            assetId: "DE0007030009",
+            listingTicker: "RHM",
+            listingName: "Rheinmetall AG",
+            name: "Rheinmetall AG ST0x",
+            symbol: "tRHM.DE",
+            region: Region.US,
+            underlyingName: "Rheinmetall AG"
+        });
+    }
+
+    /// @notice 0G's creation order: Ethereum's 0.1.1 beacon-set deployers' creation sequence, slots 0-64, so a 0G
+    /// token address is the token Ethereum and HyperEVM hold at the same deployer nonce.
+    /// @return The underlyings.
+    function zerogCreationOrder() internal pure returns (string[65] memory) {
+        return [
+            "MSTR", "TSLA", "COIN", "SPYM", "SIVR", "CRCL", "NVDA", "IAU", "PPLT", "AMZN",
+            "BMNR", "IBHG", "SGOV", "QQQM", "VWO", "ARKK", "SPCX", "CEG", "DRAM", "TSM",
+            "SKHY", "ASML", "MU", "AMD", "AVGO", "AMAT", "LRCX", "TTWO", "RKLB", "HOOD",
+            "ORCL", "SMCI", "BABA", "TQQQ", "AAPL", "GOOGL", "INTC", "LLY", "MSFT", "PTY",
+            "FTF", "CBRS", "AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE", "MCD", "NKE",
+            "GRND", "DNUT", "PLBY", "TR", "WEN", "FGI", "BIRD", "SPY", "SNES", "WMT",
+            "MC", "DIS", "IFX", "SOI", "TPRO"
+        ];
+    }
+
+    /// @notice The rows 0G creates, in `zerogCreationOrder`.
+    /// @return configs The rows.
+    function zerogTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
+        string[65] memory order = zerogCreationOrder();
+        TokenConfig[] memory production = productionTokenConfigs();
+        TokenConfig[] memory ethereumOnly = ethereumOnlyTokenConfigs();
+        configs = new TokenConfig[](order.length);
+        for (uint256 i = 0; i < order.length; i++) {
+            configs[i] = rowIn(order[i], production, ethereumOnly);
+        }
+    }
+
+    /// @notice The row for `underlying` in `first`, else in `second`.
+    /// @param underlying The ticker join key.
+    /// @param first The table searched first.
+    /// @param second The table searched next.
+    /// @return The row. Reverts `UnknownUnderlying` when neither has one.
+    function rowIn(string memory underlying, TokenConfig[] memory first, TokenConfig[] memory second)
+        internal
+        pure
+        returns (TokenConfig memory)
+    {
+        bytes32 key = keccak256(bytes(underlying));
+        for (uint256 i = 0; i < first.length; i++) {
+            if (keccak256(bytes(first[i].underlying)) == key) return first[i];
+        }
+        for (uint256 i = 0; i < second.length; i++) {
+            if (keccak256(bytes(second[i].underlying)) == key) return second[i];
+        }
+        revert UnknownUnderlying(underlying);
+    }
+
     function testTokenConfigs() internal pure returns (TokenConfig[] memory) {
         TokenConfig[] memory configs = new TokenConfig[](2);
         configs[0] = TokenConfig({
