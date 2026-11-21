@@ -68,9 +68,9 @@ timelock only via `LibTimelockInvariants.timelockForChainId(block.chainid)`.
 The timelock is deployed through the Zoltu factory, so its address is a function
 of its creation code. The `stox-governance-timelock` suite reads its initial
 proposer from the `ConfigRegistry` under `TIMELOCK_INITIAL_PROPOSER_NAME`, so
-its creation code and address are chain-invariant; its constructor reverts
-while that name is unset. A timelock that takes the Safe as a constructor
-argument sits at `LibTimelockInvariants.expectedTimelockAddress(safe)`.
+its creation code and address are chain-invariant; its constructor reverts while
+that name is unset. A timelock that takes the Safe as a constructor argument
+sits at `LibTimelockInvariants.expectedTimelockAddress(safe)`.
 
 Per-chain timelock addresses are the constants in `LibTimelockInvariants`;
 `testPinsMatchDerivedAddresses` re-derives each one, and every consumer refuses
@@ -78,16 +78,16 @@ a zero pin.
 
 ## Mint-caps orchestrator
 
-The mint-caps `ST0xOrchestrator` reads its admin from the `ConfigRegistry`
-under `LibRegistryAuthority.ROOT_AUTHORITY`, so its creation code is
-chain-invariant and no bundle moves admin power:
+The mint-caps `ST0xOrchestrator` reads its admin from the `ConfigRegistry` under
+`LibRegistryAuthority.ROOT_AUTHORITY`, so its creation code is chain-invariant
+and no bundle moves admin power:
 
 - **Beacon.** `ST0xOrchestratorBeacon` is owned by
   `LibStoxConfig.beaconInitialOwner()`; its constructor reverts while that
   binding is unset or zero.
 - **Instance.** A registry beacon proxy over the beacon bound under
-  `LibStoxConfig.ORCHESTRATOR_BEACON_NAME`. `initialize` takes no admin
-  argument and grants the registry-bound initial admin `DEFAULT_ADMIN_ROLE`,
+  `LibStoxConfig.ORCHESTRATOR_BEACON_NAME`. `initialize` takes no admin argument
+  and grants the registry-bound initial admin `DEFAULT_ADMIN_ROLE`,
   `MINT_ADMIN_ROLE`, `BURN_ADMIN_ROLE` and `EMERGENCY_ADMIN_ROLE`; it reverts
   while the binding is unset, not an `address`, or zero.
 - Each admin role administers its operating role and itself, so
