@@ -34,7 +34,9 @@ pragma solidity ^0.8.25;
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param name The receipt vault's ERC-20 `name()`, verbatim from Base.
 /// @param symbol The receipt vault's ERC-20 `symbol()`, verbatim from Base.
-/// @param region Where the underlying is listed.
+/// @param region The issuance region, which picks the token's RBAC and
+/// authoriser. It is not the listing venue: tMC.PA is Paris-listed and issued
+/// under US.
 /// @param underlyingName The issuer's current legal name, without any ST0x
 /// suffix: the `name` argument of `setUnderlying`. Usually the live `name`
 /// without " ST0x"; it differs where the issuer has since been renamed
