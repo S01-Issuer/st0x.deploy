@@ -31,8 +31,16 @@ import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
-import {IStoxTokenConfigV1, StoxTokenConfigV1, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
+import {
+    IStoxTokenConfigV1,
+    StoxTokenConfigV1,
+    AssetIdKind,
+    STOX_TOKEN_CONFIG_V1_TAG
+} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {STOX_TOKEN_CONFIG_STORAGE_LOCATION} from "../../../src/lib/LibStoxTokenConfig.sol";
+import {StoxTokenAlreadyInitialized} from "../../../src/error/ErrStoxTokenConfig.sol";
+import {Region} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 
 /// @title StoxReceiptVault initialize
 /// @notice A vault built by the clone factory resolves its authorizer from
@@ -229,6 +237,95 @@ contract StoxReceiptVaultInitializeTest is Test {
         vault.initialize(data);
 
         vault.initialize(_data());
+    }
+
+    function _config(string memory assetId, string memory listingTicker, string memory listingName, Region region)
+        internal
+        pure
+        returns (StoxTokenConfigV1 memory)
+    {
+        return StoxTokenConfigV1({
+            assetId: assetId,
+            assetIdKind: AssetIdKind.ISIN,
+            listingTicker: listingTicker,
+            listingName: listingName,
+            region: region,
+            authority: AUTHORITY,
+            rbacName: RBAC_NAME,
+            receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,
+            metadata: ""
+        });
+    }
+
+    function _loadString(address account, uint256 slot) internal view returns (string memory) {
+        uint256 word = uint256(vm.load(account, bytes32(slot)));
+        if (word & 1 == 0) {
+            bytes memory inlined = new bytes((word & 0xff) / 2);
+            for (uint256 i = 0; i < inlined.length; i++) {
+                inlined[i] = bytes32(word)[i];
+            }
+            return string(inlined);
+        }
+        bytes memory spilled = new bytes((word - 1) / 2);
+        uint256 base = uint256(keccak256(abi.encode(slot)));
+        for (uint256 i = 0; i < spilled.length; i++) {
+            spilled[i] = vm.load(account, bytes32(base + i / 32))[i % 32];
+        }
+        return string(spilled);
+    }
+
+    /// The region byte is dirtied first, since US is the zero value.
+    function _assertInitializeStoresAndEmits(StoxTokenConfigV1 memory config) internal {
+        StoxReceiptVault vault = _uninitializedVault();
+        uint256 location = uint256(STOX_TOKEN_CONFIG_STORAGE_LOCATION);
+        vm.store(address(vault), bytes32(location + 3), bytes32(uint256(0xff)));
+
+        vm.recordLogs();
+        vault.initialize(abi.encode(STOX_TOKEN_CONFIG_V1_TAG, config));
+        Vm.Log[] memory logs = vm.getRecordedLogs();
+
+        assertEq(_loadString(address(vault), location), config.assetId, "stored assetId");
+        assertEq(_loadString(address(vault), location + 1), config.listingTicker, "stored listingTicker");
+        assertEq(_loadString(address(vault), location + 2), config.listingName, "stored listingName");
+        assertEq(uint8(uint256(vm.load(address(vault), bytes32(location + 3)))), uint8(config.region), "stored region");
+        uint256 count = 0;
+        for (uint256 i = 0; i < logs.length; i++) {
+            if (
+                logs[i].emitter == address(vault)
+                    && logs[i].topics[0] == IStoxTokenConfigV1.StoxTokenInitialized.selector
+            ) {
+                (address sender, StoxTokenConfigV1 memory emitted) =
+                    abi.decode(logs[i].data, (address, StoxTokenConfigV1));
+                assertEq(sender, address(this), "emitted sender");
+                assertEq(abi.encode(emitted), abi.encode(config), "emitted config");
+                count++;
+            }
+        }
+        assertEq(count, 1, "one StoxTokenInitialized");
+    }
+
+    /// The second name is longer than a storage word.
+    function testInitializeStoresAndEmitsTheListing() external {
+        LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
+        _assertInitializeStoresAndEmits(_config("US0378331005", "AAPL", "Apple Inc.", Region.US));
+        _assertInitializeStoresAndEmits(
+            _config("US78464A8541", "SPYM", "State Street SPDR Portfolio S&P 500 ETF", Region.EU)
+        );
+    }
+
+    function testInitializeRefusesAnInitializedToken() external {
+        LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
+        StoxReceiptVault vault = LibTestDeploy.newVault(AUTHORITY, _data());
+        vm.expectRevert(abi.encodeWithSelector(StoxTokenAlreadyInitialized.selector));
+        vault.initialize(LibTestDeploy.vaultData("US0378331005", "AAPL", "Apple Inc.", AUTHORITY, RBAC_NAME));
+    }
+
+    function testInitializeStoxTokenThroughTheFallbackRefusesAnInitializedToken() external {
+        LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
+        StoxReceiptVault vault = LibTestDeploy.newVault(AUTHORITY, _data());
+        vm.expectRevert(abi.encodeWithSelector(StoxTokenAlreadyInitialized.selector));
+        IStoxTokenConfigV1(address(vault))
+            .initializeStoxToken(LibTestDeploy.vaultData("US0378331005", "AAPL", "Apple Inc.", AUTHORITY, RBAC_NAME));
     }
 
     /// Once initialized, the token cannot reinstall itself: it has no
