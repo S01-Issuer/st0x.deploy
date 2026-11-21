@@ -117,8 +117,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// the vault logic it was built against (`vaultLogicIsExpected`, which reads
 /// that beacon set, not the in-use token beacons), so after any such upgrade
 /// this script refuses there; for the per-role-admin orchestrator upgrade the
-/// Safe, still `DEFAULT_ADMIN_ROLE`, can then call `migrate(safe)` directly
-/// (see `docs/TIMELOCK.md`).
+/// Safe, still `DEFAULT_ADMIN_ROLE`, can then call `migrate(safe)` directly.
 ///
 /// `run()` and `verify()` are `SafeBundleScript`'s: `run()` executes the
 /// bundle through the Safe on the fork, requires the post-state, proves the
