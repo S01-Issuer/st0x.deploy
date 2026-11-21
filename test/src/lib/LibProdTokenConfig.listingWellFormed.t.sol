@@ -10,7 +10,7 @@ import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol"
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 
 /// @title LibProdTokenConfigListingWellFormedTest
-/// @notice Every production row, in the table and on every chain, and every Ethereum-only row has a well-formed ISIN,
+/// @notice Every production row, in the table and on every chain, and every off-Base row has a well-formed ISIN,
 /// listing ticker and listing name.
 contract LibProdTokenConfigListingWellFormedTest is Test {
     function assertListingWellFormed(string memory rowName, TokenConfig memory config) internal pure {
@@ -19,9 +19,9 @@ contract LibProdTokenConfigListingWellFormedTest is Test {
         assertTrue(LibSecurity.nameWellFormed(bytes(config.listingName)), string.concat(rowName, " listingName"));
     }
 
-    /// Each Ethereum-only row's listing is well formed, and so are the ticker and name `setUnderlying` takes from it.
-    function testEveryEthereumOnlyRowHasAWellFormedListingAndUnderlying() external pure {
-        TokenConfig[] memory rows = LibProdTokenConfig.ethereumOnlyTokenConfigs();
+    /// Each off-Base row's listing is well formed, and so are the ticker and name `setUnderlying` takes from it.
+    function testEveryOffBaseRowHasAWellFormedListingAndUnderlying() external pure {
+        TokenConfig[] memory rows = LibProdTokenConfig.offBaseTokenConfigs();
         assertGt(rows.length, 0, "rows");
         for (uint256 i = 0; i < rows.length; i++) {
             assertListingWellFormed(rows[i].underlying, rows[i]);

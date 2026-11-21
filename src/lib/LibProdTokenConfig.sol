@@ -687,10 +687,10 @@ library LibProdTokenConfig {
         });
     }
 
-    /// @notice Tokens live on Ethereum that no Base row carries, with Ethereum's verbatim names and symbols. Ethereum
-    /// points them at its US authoriser, so their region routes them there.
+    /// @notice Tokens live on Ethereum, HyperEVM, Robinhood and BSC that no Base row carries, with Ethereum's verbatim
+    /// names and symbols. Every chain issues them under US, so their region routes them to the US authoriser.
     /// @return configs The rows.
-    function ethereumOnlyTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
+    function offBaseTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
         configs = new TokenConfig[](6);
         configs[0] = TokenConfig({
             underlying: "AIR.PA",
@@ -832,10 +832,10 @@ library LibProdTokenConfig {
     function zerogTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
         string[65] memory order = zerogCreationOrder();
         TokenConfig[] memory production = productionTokenConfigs();
-        TokenConfig[] memory ethereumOnly = ethereumOnlyTokenConfigs();
+        TokenConfig[] memory offBase = offBaseTokenConfigs();
         configs = new TokenConfig[](order.length);
         for (uint256 i = 0; i < order.length; i++) {
-            configs[i] = rowIn(order[i], production, ethereumOnly);
+            configs[i] = rowIn(order[i], production, offBase);
         }
     }
 
@@ -884,14 +884,14 @@ library LibProdTokenConfig {
         return configs;
     }
 
-    /// @notice The production or Ethereum-only row for `underlying`.
+    /// @notice The production or off-Base row for `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row. Reverts `UnknownUnderlying` when there is none.
     function configOf(string memory underlying) internal pure returns (TokenConfig memory) {
-        return rowIn(underlying, productionTokenConfigs(), ethereumOnlyTokenConfigs());
+        return rowIn(underlying, productionTokenConfigs(), offBaseTokenConfigs());
     }
 
-    /// @notice The region of the production or Ethereum-only row for
+    /// @notice The region of the production or off-Base row for
     /// `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row's region. Reverts `UnknownUnderlying` when there is

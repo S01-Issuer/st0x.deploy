@@ -5,25 +5,25 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 
-/// @title LibProdTokenConfigEthereumOnlyTest
-/// @notice `configOf` and `regionOf` resolve the six Ethereum-only rows to those rows, and the production table, which
+/// @title LibProdTokenConfigOffBaseTest
+/// @notice `configOf` and `regionOf` resolve the six off-Base rows to those rows, and the production table, which
 /// every other chain's deploy reads, carries none of them.
-contract LibProdTokenConfigEthereumOnlyTest is Test {
-    function ethereumOnlyUnderlyings() internal pure returns (string[6] memory) {
+contract LibProdTokenConfigOffBaseTest is Test {
+    function offBaseUnderlyings() internal pure returns (string[6] memory) {
         return ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
     }
 
-    function testEthereumOnlyRowsAreTheSixUnderlyings() external pure {
-        TokenConfig[] memory rows = LibProdTokenConfig.ethereumOnlyTokenConfigs();
-        string[6] memory underlyings = ethereumOnlyUnderlyings();
+    function testOffBaseRowsAreTheSixUnderlyings() external pure {
+        TokenConfig[] memory rows = LibProdTokenConfig.offBaseTokenConfigs();
+        string[6] memory underlyings = offBaseUnderlyings();
         assertEq(rows.length, underlyings.length, "rows");
         for (uint256 i = 0; i < rows.length; i++) {
             assertEq(rows[i].underlying, underlyings[i], "underlying");
         }
     }
 
-    function testConfigOfReturnsEachEthereumOnlyRow() external pure {
-        TokenConfig[] memory rows = LibProdTokenConfig.ethereumOnlyTokenConfigs();
+    function testConfigOfReturnsEachOffBaseRow() external pure {
+        TokenConfig[] memory rows = LibProdTokenConfig.offBaseTokenConfigs();
         for (uint256 i = 0; i < rows.length; i++) {
             TokenConfig memory found = LibProdTokenConfig.configOf(rows[i].underlying);
             string memory label = rows[i].underlying;
@@ -38,16 +38,16 @@ contract LibProdTokenConfigEthereumOnlyTest is Test {
         }
     }
 
-    function testRegionOfReturnsEachEthereumOnlyRowsRegion() external pure {
-        TokenConfig[] memory rows = LibProdTokenConfig.ethereumOnlyTokenConfigs();
+    function testRegionOfReturnsEachOffBaseRowsRegion() external pure {
+        TokenConfig[] memory rows = LibProdTokenConfig.offBaseTokenConfigs();
         for (uint256 i = 0; i < rows.length; i++) {
             assertEq(uint8(LibProdTokenConfig.regionOf(rows[i].underlying)), uint8(rows[i].region), rows[i].underlying);
         }
     }
 
-    function testProductionTableCarriesNoEthereumOnlyRow() external pure {
+    function testProductionTableCarriesNoOffBaseRow() external pure {
         TokenConfig[] memory production = LibProdTokenConfig.productionTokenConfigs();
-        string[6] memory underlyings = ethereumOnlyUnderlyings();
+        string[6] memory underlyings = offBaseUnderlyings();
         for (uint256 i = 0; i < underlyings.length; i++) {
             for (uint256 j = 0; j < production.length; j++) {
                 assertNotEq(

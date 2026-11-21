@@ -35,7 +35,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
     }
 
     /// @notice Ethereum slots 42-47 as read on chain from Ethereum's 0.1.1 beacon-set deployers.
-    function ethereumOnlySlots() internal pure returns (EthereumSlot[6] memory) {
+    function offBaseSlots() internal pure returns (EthereumSlot[6] memory) {
         address us = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);
         return [
             EthereumSlot(
@@ -132,9 +132,9 @@ contract CreateZerogTokensEthereumOrderTest is Test {
 
     /// @notice The six rows Ethereum's table does not carry are Ethereum's slots 42-47: the same vault, wrapper,
     /// symbol and name, and Ethereum's US authoriser, which their US region routes them to.
-    function testEthereumOnlyRowsAreEthereumSlots42To47() external view {
+    function testOffBaseRowsAreEthereumSlots42To47() external view {
         TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
-        EthereumSlot[6] memory slots = ethereumOnlySlots();
+        EthereumSlot[6] memory slots = offBaseSlots();
         for (uint256 k = 0; k < slots.length; k++) {
             uint256 i = FIRST_ETHEREUM_ONLY_SLOT + k;
             EthereumSlot memory slot = slots[k];

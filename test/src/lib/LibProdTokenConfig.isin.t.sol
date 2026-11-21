@@ -12,7 +12,7 @@ struct UnderlyingIsin {
 }
 
 /// @title LibProdTokenConfigIsinTest
-/// @notice Every production and Ethereum-only row's asset id is the ISIN of the share line it tracks, and each row has
+/// @notice Every production and off-Base row's asset id is the ISIN of the share line it tracks, and each row has
 /// one source.
 contract LibProdTokenConfigIsinTest is Test {
     /// `extensions.isin` of every `wt<TICKER>` in st0x.registry `token-lists/base.json` at commit `e9e47a6`, keyed by
@@ -100,7 +100,7 @@ contract LibProdTokenConfigIsinTest is Test {
         return isins;
     }
 
-    /// The Ethereum-only rows' ISINs, each the ordinary share line the listing ticker trades on its home exchange.
+    /// The off-Base rows' ISINs, each the ordinary share line the listing ticker trades on its home exchange.
     /// Sources:
     /// - AIR.PA: Airbus's "Share price and information" investor page gives ISIN NL0000235190; Euronext Paris lists
     ///   Airbus under NL0000235190-XPAR.
@@ -110,7 +110,7 @@ contract LibProdTokenConfigIsinTest is Test {
     /// - SIE.DE: Siemens' "Basic Data & Key Share Figures" investor page gives ISIN DE0007236101, symbol SIE.
     /// - MBG.DE: Deutsche Börse's Mercedes-Benz Group company details give ISIN DE0007100000, WKN 710000, symbol MBG.
     /// - RHM.DE: Rheinmetall's "Basic information" share page gives ISIN DE0007030009, WKN 703000.
-    function ethereumOnlyIsins() internal pure returns (UnderlyingIsin[] memory) {
+    function offBaseIsins() internal pure returns (UnderlyingIsin[] memory) {
         UnderlyingIsin[] memory isins = new UnderlyingIsin[](6);
         isins[0] = UnderlyingIsin({underlying: "AIR.PA", isin: "NL0000235190"});
         isins[1] = UnderlyingIsin({underlying: "BMW.DE", isin: "DE0005190003"});
@@ -121,10 +121,10 @@ contract LibProdTokenConfigIsinTest is Test {
         return isins;
     }
 
-    /// Each Ethereum-only row carries its sourced ISIN, and the sourced list covers every Ethereum-only row once.
-    function testEthereumOnlyRowsCarryTheSourcedIsin() external pure {
-        UnderlyingIsin[] memory isins = ethereumOnlyIsins();
-        TokenConfig[] memory rows = LibProdTokenConfig.ethereumOnlyTokenConfigs();
+    /// Each off-Base row carries its sourced ISIN, and the sourced list covers every off-Base row once.
+    function testOffBaseRowsCarryTheSourcedIsin() external pure {
+        UnderlyingIsin[] memory isins = offBaseIsins();
+        TokenConfig[] memory rows = LibProdTokenConfig.offBaseTokenConfigs();
         assertEq(rows.length, isins.length, "count");
         for (uint256 i = 0; i < rows.length; i++) {
             uint256 matches = 0;
