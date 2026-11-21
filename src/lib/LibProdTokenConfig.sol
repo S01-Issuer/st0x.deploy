@@ -26,7 +26,7 @@ pragma solidity ^0.8.25;
 /// `"w" + symbol`.
 ///
 /// `assetId`, `listingTicker` and `listingName` record the listing each
-/// token tracks; no deploy input reads them.
+/// token tracks, and are the token's `StoxTokenConfigV1` init data.
 /// @param assetId The listing-time ISIN of the share line the token tracks.
 /// @param listingTicker The underlying's ticker as listed.
 /// @param listingName The underlying's name as listed.

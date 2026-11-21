@@ -11,6 +11,14 @@
 - **`optimizer_runs` lowered 1666 → 200 to fit EIP-170.** At 200 runs the
   runtime is 24,418 bytes (158 spare). As with every optimizer change, this
   moves every candidate Zoltu address; the candidate pins are regenerated.
+- **`optimizer_runs` lowered 195 → 183 to fit the `StoxTokenConfigV1`
+  `initialize` override under EIP-170.** Measured with the override applied:
+  `runs=195` → 24,680 (over by 104); `runs=188` → 24,632; `runs=184` → 24,632
+  (over by 56); `runs=183` → 24,479 (**97 spare**); `runs=182` → 24,479;
+  `runs=180` → 24,479; `runs=150` → 24,302. Sharing one internal delegatecall
+  function between `fallback` and `initialize` was measured and rejected: 24,733
+  at 195 runs, larger than the inline form. As with every optimizer change, this
+  moves every candidate Zoltu address; the candidate pins are regenerated.
 
 ### StoxReceipt
 

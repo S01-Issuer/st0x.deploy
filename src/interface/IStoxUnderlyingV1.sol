@@ -17,11 +17,11 @@ interface IStoxUnderlyingV1 {
     event UnderlyingSet(address indexed sender, string oldSymbol, string oldName, string newSymbol, string newName);
 
     /// @notice The underlying ticker, e.g. "NVDA".
-    /// @return The ticker, or the empty string if it has never been set.
+    /// @return The ticker, else the listing ticker, else the empty string.
     function underlyingSymbol() external view returns (string memory);
 
     /// @notice The underlying asset's name, e.g. "NVIDIA Corporation".
-    /// @return The name, or the empty string if it has never been set.
+    /// @return The name, else the listing name, else the empty string.
     function underlyingName() external view returns (string memory);
 
     /// @notice Sets the underlying ticker and name, and sets the vault's own
