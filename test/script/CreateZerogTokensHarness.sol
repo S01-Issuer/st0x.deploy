@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {CreateZerogTokens} from "../../script/20261119-create-zerog-tokens.s.sol";
+import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
@@ -55,6 +56,18 @@ contract CreateZerogTokensHarness is CreateZerogTokens {
 
     function callToken(uint256 i) external view returns (TokenInstance memory) {
         return token(configs()[i], i);
+    }
+
+    function callConfigs() external view returns (TokenConfig[] memory) {
+        return configs();
+    }
+
+    function callRowToken(TokenConfig memory row, uint256 i) external pure returns (TokenInstance memory) {
+        return token(row, i);
+    }
+
+    function callAuthoriserFor(TokenConfig memory row) external view returns (address) {
+        return authoriserFor(row);
     }
 
     function callArtifactPath() external view returns (string memory) {

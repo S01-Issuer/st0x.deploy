@@ -2378,9 +2378,8 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on 0G (chain id
-    /// 16661) — Base's underlyings in Base row order, so the tables pair by
-    /// index as well as by key (`testZerogTokenTableMirrorsBaseUnderlyings`
-    /// asserts the alignment).
+    /// 16661) in `LibProdTokenConfig.canonicalTokenConfigs()` order, so each 0G
+    /// address is the token Ethereum and HyperEVM hold at the same address.
     ///
     /// **ALL PLACEHOLDERS** (`address(0)`) until the 0G token deployment
     /// executes and the post-execution pin PR hydrates every entry in one
@@ -2388,7 +2387,7 @@ library LibTokenInvariants {
     /// (`testZerogTokenTableIsAllPlaceholders` pins it until then).
     /// @return tokens The production token instances on 0G.
     function productionTokensZerog() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](59);
+        tokens = new TokenInstance[](65);
         tokens[0] = TokenInstance("MSTR", address(0), address(0), address(0));
         tokens[1] = TokenInstance("TSLA", address(0), address(0), address(0));
         tokens[2] = TokenInstance("COIN", address(0), address(0), address(0));
@@ -2418,36 +2417,42 @@ library LibTokenInvariants {
         tokens[26] = TokenInstance("LRCX", address(0), address(0), address(0));
         tokens[27] = TokenInstance("TTWO", address(0), address(0), address(0));
         tokens[28] = TokenInstance("RKLB", address(0), address(0), address(0));
-        tokens[29] = TokenInstance("GOOGL", address(0), address(0), address(0));
-        tokens[30] = TokenInstance("AAPL", address(0), address(0), address(0));
-        tokens[31] = TokenInstance("MSFT", address(0), address(0), address(0));
-        tokens[32] = TokenInstance("LLY", address(0), address(0), address(0));
-        tokens[33] = TokenInstance("PTY", address(0), address(0), address(0));
-        tokens[34] = TokenInstance("INTC", address(0), address(0), address(0));
-        tokens[35] = TokenInstance("HOOD", address(0), address(0), address(0));
-        tokens[36] = TokenInstance("ORCL", address(0), address(0), address(0));
-        tokens[37] = TokenInstance("SMCI", address(0), address(0), address(0));
-        tokens[38] = TokenInstance("BABA", address(0), address(0), address(0));
-        tokens[39] = TokenInstance("TQQQ", address(0), address(0), address(0));
+        tokens[29] = TokenInstance("HOOD", address(0), address(0), address(0));
+        tokens[30] = TokenInstance("ORCL", address(0), address(0), address(0));
+        tokens[31] = TokenInstance("SMCI", address(0), address(0), address(0));
+        tokens[32] = TokenInstance("BABA", address(0), address(0), address(0));
+        tokens[33] = TokenInstance("TQQQ", address(0), address(0), address(0));
+        tokens[34] = TokenInstance("AAPL", address(0), address(0), address(0));
+        tokens[35] = TokenInstance("GOOGL", address(0), address(0), address(0));
+        tokens[36] = TokenInstance("INTC", address(0), address(0), address(0));
+        tokens[37] = TokenInstance("LLY", address(0), address(0), address(0));
+        tokens[38] = TokenInstance("MSFT", address(0), address(0), address(0));
+        tokens[39] = TokenInstance("PTY", address(0), address(0), address(0));
         tokens[40] = TokenInstance("FTF", address(0), address(0), address(0));
         tokens[41] = TokenInstance("CBRS", address(0), address(0), address(0));
-        tokens[42] = TokenInstance("MCD", address(0), address(0), address(0));
-        tokens[43] = TokenInstance("NKE", address(0), address(0), address(0));
-        tokens[44] = TokenInstance("GRND", address(0), address(0), address(0));
-        tokens[45] = TokenInstance("DNUT", address(0), address(0), address(0));
-        tokens[46] = TokenInstance("PLBY", address(0), address(0), address(0));
-        tokens[47] = TokenInstance("TR", address(0), address(0), address(0));
-        tokens[48] = TokenInstance("WEN", address(0), address(0), address(0));
-        tokens[49] = TokenInstance("FGI", address(0), address(0), address(0));
-        tokens[50] = TokenInstance("BIRD", address(0), address(0), address(0));
-        tokens[51] = TokenInstance("SPY", address(0), address(0), address(0));
-        tokens[52] = TokenInstance("SNES", address(0), address(0), address(0));
-        tokens[53] = TokenInstance("WMT", address(0), address(0), address(0));
-        tokens[54] = TokenInstance("MC", address(0), address(0), address(0));
-        tokens[55] = TokenInstance("DIS", address(0), address(0), address(0));
-        tokens[56] = TokenInstance("IFX", address(0), address(0), address(0));
-        tokens[57] = TokenInstance("SOI", address(0), address(0), address(0));
-        tokens[58] = TokenInstance("TPRO", address(0), address(0), address(0));
+        tokens[42] = TokenInstance("AIR.PA", address(0), address(0), address(0));
+        tokens[43] = TokenInstance("BMW.DE", address(0), address(0), address(0));
+        tokens[44] = TokenInstance("MC.PA", address(0), address(0), address(0));
+        tokens[45] = TokenInstance("SIE.DE", address(0), address(0), address(0));
+        tokens[46] = TokenInstance("MBG.DE", address(0), address(0), address(0));
+        tokens[47] = TokenInstance("RHM.DE", address(0), address(0), address(0));
+        tokens[48] = TokenInstance("MCD", address(0), address(0), address(0));
+        tokens[49] = TokenInstance("NKE", address(0), address(0), address(0));
+        tokens[50] = TokenInstance("GRND", address(0), address(0), address(0));
+        tokens[51] = TokenInstance("DNUT", address(0), address(0), address(0));
+        tokens[52] = TokenInstance("PLBY", address(0), address(0), address(0));
+        tokens[53] = TokenInstance("TR", address(0), address(0), address(0));
+        tokens[54] = TokenInstance("WEN", address(0), address(0), address(0));
+        tokens[55] = TokenInstance("FGI", address(0), address(0), address(0));
+        tokens[56] = TokenInstance("BIRD", address(0), address(0), address(0));
+        tokens[57] = TokenInstance("SPY", address(0), address(0), address(0));
+        tokens[58] = TokenInstance("SNES", address(0), address(0), address(0));
+        tokens[59] = TokenInstance("WMT", address(0), address(0), address(0));
+        tokens[60] = TokenInstance("MC", address(0), address(0), address(0));
+        tokens[61] = TokenInstance("DIS", address(0), address(0), address(0));
+        tokens[62] = TokenInstance("IFX", address(0), address(0), address(0));
+        tokens[63] = TokenInstance("SOI", address(0), address(0), address(0));
+        tokens[64] = TokenInstance("TPRO", address(0), address(0), address(0));
     }
 
     /// @notice Returns the production receipt vault addresses on Base, in
