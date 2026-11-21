@@ -3,12 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {CreateZerogTokensHarness} from "./CreateZerogTokensHarness.sol";
 
@@ -157,14 +155,15 @@ contract CreateZerogTokensEthereumOrderTest is Test {
 
     /// @notice No receipt, vault or wrapper the 0G creation makes is, in any other chain's production table, an
     /// address of a token with another underlying.
-    function testNoZerogAddressIsAnotherUnderlyingOnAnyChain() external view {
+    /// Robinhood and BSC already put other underlyings at Ethereum's addresses, so 0G, which follows Ethereum, is
+    /// held to the chains that share its order.
+    function testNoZerogAddressIsAnotherUnderlyingOnEthereumOrHyperEvm() external view {
         TokenInstance[] memory zerog = zerogTokens();
-        SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        uint256[2] memory chainIds = [LibSafeInvariants.ETHEREUM_CHAIN_ID, LibSafeInvariants.HYPEREVM_CHAIN_ID];
+        string[2] memory names = ["ethereum", "hyperevm"];
         uint256 shared = 0;
-        for (uint256 n = 0; n < nets.length; n++) {
-            if (nets[n].chainId == LibSafeInvariants.ZEROG_CHAIN_ID) continue;
-            TokenInstance[] memory other = LibTokenInvariants.productionTokensForChainId(nets[n].chainId);
+        for (uint256 n = 0; n < chainIds.length; n++) {
+            TokenInstance[] memory other = LibTokenInvariants.productionTokensForChainId(chainIds[n]);
             for (uint256 i = 0; i < zerog.length; i++) {
                 address[3] memory ours = legs(zerog[i]);
                 for (uint256 j = 0; j < other.length; j++) {
@@ -175,7 +174,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
                             assertEq(
                                 other[j].underlying,
                                 zerog[i].underlying,
-                                string.concat(nets[n].name, " ", vm.toString(ours[a]))
+                                string.concat(names[n], " ", vm.toString(ours[a]))
                             );
                             shared++;
                         }
