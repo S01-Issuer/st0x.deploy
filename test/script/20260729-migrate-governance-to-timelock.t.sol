@@ -8,7 +8,7 @@ import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {
     MigrateGovernanceToTimelock,
@@ -20,7 +20,7 @@ import {
 import {MigrateGovernanceToTimelockHarness} from "./MigrateGovernanceToTimelockHarness.sol";
 import {ExecuteTimelockOperations} from "../../script/20260813-execute-timelock-operations.s.sol";
 import {MigrateMultisigThreshold} from "../../script/20260619-migrate-multisig-threshold.s.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
@@ -31,14 +31,14 @@ import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.22/src/abstract/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.25/src/abstract/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 
 import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.33/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.33/src/lib/LibSafeTxBuilderJson.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
@@ -62,51 +62,17 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// post-state and artifact assertions run against whichever chain the
     /// test selected rather than assuming Base.
     function _activeChainAuthoriser() internal view returns (address) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        }
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
-        }
-        revert("unsupported chain in migration test");
+        return LibAuthoriserInvariants.authoriserForChainId(block.chainid);
     }
 
     /// @notice The active fork's production token table.
     function _activeChainTokens() internal view returns (TokenInstance[] memory) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensBase();
-        }
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensEthereum();
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensHyperEvm();
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensRobinhood();
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibTokenInvariants.productionTokensBsc();
-        }
-        revert("unsupported chain in migration test");
+        return LibTokenInvariants.productionTokensForChainId(block.chainid);
     }
 
     /// @notice The active fork's production receipt vaults, in table order.
-    function _activeChainVaults() internal view returns (address[] memory vaults) {
-        TokenInstance[] memory tokens = _activeChainTokens();
-        vaults = new address[](tokens.length);
-        for (uint256 i = 0; i < tokens.length; i++) {
-            vaults[i] = tokens[i].receiptVault;
-        }
+    function _activeChainVaults() internal view returns (address[] memory) {
+        return LibTokenInvariants.productionReceiptVaultsForChainId(block.chainid);
     }
 
     function selectBaseFork() internal {
@@ -170,7 +136,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// bundle — 7 grants, then every Safe-owned vault transfer, then every
     /// Safe-owned beacon transfer, then 7 renounces, in order.
     function testRunAuthorsFullMigrationOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             selectRewoundFork(networks[i]);
             _assertAuthorsFullMigration(LibSafeInvariants.safeForChainId(block.chainid));

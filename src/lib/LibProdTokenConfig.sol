@@ -27,7 +27,7 @@ pragma solidity ^0.8.25;
 ///
 /// `assetId`, `listingTicker` and `listingName` record the listing each
 /// token tracks, and are the token's `StoxTokenConfigV1` init data.
-/// @param assetId The ISIN of the underlying, as the Final Terms state it.
+/// @param assetId The listing-time ISIN of the share line the token tracks.
 /// @param listingTicker The underlying's ticker as listed.
 /// @param listingName The underlying's name as listed.
 /// @param underlying The chain-agnostic ticker join key, matching
@@ -207,7 +207,7 @@ library LibProdTokenConfig {
             underlying: "SGOV",
             assetId: "US46436E7186",
             listingTicker: "SGOV",
-            listingName: " iShares 0-3 Month Treasury Bond ETF",
+            listingName: "iShares 0-3 Month Treasury Bond ETF",
             name: " iShares 0-3 Month Treasury Bond ETF ST0x",
             symbol: "tSGOV",
             region: Region.US,

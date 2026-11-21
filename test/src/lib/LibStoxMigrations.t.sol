@@ -4,15 +4,15 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistry.sol";
-import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
-import {IRegistryDelegatesV3} from "rain-deploy-0.1.33/src/interface/IRegistryDelegatesV3.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistry.sol";
+import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.38/src/interface/IRegistryDelegatesV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.33/src/generated/candidate/MigrationRegistry.sol";
+} from "rain-deploy-0.1.38/src/generated/candidate/MigrationRegistry.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -49,6 +49,32 @@ contract LibStoxMigrationsTest is Test {
         assertEq(LibStoxMigrations.NAMESPACE, keccak256("st0x.deploy"));
     }
 
+    /// @notice The chains with a root line are the deployment networks, in
+    /// their order, 0G last.
+    function testLineNetworksAreTheDeploymentNetworks() external pure {
+        SupportedNetwork[] memory deployed =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        SupportedNetwork[] memory lines = LibStoxMigrations.lineNetworks();
+        assertEq(lines.length, deployed.length);
+        for (uint256 i = 0; i < deployed.length; i++) {
+            assertEq(lines[i].name, deployed[i].name);
+            assertEq(lines[i].chainId, deployed[i].chainId);
+        }
+        assertEq(lines[deployed.length - 1].name, LibStoxDeployNetworks.ZEROG);
+        assertEq(lines[deployed.length - 1].chainId, LibSafeInvariants.ZEROG_CHAIN_ID);
+    }
+
+    /// @notice Only 0G joined after the backfilled history ran everywhere else.
+    function testOnlyZerogIsWithoutHistory(uint256 chainId) external pure {
+        assertEq(LibStoxMigrations.withoutHistory(chainId), chainId == LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertTrue(LibStoxMigrations.withoutHistory(LibSafeInvariants.ZEROG_CHAIN_ID));
+        SupportedNetwork[] memory deployed =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        for (uint256 i = 0; i < deployed.length; i++) {
+            assertFalse(LibStoxMigrations.withoutHistory(deployed[i].chainId), deployed[i].name);
+        }
+    }
+
     /// @notice A catalogued network ST0x does not deploy to has no moment.
     function testUndeployedCataloguedChainReverts() external {
         LibStoxMigrationsHarness ext = new LibStoxMigrationsHarness();
@@ -83,11 +109,12 @@ contract LibStoxMigrationsTest is Test {
         LibMigrationRegistry.checkCodeHash();
     }
 
-    /// @notice Every network ST0x deploys to has a pinned execution moment,
-    /// and it is the chain's own record of the migration.
+    /// @notice Every network ST0x deployed to before 0G has a pinned execution
+    /// moment, and it is the chain's own record of the migration. 0G ran none
+    /// of it: its line holds the record record-only, with no moment.
     function testGovernanceTimelockExecutionOnEveryDeploymentNetwork() external {
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 i = 0; i < networks.length; i++) {
             assertExecution(networks[i]);
         }
