@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "The `StoxDeploySuites` suite to deploy to every network this repo deploys to"
+        description: "The `StoxDeploySuites` suite to deploy to every network it is declared on"
         required: true
         type: choice
         options:
@@ -24,6 +24,7 @@ on:
           - stox-attest-sub-parser
           - stox-governance-timelock
           - stox-eu-assets-authoriser
+          - stox-us-assets-authoriser
           - stox-token-tmstr
           - stox-token-tmstr-wrapper
           - stox-token-ttsla

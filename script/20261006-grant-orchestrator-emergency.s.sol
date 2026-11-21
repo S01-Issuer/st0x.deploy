@@ -15,11 +15,15 @@ error OrchestratorEmergencyRecordedByBackfill(uint256 chainId);
 error NoOrchestratorEmergencyOnChain(uint256 chainId);
 
 /// @notice This script's declaration: the root line's history record of the
-/// emergency grant, after the EU authoriser-role grant.
+/// emergency grant, after the EU authoriser-role grant; record-only on 0G
+/// (`LibStoxMigrations.withoutHistory`).
+/// @param chainId The chain id.
 /// @return The declaration.
-function grantOrchestratorEmergencyDeclaration() pure returns (ScriptDeclaration memory) {
+function grantOrchestratorEmergencyDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: LibStoxMigrations.ORCHESTRATOR_EMERGENCY, onto: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, history: true
+        id: LibStoxMigrations.ORCHESTRATOR_EMERGENCY,
+        onto: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES,
+        history: !LibStoxMigrations.withoutHistory(chainId)
     });
 }
 
@@ -39,8 +43,8 @@ contract GrantOrchestratorEmergency is IStoxScript, IStoxHistoryMigration {
     }
 
     /// @inheritdoc IStoxScript
-    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
-        return grantOrchestratorEmergencyDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return grantOrchestratorEmergencyDeclaration(chainId);
     }
 
     function run() external view {

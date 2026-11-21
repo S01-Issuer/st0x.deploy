@@ -136,7 +136,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     /// bundle — 7 grants, then every Safe-owned vault transfer, then every
     /// Safe-owned beacon transfer, then 7 renounces, in order.
     function testRunAuthorsFullMigrationOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             selectRewoundFork(networks[i]);
             _assertAuthorsFullMigration(LibSafeInvariants.safeForChainId(block.chainid));

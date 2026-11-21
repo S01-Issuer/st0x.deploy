@@ -139,7 +139,7 @@ contract OrchestratorAdminToTimelockTest is Test {
     }
 
     function testMoveBundleOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertBundle(networks[i]);
         }

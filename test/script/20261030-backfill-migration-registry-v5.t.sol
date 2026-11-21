@@ -222,7 +222,7 @@ contract BackfillMigrationRegistryV5Test is Test {
     }
 
     function testBackfillBundleOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertBackfill(networks[i]);
         }
@@ -253,7 +253,7 @@ contract BackfillMigrationRegistryV5Test is Test {
     }
 
     function testBundleSkipsRecordsV5HoldsOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertBundleSkipsHeldRecords(networks[i]);
         }

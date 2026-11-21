@@ -125,8 +125,9 @@ struct MigrationTargets {
 /// @param id The timelock operation id that failed to complete.
 error GovernanceLoopNotProven(bytes32 id);
 
-/// @notice This script's declaration: history on every chain; on Base, onto
-/// the rehearsal execute; elsewhere, onto the multisig threshold migration.
+/// @notice This script's declaration: history, record-only on 0G
+/// (`LibStoxMigrations.withoutHistory`); on Base, onto the rehearsal execute;
+/// elsewhere, onto the multisig threshold migration.
 /// @param chainId The chain id.
 /// @return The declaration.
 function migrateGovernanceToTimelockDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
@@ -135,7 +136,7 @@ function migrateGovernanceToTimelockDeclaration(uint256 chainId) pure returns (S
         onto: chainId == LibSafeInvariants.BASE_CHAIN_ID
             ? LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS
             : LibStoxMigrations.MULTISIG_THRESHOLD,
-        history: true
+        history: !LibStoxMigrations.withoutHistory(chainId)
     });
 }
 

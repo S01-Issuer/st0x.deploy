@@ -525,11 +525,14 @@ contract Build is Script, StoxDeploySuites {
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
         );
-        // 0G V4 authoriser clone: **PLACEHOLDER** until the 0G US clone is
-        // deployed and its address is pinned here; no script in this repo
-        // deploys it yet. The clone proxies the same 0.1.1 impl, so it shares
-        // the EIP-1167 codehash above.
-        vm.writeLine(GEN_V4_PATH, "address constant STOX_PROD_AUTHORISER_V4_CLONE_ZEROG = address(0);");
+        // 0G V4 authoriser clone: the CloneFactory 0.1.15 open-salt clone
+        // `LibUsAuthoriserClone` derives, so the address commits to the 0G
+        // Safe as initial admin and no other caller can land a clone there
+        // with other init data.
+        vm.writeLine(
+            GEN_V4_PATH,
+            "address constant STOX_PROD_AUTHORISER_V4_CLONE_ZEROG = address(0x6173C9ac3cCb2f6a2F175b0d1fb5DA86fDD5F221);"
+        );
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         // ST0x orchestrator beacon + production instance — CREATE-derived
         // from the 0.1.30 orchestrator beacon-set deployer (itself a Zoltu

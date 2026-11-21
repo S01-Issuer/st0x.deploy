@@ -7,6 +7,10 @@
           "executedAt": 1784297831,
           "onto": "0xd85a7f14bb19a07649810ac09029cc9c29667e4059cb83e258bc52e213365d3f"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0xd85a7f14bb19a07649810ac09029cc9c29667e4059cb83e258bc52e213365d3f"
+        },
         "4663": {
           "executedAt": 1789068996,
           "onto": "0xd85a7f14bb19a07649810ac09029cc9c29667e4059cb83e258bc52e213365d3f"
@@ -33,6 +37,10 @@
           "executedAt": 1791056759,
           "onto": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543"
+        },
         "4663": {
           "executedAt": 1791131389,
           "onto": "0x68847439065e76f168f14737cda7cb7f920f30021cc88a737633db6d7ca3c543"
@@ -56,6 +64,10 @@
     {
       "chains": {
         "1": {
+          "executedAt": 0,
+          "onto": "0x5d15d95cf2517d0c33b08ddf7a2f113416f9ca27461e224d4d565c9fa4bd8978"
+        },
+        "16661": {
           "executedAt": 0,
           "onto": "0x5d15d95cf2517d0c33b08ddf7a2f113416f9ca27461e224d4d565c9fa4bd8978"
         },
@@ -85,6 +97,10 @@
           "executedAt": 0,
           "onto": "0xdd258b61091d05f714fcc1ccba67ac55b2f0e7f6583969851d3ceeb95ef54838"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0xdd258b61091d05f714fcc1ccba67ac55b2f0e7f6583969851d3ceeb95ef54838"
+        },
         "4663": {
           "executedAt": 0,
           "onto": "0xdd258b61091d05f714fcc1ccba67ac55b2f0e7f6583969851d3ceeb95ef54838"
@@ -108,6 +124,10 @@
     {
       "chains": {
         "1": {
+          "executedAt": 0,
+          "onto": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0"
+        },
+        "16661": {
           "executedAt": 0,
           "onto": "0xf6d09b5d9e041681bdc72dc4947c5dc15a93c4ba4fe715d383660172e1718cb0"
         },
@@ -137,6 +157,10 @@
           "executedAt": 1792605263,
           "onto": "0xc3a838b5f075fbf855329612292400d9d728c845aa96fcbf9db3a889b1128c15"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0xc3a838b5f075fbf855329612292400d9d728c845aa96fcbf9db3a889b1128c15"
+        },
         "4663": {
           "executedAt": 1792606144,
           "onto": "0xc3a838b5f075fbf855329612292400d9d728c845aa96fcbf9db3a889b1128c15"
@@ -163,6 +187,10 @@
           "executedAt": 1792605299,
           "onto": "0x30b5ffae8f33fceedd47d80a29b9acd50b9e91c452fe21f4cdf7ad7070218dc8"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0x30b5ffae8f33fceedd47d80a29b9acd50b9e91c452fe21f4cdf7ad7070218dc8"
+        },
         "4663": {
           "executedAt": 1792606175,
           "onto": "0x30b5ffae8f33fceedd47d80a29b9acd50b9e91c452fe21f4cdf7ad7070218dc8"
@@ -186,6 +214,10 @@
     {
       "chains": {
         "1": {
+          "executedAt": 0,
+          "onto": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6"
+        },
+        "16661": {
           "executedAt": 0,
           "onto": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6"
         },
@@ -215,6 +247,10 @@
           "executedAt": 0,
           "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
+        },
         "4663": {
           "executedAt": 0,
           "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
@@ -238,6 +274,10 @@
     {
       "chains": {
         "1": {
+          "executedAt": 0,
+          "onto": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad"
+        },
+        "16661": {
           "executedAt": 0,
           "onto": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad"
         },
@@ -267,6 +307,10 @@
           "executedAt": 0,
           "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
+        },
         "4663": {
           "executedAt": 0,
           "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
@@ -291,23 +335,27 @@
       "chains": {
         "1": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+        },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
         },
         "4663": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
         },
         "56": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
         },
         "8453": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
         },
         "999": {
           "executedAt": 0,
-          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
         }
       },
       "id": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6",
@@ -316,6 +364,10 @@
     {
       "chains": {
         "1": {
+          "executedAt": 0,
+          "onto": "0x78c5d1206f96fb65a53e48d63d4d21553a84165dc07dfd1b2d8178ef9d6fefc1"
+        },
+        "16661": {
           "executedAt": 0,
           "onto": "0x78c5d1206f96fb65a53e48d63d4d21553a84165dc07dfd1b2d8178ef9d6fefc1"
         },
@@ -345,6 +397,10 @@
           "executedAt": 0,
           "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
+        },
         "4663": {
           "executedAt": 0,
           "onto": "0xdf1d7890b98737bae0df512744c6d6e9af57d6eafb71a5990d6dd43829b85651"
@@ -368,6 +424,10 @@
     {
       "chains": {
         "1": {
+          "executedAt": 0,
+          "onto": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070"
+        },
+        "16661": {
           "executedAt": 0,
           "onto": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070"
         },
@@ -397,6 +457,10 @@
           "executedAt": 0,
           "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+        },
         "4663": {
           "executedAt": 0,
           "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
@@ -420,6 +484,10 @@
     {
       "chains": {
         "1": {
+          "executedAt": 0,
+          "onto": "0xf4f523ac3a41a095b384301b2343639f93d5e8230168648efac9fc77fa0797df"
+        },
+        "16661": {
           "executedAt": 0,
           "onto": "0xf4f523ac3a41a095b384301b2343639f93d5e8230168648efac9fc77fa0797df"
         },
@@ -449,6 +517,10 @@
           "executedAt": 0,
           "onto": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d"
         },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d"
+        },
         "4663": {
           "executedAt": 0,
           "onto": "0xc5460b80776aaef69ac86650f14170040ae62c98bfa9f9f459b2f8c73519db8d"
@@ -468,12 +540,46 @@
       },
       "id": "0x5d10a7a02021ef39866cec3eebe58b030443648637c1fee80fa23d257d682e19",
       "script": "script/20261113-bind-orchestrator-config.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xca7a81997f3128d0e751bd68bb27ad05b583be109e6814115a2abf0a62a032f5"
+        }
+      },
+      "id": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f",
+      "script": "script/20261119-create-zerog-tokens.s.sol"
     }
   ],
   "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
   "networks": {
     "1": {
       "network": "ethereum",
+      "registry": "0xd708186f68D527B64c001398550627508205EE31"
+    },
+    "16661": {
+      "network": "zerog",
       "registry": "0xd708186f68D527B64c001398550627508205EE31"
     },
     "4663": {

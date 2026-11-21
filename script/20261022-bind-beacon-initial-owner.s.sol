@@ -31,14 +31,12 @@ error SafeNotBeaconInitialOwnerDelegate(address safe);
 /// @param registeredAt When it was bound.
 error BeaconInitialOwnerBindingMismatch(bytes value, uint256 registeredAt);
 
-/// @notice This script's declaration on the root line, after the
-/// backfill record.
+/// @notice This script's declaration on the root line, after the 0G token
+/// creation record, which follows the backfill.
 /// @return The declaration.
 function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
-        onto: LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
-        history: false
+        id: LibStoxMigrations.BIND_BEACON_INITIAL_OWNER, onto: LibStoxMigrations.CREATE_ZEROG_TOKENS, history: false
     });
 }
 

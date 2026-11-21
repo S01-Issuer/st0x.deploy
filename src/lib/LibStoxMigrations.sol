@@ -13,6 +13,7 @@ import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 
 import {ScriptDeclaration} from "../interface/IStoxScript.sol";
+import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 
 /// @notice No execution moment is pinned for the governance-timelock
@@ -61,6 +62,13 @@ error LineHeadMismatch(bytes32 head);
 /// A migration that ran before anything was recorded is recorded later as
 /// history, with the moment it executed. Until that record lands, `applied`
 /// answering zero does NOT mean it has not run.
+///
+/// Every chain's line holds every migration. A migration with nothing to do on
+/// a chain is recorded there alone, record-only: the rehearsals off Base, the
+/// backfilled history on 0G (`withoutHistory`), the 0G token creation off 0G.
+/// On a `withoutHistory` chain a backfilled record proves only that the line
+/// passed it, not that its step ran: a script there asserts the state it
+/// depends on directly.
 ///
 /// The records live in ONE registry instance: the address and code hash
 /// `LibMigrationRegistryDeploy` carries in the imported rain-deploy.
@@ -144,6 +152,31 @@ library LibStoxMigrations {
     /// @notice `script/20261113-bind-orchestrator-config.s.sol`: the
     /// orchestrator beacon and initial admin bound in the ConfigRegistry.
     bytes32 internal constant BIND_ORCHESTRATOR_CONFIG = keccak256("script/20261113-bind-orchestrator-config.s.sol");
+
+    /// @notice `script/20261119-create-zerog-tokens.s.sol`: the 0G
+    /// production tokens created through the audited 0.1.1 unified deployer,
+    /// each put on its region's authoriser and handed to the 0G governance
+    /// timelock in the bundle that creates it; the record alone elsewhere.
+    /// Recorded right after the backfill on every chain.
+    bytes32 internal constant CREATE_ZEROG_TOKENS = keccak256("script/20261119-create-zerog-tokens.s.sol");
+
+    /// @notice Every chain with a root line: each deployment network, 0G
+    /// included. Every line holds every migration.
+    /// @return The networks, in manifest order.
+    function lineNetworks() internal pure returns (SupportedNetwork[] memory) {
+        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+    }
+
+    /// @notice Whether `chainId` joined after the migrations the backfill
+    /// records had run on every other chain, so none of them ran there: 0G.
+    /// The backfill records each of them there record-only, as it records the
+    /// rehearsals off Base, so `chainId`'s line holds the same records as
+    /// every other chain's.
+    /// @param chainId The chain id.
+    /// @return True on 0G.
+    function withoutHistory(uint256 chainId) internal pure returns (bool) {
+        return chainId == LibSafeInvariants.ZEROG_CHAIN_ID;
+    }
 
     /// @notice What `declared` is recorded after on the root line.
     /// @param declared The declaration.

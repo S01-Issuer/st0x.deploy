@@ -41,10 +41,15 @@ error NoMultisigThresholdMigrationOnChain(uint256 chainId);
 error MultisigThresholdAlreadyApplied();
 
 /// @notice This script's declaration: the root line's genesis record of the threshold
-/// migration, written as history by the backfill.
+/// migration, written by the backfill: as history, record-only on 0G (`LibStoxMigrations.withoutHistory`).
+/// @param chainId The chain id.
 /// @return The declaration.
-function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
-    return ScriptDeclaration({id: LibStoxMigrations.MULTISIG_THRESHOLD, onto: MIGRATION_HEAD_GENESIS, history: true});
+function migrateMultisigThresholdDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
+    return ScriptDeclaration({
+        id: LibStoxMigrations.MULTISIG_THRESHOLD,
+        onto: MIGRATION_HEAD_GENESIS,
+        history: !LibStoxMigrations.withoutHistory(chainId)
+    });
 }
 
 /// @title MigrateMultisigThreshold
@@ -72,8 +77,8 @@ function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration m
 /// while keeping the owner set pinned.
 contract MigrateMultisigThreshold is Script, IStoxScript, IStoxHistoryMigration {
     /// @inheritdoc IStoxScript
-    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
-        return migrateMultisigThresholdDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return migrateMultisigThresholdDeclaration(chainId);
     }
 
     /// @inheritdoc IStoxHistoryMigration

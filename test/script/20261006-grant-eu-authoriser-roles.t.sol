@@ -28,12 +28,13 @@ contract GrantEuAuthoriserRolesTest is BackfilledHistoryScriptTest {
         return LibStoxMigrations.GOVERNANCE_TIMELOCK;
     }
 
-    function declaredHistory(uint256) internal pure override returns (bool) {
-        return true;
+    /// @dev 0G ran none of the backfilled history, so its record there is record-only.
+    function declaredHistory(uint256 chainId) internal pure override returns (bool) {
+        return chainId != LibSafeInvariants.ZEROG_CHAIN_ID;
     }
 
     function ranOn(uint256 chainId) internal pure override returns (bool) {
-        return onDeploymentChain(chainId);
+        return ranHistoryOn(chainId);
     }
 
     function executedAtRefusal(uint256 chainId) internal pure override returns (bytes memory) {

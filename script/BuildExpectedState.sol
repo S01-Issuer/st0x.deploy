@@ -8,7 +8,7 @@ import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.38/src/lib/LibRainDeployDeclaration.sol";
 import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
-import {LibReleasedSuites} from "../src/lib/LibReleasedSuites.sol";
+import {LibStoxReleasedNetworks} from "../src/lib/LibStoxReleasedNetworks.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
@@ -28,28 +28,44 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
-/// `network`, `beaconSetDeployer`, `beacons` (beacon, codehash, implementation, renamedImplementation once
-/// `renameMigration` is recorded, owner), the token-owner `safe`
-/// lock-down, the `timelock`, the `orchestrator`, the V4
+/// `network`, `beaconSetDeployer`, `beacons` (the in-use beacons, `LibBeaconInvariants.prodBeaconsInUse`: beacon,
+/// codehash, implementation, renamedImplementation once `renameMigration` is recorded, owner), the token-owner `safe`
+/// lock-down, the `timelock`, the `orchestrator` (every field zero on a chain that runs none, 0G), the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
-/// token's renamed metadata), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
-/// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`,
-/// `decimals`, `wrappedTokenVaultName`, `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
+/// token's renamed metadata; zero on a network its rename and beacon batches were not cut for, 0G, so the renamed
+/// fields repeat the current ones), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
+/// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`, `decimals`, `wrappedTokenVaultName`,
+/// `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
 /// `receiptVaultReceipt` (`receiptVault.receipt()`), `receiptManager` (`receipt.manager()`), `wrappedTokenVaultAsset`
 /// (`wrappedTokenVault.asset()`), the
 /// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
 /// `receiptVaultCodehash`, `receiptCodehash`,
-/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`; on Base, `qsep` (tQSEP's legs, `owner`, `authoriser`). Under `v2`, per network V2 was checked on: `network`,
+/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`, or none where `tokenTableHydrated` is false (a table of
+/// placeholders, as 0G's until its tokens exist); on Base, `qsep` (tQSEP's legs, `owner`, `authoriser`). Under `v2`, per network V2 was checked on: `network`,
 /// `deployments` (each `LibProdDeployV2` key, address, codehash), `beaconSetDeployer`, and `receiptBeacon`,
 /// `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon, implementation, owner).
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
-    /// The implementations `renameMigration`'s beacon batch moves the beacons to.
+    /// The migration whose record on the chain selects each token's renamed metadata: the underlying naming on the
+    /// networks its rename and beacon batches were cut for (`LibStoxDeployNetworks.networksBeforeZerog`), or zero.
+    /// 0G's root line records the naming too, after the 0G token creation, but no reviewed 0G bundle for it exists, so
+    /// 0G expects no renamed state.
+    function renameMigration(uint256 chainId) internal pure returns (bytes32) {
+        return LibRainDeploy.hasChainId(
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
+        )
+            ? LibStoxMigrations.EXECUTE_UNDERLYING_NAMING
+            : bytes32(0);
+    }
+
+    /// The implementations `renameMigration`'s beacon batch moves the beacons to; the current ones where there is no
+    /// `renameMigration`.
     function renamedImplementations(uint256 chainId) internal pure returns (address[4] memory) {
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
+        if (renameMigration(chainId) == bytes32(0)) return impls;
         impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION;
         impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX] =
         LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
@@ -62,8 +78,8 @@ contract BuildExpectedState is Script {
         bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(chainId);
         address[4] memory renamed = renamedImplementations(chainId);
         address owner = LibTimelockInvariants.timelockForChainId(chainId);
-        string[] memory rows = new string[](derived.length);
-        for (uint256 i = 0; i < derived.length; i++) {
+        string[] memory rows = new string[](LibBeaconInvariants.prodBeaconsInUse(chainId));
+        for (uint256 i = 0; i < rows.length; i++) {
             string memory row = string.concat(key, ".beacon.", vm.toString(i));
             vm.serializeAddress(row, "beacon", derived[i]);
             vm.serializeBytes32(row, "codehash", codehashes[i]);
@@ -125,8 +141,18 @@ contract BuildExpectedState is Script {
         return vm.serializeUint(at, "minDelay", LibTimelockInvariants.TIMELOCK_MIN_DELAY);
     }
 
+    /// Every field zero on a chain that runs no orchestrator (0G, `LibAuthoriserInvariants.grantsOrchestrator`): its
+    /// beacon-set deployer is not deployed there, so neither its beacon nor its instance is expected live.
     function orchestratorJson(uint256 chainId, string memory key) internal returns (string memory) {
         string memory at = string.concat(key, ".orchestrator");
+        if (!LibAuthoriserInvariants.grantsOrchestrator(chainId)) {
+            vm.serializeAddress(at, "setDeployer", address(0));
+            vm.serializeAddress(at, "beacon", address(0));
+            vm.serializeBytes32(at, "beaconCodehash", bytes32(0));
+            vm.serializeAddress(at, "implementation", address(0));
+            vm.serializeAddress(at, "owner", address(0));
+            return vm.serializeAddress(at, "instance", address(0));
+        }
         vm.serializeAddress(at, "setDeployer", LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30);
         vm.serializeAddress(at, "beacon", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON);
         vm.serializeBytes32(at, "beaconCodehash", LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30);
@@ -135,14 +161,14 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(at, "instance", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
     }
 
-    function tokenMetadataJson(string memory row, uint256 i, string memory underlying) internal {
+    function tokenMetadataJson(uint256 chainId, string memory row, uint256 i, string memory underlying) internal {
         TokenConfig memory config = LibProdTokenConfig.configOf(underlying);
         vm.serializeString(row, "underlying", underlying);
         vm.serializeString(row, "assetId", config.assetId);
         vm.serializeString(row, "listingTicker", config.listingTicker);
         vm.serializeString(row, "listingName", config.listingName);
         vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
-        bool renames = LibUnderlyingNamingRollout.renamesRow(i);
+        bool renames = renameMigration(chainId) != bytes32(0) && LibUnderlyingNamingRollout.renamesRow(i);
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
         vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
         vm.serializeString(row, "symbol", config.symbol);
@@ -188,7 +214,7 @@ contract BuildExpectedState is Script {
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
-            tokenMetadataJson(row, i, tokens[i].underlying);
+            tokenMetadataJson(chainId, row, i, tokens[i].underlying);
             tokenLegsJson(row, tokens[i], beacons, proxyCodehashes);
             vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
             rows[i] = vm.serializeAddress(
@@ -219,7 +245,7 @@ contract BuildExpectedState is Script {
     function releasedSuites() internal pure returns (DeploySuite[] memory) {
         DeployDeclaration memory declared;
         LibRainDeployDeclaration.setNetworks(declared, LibStoxDeployNetworks.deploymentNetworks());
-        LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
+        LibRainDeployDeclaration.addReleased(declared, LibStoxReleasedNetworks.releasedSuites());
         return declared.released;
     }
 
@@ -286,11 +312,13 @@ contract BuildExpectedState is Script {
             )
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
-        vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
+        vm.serializeBytes32(key, "renameMigration", renameMigration(chainId));
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
         }
-        return vm.serializeString(key, "tokens", tokensJson(chainId, key));
+        bool hydrated = LibTokenInvariants.tokenTableHydrated(chainId);
+        vm.serializeBool(key, "tokenTableHydrated", hydrated);
+        return vm.serializeString(key, "tokens", hydrated ? tokensJson(chainId, key) : new string[](0));
     }
 
     function v2DeploymentJson(string memory key, uint256 i, string memory name, address deployed, bytes32 codehash)
