@@ -123,7 +123,7 @@ contract LibTokenInvariantsTest is Test {
     /// The 0G token table follows the 0G creation rows row-for-row on the
     /// `underlying` key: 65 rows in Ethereum's creation order.
     function testZerogTokenTableFollowsZerogCreationRows() external pure {
-        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
         assertEq(zerog.length, 65, "0G token table length");
         assertEq(rows.length, zerog.length, "0G token table length diverges from its creation rows");

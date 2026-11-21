@@ -2378,9 +2378,8 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on 0G (chain id
-    /// 16661) in `LibProdTokenConfig.zerogTokenConfigs()` order: Ethereum's
-    /// creation order, so each 0G address is the token Ethereum and HyperEVM
-    /// hold at the same deployer nonce.
+    /// 16661) in `LibProdTokenConfig.canonicalTokenConfigs()` order, so each 0G
+    /// address is the token Ethereum and HyperEVM hold at the same address.
     ///
     /// **ALL PLACEHOLDERS** (`address(0)`) until the 0G token deployment
     /// executes and the post-execution pin PR hydrates every entry in one

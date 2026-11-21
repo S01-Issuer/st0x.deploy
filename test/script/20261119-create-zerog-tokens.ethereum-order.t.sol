@@ -90,7 +90,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
     }
 
     function zerogTokens() internal view returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](LibProdTokenConfig.zerogTokenConfigs().length);
+        tokens = new TokenInstance[](LibProdTokenConfig.canonicalTokenConfigs().length);
         for (uint256 i = 0; i < tokens.length; i++) {
             tokens[i] = sScript.callToken(i);
         }
@@ -103,7 +103,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
     /// @notice Every 0G row whose underlying Ethereum's table carries gets Ethereum's vault and wrapper for that
     /// underlying, and the rows Ethereum's table does not carry are exactly slots 42-47.
     function testEachRowIsEthereumsTokenForItsUnderlying() external view {
-        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         TokenInstance[] memory ethereum = LibTokenInvariants.productionTokensEthereum();
         assertEq(rows.length, 65, "0G rows");
         uint256 notOnEthereumTable = 0;
@@ -133,7 +133,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
     /// @notice The six rows Ethereum's table does not carry are Ethereum's slots 42-47: the same vault, wrapper,
     /// symbol and name, and Ethereum's US authoriser, which their US region routes them to.
     function testOffBaseRowsAreEthereumSlots42To47() external view {
-        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         EthereumSlot[6] memory slots = offBaseSlots();
         for (uint256 k = 0; k < slots.length; k++) {
             uint256 i = FIRST_ETHEREUM_ONLY_SLOT + k;

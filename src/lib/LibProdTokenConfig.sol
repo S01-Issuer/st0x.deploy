@@ -754,10 +754,10 @@ library LibProdTokenConfig {
         });
     }
 
-    /// @notice 0G's creation order: Ethereum's 0.1.1 beacon-set deployers' creation sequence, slots 0-64, so a 0G
-    /// token address is the token Ethereum and HyperEVM hold at the same deployer nonce.
+    /// @notice The canonical token order: the 0.1.1 beacon-set deployers' creation sequence that Ethereum and HyperEVM
+    /// agree on, slots 0-64. A chain created in this order holds the same token at the same address.
     /// @return The underlyings.
-    function zerogCreationOrder() internal pure returns (string[65] memory) {
+    function canonicalTokenOrder() internal pure returns (string[65] memory) {
         return [
             "MSTR",
             "TSLA",
@@ -827,10 +827,10 @@ library LibProdTokenConfig {
         ];
     }
 
-    /// @notice The rows 0G creates, in `zerogCreationOrder`.
+    /// @notice The canonical token rows, in `canonicalTokenOrder`.
     /// @return configs The rows.
-    function zerogTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        string[65] memory order = zerogCreationOrder();
+    function canonicalTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
+        string[65] memory order = canonicalTokenOrder();
         TokenConfig[] memory production = productionTokenConfigs();
         TokenConfig[] memory offBase = offBaseTokenConfigs();
         configs = new TokenConfig[](order.length);

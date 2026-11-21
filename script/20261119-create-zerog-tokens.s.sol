@@ -143,12 +143,11 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
         return LibTimelockInvariants.timelockForChainId(block.chainid);
     }
 
-    /// @notice The rows this migration creates: on 0G, Ethereum's creation sequence, so each 0G address is the token
-    /// Ethereum and HyperEVM hold at the same deployer nonce; none elsewhere.
+    /// @notice The rows this migration creates: on 0G, the canonical token rows in canonical order; none elsewhere.
     /// @return The configs.
     function configs() internal view returns (TokenConfig[] memory) {
         if (block.chainid != LibSafeInvariants.ZEROG_CHAIN_ID) return new TokenConfig[](0);
-        return LibProdTokenConfig.zerogTokenConfigs();
+        return LibProdTokenConfig.canonicalTokenConfigs();
     }
 
     /// @notice The authoriser row `row`'s vault is pointed at: the chain's EU clone for an EU row, its V4 clone
