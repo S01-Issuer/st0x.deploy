@@ -6,7 +6,7 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 import {ICloneableV2} from "rain-factory-0.2.18/src/interface/ICloneableV2.sol";
 import {
@@ -18,6 +18,7 @@ import {ReceiptVaultConfigV2} from "rain-vats-0.2.25/src/abstract/ReceiptVault.s
 import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 
 import {
+    createZerogTokensDeclaration,
     ZerogDeployersOutOfStep,
     ZerogTokenMismatch,
     ZerogTokensRecordedEarly
@@ -39,9 +40,9 @@ import {CreateZerogTokensHarness} from "./CreateZerogTokensHarness.sol";
 import {ZerogTokenCreationFixture} from "./ZerogTokenCreationFixture.sol";
 
 /// @title CreateZerogTokensBatchesTest
-/// @notice On 0G with the line at its onto, three bundles create every production row in order, each under 0G's
-/// 36M block, each handing its vaults to the timelock on their region's authoriser, and only the one that creates the
-/// last row records the migration.
+/// @notice On 0G with the line at its onto, four bundles create every 0G row in creation order, each under 0G's 36M
+/// block, each handing its vaults to the timelock on their region's authoriser, and only the one that creates the last
+/// row records the migration.
 contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
     /// @notice The EIP-7825 per-transaction gas cap, 2^24. A batch under it lands whether or not 0G enforces the cap,
     /// and uses under half of 0G's 36M block.
@@ -49,6 +50,13 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
 
     /// @notice One whole token, as the issuer would mint it.
     uint256 internal constant AMOUNT = 1e18;
+
+    /// @notice 65 rows at 20 per bundle.
+    uint256 internal constant BATCH_COUNT = 4;
+
+    /// @notice keccak256 of the `multiSend(bytes)` calldata of the first bundle, as signed on 0G.
+    bytes32 internal constant SIGNED_FIRST_BATCH_MULTISEND_HASH =
+        0xdd2eca03073fa245241174defa8756352964524c0cc8ae1479ac3bb2c1ae5e39;
 
     CreateZerogTokensHarness internal sScript;
 
@@ -71,18 +79,18 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
         LibSafeFork.executeBundle(vm, Safe(payable(safe())), txs);
     }
 
-    function executeNextBatch() internal returns (uint256 txCount, uint256 gasUsed) {
+    function executeNextBatch() internal returns (SafeTx[] memory, uint256) {
         sScript.callPreflight();
         SafeTx[] memory txs = sScript.callAuthorBundle();
         uint256 before = gasleft();
         LibSafeFork.executeBundle(vm, Safe(payable(safe())), txs);
-        gasUsed = before - gasleft();
+        uint256 gasUsed = before - gasleft();
         sScript.callAssertPostState();
-        return (txs.length, gasUsed);
+        return (txs, gasUsed);
     }
 
     function executeAllBatches() internal {
-        for (uint256 batch = 0; batch < 3; batch++) {
+        for (uint256 batch = 0; batch < BATCH_COUNT; batch++) {
             executeNextBatch();
         }
     }
@@ -102,7 +110,7 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
     }
 
     function rows() internal pure returns (TokenConfig[] memory) {
-        return LibProdTokenConfig.productionTokenConfigs();
+        return LibProdTokenConfig.zerogTokenConfigs();
     }
 
     function firstRowIn(Region region) internal pure returns (uint256) {
@@ -113,17 +121,25 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
         revert("no row in the region");
     }
 
-    function testThreeBatchesCreateEveryRowAndOnlyTheLastRecords() external {
-        // Two probes, then three entries per row; the third batch adds the record.
-        uint256[3] memory expectedTxs = [uint256(2 + 3 * 20), 2 + 3 * 20, 2 + 3 * 19 + 1];
-        uint256[3] memory expectedCreated = [uint256(20), 40, 59];
-        for (uint256 batch = 0; batch < 3; batch++) {
-            (uint256 txCount, uint256 gasUsed) = executeNextBatch();
+    /// @notice 65 rows land as 20, 20, 20 and 5, and only the last bundle carries the record, as its final entry.
+    function testFourBatchesOf20And5CreateEveryRowAndOnlyTheLastRecords() external {
+        // Two probes, then three entries per row; the last batch adds the record.
+        uint256[BATCH_COUNT] memory expectedTxs = [uint256(2 + 3 * 20), 2 + 3 * 20, 2 + 3 * 20, 2 + 3 * 5 + 1];
+        uint256[BATCH_COUNT] memory expectedCreated = [uint256(20), 40, 60, 65];
+        SafeTx memory record = LibStoxMigrations.recordTx(createZerogTokensDeclaration());
+        bytes32 recordHash = keccak256(abi.encode(record));
+        for (uint256 batch = 0; batch < BATCH_COUNT; batch++) {
+            (SafeTx[] memory txs, uint256 gasUsed) = executeNextBatch();
             emit log_named_uint("batch gas", gasUsed);
-            assertEq(txCount, expectedTxs[batch], "batch length");
+            assertEq(txs.length, expectedTxs[batch], "batch length");
             assertLt(gasUsed, MAX_BATCH_GAS, "batch gas");
             assertEq(sScript.callCreatedCount(), expectedCreated[batch], "rows created");
-            if (batch < 2) {
+            bool last = batch == BATCH_COUNT - 1;
+            for (uint256 i = 0; i < txs.length; i++) {
+                bool isRecord = keccak256(abi.encode(txs[i])) == recordHash;
+                assertEq(isRecord, last && i == txs.length - 1, "record only as the last bundle's final entry");
+            }
+            if (!last) {
                 assertEq(LibStoxMigrations.applied(LibStoxMigrations.CREATE_ZEROG_TOKENS), 0, "not recorded yet");
                 assertEq(
                     LibStoxMigrations.head(), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, "line at the backfill"
@@ -133,11 +149,21 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.CREATE_ZEROG_TOKENS, "recorded with the last row");
     }
 
+    /// @notice The first bundle, rows 0-19, is byte for byte the one already signed on 0G.
+    function testFirstBatchIsTheSignedBundle() external view {
+        assertEq(sScript.callCreatedCount(), 0, "no row created yet");
+        assertEq(
+            keccak256(LibSafeTx.encodeMultiSend(sScript.callAuthorBundle())),
+            SIGNED_FIRST_BATCH_MULTISEND_HASH,
+            "first bundle as signed"
+        );
+    }
+
     /// @notice After each batch, every token created so far is the timelock's on its region's authoriser, and the
     /// Safe owns none: no vault waits on a later bundle or a timelock operation to be wired.
     function testEachBatchHandsItsVaultsToTheTimelockOnTheirRegionsAuthoriser() external {
         TokenConfig[] memory all = rows();
-        for (uint256 batch = 0; batch < 3; batch++) {
+        for (uint256 batch = 0; batch < BATCH_COUNT; batch++) {
             executeNextBatch();
             uint256 created = sScript.callCreatedCount();
             for (uint256 i = 0; i < created; i++) {
@@ -208,8 +234,9 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
         vault.certify(block.timestamp + 1 days, false, "");
         vault.mint(AMOUNT, safe(), 0, "");
         vm.stopPrank();
-        executeNextBatch();
-        executeNextBatch();
+        for (uint256 batch = 1; batch < BATCH_COUNT; batch++) {
+            executeNextBatch();
+        }
         assertEq(vault.totalSupply(), AMOUNT, "still minted");
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.CREATE_ZEROG_TOKENS, "recorded");
     }
