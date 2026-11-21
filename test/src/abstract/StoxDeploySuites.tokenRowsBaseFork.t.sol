@@ -25,7 +25,7 @@ import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {LibTestTokenRows} from "../../lib/LibTestTokenRows.sol";
 import {DeployPreDeployCheckHarness} from "../../script/DeployPreDeployCheckHarness.sol";
 
