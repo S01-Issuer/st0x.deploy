@@ -58,10 +58,7 @@ An admin action is two calls separated by at least the min delay:
 2. After the delay, anyone calls `execute` (or `executeBatch`) with identical
    arguments.
 
-The operation id is a hash of the arguments, so a fixed salt gives a fixed id. A
-non-zero `predecessor` makes execution wait on that operation. A reverted
-`executeBatch` leaves the operation ready with its delay spent; it can be
-executed again. A proposer or canceller can `cancel(id)` any pending operation.
+A proposer or canceller can `cancel(id)` any pending operation.
 
 The Safe cannot call a timelock-held surface directly. Scripts resolve the
 timelock only via `LibTimelockInvariants.timelockForChainId(block.chainid)`.
