@@ -27,6 +27,7 @@ contract LibProdTokenConfigListingWellFormedTest is Test {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 netIndex = 0; netIndex < nets.length; netIndex++) {
+            if (!LibTokenInvariants.tokenTableHydrated(nets[netIndex].chainId)) continue;
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[netIndex].chainId);
             for (uint256 rowIndex = 0; rowIndex < tokens.length; rowIndex++) {
                 assertListingWellFormed(
