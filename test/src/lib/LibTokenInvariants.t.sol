@@ -75,49 +75,43 @@ contract LibTokenInvariantsTest is Test {
         harness.callAssertUniformOwnership(expectedOwner);
     }
 
-    /// The Ethereum token table mirrors Base row-for-row on the `underlying`
-    /// key — same length, same order — so the two per-chain tables cannot
-    /// drift.
-    function testEthereumTokenTableMirrorsBaseUnderlyings() external pure {
-        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        TokenInstance[] memory eth = LibTokenInvariants.productionTokensEthereum();
-        assertEq(eth.length, base.length, "Ethereum token table length diverges from Base");
-        for (uint256 i = 0; i < base.length; i++) {
-            assertEq(eth[i].underlying, base[i].underlying, "Ethereum token underlying diverges from Base");
+    /// How many rows of `table` carry `underlying`.
+    function rowsFor(TokenInstance[] memory table, string memory underlying) internal pure returns (uint256 count) {
+        for (uint256 i = 0; i < table.length; i++) {
+            if (keccak256(bytes(table[i].underlying)) == keccak256(bytes(underlying))) count++;
         }
     }
 
-    /// The HyperEVM token table mirrors Base row-for-row on the `underlying`
-    /// key, for the same reason as Ethereum's.
-    function testHyperEvmTokenTableMirrorsBaseUnderlyings() external pure {
+    /// `table` carries each of Base's underlyings and each of the six off-Base
+    /// tokens once, and nothing else. Rows pair by underlying, not by index.
+    function assertBaseRowsPlusTheSix(TokenInstance[] memory table, string memory chain) internal pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        TokenInstance[] memory hyper = LibTokenInvariants.productionTokensHyperEvm();
-        assertEq(hyper.length, base.length, "HyperEVM token table length diverges from Base");
+        TokenConfig[] memory six = LibProdTokenConfig.ethereumOnlyTokenConfigs();
+        assertEq(six.length, 6, "six off-Base tokens");
+        assertEq(table.length, base.length + six.length, string.concat(chain, " token table length"));
         for (uint256 i = 0; i < base.length; i++) {
-            assertEq(hyper[i].underlying, base[i].underlying, "HyperEVM token underlying diverges from Base");
+            assertEq(rowsFor(table, base[i].underlying), 1, string.concat(chain, " ", base[i].underlying));
+        }
+        for (uint256 i = 0; i < six.length; i++) {
+            assertEq(rowsFor(base, six[i].underlying), 0, string.concat("Base ", six[i].underlying));
+            assertEq(rowsFor(table, six[i].underlying), 1, string.concat(chain, " ", six[i].underlying));
         }
     }
 
-    /// The Robinhood Chain token table mirrors Base row-for-row on the
-    /// `underlying` key.
-    function testRobinhoodTokenTableMirrorsBaseUnderlyings() external pure {
-        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        TokenInstance[] memory robinhood = LibTokenInvariants.productionTokensRobinhood();
-        assertEq(robinhood.length, base.length, "Robinhood Chain token table length diverges from Base");
-        for (uint256 i = 0; i < base.length; i++) {
-            assertEq(robinhood[i].underlying, base[i].underlying, "Robinhood Chain token underlying diverges from Base");
-        }
+    function testEthereumTokenTableIsBaseRowsPlusTheSix() external pure {
+        assertBaseRowsPlusTheSix(LibTokenInvariants.productionTokensEthereum(), "Ethereum");
     }
 
-    /// The BNB Smart Chain token table mirrors Base row-for-row on the
-    /// `underlying` key.
-    function testBscTokenTableMirrorsBaseUnderlyings() external pure {
-        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        TokenInstance[] memory bsc = LibTokenInvariants.productionTokensBsc();
-        assertEq(bsc.length, base.length, "BNB Smart Chain token table length diverges from Base");
-        for (uint256 i = 0; i < base.length; i++) {
-            assertEq(bsc[i].underlying, base[i].underlying, "BNB Smart Chain token underlying diverges from Base");
-        }
+    function testHyperEvmTokenTableIsBaseRowsPlusTheSix() external pure {
+        assertBaseRowsPlusTheSix(LibTokenInvariants.productionTokensHyperEvm(), "HyperEVM");
+    }
+
+    function testRobinhoodTokenTableIsBaseRowsPlusTheSix() external pure {
+        assertBaseRowsPlusTheSix(LibTokenInvariants.productionTokensRobinhood(), "Robinhood Chain");
+    }
+
+    function testBscTokenTableIsBaseRowsPlusTheSix() external pure {
+        assertBaseRowsPlusTheSix(LibTokenInvariants.productionTokensBsc(), "BNB Smart Chain");
     }
 
     /// The 0G token table follows the 0G creation rows row-for-row on the
