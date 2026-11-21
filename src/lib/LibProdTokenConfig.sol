@@ -882,20 +882,15 @@ library LibProdTokenConfig {
         return configs;
     }
 
-    /// @notice The production row for `underlying`.
+    /// @notice The production or Ethereum-only row for `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row. Reverts `UnknownUnderlying` when there is none.
     function configOf(string memory underlying) internal pure returns (TokenConfig memory) {
-        TokenConfig[] memory configs = productionTokenConfigs();
-        for (uint256 rowIndex = 0; rowIndex < configs.length; rowIndex++) {
-            if (keccak256(bytes(configs[rowIndex].underlying)) == keccak256(bytes(underlying))) {
-                return configs[rowIndex];
-            }
-        }
-        revert UnknownUnderlying(underlying);
+        return rowIn(underlying, productionTokenConfigs(), ethereumOnlyTokenConfigs());
     }
 
-    /// @notice The region of the production row for `underlying`.
+    /// @notice The region of the production or Ethereum-only row for
+    /// `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row's region. Reverts `UnknownUnderlying` when there is
     /// none.
