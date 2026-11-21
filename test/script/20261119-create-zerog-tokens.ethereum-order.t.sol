@@ -119,7 +119,9 @@ contract CreateZerogTokensEthereumOrderTest is Test {
                 found = true;
                 assertEq(created.receiptVault, ethereum[j].receiptVault, string.concat(rows[i].underlying, " vault"));
                 assertEq(
-                    created.wrappedTokenVault, ethereum[j].wrappedTokenVault, string.concat(rows[i].underlying, " wrapper")
+                    created.wrappedTokenVault,
+                    ethereum[j].wrappedTokenVault,
+                    string.concat(rows[i].underlying, " wrapper")
                 );
             }
             if (!found) {
