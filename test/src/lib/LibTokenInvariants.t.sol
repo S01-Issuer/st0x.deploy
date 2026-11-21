@@ -120,15 +120,15 @@ contract LibTokenInvariantsTest is Test {
         }
     }
 
-    /// The 0G token table mirrors Base row-for-row on the `underlying` key.
-    /// Its addresses are placeholders until the token deploy executes there;
-    /// this guards only the shared shape.
-    function testZerogTokenTableMirrorsBaseUnderlyings() external pure {
-        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+    /// The 0G token table follows the 0G creation rows row-for-row on the
+    /// `underlying` key: 65 rows in Ethereum's creation order.
+    function testZerogTokenTableFollowsZerogCreationRows() external pure {
+        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
         TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
-        assertEq(zerog.length, base.length, "0G token table length diverges from Base");
-        for (uint256 i = 0; i < base.length; i++) {
-            assertEq(zerog[i].underlying, base[i].underlying, "0G token underlying diverges from Base");
+        assertEq(zerog.length, 65, "0G token table length");
+        assertEq(rows.length, zerog.length, "0G token table length diverges from its creation rows");
+        for (uint256 i = 0; i < rows.length; i++) {
+            assertEq(zerog[i].underlying, rows[i].underlying, "0G token underlying diverges from its creation row");
         }
     }
 
