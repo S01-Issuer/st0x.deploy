@@ -17,15 +17,8 @@ price-domain: [eip712-domain-separator name "prices" version "1"],
   "Lead source mismatch"
 ),
 
-vault-symbol: mint-symbol(),
-symbol-scale: uint256-power(0x0100 bitwise-and(vault-symbol 0x1f)),
-symbol-first: uint256-div(vault-symbol symbol-scale),
-
-:ensure(
-  binary-equal-to(symbol-first 0x74)
-  "Vault symbol has no t prefix"
-),
-ticker: uint256-sub(vault-symbol uint256-mul(symbol-first symbol-scale) 0x01),
+:ensure(string-starts-with(mint-symbol() "t") "Vault symbol has no t prefix"),
+ticker: string-strip-prefix(mint-symbol() "t"),
 :ensure(
   binary-equal-to(lead-symbol() ticker)
   "Attestation for another token"
