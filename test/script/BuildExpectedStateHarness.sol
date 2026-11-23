@@ -5,8 +5,21 @@ pragma solidity =0.8.25;
 import {BuildExpectedState} from "../../script/BuildExpectedState.sol";
 
 /// @title BuildExpectedStateHarness
-/// @notice External shim so `vm.expectRevert` can intercept reverts from the script's internal emitters.
+/// @notice External shim so `vm.expectRevert` can intercept reverts from the script's internal emitters, and so a
+/// test can mark one chain's token table unhydrated.
 contract BuildExpectedStateHarness is BuildExpectedState {
+    uint256 internal sUnhydratedChainId;
+
+    /// @dev Marks `chainId`'s token table unhydrated, so the render takes the skip path there.
+    function markUnhydrated(uint256 chainId) external {
+        sUnhydratedChainId = chainId;
+    }
+
+    /// @inheritdoc BuildExpectedState
+    function tokenTableHydrated(uint256 chainId) internal view override returns (bool) {
+        return chainId != sUnhydratedChainId && super.tokenTableHydrated(chainId);
+    }
+
     function callTokenMetadataJson(uint256 chainId, string memory row, uint256 i, string memory underlying) external {
         tokenMetadataJson(chainId, row, i, underlying);
     }

@@ -50,15 +50,12 @@ contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
     /// The migration whose record on the chain selects each token's renamed metadata: the underlying naming on the
-    /// networks its rename and beacon batches were cut for (`LibStoxDeployNetworks.networksBeforeZerog`), or zero.
+    /// networks its rename and beacon batches were cut for (`LibUnderlyingNamingRollout.cutForChain`), or zero.
     /// 0G's root line records the naming too, after the 0G token creation, but no reviewed 0G bundle for it exists, so
     /// 0G expects no renamed state.
     function renameMigration(uint256 chainId) internal pure returns (bytes32) {
-        return LibRainDeploy.hasChainId(
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
-        )
-            ? LibStoxMigrations.EXECUTE_UNDERLYING_NAMING
-            : bytes32(0);
+        return
+            LibUnderlyingNamingRollout.cutForChain(chainId) ? LibStoxMigrations.EXECUTE_UNDERLYING_NAMING : bytes32(0);
     }
 
     /// The implementations `renameMigration`'s beacon batch moves the beacons to; the current ones where there is no
@@ -284,6 +281,14 @@ contract BuildExpectedState is Script {
             : LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId);
     }
 
+    /// @notice Whether `chainId`'s token table is hydrated, so its tokens are written; virtual so a test can drive
+    /// the skip path with a chain it marks unhydrated.
+    /// @param chainId The chain id.
+    /// @return Whether the table is hydrated.
+    function tokenTableHydrated(uint256 chainId) internal view virtual returns (bool) {
+        return LibTokenInvariants.tokenTableHydrated(chainId);
+    }
+
     function chainJson(SupportedNetwork memory network) internal returns (string memory) {
         uint256 chainId = network.chainId;
         string memory key = vm.toString(chainId);
@@ -316,7 +321,7 @@ contract BuildExpectedState is Script {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
         }
-        bool hydrated = LibTokenInvariants.tokenTableHydrated(chainId);
+        bool hydrated = tokenTableHydrated(chainId);
         vm.serializeBool(key, "tokenTableHydrated", hydrated);
         return vm.serializeString(key, "tokens", hydrated ? tokensJson(chainId, key) : new string[](0));
     }

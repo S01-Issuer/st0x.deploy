@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {BuildPrivilegedAddresses} from "../../script/BuildPrivilegedAddresses.sol";
+import {BuildPrivilegedAddressesHarness} from "./BuildPrivilegedAddressesHarness.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
@@ -157,6 +158,25 @@ contract BuildPrivilegedAddressesTest is Test {
                 json,
                 string.concat(chain(nets[i]), ".receiptVaults"),
                 LibTokenInvariants.productionReceiptVaultsForChainId(id)
+            );
+        }
+    }
+
+    /// @notice A chain whose table is not hydrated says so and lists no receipt vaults, and every other chain keeps
+    /// its vaults.
+    function testAnUnhydratedTokenTableListsNoReceiptVaults() external {
+        BuildPrivilegedAddressesHarness harness = new BuildPrivilegedAddressesHarness();
+        harness.markUnhydrated(LibSafeInvariants.ZEROG_CHAIN_ID);
+        string memory json = harness.render();
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 chainIndex = 0; chainIndex < nets.length; chainIndex++) {
+            uint256 id = nets[chainIndex].chainId;
+            bool skipped = id == LibSafeInvariants.ZEROG_CHAIN_ID;
+            assertEq(vm.parseJsonBool(json, string.concat(chain(nets[chainIndex]), ".tokenTableHydrated")), !skipped);
+            assertAddresses(
+                json,
+                string.concat(chain(nets[chainIndex]), ".receiptVaults"),
+                skipped ? new address[](0) : LibTokenInvariants.productionReceiptVaultsForChainId(id)
             );
         }
     }

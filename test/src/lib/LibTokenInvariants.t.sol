@@ -134,8 +134,8 @@ contract LibTokenInvariantsTest is Test {
 
     /// Each 0G row has the receipt, vault and wrapper of Ethereum's row with
     /// the same underlying: 0G's creation follows Ethereum's, so one address
-    /// names one token on both chains. A row Ethereum's table does not carry
-    /// yet is one of the off-Base rows, which no other chain's table may miss.
+    /// names one token on both chains. Ethereum's table does not carry the six
+    /// off-Base rows yet, so a row it misses must be one of them.
     function testZerogRowsAreEthereumsTokens() external pure {
         TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
         TokenInstance[] memory ethereum = LibTokenInvariants.productionTokensEthereum();

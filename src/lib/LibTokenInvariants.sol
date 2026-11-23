@@ -2822,16 +2822,25 @@ library LibTokenInvariants {
 
     /// @notice The chain's production token table. Reverts
     /// `NoTokenTableForChain` on a chain with no table and
-    /// `TokenTableNotHydrated` on a chain whose table is still a placeholder.
+    /// `TokenTableNotHydrated` on a chain whose table still holds a
+    /// placeholder leg, so no consumer targets `address(0)`.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function productionTokensForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        return hydrated(chainId, tokenTableForChainId(chainId));
+    }
+
+    /// @notice The chain's token table as pinned, placeholder legs included.
+    /// Reverts `NoTokenTableForChain` on a chain with no table.
+    /// @param chainId The chain id.
+    /// @return The chain's token instances.
+    function tokenTableForChainId(uint256 chainId) private pure returns (TokenInstance[] memory) {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return productionTokensBase();
         if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) return productionTokensEthereum();
         if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();
         if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return productionTokensRobinhood();
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return productionTokensBsc();
-        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return hydrated(chainId, productionTokensZerog());
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return productionTokensZerog();
         revert NoTokenTableForChain(chainId);
     }
 
@@ -2839,13 +2848,11 @@ library LibTokenInvariants {
     /// token. A table that still holds a placeholder leg does not. A
     /// generator skips the token output of a chain whose table is not
     /// hydrated and says so; every other consumer goes through
-    /// `productionTokensForChainId`, which refuses a placeholder 0G table.
+    /// `productionTokensForChainId`, which refuses that table.
     /// @param chainId The chain id.
     /// @return Whether every row has a receipt, a receipt vault and a wrapper.
     function tokenTableHydrated(uint256 chainId) internal pure returns (bool) {
-        return tableHydrated(
-            chainId == LibSafeInvariants.ZEROG_CHAIN_ID ? productionTokensZerog() : productionTokensForChainId(chainId)
-        );
+        return tableHydrated(tokenTableForChainId(chainId));
     }
 
     /// @notice `tokens`, unless a row still has a placeholder leg, so
