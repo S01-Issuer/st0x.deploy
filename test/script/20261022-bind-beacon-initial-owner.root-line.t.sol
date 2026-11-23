@@ -4,14 +4,14 @@ pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.33/src/interface/IConfigRegistryV5.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.33/src/lib/LibConfigRegistry.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibConfigRegistryDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
-import {LibSafe} from "rain-deploy-0.1.33/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.33/src/lib/LibSafeFork.sol";
-import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.33/src/lib/LibTimelockController.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
+import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.38/src/lib/LibTimelockController.sol";
 
 import {BeaconInitialOwnerBindingMismatch} from "../../script/20261022-bind-beacon-initial-owner.s.sol";
 import {BindBeaconInitialOwnerHarness} from "./BindBeaconInitialOwnerHarness.sol";
@@ -28,8 +28,9 @@ import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecor
 
 /// @title BindBeaconInitialOwnerRootLineTest
 /// @notice The bind on HyperEVM at its pinned pre-backfill block, with the
-/// governance timelock deployed and the root's approval of the Safe as binder
-/// written on the fork, onto the executed V5 backfill bundle.
+/// governance timelock deployed and the root's unscoped approval of the Safe
+/// written on the fork, onto the 0G token creation's record after the
+/// executed V5 backfill bundle.
 contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
     IConfigRegistryV5 internal constant CONFIG_REGISTRY =
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
@@ -43,7 +44,7 @@ contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5;
+        return LibStoxMigrations.CREATE_ZEROG_TOKENS;
     }
 
     function landBeforeOnto() internal override {
@@ -60,6 +61,7 @@ contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
         LibSafeFork.executeBundle(
             vm, Safe(payable(safeAddress())), new BackfillMigrationRegistryV5Harness("root-line").callAuthorBundle()
         );
+        LibTestBeaconInitialOwnerBind.executeZerogTokensRecord(vm, safeAddress(), "bind-root-line");
     }
 
     function restampAtThisMoment() internal override {

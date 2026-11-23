@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibSafe} from "rain-deploy-0.1.33/src/lib/LibSafe.sol";
+import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -87,7 +87,9 @@ library LibInvariants {
         LibTimelockInvariants.assertTimelockState(timelock, safe);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
         LibTokenInvariants.assertUniformAuthoriser(tokens, authoriser);
-        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
+        LibAuthoriserInvariants.assertHeld(
+            authoriser, LibAuthoriserInvariants.expectedGrantsOn(block.chainid, safe, timelock)
+        );
     }
 
     /// @notice Full-args Base bundle. Use when overriding the Safe-side
