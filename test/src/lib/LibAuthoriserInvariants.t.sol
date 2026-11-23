@@ -16,8 +16,11 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
+import {LibUsAuthoriserClone} from "../../../src/lib/LibUsAuthoriserClone.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.11/src/generated/0_1_1/CloneFactory.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.14/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
 /// @notice The authoriser pins, the chain-to-clone tables, the expected-grant
@@ -35,6 +38,16 @@ contract LibAuthoriserInvariantsTest is Test {
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, derived, "robinhood");
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC, derived, "bsc");
         assertNotEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE, derived, "base");
+    }
+
+    /// @notice 0G's clone pin is the CloneFactory 0.1.15 open-salt address over
+    /// the 0G Safe as initial admin, not the 0.1.1 factory's nonce-1 address
+    /// that any first caller of `clone` takes, and not the EU clone.
+    function testZerogClonePinIsTheOpenSaltDerivation() external pure {
+        address pin = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG;
+        assertEq(pin, LibUsAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.ZEROG_CHAIN_ID), "open salt");
+        assertNotEq(pin, vm.computeCreateAddress(CLONE_FACTORY_0_1_1, 1), "not the nonce-1 clone");
+        assertNotEq(pin, LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.ZEROG_CHAIN_ID), "not EU");
     }
 
     /// @notice The one chain-to-clone table resolves every pinned chain to
@@ -65,6 +78,11 @@ contract LibAuthoriserInvariantsTest is Test {
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC,
             "bsc"
         );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ZEROG_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG,
+            "zerog"
+        );
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
         harness.callAuthoriserForChainId(123456);
@@ -80,6 +98,17 @@ contract LibAuthoriserInvariantsTest is Test {
             abi.encodeWithSelector(AuthoriserNotReady.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD)
         );
         harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice Every deploy network resolves to a nonzero authoriser. The Build
+    /// generators write the slot as is, so a chain that joins the deploy list
+    /// with an unpinned placeholder fails here instead of publishing zero.
+    function testEveryDeploymentNetworkHasAPinnedAuthoriser() external pure {
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertNotEq(LibAuthoriserInvariants.authoriserForChainId(networks[i].chainId), address(0), networks[i].name);
+        }
     }
 
     /// @notice A pin carrying bytecode other than the EIP-1167 clone is
@@ -155,6 +184,45 @@ contract LibAuthoriserInvariantsTest is Test {
         for (uint256 i = 0; i < base.length; i++) {
             assertEq(base[i].role, widened[i].role);
             assertEq(base[i].grantee, widened[i].grantee);
+        }
+    }
+
+    /// @notice `ORCHESTRATOR_GRANT_INDEX` starts the orchestrator's pairs, and
+    /// they end the map.
+    function testOrchestratorGrantIndexIsTheOrchestratorsPairs(address safe, address timelock) external pure {
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        uint256 at = LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX;
+        assertEq(grants.length, at + 2, "orchestrator pairs end the map");
+        assertEq(grants[at].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "deposit grantee");
+        assertEq(grants[at + 1].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "withdraw grantee");
+    }
+
+    /// @notice On 0G the map drops the orchestrator's two pairs and keeps every
+    /// other pair in order. On every other chain it is the whole map.
+    function testExpectedGrantsOnDropsTheOrchestratorOnlyOnZerog(uint256 chainId, address safe, address timelock)
+        external
+        pure
+    {
+        vm.assume(safe != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        vm.assume(timelock != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        RoleGrant[] memory all = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        RoleGrant[] memory zerog =
+            LibAuthoriserInvariants.expectedGrantsOn(LibSafeInvariants.ZEROG_CHAIN_ID, safe, timelock);
+        assertFalse(LibAuthoriserInvariants.grantsOrchestrator(LibSafeInvariants.ZEROG_CHAIN_ID), "not on 0G");
+        assertEq(zerog.length, LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX, "0G length");
+        for (uint256 i = 0; i < zerog.length; i++) {
+            assertEq(zerog[i].role, all[i].role, "role");
+            assertEq(zerog[i].grantee, all[i].grantee, "grantee");
+            assertNotEq(zerog[i].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "no orchestrator");
+        }
+
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertTrue(LibAuthoriserInvariants.grantsOrchestrator(chainId), "elsewhere");
+        RoleGrant[] memory other = LibAuthoriserInvariants.expectedGrantsOn(chainId, safe, timelock);
+        assertEq(other.length, all.length, "whole map elsewhere");
+        for (uint256 i = 0; i < other.length; i++) {
+            assertEq(other[i].role, all[i].role, "role elsewhere");
+            assertEq(other[i].grantee, all[i].grantee, "grantee elsewhere");
         }
     }
 
