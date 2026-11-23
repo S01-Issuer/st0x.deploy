@@ -339,7 +339,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     function underlyingSnapshotSuites() internal pure returns (DeployCandidate[] memory) {
         DeploySuite[] memory shards = underlyingSnapshotShardSuites();
         DeployCandidate[] memory candidates = new DeployCandidate[](shards.length + 1);
-        candidates[0] = unanchored(underlyingSnapshotRootSuite(shards));
+        candidates[0] = unanchored(underlyingSnapshotRootSuite());
         for (uint256 i = 0; i < shards.length; i++) {
             candidates[i + 1] = unanchored(shards[i]);
         }
@@ -357,19 +357,13 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return shards;
     }
 
-    /// The root's data embeds every shard's address.
-    function underlyingSnapshotRootSuite(DeploySuite[] memory shards) internal pure returns (DeploySuite memory) {
-        DeployDependency[] memory dependencies = new DeployDependency[](shards.length);
-        for (uint256 i = 0; i < shards.length; i++) {
-            dependencies[i] = DeployDependency({
-                deployedAddress: shards[i].storedDeployedAddress, runtimeCode: shards[i].storedRuntimeCode
-            });
-        }
+    /// The shard addresses in the root's data sit after its RETURN, so its code reaches none of them.
+    function underlyingSnapshotRootSuite() internal pure returns (DeploySuite memory) {
         return dataZoltu(
             UNDERLYING_SNAPSHOT_ROOT,
             LibUnderlyingSnapshotCode.ROOT_CREATION_CODE,
             UNDERLYING_SNAPSHOT_ROOT_PATH,
-            dependencies
+            new DeployDependency[](0)
         );
     }
 
