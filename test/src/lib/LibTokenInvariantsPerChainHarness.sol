@@ -9,6 +9,14 @@ contract LibTokenInvariantsPerChainHarness {
         return LibTokenInvariants.productionTokensForChainId(chainId);
     }
 
+    function hydrated(uint256 chainId, TokenInstance[] memory tokens) external pure returns (TokenInstance[] memory) {
+        return LibTokenInvariants.hydrated(chainId, tokens);
+    }
+
+    function isTableHydrated(TokenInstance[] memory tokens) external pure returns (bool) {
+        return LibTokenInvariants.tableHydrated(tokens);
+    }
+
     function expectedAuthoriser(string memory underlying, address usAuthoriser, uint256 chainId)
         external
         pure

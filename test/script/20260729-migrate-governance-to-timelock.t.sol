@@ -8,7 +8,7 @@ import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {
     MigrateGovernanceToTimelock,
@@ -141,6 +141,41 @@ contract MigrateGovernanceToTimelockTest is Test {
             selectRewoundFork(networks[i]);
             _assertAuthorsFullMigration(LibSafeInvariants.safeForChainId(block.chainid));
         }
+    }
+
+    /// @notice The active-chain helpers select the active chain's own
+    /// authoriser, token table and receipt vaults on every deployment network,
+    /// 0G included now that its table is hydrated.
+    function testActiveChainHelpersSelectTheActiveChainsPins() external {
+        SupportedNetwork[] memory nets =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        bool sawZerog = false;
+        for (uint256 i = 0; i < nets.length; i++) {
+            uint256 id = nets[i].chainId;
+            vm.chainId(id);
+            if (id == LibSafeInvariants.ZEROG_CHAIN_ID) sawZerog = true;
+            assertEq(_activeChainAuthoriser(), LibAuthoriserInvariants.authoriserForChainId(id), nets[i].name);
+            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(id);
+            TokenInstance[] memory tokens = _activeChainTokens();
+            address[] memory vaults = _activeChainVaults();
+            assertEq(tokens.length, table.length, nets[i].name);
+            assertEq(vaults.length, table.length, nets[i].name);
+            for (uint256 j = 0; j < table.length; j++) {
+                assertEq(tokens[j].underlying, table[j].underlying);
+                assertEq(tokens[j].receipt, table[j].receipt);
+                assertEq(tokens[j].receiptVault, table[j].receiptVault);
+                assertEq(tokens[j].wrappedTokenVault, table[j].wrappedTokenVault);
+                assertEq(vaults[j], table[j].receiptVault);
+            }
+        }
+        assertTrue(sawZerog, "0G is a deployment network");
+
+        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
+        assertEq(_activeChainTokens().length, zerog.length, "0G table");
+        assertEq(_activeChainVaults()[0], zerog[0].receiptVault, "0G first vault");
+        assertEq(_activeChainVaults()[zerog.length - 1], zerog[zerog.length - 1].receiptVault, "0G last vault");
+        assertEq(_activeChainAuthoriser(), address(0x6173C9ac3cCb2f6a2F175b0d1fb5DA86fDD5F221), "0G US clone");
     }
 
     function onChain(string memory message) internal view returns (string memory) {

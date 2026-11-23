@@ -19,8 +19,8 @@ import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 /// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, the
 /// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, in-use
 /// production beacons (`LibBeaconInvariants.prodBeaconsInUse`: no orchestrator beacon on 0G), whether its token table
-/// is hydrated, and its receipt vaults (none where the table is not hydrated, as 0G's
-/// until its tokens exist). `address(0)` is none.
+/// is hydrated, and its receipt vaults (none where the table still holds a placeholder leg). `address(0)` is
+/// none.
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 

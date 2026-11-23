@@ -51,9 +51,9 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdToke
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
-import {CreateZerogTokensHarness} from "./CreateZerogTokensHarness.sol";
+import {CreateZerogTokensHarness, zerogPlaceholderTable} from "./CreateZerogTokensHarness.sol";
 import {ZerogTokenCreationFixture} from "./ZerogTokenCreationFixture.sol";
 
 /// @title CreateZerogTokensRootLineTest
@@ -247,10 +247,10 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
     /// @notice A 0G table row with any leg already set is refused at that row: the table is filled from these tokens
     /// only after they exist (RAI-4598).
     function testPreflightRefusesATableRowThatIsNotAPlaceholder() external {
-        uint256 last = LibTokenInvariants.productionTokensZerog().length - 1;
+        uint256 last = zerogPlaceholderTable().length - 1;
         uint256[3] memory rowsToSet = [uint256(0), last / 2, last];
         for (uint256 leg = 0; leg < 3; leg++) {
-            TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
+            TokenInstance[] memory table = zerogPlaceholderTable();
             uint256 row = rowsToSet[leg];
             if (leg == 0) table[row].receipt = address(0xBEEF);
             if (leg == 1) table[row].receiptVault = address(0xBEEF);
@@ -261,9 +261,16 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
         }
     }
 
+    /// @notice The shipped table holds the created tokens, so the script refuses to create them again, at row 0.
+    function testPreflightRefusesTheShippedTable() external {
+        harness().useShippedTable();
+        vm.expectRevert(abi.encodeWithSelector(ZerogTokenRowNotPlaceholder.selector, 0));
+        sScript.callPreflight();
+    }
+
     /// @notice A table out of config order, or of another length, is refused: rows pair with the configs by index.
     function testPreflightRefusesATableOutOfConfigOrderOrLength() external {
-        TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
+        TokenInstance[] memory table = zerogPlaceholderTable();
         string memory first = table[0].underlying;
         table[0].underlying = table[1].underlying;
         table[1].underlying = first;
@@ -271,7 +278,7 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
         vm.expectRevert(abi.encodeWithSelector(ZerogTokenRowNotPlaceholder.selector, 0));
         sScript.callPreflight();
 
-        table = LibTokenInvariants.productionTokensZerog();
+        table = zerogPlaceholderTable();
         TokenInstance[] memory shorter = new TokenInstance[](table.length - 1);
         for (uint256 i = 0; i < shorter.length; i++) {
             shorter[i] = table[i];

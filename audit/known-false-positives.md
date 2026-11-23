@@ -26,17 +26,17 @@ on a longer table, and `testTokenSetIsPinnedByIdentity` fails on a 57th row.
 Both calls stay: the rename pre-flight must check the rows it sets, and the
 rename id must not move when a table grows.
 
-## `src/lib/LibTokenInvariants.sol`: hydrated guard on the placeholder 0G table
+## `src/lib/LibTokenInvariants.sol` and the generators: the unhydrated-table paths
 
-Mutants: in `hydrated(chainId, tokens)`, the loop bound `i < tokens.length`
-becomes `i < 1`, `return tokens;` becomes `return new TokenInstance[](0);`, and
-`tokens[i].receiptVault` becomes `tokens[i].wrappedTokenVault`. The guard is
-interim: the only table it reads is the 0G table, and every row of that table is
-still a placeholder, so each mutant reverts `TokenTableNotHydrated` on the first
-row exactly as the original does. On the tables that exist today the mutants are
-indistinguishable; `testZerogPlaceholderTableIsRefused` pins the refusal.
-Killing them is deferred to the hydration PR
-([RAI-4598](https://linear.app/makeitrain/issue/RAI-4598)), which replaces the
-0G table and adds 0G to
-`testProductionTokenAddressesAreNonzeroAndUniquePerChain`, where the row-for-row
-coverage lands. Remove this entry in that PR.
+Mutants: `tokenTableHydrated` returns `true`, or reads 0G's table through
+`productionTokensForChainId` instead of `productionTokensZerog()`, and
+`BuildExpectedState.chainJson` and `BuildPrivilegedAddresses.chainJson` always
+take their hydrated branch. Every production table is hydrated, 0G's included
+([RAI-4598](https://linear.app/makeitrain/issue/RAI-4598)), so each mutant gives
+the same result as the original on every table that exists. The check itself is
+pinned through `tableHydrated`, which `hydrated` and `tokenTableHydrated` share:
+`testHydratedRefusesAZeroLegInAnyRow` and `testTableHydratedNeedsEveryLeg`
+refuse a zero in each leg of each row, and
+`testEveryDeploymentChainsTokenTableIsHydrated` pins every chain's result. The
+paths stay so that a chain added with a placeholder table is skipped and says
+so, instead of publishing `address(0)` targets.

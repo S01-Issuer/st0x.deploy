@@ -428,22 +428,20 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// @notice Each chain says whether its token table is hydrated, and a chain
-    /// whose table is not (0G until its tokens exist) carries no token rows.
-    /// The rows come back with the table, with no change to the generator.
-    function testAnUnhydratedTokenTableIsSkippedAndSaysSo() external {
+    /// whose table is not carries no token rows. Every deployment chain's
+    /// table is hydrated now, 0G's included, so each carries its rows.
+    function testEachChainSaysItsTokenTableIsHydratedAndCarriesItsRows() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
-        bool skipped = false;
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 id = nets[c].chainId;
-            bool hydrated = LibTokenInvariants.tokenTableHydrated(id);
-            assertEq(vm.parseJsonBool(json, string.concat(chain(nets[c]), ".tokenTableHydrated")), hydrated);
-            if (hydrated) continue;
-            skipped = true;
-            assertFalse(vm.keyExistsJson(json, index(string.concat(chain(nets[c]), ".tokens"), 0)), "no token rows");
+            assertTrue(LibTokenInvariants.tokenTableHydrated(id), nets[c].name);
+            assertTrue(vm.parseJsonBool(json, string.concat(chain(nets[c]), ".tokenTableHydrated")), nets[c].name);
+            string memory list = string.concat(chain(nets[c]), ".tokens");
+            uint256 rows = LibTokenInvariants.productionTokensForChainId(id).length;
+            assertTrue(vm.keyExistsJson(json, index(list, rows - 1)), "last token row");
+            assertFalse(vm.keyExistsJson(json, index(list, rows)), "no row past the table");
         }
-        assertTrue(skipped, "0G is skipped");
-        assertFalse(LibTokenInvariants.tokenTableHydrated(LibSafeInvariants.ZEROG_CHAIN_ID), "0G not hydrated");
     }
 
     function testTokensAreTheChainsTableWithRegionRoutedAuthorisers() external {
@@ -531,12 +529,16 @@ contract BuildExpectedStateTest is Test {
         for (uint256 c = 0; c < nets.length; c++) {
             TokenInstance[] memory tokens = tokenTable(nets[c].chainId);
             string memory list = string.concat(chain(nets[c]), ".tokens");
+            // The naming batches were cut only for the networks before 0G (`testZerogHasNoRenameMigration`).
+            bool chainRenames = LibRainDeploy.hasChainId(
+                LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
+            );
             for (uint256 i = 0; i < tokens.length; i++) {
                 assertTokenMetadata(
                     json,
                     index(list, i),
                     LibProdTokenConfig.configOf(tokens[i].underlying),
-                    LibUnderlyingNamingRollout.renamesRow(i)
+                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i)
                 );
             }
         }

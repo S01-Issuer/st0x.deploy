@@ -8,7 +8,7 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibInvariants} from "../../../src/lib/LibInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 /// @title LibInvariantsTest
@@ -22,8 +22,9 @@ contract LibInvariantsTest is Test {
         LibInvariants.assertAll(Safe(payable(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE)));
     }
 
-    /// @notice On 0G the multichain bundle checks 0G's US map, which grants no
-    /// orchestrator: an authoriser that holds exactly that map passes.
+    /// @notice On 0G the multichain bundle checks 0G's token table and 0G's US
+    /// map, which grants no orchestrator: an authoriser that holds exactly
+    /// that map passes.
     function testAssertProductionStatePassesOnZerogWithoutTheOrchestrator() external {
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
         vm.chainId(id);
@@ -31,7 +32,10 @@ contract LibInvariantsTest is Test {
         LibLocalProdState.timelock(vm, id);
         LibLocalProdState.beacons(vm, id);
         LibLocalProdState.authorisers(vm, id);
-        LibInvariants.assertProductionState(new TokenInstance[](0), LibAuthoriserInvariants.authoriserForChainId(id));
+        LibLocalProdState.tokens(vm, id);
+        LibInvariants.assertProductionState(
+            LibTokenInvariants.productionTokensForChainId(id), LibAuthoriserInvariants.authoriserForChainId(id)
+        );
     }
 
     /// @notice On every chain the multichain bundle passes for that chain's

@@ -312,18 +312,25 @@ contract LibAuthoriserInvariantsTest is Test {
     }
 
     /// @notice Every chain's US clone holding that chain's map passes the
-    /// three-argument grant assertion with that chain's Safe and timelock.
+    /// three-argument grant assertion with that chain's Safe and timelock. On
+    /// a chain that runs no orchestrator (0G) the clone holds the map without
+    /// the orchestrator's pairs (`expectedGrantsOn`), which `assertHeld` checks.
     function testAssertExpectedGrantsHoldsOnEveryChain() external {
         uint256[] memory chainIds = LibLocalProdState.chainIds();
         for (uint256 i = 0; i < chainIds.length; i++) {
             uint256 snapshot = vm.snapshotState();
             vm.clearMockedCalls();
             LibLocalProdState.authorisers(vm, chainIds[i]);
-            LibAuthoriserInvariants.assertExpectedGrants(
-                LibAuthoriserInvariants.authoriserForChainId(chainIds[i]),
-                LibSafeInvariants.safeForChainId(chainIds[i]),
-                LibTimelockInvariants.timelockForChainId(chainIds[i])
-            );
+            address authoriser = LibAuthoriserInvariants.authoriserForChainId(chainIds[i]);
+            address safe = LibSafeInvariants.safeForChainId(chainIds[i]);
+            address timelock = LibTimelockInvariants.timelockForChainId(chainIds[i]);
+            if (LibAuthoriserInvariants.grantsOrchestrator(chainIds[i])) {
+                LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
+            } else {
+                LibAuthoriserInvariants.assertHeld(
+                    authoriser, LibAuthoriserInvariants.expectedGrantsOn(chainIds[i], safe, timelock)
+                );
+            }
             vm.revertToState(snapshot);
         }
     }

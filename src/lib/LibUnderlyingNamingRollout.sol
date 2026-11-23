@@ -48,6 +48,12 @@ error MalformedUnderlying(string underlying, string underlyingName);
 /// renamed wrapper symbols, so the rename may not be scheduled.
 error DownstreamNotReadyForRename();
 
+/// @notice The rollout's rows were cut for tables in Base row order. 0G's
+/// table follows Ethereum's creation order, so its leading `TOKEN_COUNT` rows
+/// are another token set, and the rollout refuses 0G.
+/// @param chainId The chain id.
+error UnderlyingNamingNotCutForChain(uint256 chainId);
+
 /// @title LibUnderlyingNamingRollout
 /// @notice The two timelock operations that roll out the underlying ticker
 /// and name on a chain, reconstructed from repo state so the scripts that
@@ -130,11 +136,13 @@ library LibUnderlyingNamingRollout {
 
     /// @notice The production tokens this rollout renames on the chain: the
     /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
-    /// `NoTokenTableForChain` on a chain with no table and
+    /// `UnderlyingNamingNotCutForChain` on 0G, whose leading rows are another
+    /// token set, `NoTokenTableForChain` on a chain with no table and
     /// `TokenTableNotHydrated` on a placeholder one.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) revert UnderlyingNamingNotCutForChain(chainId);
         return leadingRows(chainId, LibTokenInvariants.productionTokensForChainId(chainId));
     }
 

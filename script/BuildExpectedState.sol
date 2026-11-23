@@ -42,8 +42,8 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// (`wrappedTokenVault.asset()`), the
 /// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
 /// `receiptVaultCodehash`, `receiptCodehash`,
-/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`, or none where `tokenTableHydrated` is false (a table of
-/// placeholders, as 0G's until its tokens exist); on Base, `qsep` (tQSEP's legs, `owner`, `authoriser`). Under `v2`, per network V2 was checked on: `network`,
+/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`, or none where `tokenTableHydrated` is false (a table that
+/// still holds a placeholder leg); on Base, `qsep` (tQSEP's legs, `owner`, `authoriser`). Under `v2`, per network V2 was checked on: `network`,
 /// `deployments` (each `LibProdDeployV2` key, address, codehash), `beaconSetDeployer`, and `receiptBeacon`,
 /// `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon, implementation, owner).
 contract BuildExpectedState is Script {

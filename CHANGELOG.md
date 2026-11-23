@@ -160,6 +160,17 @@
 
 ### Deploy scripts
 
+- **The 0G token table holds the live tokens.** `20261119-create-zerog-tokens`
+  created the 65 0G tokens on 2026-11-23 in Safe nonces 2-5, and
+  `productionTokensZerog()` now pins each row's receipt, vault and wrapper. Each
+  row that Ethereum's table also carries has the same addresses there.
+  `LibTokenInvariants.hydrated` and `tokenTableHydrated` refuse a row when any
+  of its three legs is zero, not only the receipt vault. The creation script
+  still refuses a table that is not all placeholders, so it cannot create the
+  tokens again; its rehearsal tests stand in the placeholder table the bundles
+  were authored against. `LibUnderlyingNamingRollout.tokens` refuses 0G: its
+  leading rows follow Ethereum's order, not Base's, so the rollout's cut would
+  pick another token set.
 - **The underlying-naming rollout.** `LibUnderlyingNamingRollout` reconstructs
   two timelock operations per chain:
   - a beacon batch that upgrades the in-use wrapped-token-vault and
