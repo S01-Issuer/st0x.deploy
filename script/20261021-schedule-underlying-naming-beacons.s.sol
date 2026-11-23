@@ -66,8 +66,9 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 /// @title ScheduleUnderlyingNamingBeacons
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the
 /// underlying-naming beacon batch on the chain's governance timelock (see
-/// `LibUnderlyingNamingRollout` for the calls). Two Safe calls: `timelock.scheduleBatch(...)`, with the pinned
-/// 48h delay, then the Safe's root-line record.
+/// `LibUnderlyingNamingRollout` for the calls). Two Safe calls:
+/// `timelock.scheduleBatch(...)`, with the pinned 48h delay, then the Safe's
+/// root-line record.
 ///
 /// Execution is not a Safe action: the timelock lets anyone execute a ready
 /// operation (`20261021-execute-underlying-naming` does it from the CI deploy
