@@ -100,16 +100,16 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
     }
 
     function lastVault() internal view returns (address) {
-        return harness().callToken(LibProdTokenConfig.zerogTokenConfigs().length - 1).receiptVault;
+        return harness().callToken(LibProdTokenConfig.canonicalTokenConfigs().length - 1).receiptVault;
     }
 
     function lastUnderlying() internal pure returns (string memory) {
-        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         return rows[rows.length - 1].underlying;
     }
 
     function testBundleIsTheProbesThenTheLastRowsThenItsRecord() external view {
-        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         SafeTx[] memory txs = sScript.callAuthorBundle();
         assertEq(txs.length, 2 + 3 * (rows.length - LAST_BATCH_FIRST_ROW) + 1, "bundle length");
         bytes memory probe = abi.encodeCall(ICloneableV2.initialize, (""));
@@ -224,7 +224,7 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
 
     function testPostStateRefusesARenamedWrapper() external {
         executeBundle();
-        address wrapper = harness().callToken(LibProdTokenConfig.zerogTokenConfigs().length - 1).wrappedTokenVault;
+        address wrapper = harness().callToken(LibProdTokenConfig.canonicalTokenConfigs().length - 1).wrappedTokenVault;
         vm.mockCall(wrapper, abi.encodeCall(IERC20Metadata.symbol, ()), abi.encode("x"));
         vm.expectRevert(abi.encodeWithSelector(ZerogTokenMismatch.selector, lastUnderlying(), "wrapper symbol"));
         sScript.callAssertPostState();
@@ -282,7 +282,7 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
     }
 
     function lastToken() internal view returns (address receipt, address vault, address wrapper) {
-        TokenInstance memory created = harness().callToken(LibProdTokenConfig.zerogTokenConfigs().length - 1);
+        TokenInstance memory created = harness().callToken(LibProdTokenConfig.canonicalTokenConfigs().length - 1);
         return (created.receipt, created.receiptVault, created.wrappedTokenVault);
     }
 

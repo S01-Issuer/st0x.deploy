@@ -35,7 +35,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
     }
 
     /// @notice Ethereum slots 42-47 as read on chain from Ethereum's 0.1.1 beacon-set deployers.
-    function ethereumOnlySlots() internal pure returns (EthereumSlot[6] memory) {
+    function offBaseSlots() internal pure returns (EthereumSlot[6] memory) {
         address us = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);
         return [
             EthereumSlot(
@@ -90,7 +90,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
     }
 
     function zerogTokens() internal view returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](LibProdTokenConfig.zerogTokenConfigs().length);
+        tokens = new TokenInstance[](LibProdTokenConfig.canonicalTokenConfigs().length);
         for (uint256 i = 0; i < tokens.length; i++) {
             tokens[i] = sScript.callToken(i);
         }
@@ -103,7 +103,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
     /// @notice Every 0G row gets Ethereum's vault and wrapper for its underlying, and Ethereum's table carries no
     /// underlying the 0G rows do not.
     function testEachRowIsEthereumsTokenForItsUnderlying() external view {
-        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         TokenInstance[] memory ethereum = LibTokenInvariants.productionTokensEthereum();
         assertEq(rows.length, 65, "0G rows");
         assertEq(ethereum.length, rows.length, "Ethereum rows");
@@ -128,9 +128,9 @@ contract CreateZerogTokensEthereumOrderTest is Test {
 
     /// @notice The six rows no Base row carries are Ethereum's slots 42-47: the same vault, wrapper,
     /// symbol and name, and Ethereum's US authoriser, which their US region routes them to.
-    function testEthereumOnlyRowsAreEthereumSlots42To47() external view {
-        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
-        EthereumSlot[6] memory slots = ethereumOnlySlots();
+    function testOffBaseRowsAreEthereumSlots42To47() external view {
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
+        EthereumSlot[6] memory slots = offBaseSlots();
         for (uint256 k = 0; k < slots.length; k++) {
             uint256 i = FIRST_ETHEREUM_ONLY_SLOT + k;
             EthereumSlot memory slot = slots[k];

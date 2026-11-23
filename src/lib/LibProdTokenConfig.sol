@@ -34,7 +34,9 @@ pragma solidity ^0.8.25;
 /// `LibTokenInvariants.TokenInstance.underlying`.
 /// @param name The receipt vault's ERC-20 `name()`, verbatim from Base.
 /// @param symbol The receipt vault's ERC-20 `symbol()`, verbatim from Base.
-/// @param region Where the underlying is listed.
+/// @param region The issuance region, which picks the token's RBAC and
+/// authoriser. It is not the listing venue: tMC.PA is Paris-listed and issued
+/// under US.
 /// @param underlyingName The issuer's current legal name, without any ST0x
 /// suffix: the `name` argument of `setUnderlying`. Usually the live `name`
 /// without " ST0x"; it differs where the issuer has since been renamed
@@ -685,10 +687,10 @@ library LibProdTokenConfig {
         });
     }
 
-    /// @notice Tokens live on Ethereum that no Base row carries, with Ethereum's verbatim names and symbols. Ethereum
-    /// points them at its US authoriser, so their region routes them there.
+    /// @notice Tokens live on Ethereum, HyperEVM, Robinhood and BSC that no Base row carries, with Ethereum's verbatim
+    /// names and symbols. Every chain issues them under US, so their region routes them to the US authoriser.
     /// @return configs The rows.
-    function ethereumOnlyTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
+    function offBaseTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
         configs = new TokenConfig[](6);
         configs[0] = TokenConfig({
             underlying: "AIR.PA",
@@ -752,10 +754,10 @@ library LibProdTokenConfig {
         });
     }
 
-    /// @notice 0G's creation order: Ethereum's 0.1.1 beacon-set deployers' creation sequence, slots 0-64, so a 0G
-    /// token address is the token Ethereum and HyperEVM hold at the same deployer nonce.
+    /// @notice The canonical token order: the 0.1.1 beacon-set deployers' creation sequence that Ethereum and HyperEVM
+    /// agree on, slots 0-64. A chain created in this order holds the same token at the same address.
     /// @return The underlyings.
-    function zerogCreationOrder() internal pure returns (string[65] memory) {
+    function canonicalTokenOrder() internal pure returns (string[65] memory) {
         return [
             "MSTR",
             "TSLA",
@@ -825,15 +827,15 @@ library LibProdTokenConfig {
         ];
     }
 
-    /// @notice The rows 0G creates, in `zerogCreationOrder`.
+    /// @notice The canonical token rows, in `canonicalTokenOrder`.
     /// @return configs The rows.
-    function zerogTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
-        string[65] memory order = zerogCreationOrder();
+    function canonicalTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
+        string[65] memory order = canonicalTokenOrder();
         TokenConfig[] memory production = productionTokenConfigs();
-        TokenConfig[] memory ethereumOnly = ethereumOnlyTokenConfigs();
+        TokenConfig[] memory offBase = offBaseTokenConfigs();
         configs = new TokenConfig[](order.length);
         for (uint256 i = 0; i < order.length; i++) {
-            configs[i] = rowIn(order[i], production, ethereumOnly);
+            configs[i] = rowIn(order[i], production, offBase);
         }
     }
 
@@ -882,14 +884,14 @@ library LibProdTokenConfig {
         return configs;
     }
 
-    /// @notice The production or Ethereum-only row for `underlying`.
+    /// @notice The production or off-Base row for `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row. Reverts `UnknownUnderlying` when there is none.
     function configOf(string memory underlying) internal pure returns (TokenConfig memory) {
-        return rowIn(underlying, productionTokenConfigs(), ethereumOnlyTokenConfigs());
+        return rowIn(underlying, productionTokenConfigs(), offBaseTokenConfigs());
     }
 
-    /// @notice The region of the production or Ethereum-only row for
+    /// @notice The region of the production or off-Base row for
     /// `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row's region. Reverts `UnknownUnderlying` when there is

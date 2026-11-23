@@ -86,7 +86,7 @@ contract LibTokenInvariantsTest is Test {
     /// tokens once, and nothing else. Rows pair by underlying, not by index.
     function assertBaseRowsPlusTheSix(TokenInstance[] memory table, string memory chain) internal pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        TokenConfig[] memory six = LibProdTokenConfig.ethereumOnlyTokenConfigs();
+        TokenConfig[] memory six = LibProdTokenConfig.offBaseTokenConfigs();
         assertEq(six.length, 6, "six off-Base tokens");
         assertEq(table.length, base.length + six.length, string.concat(chain, " token table length"));
         for (uint256 i = 0; i < base.length; i++) {
@@ -117,7 +117,7 @@ contract LibTokenInvariantsTest is Test {
     /// The 0G token table follows the 0G creation rows row-for-row on the
     /// `underlying` key: 65 rows in Ethereum's creation order.
     function testZerogTokenTableFollowsZerogCreationRows() external pure {
-        TokenConfig[] memory rows = LibProdTokenConfig.zerogTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
         assertEq(zerog.length, 65, "0G token table length");
         assertEq(rows.length, zerog.length, "0G token table length diverges from its creation rows");

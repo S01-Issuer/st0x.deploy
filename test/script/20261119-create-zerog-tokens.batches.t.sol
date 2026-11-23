@@ -110,7 +110,7 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
     }
 
     function rows() internal pure returns (TokenConfig[] memory) {
-        return LibProdTokenConfig.zerogTokenConfigs();
+        return LibProdTokenConfig.canonicalTokenConfigs();
     }
 
     function firstRowIn(Region region) internal pure returns (uint256) {

@@ -47,7 +47,7 @@ contract LibTokenInvariantsOffBaseRowsTest is Test {
         address timelock = LibTimelockInvariants.timelockForChainId(chainId);
         assertNotEq(us, LibAuthoriserInvariants.euAuthoriserForChainId(chainId), "US and EU clones differ");
         TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
-        TokenConfig[] memory six = LibProdTokenConfig.ethereumOnlyTokenConfigs();
+        TokenConfig[] memory six = LibProdTokenConfig.offBaseTokenConfigs();
         assertEq(six.length, 6, "six off-Base tokens");
         for (uint256 k = 0; k < six.length; k++) {
             uint256 found = 0;
