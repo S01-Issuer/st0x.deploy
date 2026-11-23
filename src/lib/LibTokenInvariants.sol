@@ -931,7 +931,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on Ethereum
     /// mainnet — Base's underlyings in Base row order, then the six
-    /// Ethereum-only tokens in creation order. Pair rows by underlying.
+    /// off-Base tokens in creation order. Pair rows by underlying.
     /// @return tokens The production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](65);
@@ -1328,7 +1328,7 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on HyperEVM,
-    /// in `productionTokensBase()` row order, then the six Ethereum-only
+    /// in `productionTokensBase()` row order, then the six off-Base
     /// tokens in creation order. Pair rows by underlying.
     /// @return tokens The production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
@@ -1727,7 +1727,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on Robinhood
     /// Chain (chain id 4663) — Base's underlyings in Base row order, then the
-    /// six Ethereum-only tokens in creation order. Pair rows by underlying.
+    /// six off-Base tokens in creation order. Pair rows by underlying.
     /// @return tokens The production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](65);
@@ -2125,7 +2125,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on BNB Smart
     /// Chain (chain id 56) — Base's underlyings in Base row order, then the
-    /// six Ethereum-only tokens in creation order. Pair rows by underlying.
+    /// six off-Base tokens in creation order. Pair rows by underlying.
     /// @return tokens The production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](65);
