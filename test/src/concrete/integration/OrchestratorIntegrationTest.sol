@@ -5,19 +5,19 @@ pragma solidity =0.8.25;
 import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.8/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.14/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
     DEPOSIT,
     WITHDRAW,
     CERTIFY
-} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
-import {ReceiptVaultConfigV2} from "rain-vats-0.2.20/src/abstract/ReceiptVault.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {EvaluableV4} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+} from "rain-vats-0.2.25/src/abstract/OffchainAssetReceiptVault.sol";
+import {ReceiptVaultConfigV2} from "rain-vats-0.2.25/src/abstract/ReceiptVault.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
+import {EvaluableV4} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
@@ -29,7 +29,6 @@ import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
-import {IStoxUnderlyingV1} from "../../../../src/interface/IStoxUnderlyingV1.sol";
 import {SCHEDULE_CORPORATE_ACTION, STOCK_SPLIT_V1_TYPE_HASH} from "../../../../src/lib/LibCorporateAction.sol";
 import {LibStockSplit} from "../../../../src/lib/LibStockSplit.sol";
 import {LibProdDeployV4} from "../../../../src/generated/LibProdDeployV4.sol";
@@ -109,12 +108,9 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         // the beacon the guard version-locks against.
         vault = LibTestDeploy.newVault(
             LibRegistryAuthority.ROOT_AUTHORITY,
-            LibTestDeploy.vaultData("ST0XTEST", LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME)
+            LibTestDeploy.vaultData("Test tStock", "tTEST", LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME)
         );
         receipt = IERC1155(address(vault.receipt()));
-        // The vault deploys nameless; its owner names it `tTEST`.
-        vm.prank(vault.owner());
-        IStoxUnderlyingV1(address(vault)).setUnderlying("TEST", "Test");
 
         // Orchestrator impl behind a real UpgradeableBeacon + BeaconProxy, so
         // OWNER, the bound governance timelock, is its admin.

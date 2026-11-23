@@ -6,8 +6,8 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -21,8 +21,7 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 /// @param executor The broadcasting key.
 error UnderlyingNamingExecutorHoldsRole(address timelock, address executor);
 
-/// @notice No rollout operation can execute: the beacon batch is not ready, and the rename batch is not ready or waits
-/// for the beacon batch.
+/// @notice Neither rollout operation is ready on this chain.
 /// @param beaconId The beacon batch's operation id.
 /// @param beaconDone Whether the beacon batch has executed.
 /// @param renameId The rename batch's operation id.
@@ -54,8 +53,7 @@ function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration me
 /// @title ExecuteUnderlyingNaming
 /// @notice `execute()` executes the next ready underlying-naming operation on
 /// the active chain from the CI deploy key, which holds no role: the beacon
-/// batch if it is ready, otherwise the rename batch once the beacon batch is
-/// done. One operation per
+/// batch if it is ready, otherwise the rename batch. One operation per
 /// dispatch. Both operations are reconstructed by `LibUnderlyingNamingRollout`,
 /// the same library the scheduling scripts use, so only calldata committed in
 /// this repo can execute.
@@ -104,8 +102,7 @@ contract ExecuteUnderlyingNaming is SafeBundleScript, IStoxScript {
             if (!controller.isOperationDone(beaconId)) revert UnderlyingNamingOperationNotDone(beaconId);
             return;
         }
-        // The rename's predecessor is the beacon batch, so it waits for it.
-        if (controller.isOperationReady(renameId) && controller.isOperationDone(beaconId)) {
+        if (controller.isOperationReady(renameId)) {
             (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
                 LibUnderlyingNamingRollout.renameBatch(block.chainid);
             console2.log("Executing the rename batch:", vm.toString(renameId));

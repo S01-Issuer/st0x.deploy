@@ -7,24 +7,17 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
-import {AssetIdNotInitializing} from "../src/error/ErrAssetId.sol";
-import {IStoxAssetIdV1} from "../src/interface/IStoxAssetIdV1.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {
-    LibUnderlyingNamingRollout,
-    UnderlyingNamingBatchMoved,
-    UnderlyingNamingReleaseNotFrozen
-} from "../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibUnderlyingNamingRollout, UnderlyingNamingReleaseNotFrozen} from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations, LineHeadMismatch, RecordMismatch} from "../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice An implementation the beacon batch points a beacon at does not
 /// carry its pinned code on this chain. Deploy it first (rollout step 1).
@@ -60,24 +53,12 @@ error BeaconNotUpgraded(address beacon, address expected, address actual);
 /// @param afterUpgrade The value after it.
 error BeaconUpgradeMovedMetadata(address token, string before, string afterUpgrade);
 
-/// @notice A live vault behind the upgraded beacon reports an asset id.
-/// @param vault The vault.
-/// @param assetId The id it reports.
-error UpgradedVaultHasAssetId(address vault, string assetId);
-
-/// @notice A live vault behind the upgraded beacon does not refuse
-/// `initializeAssetId` with `AssetIdNotInitializing`, so the new
-/// implementation does not carry the asset id hook.
-/// @param vault The vault.
-/// @param result What the call returned.
-error UpgradedVaultMissingAssetIdHook(address vault, bytes result);
-
-/// @notice This script's declaration: the Safe's record, after orchestrator-admin-to-timelock.
+/// @notice This script's declaration: the Safe's record, after the Safe-owned Base vault handover.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        onto: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
         history: false
     });
 }
@@ -87,8 +68,7 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 /// underlying-naming beacon batch on the chain's governance timelock (rollout
 /// step 2 in `docs/TIMELOCK.md`; see `LibUnderlyingNamingRollout` for
 /// the calls). Two Safe calls: `timelock.scheduleBatch(...)`, with the pinned
-/// 48h delay, then the Safe's root-line record; or the schedule alone when
-/// rescheduling a cancelled batch.
+/// 48h delay, then the Safe's root-line record.
 ///
 /// Execution is not a Safe action: the timelock lets anyone execute a ready
 /// operation (`20261021-execute-underlying-naming` does it from the CI deploy
@@ -145,17 +125,16 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The root line is at this migration's `onto`, or the batch is being
-    /// rescheduled after a cancel (see `rescheduling`). The release is frozen,
-    /// the Safe and timelock are the pinned ones, the timelock owns the in-use
-    /// beacons, the three implementations carry their pinned code, the beacons
-    /// have not moved and still serve their pinned from-implementations, the
-    /// operation is not registered, and its derived id is the pinned one.
+    /// @dev The release is frozen, the Safe and timelock are the pinned ones,
+    /// the timelock owns the in-use beacons, the three implementations carry their pinned code, the
+    /// beacons have not moved and still serve their pinned from-implementations,
+    /// the operation is not registered, and the root line is at this
+    /// migration's `onto`.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        if (!rescheduling()) LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), chainSafe);
+        LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), chainSafe);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
         assertDeployed(LibUnderlyingNamingRollout.FACET, LibUnderlyingNamingRollout.FACET_CODEHASH);
@@ -193,60 +172,33 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
         );
 
         bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
-        (bytes32 pinned,) = LibUnderlyingNamingRollout.pinnedOperationIds(block.chainid);
-        if (id != pinned) revert UnderlyingNamingBatchMoved(pinned, id);
         if (TimelockController(payable(timelock())).isOperation(id)) revert OperationAlreadyScheduled(id);
     }
 
-    /// @notice Whether this dispatch reschedules a cancelled beacon batch: this migration's record is on the line, and
-    /// the head is that record or the rename schedule's (the beacon batch cancelled alone or with the rename).
-    /// @return True when the bundle must schedule without a second record.
-    function rescheduling() internal view returns (bool) {
-        bytes32 head = LibStoxMigrations.head();
-        return LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS) != 0
-            && (head == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
-                || head == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
-    }
-
     /// @inheritdoc SafeBundleScript
-    /// @dev The schedule, then the record. When rescheduling a cancelled
-    /// batch the record is already on the line, so the bundle is the schedule
-    /// alone.
+    /// @dev The schedule, then the record.
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        bool reschedule = rescheduling();
-        SafeTx[] memory txs = new SafeTx[](reschedule ? 1 : 2);
+        SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
             data: LibUnderlyingNamingRollout.scheduleBeaconCalldata(block.chainid),
             operation: Enum.Operation.Call
         });
-        if (!reschedule) txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingBeaconsDeclaration());
+        txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingBeaconsDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Scheduled, pending and not ready inside the delay; this migration's record is on the root line, and the
-    /// head is that record or, after a reschedule under a recorded rename, the rename schedule's record.
+    /// @dev Scheduled, pending and not ready inside the delay; the record is
+    /// this bundle's and heads the root line.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert OperationNotPendingInsideDelay(id);
         }
-        // A first schedule writes the record in this bundle; a reschedule
-        // finds it already on the line.
-        if (LibStoxMigrations.applied(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS) == 0) {
-            // forge-lint: disable-next-line(block-timestamp)
-            revert RecordMismatch(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS, block.timestamp, 0);
-        }
-        bytes32 lineHead = LibStoxMigrations.head();
-        if (
-            lineHead != LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
-                && lineHead != LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME
-        ) {
-            revert LineHeadMismatch(lineHead);
-        }
+        LibStoxMigrations.assertRecorded(scheduleUnderlyingNamingBeaconsDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript
@@ -259,15 +211,9 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     }
 
     /// @notice The execution proof `assertReversible` runs. It records every
-    /// vault's and wrapper's `name()` and `symbol()` the rollout renames (the
-    /// leading `TOKEN_COUNT` rows) before the
+    /// production vault's and wrapper's `name()` and `symbol()` before the
     /// batch and requires them unchanged after it: the beacon batch must not
-    /// rename anything, that is the rename batch's job. It also proves a live
-    /// vault behind the upgraded beacon serves the facet's asset id surface: it
-    /// reports `assetId() == ""`, and the init-only `initializeAssetId` refuses
-    /// with `AssetIdNotInitializing`. That the vault's `_initialize` forwards to
-    /// the hook is bound by the pinned `RECEIPT_VAULT_CODEHASH`, not by this
-    /// check.
+    /// rename anything, that is the rename batch's job.
     function proveExecution() internal {
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
         string[] memory before = metadata(chainTokens);
@@ -293,7 +239,6 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
                 revert BeaconUpgradeMovedMetadata(metadataToken(chainTokens, i), before[i], afterUpgrade[i]);
             }
         }
-        assertAssetIdHook(chainTokens[0].receiptVault);
         console2.log(
             "Execution proven: both beacons upgraded by a roleless executor after 48h, no name or symbol moved"
         );
@@ -321,19 +266,6 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     function metadataToken(TokenInstance[] memory chainTokens, uint256 index) internal pure returns (address) {
         TokenInstance memory token = chainTokens[index / 4];
         return index % 4 < 2 ? token.receiptVault : token.wrappedTokenVault;
-    }
-
-    /// @notice Reverts unless `vault` serves the facet's asset id getter with an
-    /// empty id and refuses `initializeAssetId` with `AssetIdNotInitializing`.
-    /// @param vault A live vault behind the upgraded beacon.
-    function assertAssetIdHook(address vault) internal {
-        string memory assetId = IStoxAssetIdV1(vault).assetId();
-        if (bytes(assetId).length != 0) revert UpgradedVaultHasAssetId(vault, assetId);
-        (bool success, bytes memory result) =
-            vault.call(abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))));
-        if (success || keccak256(result) != keccak256(abi.encodeWithSelector(AssetIdNotInitializing.selector))) {
-            revert UpgradedVaultMissingAssetIdHook(vault, result);
-        }
     }
 
     /// @notice Reverts unless `beacon` points at `expected`.

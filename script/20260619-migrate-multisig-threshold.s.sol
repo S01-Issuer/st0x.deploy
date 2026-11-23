@@ -10,13 +10,13 @@ import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/bas
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibInvariants} from "../src/lib/LibInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
 
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
 
 /// @notice A previously emitted Tx Builder JSON artifact (parsed via
 /// `LibSafeTxBuilderJson.fromJson`) does not match the bundle the live
@@ -41,10 +41,15 @@ error NoMultisigThresholdMigrationOnChain(uint256 chainId);
 error MultisigThresholdAlreadyApplied();
 
 /// @notice This script's declaration: the root line's genesis record of the threshold
-/// migration, written as history by the backfill.
+/// migration, written by the backfill: as history, record-only on 0G (`LibStoxMigrations.withoutHistory`).
+/// @param chainId The chain id.
 /// @return The declaration.
-function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration memory) {
-    return ScriptDeclaration({id: LibStoxMigrations.MULTISIG_THRESHOLD, onto: MIGRATION_HEAD_GENESIS, history: true});
+function migrateMultisigThresholdDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
+    return ScriptDeclaration({
+        id: LibStoxMigrations.MULTISIG_THRESHOLD,
+        onto: MIGRATION_HEAD_GENESIS,
+        history: !LibStoxMigrations.withoutHistory(chainId)
+    });
 }
 
 /// @title MigrateMultisigThreshold
@@ -72,8 +77,8 @@ function migrateMultisigThresholdDeclaration() pure returns (ScriptDeclaration m
 /// while keeping the owner set pinned.
 contract MigrateMultisigThreshold is Script, IStoxScript, IStoxHistoryMigration {
     /// @inheritdoc IStoxScript
-    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
-        return migrateMultisigThresholdDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return migrateMultisigThresholdDeclaration(chainId);
     }
 
     /// @inheritdoc IStoxHistoryMigration

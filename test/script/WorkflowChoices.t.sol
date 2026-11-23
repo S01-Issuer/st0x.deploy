@@ -60,13 +60,12 @@ contract WorkflowChoicesTest is Test {
         return choicesIn(workflow, vm.readFile(workflow), input);
     }
 
-    /// The `options` of `input` in the workflow text `text`, read from `workflow`.
-    function choicesIn(string memory workflow, string memory text, string memory input)
+    /// The index of the line of `input` directly under the first `inputs:` of `lines`, read from `workflow`.
+    function inputLine(string memory workflow, string[] memory lines, string memory input)
         internal
         pure
-        returns (string[] memory)
+        returns (uint256)
     {
-        string[] memory lines = vm.split(text, "\n");
         uint256 i = 0;
         while (i < lines.length && keccak256(bytes(vm.trim(lines[i]))) != keccak256("inputs:")) {
             i++;
@@ -76,6 +75,7 @@ contract WorkflowChoicesTest is Test {
         i++;
         bytes32 header = keccak256(bytes(string.concat(input, ":")));
         uint256 childIndentation = 0;
+        bool matched = false;
         for (; i < lines.length; i++) {
             if (isInert(lines[i])) {
                 continue;
@@ -87,13 +87,22 @@ contract WorkflowChoicesTest is Test {
                 childIndentation = indentation(lines[i]);
             }
             if (indentation(lines[i]) == childIndentation && keccak256(bytes(vm.trim(lines[i]))) == header) {
+                matched = true;
                 break;
             }
         }
-        assertTrue(
-            i < lines.length && keccak256(bytes(vm.trim(lines[i]))) == header,
-            string.concat(workflow, " has no input ", input)
-        );
+        assertTrue(matched, string.concat(workflow, " has no input ", input));
+        return i;
+    }
+
+    /// The `options` of `input` in the workflow text `text`, read from `workflow`.
+    function choicesIn(string memory workflow, string memory text, string memory input)
+        internal
+        pure
+        returns (string[] memory)
+    {
+        string[] memory lines = vm.split(text, "\n");
+        uint256 i = inputLine(workflow, lines, input);
         uint256 inputIndentation = indentation(lines[i]);
         i++;
         while (i < lines.length && keccak256(bytes(vm.trim(lines[i]))) != keccak256("options:")) {
@@ -592,6 +601,22 @@ contract WorkflowChoicesTest is Test {
             "  workflow_call:\n    inputs:\n      script:\n        options:\n          - wrong\n",
             "script"
         );
+    }
+
+    /// A key of the input's name that ends the `inputs:` block, or follows an empty block, is not the input.
+    function testChoicesRefuseTheKeyThatEndsTheBlock() external {
+        vm.expectRevert(bytes("fixture has no input script"));
+        this.externalChoicesIn(
+            "on:\n  workflow_dispatch:\n    inputs:\n      network:\n        options:\n          - base\n"
+            "    script:\n      options:\n        - wrong\n",
+            "script"
+        );
+        vm.expectRevert(bytes("fixture has no input script"));
+        this.externalChoicesIn(
+            "inputs:\n  network:\n    options:\n      - base\nscript:\n  options:\n    - wrong\n", "script"
+        );
+        vm.expectRevert(bytes("fixture has no input script"));
+        this.externalChoicesIn("inputs:\nscript:\n  options:\n    - wrong\n", "script");
     }
 
     /// A key of the input's name nested under another input is not the input.
