@@ -8,22 +8,22 @@ on:
         type: choice
         options:
           # Append-only registry: add new entries at the bottom; never reorder.
-          # An entry may leave the list only when its script is history-only:
-          # its `run()` refuses and the V5 backfill writes its root-line
-          # record.
+          # An entry stays after its script has run, so its pre-flight can be
+          # re-run against the chain. It leaves the list only when its script
+          # is history-only: its `run()` refuses and the V5 backfill writes its
+          # root-line record.
           #
           # Each entry is the date-prefixed filename (without `.s.sol`) of a
           # Safe Tx Builder JSON emitting script under `script/`. Convention:
           # `YYYYMMDD-<kebab-name>`, where the date is the day the script was
           # added to this dropdown. Whether a script has run is the chain's
-          # record (executed scripts refuse re-dispatch in pre-flight), not
-          # anything written here — this dropdown is a registry of *which*
-          # scripts exist, not *whether* they've run.
+          # record, not this list. `WorkflowChoicesTest` requires every entry
+          # to name a script that is not history-only, and every script to be
+          # listed here, in `manual-broadcast.yaml`, or as history-only.
           #
           # Broadcast scripts (dispatched with `--broadcast` from the CI
           # deploy key) live in `manual-broadcast.yaml` instead.
           - 20260729-migrate-governance-to-timelock
-          - 20261006-grant-eu-authoriser-roles
           - 20261006-orchestrator-admin-to-timelock
           - 20260619-migrate-multisig-threshold
           - 20261030-backfill-migration-registry-v5
