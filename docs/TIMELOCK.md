@@ -328,7 +328,11 @@ the same warp-and-execute loop proof the migration script uses.
 `_ADMIN`-gated functions directly. Any script that authors a Safe bundle
 targeting those surfaces must target the timelock instead, and
 `LibTimelockInvariants.timelockForChainId(block.chainid)` is the only sanctioned
-way to resolve it.
+way to resolve it. The exception is every surface owned by
+`LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, the same address on every
+chain: V6 tokens, the V6 receipt, receipt-vault, wrapped-token-vault and
+orchestrator beacons (owned through `beaconInitialOwner()`), and the mint-caps
+orchestrator's beacon and admin roles.
 
 **Upgrading the receipt vault.** The vault delegatecalls the corporate-actions
 facet at `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`, a constant built
