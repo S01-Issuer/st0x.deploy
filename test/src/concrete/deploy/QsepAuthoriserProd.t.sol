@@ -5,9 +5,9 @@ pragma solidity =0.8.25;
 import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.22/src/abstract/OffchainAssetReceiptVault.sol";
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.25/src/abstract/OffchainAssetReceiptVault.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {AuthorizerMissingCorporateActionAdmin} from "../../../../src/error/ErrCorporateAction.sol";
 
 import {IAuthorisable} from "../../../../src/interface/IAuthorisable.sol";

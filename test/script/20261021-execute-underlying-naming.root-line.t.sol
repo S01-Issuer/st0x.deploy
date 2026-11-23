@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {
     ExecuteUnderlyingNaming,
@@ -36,7 +36,7 @@ contract ExecuteUnderlyingNamingRootLineTest is UnderlyingNamingRolloutFixture, 
     function landBeforeOnto() internal override {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("execute-root-line");
-        prepareRename(rename);
+        prepareRename();
         executePrefix(rename.callAuthorBundle(), 1);
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);

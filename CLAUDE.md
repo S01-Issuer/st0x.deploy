@@ -13,6 +13,12 @@ from the repo and are deliberately absent — do not re-add them.
   an audit trail of what is deployed on chain.** Never delete one for looking
   unreferenced, and never update one to match a newer deployment — a redeploy
   gets a new release-tag suffix or a new library, keeping the old values intact.
+  Exception: an `address(0)` placeholder slot for a chain whose clone is not
+  deployed yet is pinned in place in `script/Build.sol` once the deploy lands,
+  and its placeholder test is replaced by the pin. Pin a clone before its deploy
+  only at a CloneFactory open-salt address, which commits to the implementation
+  and init data, with a test that re-derives it. Never pin a factory nonce
+  (CREATE) address before the deploy: any caller can take it.
 
 - **Every compiler setting stays in the single `[profile.default]`.** Tests
   assert `addr.codehash` against constants derived from _deployed_ bytecode, so
@@ -38,3 +44,11 @@ from the repo and are deliberately absent — do not re-add them.
   mint and burn authority is NOT delay-gated: the Safe can point the vault at
   another authoriser in one transaction until its `owner()` moves to the
   timelock.
+
+- **Every chain's root line holds every migration, 0G included.** The registry
+  is immutable, so a line that differs on one chain can never be fixed. 0G ran
+  none of the history the backfill records (`LibStoxMigrations.withoutHistory`):
+  each of those declarations is record-only on 0G, and the backfill writes them
+  there in the off-Base order. Declare a new migration onto the line's current
+  head on every chain, and give it a record-only bundle on a chain where it has
+  nothing to do.
