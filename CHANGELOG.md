@@ -46,11 +46,9 @@
   `manual-sol-artifacts` offers one `stox-token-*` and one
   `stox-token-*-wrapper` choice per row; every token key is pinned, and each
   wrapper key derives from its token key. A V6 suite deploys a second token at a
-  new address; it does not touch the live token. The `stox-token-*` choices
-  deploy the token unnamed. The rollout runs the suite's pre-flight as a dry
-  run, then deploys and names the token in one Multicall3 transaction (see "The
-  V6 listing" in `docs/TIMELOCK.md`); the `-wrapper` choice then deploys its
-  wrapper.
+  new address; it does not touch the live token. The vault choices deploy
+  unnamed; the rollout deploys and names a token in one Multicall3 transaction
+  instead (see `docs/TIMELOCK.md`).
 - **Test tokens carry asset ids.** `tUSTEST` and `tEUTEST` have the synthetic
   ids `ST0XTESTUS` and `ST0XTESTEU` and an underlying name, so they deploy
   nameless and `setUnderlying` can name them. Their wrappers are salted by
