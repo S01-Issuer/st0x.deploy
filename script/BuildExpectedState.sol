@@ -39,7 +39,7 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// token's renamed metadata; zero on a network its rename and beacon batches were not cut for, 0G, so the renamed
 /// fields repeat the current ones), `registryDelegates` (each delegation the root is expected to have approved in a
 /// registry it writes through: registry, account, delegate, unscoped, scope, zero when unscoped), and per production
-/// token under `tokens`:`underlying`, `assetId`, `listingTicker`,
+/// token under `tokens`: `underlying`, `assetId`, `listingTicker`,
 /// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`, `decimals`, `wrappedTokenVaultName`,
 /// `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
