@@ -112,11 +112,7 @@ beacon upgrade to recover.
   `assertTimelockState` asserts the grant. Provisioning one is itself a
   timelocked operation — schedule `grantRole(CANCELLER_ROLE, canceller)` on the
   timelock and hydrate the constant in the same operational window. It cannot be
-  set in the constructor, which takes no canceller argument. The pin applies to
-  every timelock `assertTimelockState` checks: the per-Safe timelocks and the
-  `stox-governance-timelock` suite on each chain. Execute the grant on every
-  deployed one before the pin is set, and on a suite deployed later before its
-  first use, or the check refuses each one that lacks it.
+  set in the constructor, which takes no canceller argument.
 
 ## Addresses
 
@@ -154,29 +150,19 @@ All five timelocks are live at their pins.
 
 ## Rollout (per chain: Base, Ethereum, HyperEVM, Robinhood Chain, BNB Smart Chain)
 
-The five chains govern their live tokens through the per-Safe timelocks at their
-`LibTimelockInvariants` pins (see Addresses). Steps 1-2 still apply on every
-chain, before `20261022-bind-beacon-initial-owner` runs there: its pre-flight,
-and `Deploy.preDeployCheck` for every V6 beacon and token suite, refuse until
-`LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` is in its pinned state on the
-chain. `TimelockNotDeployed` means step 2 has not run.
-`TimelockCodehashMismatch` means other code sits at the address. The role errors
-name the role and account: a missing Safe `PROPOSER_ROLE` or `CANCELLER_ROLE`
-means the timelock was deployed with another proposer bound in step 1, and the
-suite address cannot be reused, so that chain needs a reviewed change. Any other
-missing or unexpected role, such as a pinned canceller not granted yet, needs a
-timelocked grant or revoke on that timelock first. Steps 3-5 are the move of the
-live tokens to the per-Safe timelocks.
+The five chains run the per-Safe timelocks at their `LibTimelockInvariants` pins
+(see Addresses), so steps 1-2 do not apply to them. Steps 1-2 are the path for a
+chain whose timelock is the `stox-governance-timelock` suite.
 
 1. **Bind the Safe** — bind the chain's governance Safe under
    `TIMELOCK_INITIAL_PROPOSER_NAME` in the `ConfigRegistry`. The constructor's
    typed resolve reverts on an unset name, so the bind always precedes the
    deploy.
 2. **Deploy** — Actions → `manual-sol-artifacts` → `stox-governance-timelock`.
-   The Zoltu suite lands at `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` on
-   every network, and `assertTimelockState` requires
-   `STOX_GOVERNANCE_TIMELOCK_CODEHASH` there. `timelockForChainId` keeps
-   returning the chain's per-Safe timelock, which governs the live tokens.
+   The Zoltu suite lands at one address on every network; that chain's
+   `timelockForChainId` arm then returns
+   `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, and `assertTimelockState`
+   requires `STOX_GOVERNANCE_TIMELOCK_CODEHASH` there.
 3. **Author the migration bundle** — Actions → `run-script` →
    `20260729-migrate-governance-to-timelock`, network `base` / `ethereum` /
    `hyperevm` / `robinhood` / `bsc`. Emits the Safe Tx Builder JSON
@@ -256,11 +242,7 @@ the same warp-and-execute loop proof the migration script uses.
 `_ADMIN`-gated functions directly. Any script that authors a Safe bundle
 targeting those surfaces must target the timelock instead, and
 `LibTimelockInvariants.timelockForChainId(block.chainid)` is the only sanctioned
-way to resolve it. The exception is every surface owned by
-`LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, the same address on every
-chain: V6 tokens, the V6 receipt, receipt-vault, wrapped-token-vault and
-orchestrator beacons (owned through `beaconInitialOwner()`), the mint-caps
-orchestrator's beacon and admin roles, and the listing-signer binding.
+way to resolve it.
 
 **Upgrading the receipt vault.** The vault delegatecalls the corporate-actions
 facet at `LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET`, a constant built
@@ -308,27 +290,19 @@ sequence on a fork of each chain.
    as a rescheduled beacon batch executes. Cancel the rename first, in its own
    Safe transaction, then the beacon batch in another: in one bundle, a beacon
    batch that executes while signatures are collected makes its `cancel` revert
-   and rolls back the rename's cancel too. Right before executing each cancel,
-   check `isOperationPending` on its operation: if it executed meanwhile, the
-   cancel reverts, its nonce stays unused and every later Safe transaction on
-   that chain waits behind it, so replace it with a rejection at the same nonce.
-   If the rename is not scheduled yet, cancel only the beacon batch. The rollout
-   is halted only once the rename operation reads unset. Once the beacon batch
-   is Done, `cancel` reverts on it, so cancel the rename alone. A cancel does
-   not touch the root line: the schedule records stay and the head stays at the
-   last one, so every later migration on that chain waits until the rollout
-   resumes. An urgent migration declared onto that head during a halt moves the
-   line past the record, and the reschedule is then refused with
-   `UnexpectedMigrationLine`. If only the beacon batch was cancelled, the
-   pending rename waits for the rescheduled beacon batch, its predecessor, and
-   the execute script waits for it too. The wrapper keeps its current name and
-   symbol while the vault has no underlying set. The orchestrator's vault-logic
-   lock reads the 0.1.30 beacon-set deployer's beacons, not the in-use ones, so
-   it does not cover this upgrade: minting and burning keep running across it
-   (the Base fork test mints and burns through the live orchestrator after the
-   batch), and the orchestrator steps under Orchestrator roles do not have to
-   precede it. It also means the lock does not watch the logic production tokens run;
-   pointing it at the in-use beacons is a separate orchestrator change.
+   and rolls back the rename's cancel too. The rollout is halted only once the
+   rename operation reads unset. Once the beacon batch is Done, `cancel` reverts
+   on it, so cancel the rename alone. If only the beacon batch was cancelled,
+   the pending rename waits for the rescheduled beacon batch, its predecessor,
+   and the execute script waits for it too. The wrapper keeps its current name
+   and symbol while the vault has no underlying set. The orchestrator's
+   vault-logic lock reads the 0.1.30 beacon-set deployer's beacons, not the
+   in-use ones, so it does not cover this upgrade: minting and burning keep
+   running across it (the Base fork test mints and burns through the live
+   orchestrator after the batch), and the orchestrator steps under Orchestrator
+   roles do not have to precede it. It also means the lock does not watch the
+   logic production tokens run; pointing it at the in-use beacons is a separate
+   orchestrator change.
 
    The pre-flight also requires each beacon to still serve the implementation
    the batch moves it from (`RECEIPT_VAULT_FROM_IMPLEMENTATION`,
@@ -437,11 +411,9 @@ rollout is in flight (two 48h delays), no other migration can land on that
 chain. The revoke holds the line too, from its schedule record to its execute
 record, and its execute waits for minting and redemption to run through the
 orchestrator, so the Safe schedules the revoke only once that precondition
-holds. The head is per chain and the rollout runs one chain at a time, so an
-urgent migration in that window needs a new script whose `declaration(chainId)`
-branches onto each chain's current head, as the V5 backfill's does, and a
-reviewed PR that re-declares the remaining naming scripts onto it on each chain.
-A wrong `onto` fails closed with `UnexpectedMigrationLine`.
+holds. An urgent migration in that window needs a new script declared onto the
+current head, and a reviewed PR that re-declares the remaining naming scripts
+onto it.
 
 **Revoking the service signer's vault roles.** The service signer
 (`LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C`) loses `DEPOSIT` and `WITHDRAW`
