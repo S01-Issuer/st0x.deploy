@@ -85,8 +85,8 @@ contract LibProdTokenConfigTest is Test {
 
     /// `configOf` refuses a key with no row, including near misses.
     function testConfigOfUnknownUnderlyingReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.PA"));
-        this.externalConfigOf("MC.PA");
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.DE"));
+        this.externalConfigOf("MC.DE");
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, ""));
         this.externalConfigOf("");
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "nvda"));
@@ -107,7 +107,7 @@ contract LibProdTokenConfigTest is Test {
     }
 
     function testRegionOfUnknownUnderlyingReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.PA"));
-        this.externalRegionOf("MC.PA");
+        vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "MC.DE"));
+        this.externalRegionOf("MC.DE");
     }
 }

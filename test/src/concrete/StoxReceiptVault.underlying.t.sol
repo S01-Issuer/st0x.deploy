@@ -13,7 +13,7 @@ import {
     MalformedUnderlyingIsin
 } from "../../../src/error/ErrUnderlying.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
-import {UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {ERC20_STORAGE_LOCATION} from "../../../src/lib/LibERC20Storage.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";

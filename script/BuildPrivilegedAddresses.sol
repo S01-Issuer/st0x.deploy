@@ -3,7 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
@@ -15,9 +16,11 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 
 /// @title BuildPrivilegedAddresses
-/// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, and
-/// per deployment network the Safe, timelock, authoriser, EU authoriser, production beacons and receipt vaults.
-/// `address(0)` is none.
+/// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, the
+/// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, in-use
+/// production beacons (`LibBeaconInvariants.prodBeaconsInUse`: no orchestrator beacon on 0G), whether its token table
+/// is hydrated, and its receipt vaults (none where the table is not hydrated, as 0G's
+/// until its tokens exist). `address(0)` is none.
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 
@@ -25,8 +28,8 @@ contract BuildPrivilegedAddresses is Script {
         address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
         address[4] memory implementations = LibBeaconInvariants.prodImplementationsForChainId(chainId);
         address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(chainId);
-        string[] memory rows = new string[](pinned.length);
-        for (uint256 i = 0; i < pinned.length; i++) {
+        string[] memory rows = new string[](LibBeaconInvariants.prodBeaconsInUse(chainId));
+        for (uint256 i = 0; i < rows.length; i++) {
             string memory row = string.concat(key, ".beacon.", vm.toString(i));
             vm.serializeAddress(row, "beacon", pinned[i]);
             vm.serializeAddress(row, "implementation", implementations[i]);
@@ -45,7 +48,13 @@ contract BuildPrivilegedAddresses is Script {
         vm.serializeAddress(key, "euAuthoriser", LibAuthoriserInvariants.euAuthoriserForChainId(chainId));
         vm.serializeAddress(key, "beaconSetDeployer", LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId));
         vm.serializeString(key, "beacons", beaconsJson(chainId, key));
-        return vm.serializeAddress(key, "receiptVaults", LibTokenInvariants.productionReceiptVaultsForChainId(chainId));
+        bool hydrated = LibTokenInvariants.tokenTableHydrated(chainId);
+        vm.serializeBool(key, "tokenTableHydrated", hydrated);
+        return vm.serializeAddress(
+            key,
+            "receiptVaults",
+            hydrated ? LibTokenInvariants.productionReceiptVaultsForChainId(chainId) : new address[](0)
+        );
     }
 
     function render() public returns (string memory) {
@@ -67,6 +76,7 @@ contract BuildPrivilegedAddresses is Script {
             "root", "authoriserImplementation", LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1
         );
         vm.serializeString("root", "beaconOwners", beaconOwners);
+        vm.serializeAddress("root", "registryRootAuthority", LibRegistryAuthority.ROOT_AUTHORITY);
         return vm.serializeString("root", "chains", chains);
     }
 

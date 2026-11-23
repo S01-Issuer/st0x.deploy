@@ -3,12 +3,17 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibAuthoriserInvariants, UnsupportedChainForAuthoriser} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig, UnknownUnderlying} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {
+    LibTokenInvariants,
+    NoTokenTableForChain,
+    TokenInstance,
+    TokenTableNotHydrated
+} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibTokenInvariantsPerChainHarness} from "./LibTokenInvariantsPerChainHarness.sol";
 
 contract LibTokenInvariantsPerChainTest is Test {
@@ -43,6 +48,7 @@ contract LibTokenInvariantsPerChainTest is Test {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         for (uint256 i = 0; i < nets.length; i++) {
             if (nets[i].chainId == LibSafeInvariants.BASE_CHAIN_ID) continue;
+            if (!LibTokenInvariants.tokenTableHydrated(nets[i].chainId)) continue;
             TokenInstance[] memory other = LibTokenInvariants.productionTokensForChainId(nets[i].chainId);
             assertTrue(other.length != base.length || other[0].receiptVault != base[0].receiptVault);
         }
@@ -52,6 +58,7 @@ contract LibTokenInvariantsPerChainTest is Test {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < nets.length; i++) {
+            if (!LibTokenInvariants.tokenTableHydrated(nets[i].chainId)) continue;
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[i].chainId);
             address[] memory vaults = LibTokenInvariants.productionReceiptVaultsForChainId(nets[i].chainId);
             assertEq(vaults.length, tokens.length);
@@ -63,6 +70,24 @@ contract LibTokenInvariantsPerChainTest is Test {
             LibTokenInvariants.productionReceiptVaults(),
             LibTokenInvariants.productionReceiptVaultsForChainId(LibSafeInvariants.BASE_CHAIN_ID)
         );
+    }
+
+    /// Every table but 0G's names each token's receipt vault. 0G's is
+    /// placeholders, so a generator skips its token output.
+    function testOnlyZerogsTokenTableIsNotHydrated() external pure {
+        assertFalse(LibTokenInvariants.tokenTableHydrated(LibSafeInvariants.ZEROG_CHAIN_ID), "0G");
+        SupportedNetwork[] memory nets =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        for (uint256 i = 0; i < nets.length; i++) {
+            assertTrue(LibTokenInvariants.tokenTableHydrated(nets[i].chainId), nets[i].name);
+        }
+    }
+
+    /// 0G's table is still all placeholders, so the resolver refuses it
+    /// rather than hand consumers `address(0)` targets.
+    function testZerogPlaceholderTableIsRefused() external {
+        vm.expectRevert(abi.encodeWithSelector(TokenTableNotHydrated.selector, LibSafeInvariants.ZEROG_CHAIN_ID));
+        lib.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
     }
 
     function testUndeployedChainHasNoTable(uint256 chainId) external {
