@@ -261,9 +261,19 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
         }
     }
 
-    /// @notice The shipped table holds the created tokens, so the script refuses to create them again, at row 0.
+    /// @notice The script reads the shipped table, which holds the created tokens, so it refuses to create them
+    /// again, at row 0.
     function testPreflightRefusesTheShippedTable() external {
-        harness().setTable(LibTokenInvariants.productionTokensZerog());
+        TokenInstance[] memory shipped = harness().callShippedTable();
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
+        assertEq(shipped.length, table.length, "the script reads the shipped table");
+        for (uint256 i = 0; i < table.length; i++) {
+            assertEq(shipped[i].underlying, table[i].underlying);
+            assertEq(shipped[i].receipt, table[i].receipt);
+            assertEq(shipped[i].receiptVault, table[i].receiptVault);
+            assertEq(shipped[i].wrappedTokenVault, table[i].wrappedTokenVault);
+        }
+        harness().setTable(shipped);
         vm.expectRevert(abi.encodeWithSelector(ZerogTokenRowNotPlaceholder.selector, 0));
         sScript.callPreflight();
     }

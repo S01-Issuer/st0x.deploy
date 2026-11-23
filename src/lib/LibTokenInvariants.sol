@@ -2834,7 +2834,7 @@ library LibTokenInvariants {
     /// Reverts `NoTokenTableForChain` on a chain with no table.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
-    function tokenTableForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+    function tokenTableForChainId(uint256 chainId) private pure returns (TokenInstance[] memory) {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return productionTokensBase();
         if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) return productionTokensEthereum();
         if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();

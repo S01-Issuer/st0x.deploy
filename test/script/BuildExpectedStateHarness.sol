@@ -5,7 +5,8 @@ pragma solidity =0.8.25;
 import {BuildExpectedState} from "../../script/BuildExpectedState.sol";
 
 /// @title BuildExpectedStateHarness
-/// @notice External shim so `vm.expectRevert` can intercept reverts from the script's internal emitters.
+/// @notice External shim so `vm.expectRevert` can intercept reverts from the script's internal emitters, and so a
+/// test can mark one chain's token table unhydrated.
 contract BuildExpectedStateHarness is BuildExpectedState {
     uint256 internal sUnhydratedChainId;
 

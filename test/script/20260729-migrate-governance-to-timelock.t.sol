@@ -144,7 +144,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     }
 
     /// @notice The test's active-chain helpers resolve what the script resolves on every deployment network, 0G
-    /// included now that its table is hydrated: the script's authoriser, the script's token table, and that table's
+    /// included: the script's authoriser, the script's token table, and that table's
     /// receipt vaults in order.
     function testActiveChainHelpersMatchTheScriptOnEveryNetwork() external {
         MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(address(0));

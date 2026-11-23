@@ -147,12 +147,20 @@ library LibUnderlyingNamingRollout {
     /// @return The chain's token instances.
     function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
         TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
-        if (!LibRainDeploy.hasChainId(
-                LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
-            )) {
-            revert UnderlyingNamingNotCutForChain(chainId);
-        }
+        if (!cutForChain(chainId)) revert UnderlyingNamingNotCutForChain(chainId);
         return leadingRows(chainId, table);
+    }
+
+    /// @notice Whether the rollout's rename and beacon batches were cut for
+    /// `chainId`: one of the networks before 0G
+    /// (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
+    /// `BuildExpectedState.renameMigration` both read this, so they agree.
+    /// @param chainId The chain id.
+    /// @return Whether the batches were cut for the chain.
+    function cutForChain(uint256 chainId) internal pure returns (bool) {
+        return LibRainDeploy.hasChainId(
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
+        );
     }
 
     /// @notice The leading `TOKEN_COUNT` rows of `table`, so the rename id

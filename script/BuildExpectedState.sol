@@ -50,15 +50,12 @@ contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
     /// The migration whose record on the chain selects each token's renamed metadata: the underlying naming on the
-    /// networks its rename and beacon batches were cut for (`LibStoxDeployNetworks.networksBeforeZerog`), or zero.
+    /// networks its rename and beacon batches were cut for (`LibUnderlyingNamingRollout.cutForChain`), or zero.
     /// 0G's root line records the naming too, after the 0G token creation, but no reviewed 0G bundle for it exists, so
     /// 0G expects no renamed state.
     function renameMigration(uint256 chainId) internal pure returns (bytes32) {
-        return LibRainDeploy.hasChainId(
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
-        )
-            ? LibStoxMigrations.EXECUTE_UNDERLYING_NAMING
-            : bytes32(0);
+        return
+            LibUnderlyingNamingRollout.cutForChain(chainId) ? LibStoxMigrations.EXECUTE_UNDERLYING_NAMING : bytes32(0);
     }
 
     /// The implementations `renameMigration`'s beacon batch moves the beacons to; the current ones where there is no
