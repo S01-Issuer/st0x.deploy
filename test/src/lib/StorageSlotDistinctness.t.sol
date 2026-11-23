@@ -7,7 +7,7 @@ import {CORPORATE_ACTION_STORAGE_LOCATION} from "src/lib/LibCorporateAction.sol"
 import {CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION} from "src/lib/LibCorporateActionReceipt.sol";
 import {ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
 import {ERC1155_STORAGE_LOCATION} from "src/lib/LibERC1155Storage.sol";
-import {UNDERLYING_STORAGE_LOCATION} from "../../../src/lib/LibUnderlying.sol";
+import {UNDERLYING_STORAGE_LOCATION} from "../../../src/lib/LibSecurity.sol";
 
 /// @dev Pins that the five ERC-7201 namespaced storage roots used by the
 /// corporate-actions stack and the underlying identity are pairwise distinct. A collision would cause

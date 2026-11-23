@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {ScheduleUnderlyingNamingBeacons} from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 
@@ -40,5 +40,9 @@ contract ScheduleUnderlyingNamingBeaconsHarness is ScheduleUnderlyingNamingBeaco
     /// implementations, as if they were the frozen release.
     function releaseFrozen() internal pure override returns (bool) {
         return true;
+    }
+
+    function callProveExecution() external {
+        proveExecution();
     }
 }

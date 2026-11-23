@@ -3,6 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Region} from "./LibProdTokenConfig.sol";
+import {AssetIdKind} from "../interface/IStoxTokenConfigV1.sol";
 
 bytes32 constant STOX_TOKEN_CONFIG_STORAGE_LOCATION =
     keccak256(abi.encode(uint256(keccak256("rain.storage.stox-token-config.1")) - 1)) & ~bytes32(uint256(0xff));
@@ -18,6 +19,7 @@ library LibStoxTokenConfig {
         string listingTicker;
         string listingName;
         Region region;
+        AssetIdKind assetIdKind;
     }
 
     function getStorage() internal pure returns (StoxTokenConfigStorage storage s) {
