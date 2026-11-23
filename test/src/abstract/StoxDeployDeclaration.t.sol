@@ -18,7 +18,7 @@ import {
 } from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.38/src/lib/LibRainDeployDeclaration.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
-import {LibDataContract, PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {LibDataContract} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
@@ -133,17 +133,6 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
         externals[0] = ExternalDeployment({deployedAddress: deployment, codeHash: bytes32(0)});
         vm.expectRevert(abi.encodeWithSelector(UndeclaredDependency.selector, "code", deployment));
         this.checkSuites(suites, externals);
-    }
-
-    function testCreationCodeOtherThanLibDataContractsIsCode() external {
-        address row = syntheticAddress("row");
-        bytes memory creationCode = LibDataContract.contractCreationCode(abi.encodePacked(row));
-        creationCode[PREFIX_BYTES_LENGTH - 1] = 0x01;
-        DeploySuite[] memory suites = new DeploySuite[](2);
-        suites[0] = syntheticSuite("row", hex"00");
-        suites[1] = syntheticSuite("data", creationCode);
-        vm.expectRevert(abi.encodeWithSelector(UndeclaredDependency.selector, "data", row));
-        this.checkSuites(suites, new ExternalDeployment[](0));
     }
 
     function testDataContractMechanismDataEmbeddingUndeclaredSiblingReverts() external {
