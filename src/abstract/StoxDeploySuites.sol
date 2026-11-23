@@ -153,7 +153,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
         DeployCandidate[] memory candidates = new DeployCandidate[](13);
-        DeploySuite memory snapshotRoot = underlyingSnapshotRootSuite(underlyingSnapshotShardSuites());
+        DeploySuite memory snapshotRoot = underlyingSnapshotRootSuite();
         candidates[0] = anchored(
             zoltu(
                 FACET,
