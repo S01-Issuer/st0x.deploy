@@ -2,40 +2,40 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.38/src/abstract/RainDeployVerifyDeclaration.sol";
 import {
     ExternalDeployment,
-    RainDeployDeclarationChecks,
     UndeclaredDependency,
     UnreachedDependency
-} from "rain-deploy-0.1.33/src/abstract/RainDeployDeclarationChecks.sol";
+} from "rain-deploy-0.1.38/src/abstract/RainDeployDeclarationChecks.sol";
 import {
     DeployCandidate,
     DeployDeclaration,
     DeployDependency,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
+} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
 import {LibDataContract, PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_CODEHASH
-} from "rain-factory-deploy-0.2.11/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.14/src/generated/0_1_15/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     BYTECODE_HASH as CLONE_FACTORY_V8_CODEHASH
-} from "rain-factory-deploy-0.2.11/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.14/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
-} from "rain-deploy-0.1.33/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
-} from "rain-tofu-erc20-decimals-deploy-0.1.6/src/generated/0_1_0/TOFUTokenDecimals.sol";
+} from "rain-tofu-erc20-decimals-deploy-0.1.9/src/generated/0_1_0/TOFUTokenDecimals.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
-} from "rain-deploy-0.1.33/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
@@ -58,7 +58,7 @@ import {StoxGovernanceTimelock} from "../../../src/concrete/StoxGovernanceTimelo
 
 /// @title StoxDeployDeclarationTest
 /// @notice The suite fields only a dispatch, a verifier or a broadcast reads.
-contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployDeclarationChecks {
+contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclaration {
     function declaration()
         internal
         view

@@ -31,9 +31,9 @@
 - **`IStoxUnderlyingV1`: each receipt vault stores its underlying ticker and
   name.** `StoxCorporateActionsFacet` implements `underlyingSymbol()`,
   `underlyingName()` and `setUnderlying(symbol, name)`, with the values in a new
-  ERC-7201 namespace `rain.storage.underlying.1` (`LibUnderlying`). The setter
-  is `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains
-  it goes through the governance timelock), rejects empty values with
+  ERC-7201 namespace `rain.storage.underlying.1` (`LibSecurity`). The setter is
+  `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains it
+  goes through the governance timelock), rejects empty values with
   `EmptyUnderlyingSymbol` / `EmptyUnderlyingName`, emits `UnderlyingSet` with
   the old and new values, and can be called again when a listing is renamed.
 - **Token metadata is built from those values.** Once set, `StoxReceiptVault`

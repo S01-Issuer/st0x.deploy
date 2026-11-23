@@ -4,30 +4,30 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.33/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.11/src/generated/0_2_5/CloneFactory.sol";
-import {ICloneableFactoryV7} from "rain-factory-0.2.14/src/interface/ICloneableFactoryV7.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.33/src/interface/IConfigRegistryV5.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+} from "rain-factory-deploy-0.2.14/src/generated/0_2_5/CloneFactory.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.18/src/interface/ICloneableFactoryV7.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.22/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.25/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG,
     OffchainAssetReceiptVaultAuthorizerV1ConfigV2
-} from "rain-vats-0.2.22/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
-import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../src/interface/IStoxTokenConfigV1.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind} from "../../src/interface/IStoxTokenConfigV1.sol";
 import {Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -235,6 +235,7 @@ library LibTestDeploy {
             STOX_TOKEN_CONFIG_V1_TAG,
             StoxTokenConfigV1({
                 assetId: assetId,
+                assetIdKind: AssetIdKind.ISIN,
                 listingTicker: listingTicker,
                 listingName: listingName,
                 region: Region.US,

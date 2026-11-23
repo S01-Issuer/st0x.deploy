@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {TokenConfig} from "./LibProdTokenConfig.sol";
-import {ST0X_NAME_SUFFIX} from "./LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "./LibSecurity.sol";
 
 /// @title LibTokenMetadata
 /// @notice The ERC-20 metadata a production token's receipt vault and

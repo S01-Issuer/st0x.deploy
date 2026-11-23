@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {AuthoringMetaV2} from "rainlang-0.2.36/src/interface/IParserV2.sol";
-import {LibGenParseMeta} from "rainlang-0.2.36/src/lib/codegen/LibGenParseMeta.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {AuthoringMetaV2} from "rainlang-0.2.40/src/interface/IParserV2.sol";
+import {LibGenParseMeta} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibDataContract} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,

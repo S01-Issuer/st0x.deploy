@@ -2,11 +2,11 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibTimelockController} from "rain-deploy-0.1.33/src/lib/LibTimelockController.sol";
+import {LibTimelockController} from "rain-deploy-0.1.38/src/lib/LibTimelockController.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     CREATION_CODE as TIMELOCK_CREATION_CODE
-} from "rain-deploy-0.1.33/src/generated/0_1_18/TimelockController.sol";
+} from "rain-deploy-0.1.38/src/generated/0_1_18/TimelockController.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
@@ -127,6 +127,11 @@ library LibTimelockInvariants {
     /// https://bscscan.com/address/0x831e4e1bb2b9a67c00b7d17f252a18a22cd0bd2b
     address internal constant STOX_GOVERNANCE_TIMELOCK_BSC = address(0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B);
 
+    /// @notice The ST0x governance timelock on **0G** (chain id 16661).
+    /// Equals `expectedTimelockAddress(STOX_TOKEN_OWNER_SAFE_ZEROG)`; the
+    /// shared Safe address gives the shared derived address.
+    address internal constant STOX_GOVERNANCE_TIMELOCK_ZEROG = address(0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B);
+
     /// @notice **PLACEHOLDER** for a dedicated canceller principal (a
     /// separate key or Safe that can veto a scheduled operation during the
     /// delay window without being able to propose or execute). Undecided:
@@ -163,6 +168,9 @@ library LibTimelockInvariants {
         }
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
             return STOX_GOVERNANCE_TIMELOCK_BSC;
+        }
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return STOX_GOVERNANCE_TIMELOCK_ZEROG;
         }
         revert UnsupportedChainForGovernanceTimelock(chainId);
     }

@@ -328,5 +328,71 @@
       "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
       "startBlock": 59699489
     }
+  },
+  "zerog": {
+    "Authorizer": {
+      "address": "0x6173C9ac3cCb2f6a2F175b0d1fb5DA86fDD5F221",
+      "startBlock": 0
+    },
+    "CloneFactoryV5": {
+      "address": "0xdA3F8841B3F6640AB623050fBBA9baDc0ccd11B0",
+      "startBlock": 0
+    },
+    "CloneFactoryV6": {
+      "address": "0xB8434a191846f6c3930648aAF264C8e86bF08C62",
+      "startBlock": 0
+    },
+    "CloneFactoryV7": {
+      "address": "0x434046377aa43790864713D9A3Fe00c5bE16D7ea",
+      "startBlock": 0
+    },
+    "CloneFactoryV8": {
+      "address": "0x9B05C2dd4e17E9D45560A3CAd6602cfA7D74E529",
+      "startBlock": 0
+    },
+    "ConfigRegistry": {
+      "address": "0x2F1f82c65cce305Df3950F8aF8Fa5aD6D9a815e8",
+      "startBlock": 0
+    },
+    "ConfigRegistryV5": {
+      "address": "0x82b7e6FDfD25EF64b013F98e8F2c1fC1D1872eC9",
+      "startBlock": 50758998
+    },
+    "EuAuthorizer": {
+      "address": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
+      "startBlock": 0
+    },
+    "GovernanceTimelock": {
+      "address": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "startBlock": 0
+    },
+    "MigrationRegistry": {
+      "address": "0x5A48e719785E11c4643EA4056D0861A6a69e91a0",
+      "startBlock": 0
+    },
+    "MigrationRegistryV5": {
+      "address": "0xd708186f68D527B64c001398550627508205EE31",
+      "startBlock": 50759530
+    },
+    "OrchestratorBeacon": {
+      "address": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+      "startBlock": 0
+    },
+    "OrchestratorDeployer": {
+      "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+      "startBlock": 0
+    },
+    "ReceiptVaultDeployer": {
+      "address": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "startBlock": 0
+    },
+    "TokenOwnerSafe": {
+      "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+      "startBlock": 50760244
+    },
+    "WrappedTokenVaultBeacon": {
+      "address": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+      "startBlock": 0
+    }
   }
 }
