@@ -340,13 +340,11 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
             initDataPerNetwork: false,
             initData: authoriserCloneData,
             salt: AUTHORISER_CLONE_SALT,
-            dependencies: three(
+            dependencies: two(
                 CLONE_FACTORY_ADDRESS,
                 CLONE_FACTORY_RUNTIME_CODE,
                 LibAuthoriserClone.implementation(),
-                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_CANDIDATE,
-                CONFIG_REGISTRY_ADDRESS,
-                CONFIG_REGISTRY_RUNTIME_CODE
+                V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_CANDIDATE
             )
         });
         return clones;
