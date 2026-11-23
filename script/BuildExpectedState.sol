@@ -8,6 +8,9 @@ import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.38/src/lib/LibRainDeployDeclaration.sol";
 import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
 import {LibStoxReleasedNetworks} from "../src/lib/LibStoxReleasedNetworks.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
@@ -34,7 +37,9 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
 /// token's renamed metadata; zero on a network its rename and beacon batches were not cut for, 0G, so the renamed
-/// fields repeat the current ones), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
+/// fields repeat the current ones), `registryDelegates` (each delegation the root is expected to have approved in a
+/// registry it writes through: registry, account, delegate, unscoped, scope, zero when unscoped), and per production
+/// token under `tokens`:`underlying`, `assetId`, `listingTicker`,
 /// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`, `decimals`, `wrappedTokenVaultName`,
 /// `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
@@ -277,6 +282,38 @@ contract BuildExpectedState is Script {
         return rows;
     }
 
+    function registryDelegateJson(string memory row, address registry, address delegate, bytes32 scope)
+        internal
+        returns (string memory)
+    {
+        vm.serializeAddress(row, "registry", registry);
+        vm.serializeAddress(row, "account", LibRegistryAuthority.ROOT_AUTHORITY);
+        vm.serializeAddress(row, "delegate", delegate);
+        vm.serializeBool(row, "unscoped", scope == bytes32(0));
+        return vm.serializeBytes32(row, "scope", scope);
+    }
+
+    /// The Safe writes root-line records and binds root config names unscoped; the timelock writes records in its
+    /// batches, scoped to the root line's namespace.
+    function registryDelegatesJson(uint256 chainId, string memory key) internal returns (string[] memory) {
+        string memory at = string.concat(key, ".registryDelegate.");
+        address safe = LibSafeInvariants.safeForChainId(chainId);
+        string[] memory rows = new string[](3);
+        rows[0] = registryDelegateJson(
+            string.concat(at, "0"), LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, safe, bytes32(0)
+        );
+        rows[1] = registryDelegateJson(
+            string.concat(at, "1"),
+            LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
+            LibTimelockInvariants.timelockForChainId(chainId),
+            LibStoxMigrations.NAMESPACE
+        );
+        rows[2] = registryDelegateJson(
+            string.concat(at, "2"), LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, safe, bytes32(0)
+        );
+        return rows;
+    }
+
     /// Base's beacons are the V1 set deployer's; elsewhere the 0.1.1 set deployer's.
     function beaconSetDeployer(uint256 chainId) internal pure returns (address) {
         return LibBeaconInvariants.runsBaseBeaconSet(chainId)
@@ -313,6 +350,7 @@ contract BuildExpectedState is Script {
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
         vm.serializeBytes32(key, "renameMigration", renameMigration(chainId));
+        vm.serializeString(key, "registryDelegates", registryDelegatesJson(chainId, key));
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
         }
