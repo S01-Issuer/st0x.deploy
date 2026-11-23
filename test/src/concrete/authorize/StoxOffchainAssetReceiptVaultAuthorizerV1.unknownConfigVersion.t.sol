@@ -6,11 +6,11 @@ import {
     UnknownAuthorizerConfigVersion,
     OffchainAssetReceiptVaultAuthorizerV1Config,
     OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG
-} from "rain-vats-0.2.20/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+} from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.20/src/interface/IOffchainAssetReceiptVaultV1.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+} from "rain-vats-0.2.25/src/interface/IOffchainAssetReceiptVaultV1.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -41,7 +41,7 @@ contract StoxOffchainAssetReceiptVaultAuthorizerV1UnknownConfigVersionTest is St
     function testVaultConfigIsUnknownVersion() external {
         StoxOffchainAssetReceiptVaultAuthorizerV1 authorizer = newAuthorizer();
         bytes memory data = LibTestDeploy.vaultData(
-            "ST0XTEST", LibRegistryAuthority.ROOT_AUTHORITY, LibTestDeploy.AUTHORIZER_INITIAL_ADMIN_NAME
+            "Token", "TKN", LibRegistryAuthority.ROOT_AUTHORITY, LibTestDeploy.AUTHORIZER_INITIAL_ADMIN_NAME
         );
         vm.expectRevert(
             abi.encodeWithSelector(UnknownAuthorizerConfigVersion.selector, OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG)

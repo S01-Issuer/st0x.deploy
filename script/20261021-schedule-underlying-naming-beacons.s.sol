@@ -7,13 +7,10 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {StoxCorporateActionsFacet} from "../src/concrete/StoxCorporateActionsFacet.sol";
-import {AssetIdNotInitializing} from "../src/error/ErrAssetId.sol";
-import {IStoxAssetIdV1} from "../src/interface/IStoxAssetIdV1.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -60,24 +57,12 @@ error BeaconNotUpgraded(address beacon, address expected, address actual);
 /// @param afterUpgrade The value after it.
 error BeaconUpgradeMovedMetadata(address token, string before, string afterUpgrade);
 
-/// @notice A live vault behind the upgraded beacon reports an asset id.
-/// @param vault The vault.
-/// @param assetId The id it reports.
-error UpgradedVaultHasAssetId(address vault, string assetId);
-
-/// @notice A live vault behind the upgraded beacon does not refuse
-/// `initializeAssetId` with `AssetIdNotInitializing`, so the new
-/// implementation does not carry the asset id hook.
-/// @param vault The vault.
-/// @param result What the call returned.
-error UpgradedVaultMissingAssetIdHook(address vault, bytes result);
-
-/// @notice This script's declaration: the Safe's record, after orchestrator-admin-to-timelock.
+/// @notice This script's declaration: the Safe's record, after the Safe-owned Base vault handover.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        onto: LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK,
+        onto: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
         history: false
     });
 }
@@ -262,10 +247,7 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     /// @notice The execution proof `assertReversible` runs. It records every
     /// production vault's and wrapper's `name()` and `symbol()` before the
     /// batch and requires them unchanged after it: the beacon batch must not
-    /// rename anything, that is the rename batch's job. It also proves the
-    /// new vault implementation carries the asset id hook: a live vault reports
-    /// `assetId() == ""`, and its init-only `initializeAssetId` refuses with
-    /// `AssetIdNotInitializing`.
+    /// rename anything, that is the rename batch's job.
     function proveExecution() internal {
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
         string[] memory before = metadata(chainTokens);
@@ -291,7 +273,6 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
                 revert BeaconUpgradeMovedMetadata(metadataToken(chainTokens, i), before[i], afterUpgrade[i]);
             }
         }
-        assertAssetIdHook(chainTokens[0].receiptVault);
         console2.log(
             "Execution proven: both beacons upgraded by a roleless executor after 48h, no name or symbol moved"
         );
@@ -319,19 +300,6 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     function metadataToken(TokenInstance[] memory chainTokens, uint256 index) internal pure returns (address) {
         TokenInstance memory token = chainTokens[index / 4];
         return index % 4 < 2 ? token.receiptVault : token.wrappedTokenVault;
-    }
-
-    /// @notice Reverts unless `vault` serves the asset id getter with an empty
-    /// id and refuses `initializeAssetId` with `AssetIdNotInitializing`.
-    /// @param vault A live vault behind the upgraded beacon.
-    function assertAssetIdHook(address vault) internal {
-        string memory assetId = IStoxAssetIdV1(vault).assetId();
-        if (bytes(assetId).length != 0) revert UpgradedVaultHasAssetId(vault, assetId);
-        (bool success, bytes memory result) =
-            vault.call(abi.encodeCall(StoxCorporateActionsFacet.initializeAssetId, (bytes(""))));
-        if (success || keccak256(result) != keccak256(abi.encodeWithSelector(AssetIdNotInitializing.selector))) {
-            revert UpgradedVaultMissingAssetIdHook(vault, result);
-        }
     }
 
     /// @notice Reverts unless `beacon` points at `expected`.

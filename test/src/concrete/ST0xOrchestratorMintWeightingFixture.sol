@@ -7,9 +7,9 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensio
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
-import {ReceiptVault} from "rain-vats-0.2.20/src/abstract/ReceiptVault.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4, SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {ReceiptVault} from "rain-vats-0.2.25/src/abstract/ReceiptVault.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
+import {EvaluableV4, SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {LibTestDeploy} from "test/lib/LibTestDeploy.sol";

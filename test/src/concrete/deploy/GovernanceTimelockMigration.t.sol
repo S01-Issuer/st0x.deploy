@@ -3,7 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {BeaconOwnerMismatch} from "../../../../src/lib/LibBeaconInvariants.sol";
 import {LibBeaconInvariantsHarness} from "../../lib/LibBeaconInvariantsHarness.sol";
 import {LibSafeInvariantsHarness} from "../../lib/LibSafeInvariantsHarness.sol";
@@ -13,12 +12,12 @@ import {LibProdBeaconsBase} from "../../../../src/lib/LibProdBeaconsBase.sol";
 import {LibSafeInvariants} from "../../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, ReceiptVaultOwnerMismatch, TokenInstance} from "../../../../src/lib/LibTokenInvariants.sol";
+import {LibLocalProdState} from "../../../lib/LibLocalProdState.sol";
 
 /// @title GovernanceTimelockMigrationTest
 /// @notice Timelock coverage for every governed chain, and the ownership
 /// checks that trip when a vault or beacon is handed back to the Safe. The
-/// live governed state is watched by the rain-org-health dashboard and
-/// `LibInvariantsTest`.
+/// live governed state is watched by the rain-org-health dashboard.
 contract GovernanceTimelockMigrationTest is Test {
     /// @notice Chain ids ST0x governs today or is expected to govern.
     ///
@@ -29,12 +28,13 @@ contract GovernanceTimelockMigrationTest is Test {
     /// deleting it from this list.
     /// @return ids The candidate chain ids.
     function governedChainCandidates() internal pure returns (uint256[] memory ids) {
-        ids = new uint256[](5);
+        ids = new uint256[](6);
         ids[0] = LibSafeInvariants.BASE_CHAIN_ID;
         ids[1] = LibSafeInvariants.ETHEREUM_CHAIN_ID;
         ids[2] = LibSafeInvariants.HYPEREVM_CHAIN_ID;
         ids[3] = LibSafeInvariants.ROBINHOOD_CHAIN_ID;
         ids[4] = LibSafeInvariants.BSC_CHAIN_ID;
+        ids[5] = LibSafeInvariants.ZEROG_CHAIN_ID;
     }
 
     /// @notice Every chain ST0x governs must be known to the governance
@@ -78,7 +78,7 @@ contract GovernanceTimelockMigrationTest is Test {
     /// @notice A vault handed back to the Safe trips `ReceiptVaultOwnerMismatch`:
     /// the Safe is no longer an accepted owner on any surface.
     function testVaultBackOnTheSafeTrips() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensBase();
         vm.mockCall(tokens[0].receiptVault, abi.encodeWithSignature("owner()"), abi.encode(safe));
@@ -97,7 +97,8 @@ contract GovernanceTimelockMigrationTest is Test {
 
     /// @notice A beacon handed back to the Safe trips `BeaconOwnerMismatch`.
     function testBeaconBackOnTheSafeTrips() external {
-        vm.createSelectFork(LibRainDeploy.BASE);
+        vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
+        LibLocalProdState.beacons(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address safe = LibSafeInvariants.STOX_TOKEN_OWNER_SAFE;
         address beacon = LibProdBeaconsBase.beacons()[0];
         vm.mockCall(beacon, abi.encodeWithSignature("owner()"), abi.encode(safe));

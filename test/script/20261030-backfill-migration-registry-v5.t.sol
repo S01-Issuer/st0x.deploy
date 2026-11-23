@@ -5,18 +5,18 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.30/src/interface/deprecated/IMigrationRegistryV2.sol";
-import {DEPLOYED_ADDRESS as REGISTRY_V2} from "rain-deploy-0.1.30/src/generated/0_1_18/MigrationRegistry.sol";
-import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
-import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
-import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.38/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {DEPLOYED_ADDRESS as REGISTRY_V2} from "rain-deploy-0.1.38/src/generated/0_1_18/MigrationRegistry.sol";
+import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
+import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.38/src/lib/LibTimelockController.sol";
 
 import {
     BackfillHistoryMomentBeforePrevious,
@@ -222,7 +222,7 @@ contract BackfillMigrationRegistryV5Test is Test {
     }
 
     function testBackfillBundleOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertBackfill(networks[i]);
         }
@@ -253,7 +253,7 @@ contract BackfillMigrationRegistryV5Test is Test {
     }
 
     function testBundleSkipsRecordsV5HoldsOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertBundleSkipsHeldRecords(networks[i]);
         }
