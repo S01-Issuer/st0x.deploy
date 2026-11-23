@@ -26,12 +26,6 @@
         packages = {
           # `script/build-meta.sh` runs `rain meta build` out of this.
           rain-cli = rain.defaultPackage.${system};
-          isin-oracle = pkgs.rustPlatform.buildRustPackage {
-            pname = "isin-oracle";
-            version = "0.1.0";
-            src = ./test/oracle;
-            cargoLock.lockFile = ./test/oracle/Cargo.lock;
-          };
         }
         // rainix.packages.${system};
 

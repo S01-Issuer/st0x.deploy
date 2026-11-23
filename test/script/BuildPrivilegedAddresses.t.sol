@@ -3,8 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {BuildPrivilegedAddresses} from "../../script/BuildPrivilegedAddresses.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
@@ -52,10 +51,6 @@ contract BuildPrivilegedAddressesTest is Test {
         );
     }
 
-    function testRegistryRootAuthorityIsTheRainDeployRoot() external {
-        assertEq(vm.parseJsonAddress(build.render(), ".registryRootAuthority"), LibRegistryAuthority.ROOT_AUTHORITY);
-    }
-
     function testChainsAreTheDeploymentNetworksKeyedByChainId() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -86,8 +81,6 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    /// The rows are the chain's in-use beacons: all four, or the three token beacons on a chain that runs no
-    /// orchestrator (0G).
     function testBeaconsAreTheChainsProductionSet() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -101,10 +94,9 @@ contract BuildPrivilegedAddressesTest is Test {
             address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(id);
             address[4] memory implementations = LibBeaconInvariants.prodImplementationsForChainId(id);
             address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(id);
-            uint256 inUse = LibAuthoriserInvariants.grantsOrchestrator(id) ? 4 : 3;
             string memory list = string.concat(at, ".beacons");
-            assertFalse(vm.keyExistsJson(json, index(list, inUse)));
-            for (uint256 i = 0; i < inUse; i++) {
+            assertFalse(vm.keyExistsJson(json, index(list, pinned.length)));
+            for (uint256 i = 0; i < pinned.length; i++) {
                 string memory row = index(list, i);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), pinned[i]);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".implementation")), implementations[i]);
@@ -141,25 +133,16 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    /// @notice Each chain's receipt vaults are its token table's, or none
-    /// while the table is not hydrated (0G until its tokens exist), and the
-    /// chain says which.
     function testReceiptVaultsAreEachChainsTokenTable() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
-        bool skipped = false;
         for (uint256 i = 0; i < nets.length; i++) {
-            uint256 id = nets[i].chainId;
-            bool hydrated = LibTokenInvariants.tokenTableHydrated(id);
-            assertEq(vm.parseJsonBool(json, string.concat(chain(nets[i]), ".tokenTableHydrated")), hydrated);
-            if (!hydrated) skipped = true;
             assertAddresses(
                 json,
                 string.concat(chain(nets[i]), ".receiptVaults"),
-                hydrated ? LibTokenInvariants.productionReceiptVaultsForChainId(id) : new address[](0)
+                LibTokenInvariants.productionReceiptVaultsForChainId(nets[i].chainId)
             );
         }
-        assertTrue(skipped, "0G is skipped");
     }
 
     function testWriteWritesTheRender() external {

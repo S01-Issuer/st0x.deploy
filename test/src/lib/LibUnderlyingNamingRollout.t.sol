@@ -11,7 +11,7 @@ import {
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
 import {FrozenReleaseRenameHarness} from "../../script/FrozenReleaseRenameHarness.sol";
@@ -38,20 +38,14 @@ contract LibUnderlyingNamingRolloutTest is Test {
         return LibUnderlyingNamingRollout.leadingRows(chainId, table);
     }
 
-    function row(string memory isin, string memory ticker, string memory underlyingName)
-        internal
-        pure
-        returns (TokenConfig memory)
-    {
+    function row(string memory ticker, string memory underlyingName) internal pure returns (TokenConfig memory) {
         return TokenConfig({
-            assetId: isin,
-            listingTicker: ticker,
-            listingName: underlyingName,
             underlying: ticker,
             name: string.concat(underlyingName, " ST0x"),
             symbol: string.concat("t", ticker),
             region: Region.US,
-            underlyingName: underlyingName
+            underlyingName: underlyingName,
+            assetId: ""
         });
     }
 
@@ -78,16 +72,59 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// The row check refuses a malformed ticker or name, naming the row, and
     /// accepts a well-formed one.
     function testRowCheckRefusesEachMalformedField() external {
-        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA Corporation"));
+        this.externalAssertUnderlyingWellFormed(row("NVDA", "NVIDIA Corporation"));
 
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "tNVDA", "NVIDIA Corporation"));
-        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "tNVDA", "NVIDIA Corporation"));
+        this.externalAssertUnderlyingWellFormed(row("tNVDA", "NVIDIA Corporation"));
 
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA Corporation ST0x"));
-        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA Corporation ST0x"));
+        this.externalAssertUnderlyingWellFormed(row("NVDA", "NVIDIA Corporation ST0x"));
 
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA \"Corp\""));
-        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA \"Corp\""));
+        this.externalAssertUnderlyingWellFormed(row("NVDA", "NVIDIA \"Corp\""));
+    }
+
+    function testTickerShape() external pure {
+        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("NVDA"));
+        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("BRK.B"));
+        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("A"));
+        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("ABCDEFGHIJKLMNOP"));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed(""));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("ABCDEFGHIJKLMNOPQ"));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("tNVDA"));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("NV DA"));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("NV\"DA"));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("NV\\DA"));
+    }
+
+    function testNameShape() external pure {
+        assertTrue(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA Corporation"));
+        assertTrue(LibUnderlyingNamingRollout.nameWellFormed(unicode"LVMH Moët Hennessy Louis Vuitton SE"));
+        assertTrue(LibUnderlyingNamingRollout.nameWellFormed("Meta Platforms, Inc."));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed(""));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA Corporation ST0x"));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA Corporation (ST0x)"));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA \"Corp\""));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA\\Corp"));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA\nCorp"));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed(hex"4e56494449417f"));
+    }
+
+    /// The boundaries the NatSpec states: digits 0 and 9 are tickers, the
+    /// bytes either side are not; a space is the lowest name byte, 0x1f is
+    /// not; a name shorter than the suffix is checked without underflow.
+    function testShapeBoundaries() external pure {
+        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("0"));
+        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("9"));
+        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("A0Z9."));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("/"));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed(":"));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("@"));
+        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("["));
+        assertTrue(LibUnderlyingNamingRollout.nameWellFormed("3M"));
+        assertTrue(LibUnderlyingNamingRollout.nameWellFormed(" "));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed(hex"1f"));
+        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("ST0x"));
     }
 
     /// With the release frozen but the downstream flag unset, the rename
@@ -138,12 +175,12 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// The row loop refuses the first malformed row, after well-formed ones.
     function testRowsCheckRefusesAMalformedRowAmongGoodOnes() external {
         TokenConfig[] memory rows = new TokenConfig[](3);
-        rows[0] = row("US67066G1040", "NVDA", "NVIDIA Corporation");
-        rows[1] = row("US0378331005", "AAPL", "Apple Inc. ST0x");
-        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation");
+        rows[0] = row("NVDA", "NVIDIA Corporation");
+        rows[1] = row("AAPL", "Apple Inc. ST0x");
+        rows[2] = row("MSFT", "Microsoft Corporation");
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "AAPL", "Apple Inc. ST0x"));
         this.externalAssertRowsWellFormed(rows);
-        rows[1] = row("US0378331005", "AAPL", "Apple Inc.");
+        rows[1] = row("AAPL", "Apple Inc.");
         this.externalAssertRowsWellFormed(rows);
     }
 
@@ -151,14 +188,14 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// bad row, refuses. An empty list passes.
     function testRowsCheckCoversTheEndRows() external {
         TokenConfig[] memory rows = new TokenConfig[](3);
-        rows[0] = row("US67066G1040", "NVDA", "NVIDIA \"Corp\"");
-        rows[1] = row("US0378331005", "AAPL", "Apple Inc.");
-        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation");
+        rows[0] = row("NVDA", "NVIDIA \"Corp\"");
+        rows[1] = row("AAPL", "Apple Inc.");
+        rows[2] = row("MSFT", "Microsoft Corporation");
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA \"Corp\""));
         this.externalAssertRowsWellFormed(rows);
 
-        rows[0] = row("US67066G1040", "NVDA", "NVIDIA Corporation");
-        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation (ST0x)");
+        rows[0] = row("NVDA", "NVIDIA Corporation");
+        rows[2] = row("MSFT", "Microsoft Corporation (ST0x)");
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "MSFT", "Microsoft Corporation (ST0x)"));
         this.externalAssertRowsWellFormed(rows);
 
@@ -180,27 +217,5 @@ contract LibUnderlyingNamingRolloutTest is Test {
         TokenInstance[] memory shorter = new TokenInstance[](count - 1);
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingTokenTableShort.selector, uint256(1), count, count - 1));
         this.externalLeadingRows(1, shorter);
-    }
-
-    /// `renamesRow` holds for exactly the table rows whose vault the rename batch targets.
-    function testRenamesRowIsTheRenameBatchTargets() external pure {
-        uint256[5] memory chainIds = [
-            LibSafeInvariants.BASE_CHAIN_ID,
-            LibSafeInvariants.ETHEREUM_CHAIN_ID,
-            LibSafeInvariants.HYPEREVM_CHAIN_ID,
-            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
-        ];
-        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
-            (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainIds[chainIndex]);
-            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainIds[chainIndex]);
-            for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
-                bool targeted = false;
-                for (uint256 targetIndex = 0; targetIndex < targets.length; targetIndex++) {
-                    if (targets[targetIndex] == table[rowIndex].receiptVault) targeted = true;
-                }
-                assertEq(LibUnderlyingNamingRollout.renamesRow(rowIndex), targeted, table[rowIndex].underlying);
-            }
-        }
     }
 }

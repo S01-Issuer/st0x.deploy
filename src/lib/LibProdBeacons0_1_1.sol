@@ -11,8 +11,8 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 /// address traced to the generated `0_1_1` pins rather than re-pasted as
 /// fresh literals.
 /// The whole set is Zoltu-deterministic, so these are the SAME addresses on
-/// every chain that bootstraps at 0.1.1 (every chain but Base, 0G included;
-/// `LibBeaconInvariants.runsBaseBeaconSet` is the list).
+/// every chain that bootstraps at 0.1.1 (Ethereum mainnet; HyperEVM per
+/// RAI-1511).
 /// @dev A 0.1.1-bootstrap chain's beacons and impls are the `0_1_1`
 /// deployment. Two principles keep this lib free of
 /// pasted addresses:

@@ -31,12 +31,8 @@ on:
           - 20261021-schedule-underlying-naming-rename
           - 20261021-execute-underlying-naming
           - 20261022-bind-beacon-initial-owner
-          - 20261103-hand-safe-owned-base-vaults-to-timelock
           - 20261109-schedule-revoke-service-signer-deposit-withdraw
           - 20261109-execute-revoke-service-signer-deposit-withdraw
-          - 20261111-qsep-set-fleet-authoriser
-          - 20261113-bind-orchestrator-config
-          - 20261119-create-zerog-tokens
       network:
         description: 'Network to author against (default: base)'
         required: true
@@ -53,7 +49,6 @@ on:
           - 'hyperevm'
           - 'robinhood'
           - 'bsc'
-          - 'zerog'
       sig:
         description: 'Entrypoint to dispatch (default: run())'
         required: true
@@ -117,7 +112,6 @@ jobs:
           HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
           ROBINHOOD_RPC_URL: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
           BSC_RPC_URL: ${{ secrets.RPC_URL_BSC_FORK }}
-          ZEROG_RPC_URL: ${{ secrets.RPC_URL_ZEROG_FORK }}
           # Pass the choice inputs via env rather than template-expanding them
           # into the command, so a dispatch (even one crafted via the API) is
           # used as a literal argument and cannot inject shell.

@@ -3,12 +3,12 @@
 pragma solidity =0.8.25;
 
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.25/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
+} from "rain-vats-0.2.20/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
 
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {StoxReceiptVault} from "../../../../src/concrete/StoxReceiptVault.sol";
@@ -46,9 +46,7 @@ contract GuardChecksTokensOwnBeaconsTest is OrchestratorIntegrationTest {
             OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE,
             abi.encode(OffchainAssetReceiptVaultRbacV1({owner: ADMIN, authorizer: IAuthorizeV1(address(authorizer))}))
         );
-        return LibTestDeploy.newVault(
-            OTHER_AUTHORITY, LibTestDeploy.vaultData("Other tStock", "tOTHER", OTHER_AUTHORITY, RBAC_NAME)
-        );
+        return LibTestDeploy.newVault(OTHER_AUTHORITY, LibTestDeploy.vaultData("ST0XOTHER", OTHER_AUTHORITY, RBAC_NAME));
     }
 
     function upgrade(address beacon) internal returns (address) {

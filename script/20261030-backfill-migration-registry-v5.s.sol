@@ -4,28 +4,21 @@ pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
-import {IMigrationRegistryV2} from "rain-deploy-0.1.38/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
+import {IMigrationRegistryV2} from "rain-deploy-0.1.30/src/interface/deprecated/IMigrationRegistryV2.sol";
 import {
     DEPLOYED_ADDRESS as REGISTRY_V2,
     BYTECODE_HASH as REGISTRY_V2_CODEHASH
-} from "rain-deploy-0.1.38/src/generated/0_1_18/MigrationRegistry.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
-import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+} from "rain-deploy-0.1.30/src/generated/0_1_18/MigrationRegistry.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
-import {MigrateMultisigThreshold} from "./20260619-migrate-multisig-threshold.s.sol";
-import {TimelockRehearsalSchedule} from "./20260813-timelock-rehearsal-schedule.s.sol";
-import {TimelockRehearsalCancel} from "./20260813-timelock-rehearsal-cancel.s.sol";
-import {ExecuteTimelockOperations} from "./20260813-execute-timelock-operations.s.sol";
-import {MigrateGovernanceToTimelock} from "./20260729-migrate-governance-to-timelock.s.sol";
-import {GrantEuAuthoriserRoles} from "./20261006-grant-eu-authoriser-roles.s.sol";
-import {GrantOrchestratorEmergency} from "./20261006-grant-orchestrator-emergency.s.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
 
 /// @notice The code at the V2 registry address is not the frozen 0.1.18
 /// registry.
@@ -91,7 +84,7 @@ bytes32 constant V2_EU_AUTHORISER_GRANT_AND_HANDOVER = keccak256("st0x.rbac.eu-a
 
 /// @notice This script's declaration: last record of the chain's block, after
 /// orchestrator-emergency on Base and after the record-only rehearsal entries
-/// elsewhere, 0G included.
+/// elsewhere.
 /// @return The declaration.
 function backfillMigrationRegistryV5Declaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
@@ -128,11 +121,6 @@ struct BackfillRecord {
 /// 4. Off Base: `TIMELOCK_REHEARSAL_SCHEDULE`, `TIMELOCK_REHEARSAL_CANCEL`,
 ///    `EXECUTE_TIMELOCK_OPERATIONS` record-only.
 /// 5. This script's own record.
-///
-/// On 0G (`LibStoxMigrations.withoutHistory`) none of these ran and V2 holds
-/// no record of the Safe: the bundle writes the same records in the same order
-/// as off Base, each record-only, so 0G's line holds every other chain's
-/// records. A record there does not mean its step ran.
 ///
 /// The Safe, an unscoped delegate of the root, writes every record. A record
 /// V5 already holds is skipped.
@@ -245,21 +233,19 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
     /// @dev The Safe and timelock are what this repo pins, V2 is the frozen
     /// 0.1.18 registry, the V2 lines hold exactly the three records at their
     /// scripts' moments, history moments never decrease, and each record is
-    /// declared onto the record before it from `MIGRATION_HEAD_GENESIS`. On a
-    /// chain without history, V2 holds no record of the Safe: it has no code
-    /// there, or it is the frozen registry with both of the Safe's lines at
-    /// genesis. Its address is a public Zoltu deploy, so anyone can put it on
-    /// such a chain.
+    /// declared onto the record before it from `MIGRATION_HEAD_GENESIS`.
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.timelockForChainId(block.chainid), chainSafe);
 
-        if (!LibStoxMigrations.withoutHistory(block.chainid)) {
-            assertRegistryV2Lines(
-                chainSafe, LibStoxMigrations.ORCHESTRATOR_EMERGENCY, V2_EU_AUTHORISER_GRANT_AND_HANDOVER
-            );
-        } else if (REGISTRY_V2.code.length != 0) {
-            assertRegistryV2Lines(chainSafe, MIGRATION_HEAD_GENESIS, MIGRATION_HEAD_GENESIS);
+        if (REGISTRY_V2.codehash != REGISTRY_V2_CODEHASH) revert UnexpectedRegistryV2CodeHash(REGISTRY_V2.codehash);
+        bytes32 deployHead = IMigrationRegistryV2(REGISTRY_V2).head(chainSafe, LibStoxMigrations.NAMESPACE);
+        if (deployHead != LibStoxMigrations.ORCHESTRATOR_EMERGENCY) {
+            revert UnexpectedRegistryV2Line(LibStoxMigrations.NAMESPACE, deployHead);
+        }
+        bytes32 rbacHead = IMigrationRegistryV2(REGISTRY_V2).head(chainSafe, V2_RBAC_NAMESPACE);
+        if (rbacHead != V2_EU_AUTHORISER_GRANT_AND_HANDOVER) {
+            revert UnexpectedRegistryV2Line(V2_RBAC_NAMESPACE, rbacHead);
         }
 
         BackfillRecord[] memory all = records(block.chainid);
@@ -279,20 +265,6 @@ contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
         if (backfillMigrationRegistryV5Declaration(block.chainid).onto != previous) {
             revert BackfillLineEndsElsewhere(LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, previous);
         }
-    }
-
-    /// @notice Reverts unless V2 is the frozen 0.1.18 registry and the Safe's
-    /// two V2 lines end where expected: at the two records this backfill
-    /// carries over, or at genesis on a chain without history.
-    /// @param chainSafe The chain's Safe, V2's writer.
-    /// @param deployEnd The expected head of the Safe's `NAMESPACE` line.
-    /// @param rbacEnd The expected head of the Safe's `V2_RBAC_NAMESPACE` line.
-    function assertRegistryV2Lines(address chainSafe, bytes32 deployEnd, bytes32 rbacEnd) internal view {
-        if (REGISTRY_V2.codehash != REGISTRY_V2_CODEHASH) revert UnexpectedRegistryV2CodeHash(REGISTRY_V2.codehash);
-        bytes32 deployHead = IMigrationRegistryV2(REGISTRY_V2).head(chainSafe, LibStoxMigrations.NAMESPACE);
-        if (deployHead != deployEnd) revert UnexpectedRegistryV2Line(LibStoxMigrations.NAMESPACE, deployHead);
-        bytes32 rbacHead = IMigrationRegistryV2(REGISTRY_V2).head(chainSafe, V2_RBAC_NAMESPACE);
-        if (rbacHead != rbacEnd) revert UnexpectedRegistryV2Line(V2_RBAC_NAMESPACE, rbacHead);
     }
 
     /// @inheritdoc SafeBundleScript

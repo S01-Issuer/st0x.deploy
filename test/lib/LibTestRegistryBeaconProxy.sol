@@ -6,7 +6,7 @@ import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {
     REGISTRY_BEACON_PROXY_PREFIX,
     REGISTRY_BEACON_PROXY_SUFFIX
-} from "rain-extrospection-0.1.31/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+} from "rain-extrospection-0.1.16/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 
 library LibTestRegistryBeaconProxy {
     /// Places `RegistryBeaconProxy` runtime bytecode over `beacon` at `at`.

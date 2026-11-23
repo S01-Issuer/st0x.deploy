@@ -21,12 +21,10 @@ path = [
   "foundry.toml",
   "privileged-addresses.json",
   "ideal-roles.json",
-  "expected-state.json",
   "migrations.json",
   "REUSE.toml",
   "slither.config.json",
   "subgraph/**/",
-  "test/oracle/Cargo.lock",
 ]
 SPDX-FileCopyrightText = "Copyright (c) 2020 Rain Open Source Software Ltd"
 SPDX-License-Identifier = "LicenseRef-DCL-1.0"

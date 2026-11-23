@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
 
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.sol";
@@ -25,8 +25,23 @@ contract ScheduleUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutF
         return LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS;
     }
 
+    /// @dev With its own record at the head and its batch not registered, the pre-flight authors a reschedule.
+    function ownRecordPreflightRefusal() internal pure override returns (bytes memory) {
+        return "";
+    }
+
+    function acceptsAnEarlierRecord() internal pure override returns (bool) {
+        return true;
+    }
+
+    /// @dev The rename schedule's record may head the line over this one after a reschedule, so it is not foreign.
+    function assumeForeign(bytes32 record) internal view override {
+        super.assumeForeign(record);
+        vm.assume(record != LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
+    }
+
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK;
+        return LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK;
     }
 
     function landBeforeOnto() internal override {

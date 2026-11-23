@@ -4,11 +4,11 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.30/src/lib/LibSafeTxBuilderJson.sol";
 
 import {SafeNotBeaconInitialOwnerDelegate} from "../../script/20261022-bind-beacon-initial-owner.s.sol";
 import {BindBeaconInitialOwnerHarness} from "./BindBeaconInitialOwnerHarness.sol";
@@ -19,14 +19,12 @@ import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
-import {LibTestConfigRegistryDelegates} from "../lib/LibTestConfigRegistryDelegates.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 /// @title BindBeaconInitialOwnerTest
 /// @notice The bind on every deployment network at its pinned pre-backfill
-/// block, with the V5 backfill and the 0G token creation's record executed
-/// first, the root's unscoped
-/// approval of the Safe and the governance timelock written on the fork.
+/// block, with the V5 backfill bundle executed first, the root's approval of
+/// the Safe and the governance timelock written on the fork.
 contract BindBeaconInitialOwnerTest is Test {
     function executeBackfill(address safe, string memory tag) internal {
         LibSafeFork.executeBundle(
@@ -58,11 +56,6 @@ contract BindBeaconInitialOwnerTest is Test {
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, MIGRATION_HEAD_GENESIS));
         script.callPreflight();
         executeBackfill(safe, network);
-        vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5)
-        );
-        script.callPreflight();
-        LibTestBeaconInitialOwnerBind.executeZerogTokensRecord(vm, safe, network);
 
         uint256 preRun = vm.snapshotState();
         script.run();
@@ -83,36 +76,18 @@ contract BindBeaconInitialOwnerTest is Test {
         script.callPreflight();
     }
 
-    function backfilledWithoutUnscopedApproval(string memory tag)
-        internal
-        returns (BindBeaconInitialOwnerHarness, address)
-    {
+    function testPreflightRefusesASafeTheRootDoesNotApproveAsBinder() external {
         LibTestPreBackfillFork.select(vm, LibStoxDeployNetworks.HYPEREVM);
-        BindBeaconInitialOwnerHarness script = new BindBeaconInitialOwnerHarness(tag);
+        BindBeaconInitialOwnerHarness script = new BindBeaconInitialOwnerHarness("unapproved");
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         deployTimelock(safe);
-        executeBackfill(safe, tag);
-        LibTestBeaconInitialOwnerBind.executeZerogTokensRecord(vm, safe, tag);
-        LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
-        return (script, safe);
-    }
-
-    function testBindLandsFromASafeTheRootApprovesForTheNameAlone() external {
-        (BindBeaconInitialOwnerHarness script, address safe) = backfilledWithoutUnscopedApproval("scoped");
-        LibTestConfigRegistryDelegates.approve(vm, LibStoxConfig.BEACON_INITIAL_OWNER_NAME, safe);
-        script.callPreflight();
-        LibSafeFork.executeBundle(vm, Safe(payable(safe)), script.callAuthorBundle());
-        script.callAssertPostState();
-    }
-
-    function testPreflightRefusesASafeTheRootDoesNotApproveAsBinder() external {
-        (BindBeaconInitialOwnerHarness script, address safe) = backfilledWithoutUnscopedApproval("unapproved");
+        executeBackfill(safe, "unapproved");
         vm.expectRevert(abi.encodeWithSelector(SafeNotBeaconInitialOwnerDelegate.selector, safe));
         script.callPreflight();
     }
 
     function testBindBundleOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
+        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             assertBundle(networks[i]);
         }
@@ -121,7 +96,7 @@ contract BindBeaconInitialOwnerTest is Test {
     function testArtifactIsTheChainsJsonUnderOut() external {
         BindBeaconInitialOwnerHarness script = new BindBeaconInitialOwnerHarness("path");
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < networks.length; i++) {
             vm.chainId(networks[i].chainId);
             assertEq(

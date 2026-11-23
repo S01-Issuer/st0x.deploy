@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
+import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
@@ -69,16 +69,21 @@ library LibInvariants {
     /// The owner check is order-INSENSITIVE because a per-chain Safe's
     /// `getOwners()` order is incidental. There is no `ChainPrincipals`
     /// parameter — the per-chain inputs are the token addresses and the
-    /// authoriser clone address; the Safe address is read from the per-chain
-    /// pin here.
+    /// authoriser clone address (whose impl codehash is asserted equal across
+    /// chains by the cross-chain parity pin); the Safe address is read from
+    /// the per-chain pin here.
     ///
     /// Unlike Base's `assertAll(safe)` this asserts a SINGLE uniform
     /// authoriser rather than the V4 swap-window pair: a bootstrap chain is
     /// deployed directly at V4 with its vaults wired onto one clone from the
     /// start, so there is no V3→V4 migration window to tolerate. The
     /// authoriser CODEHASH is not asserted here (a deploy-artifact property
-    /// the clone-deploy script checks); this bundle asserts live ROLE state.
-    /// Vault ownership is watched by the rain-org-health dashboard.
+    /// the clone-deploy script + cross-chain parity pin check); this bundle
+    /// asserts live ROLE state. Vault ownership is watched by the
+    /// rain-org-health dashboard.
+    ///
+    /// Driven per chain by `LibInvariantsTest` against live forks of all five
+    /// governed chains.
     /// @param tokens The chain's production token table.
     /// @param authoriser The chain's live authoriser the vaults point at.
     function assertProductionState(TokenInstance[] memory tokens, address authoriser) internal view {
@@ -87,9 +92,7 @@ library LibInvariants {
         LibTimelockInvariants.assertTimelockState(timelock, safe);
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
         LibTokenInvariants.assertUniformAuthoriser(tokens, authoriser);
-        LibAuthoriserInvariants.assertHeld(
-            authoriser, LibAuthoriserInvariants.expectedGrantsOn(block.chainid, safe, timelock)
-        );
+        LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
     }
 
     /// @notice Full-args Base bundle. Use when overriding the Safe-side

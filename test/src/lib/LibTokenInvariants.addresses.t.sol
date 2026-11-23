@@ -5,25 +5,28 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
+import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestProd} from "../../lib/LibTestProd.sol";
+import {LibTestPreBackfillFork} from "../../lib/LibTestPreBackfillFork.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.25/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.20/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.20/src/interface/IReceiptV3.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.25/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
-import {ICertifiableV1} from "rain-vats-0.2.25/src/interface/ICertifiableV1.sol";
+} from "rain-vats-0.2.20/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+import {ICertifiableV1} from "rain-vats-0.2.20/src/interface/ICertifiableV1.sol";
 import {
     ERC1967_BEACON_SLOT,
     LibExtrospectERC1967BeaconProxy
-} from "rain-extrospection-0.1.31/src/lib/LibExtrospectERC1967BeaconProxy.sol";
-import {LibExtrospectBytecode} from "rain-extrospection-0.1.31/src/lib/LibExtrospectBytecode.sol";
-import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.31/src/lib/LibExtrospectMetamorphic.sol";
-import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.31/src/lib/EVMOpcodes.sol";
-import {IExtrospectV1} from "rain-extrospection-0.1.31/src/interface/IExtrospectV1.sol";
-import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.6/src/generated/0_1_0/Extrospect.sol";
-import {IBeacon} from "rain-extrospection-0.1.31/src/interface/IBeacon.sol";
+} from "rain-extrospection-0.1.16/src/lib/LibExtrospectERC1967BeaconProxy.sol";
+import {LibExtrospectBytecode} from "rain-extrospection-0.1.16/src/lib/LibExtrospectBytecode.sol";
+import {LibExtrospectMetamorphic} from "rain-extrospection-0.1.16/src/lib/LibExtrospectMetamorphic.sol";
+import {EVM_OP_CREATE, EVM_OP_DELEGATECALL} from "rain-extrospection-0.1.16/src/lib/EVMOpcodes.sol";
+import {IExtrospectV1} from "rain-extrospection-0.1.16/src/interface/IExtrospectV1.sol";
+import {DEPLOYED_ADDRESS as EXTROSPECT_0_1_0} from "rain-extrospection-deploy-0.1.2/src/generated/0_1_0/Extrospect.sol";
+import {IBeacon} from "rain-extrospection-0.1.16/src/interface/IBeacon.sol";
 
 /// @notice A pinned wrapped symbol is not of the initialized `wt<TICKER>`
 /// form, so no renamed symbol can be derived from it.
@@ -382,29 +385,36 @@ contract LibTokenInvariantsAddressesTest is Test {
         );
     }
 
-    /// A V1 beacon with the implementation it served at the pinned block.
+    /// A V1 beacon with the implementation it served at the pinned V1-era block
+    /// and the one it serves at `LibTestPreBackfillFork`'s Base block, after the fleet upgrade.
     struct ProdV1Beacon {
         string name;
         address beacon;
         address implementationAtPinnedBlock;
+        address implementationAfterFleetUpgrade;
     }
 
+    /// The receipt and receipt-vault beacons serve 0.1.30 after the fleet
+    /// upgrade; the wrapped token vault beacon serves 0.1.1.
     function prodV1Beacons() internal pure returns (ProdV1Beacon[] memory) {
         ProdV1Beacon[] memory beacons = new ProdV1Beacon[](3);
         beacons[0] = ProdV1Beacon(
             "STOX_RECEIPT_BEACON_V1",
             LibProdDeployV1.STOX_RECEIPT_BEACON_V1,
-            LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION
+            LibProdDeployV1.STOX_RECEIPT_IMPLEMENTATION,
+            LibProdDeployV4.STOX_RECEIPT_0_1_30
         );
         beacons[1] = ProdV1Beacon(
             "STOX_RECEIPT_VAULT_BEACON_V1",
             LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1,
-            LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION
+            LibProdDeployV1.STOX_RECEIPT_VAULT_IMPLEMENTATION,
+            LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30
         );
         beacons[2] = ProdV1Beacon(
             "STOX_WRAPPED_TOKEN_VAULT_BEACON_V1",
             LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_BEACON_V1,
-            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION
+            LibProdDeployV1.STOX_WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
+            LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1
         );
         return beacons;
     }
@@ -435,6 +445,19 @@ contract LibTokenInvariantsAddressesTest is Test {
                 IBeacon(beacons[i].beacon).implementation(),
                 beacons[i].implementationAtPinnedBlock,
                 string.concat(beacons[i].name, ".implementation() drifted at the pinned block")
+            );
+        }
+    }
+
+    /// At `LibTestPreBackfillFork`'s Base block each in-use beacon serves its implementation after the fleet upgrade.
+    function testProdV1BeaconImplementationsAfterTheFleetUpgrade() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ProdV1Beacon[] memory beacons = prodV1Beacons();
+        for (uint256 i = 0; i < beacons.length; i++) {
+            assertEq(
+                IBeacon(beacons[i].beacon).implementation(),
+                beacons[i].implementationAfterFleetUpgrade,
+                string.concat(beacons[i].name, ".implementation() after the fleet upgrade")
             );
         }
     }

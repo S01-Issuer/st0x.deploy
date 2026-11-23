@@ -14,10 +14,10 @@ import {ManyDeclarationsFixture} from "../fixture/declarations/many/ManyDeclarat
 import {UndeclaredScriptFixture} from "../fixture/declarations/undeclared/UndeclaredScriptFixture.s.sol";
 import {ValidDeclarationFixture} from "../fixture/declarations/valid/ValidDeclarationFixture.s.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
 import {
     BuildMigrations,
     HistoryWithoutMoment,
@@ -32,6 +32,7 @@ import {BuildMigrationsHarness} from "./BuildMigrationsHarness.sol";
 import {ZeroMomentFixture} from "./ZeroMomentFixture.sol";
 import {ForkedLine, MigrationWithoutRecord} from "../../src/lib/LibScriptDeclarations.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 contract BuildMigrationsTest is Test {
@@ -44,7 +45,7 @@ contract BuildMigrationsTest is Test {
     BuildMigrationsHarness internal build = new BuildMigrationsHarness();
 
     function networks() internal pure returns (SupportedNetwork[] memory) {
-        return LibStoxMigrations.lineNetworks();
+        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
     function endsWith(string memory text, string memory suffix) internal pure returns (bool) {
@@ -75,7 +76,7 @@ contract BuildMigrationsTest is Test {
     }
 
     function testVersionIsOne() external {
-        assertEq(vm.parseJsonUint(build.renderDir(LINE), ".version"), 2);
+        assertEq(vm.parseJsonUint(build.renderDir(LINE), ".version"), 1);
     }
 
     function testGenesisIsTheRegistryGenesis() external {
@@ -88,7 +89,7 @@ contract BuildMigrationsTest is Test {
         assertEq(vm.parseJsonBytes32(json, ".namespace"), LibStoxMigrations.NAMESPACE);
     }
 
-    function testNetworksAreTheLineNetworksWithTheRegistry() external {
+    function testNetworksAreTheDeploymentNetworksWithTheRegistry() external {
         string memory json = build.renderDir(LINE);
         SupportedNetwork[] memory nets = networks();
         assertEq(vm.parseJsonKeys(json, ".networks").length, nets.length);

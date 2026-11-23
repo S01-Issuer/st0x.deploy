@@ -3,10 +3,9 @@
 pragma solidity ^0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
 
 import {IStoxHistoryMigration, IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title HistoryMigrationScriptTest
@@ -32,16 +31,12 @@ abstract contract HistoryMigrationScriptTest is Test {
         vm.makePersistent(sHistoryScript);
     }
 
-    /// @dev The networks the history migrations ran on: every deployment
-    /// network before 0G. 0G ran none of them, so it has no moment for any,
-    /// and the backfill records each there record-only
-    /// (`LibStoxMigrations.withoutHistory`).
-    function historyNetworks() internal pure returns (SupportedNetwork[] memory) {
-        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+    function deploymentNetworks() internal pure returns (SupportedNetwork[] memory) {
+        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
-    function ranHistoryOn(uint256 chainId) internal pure returns (bool) {
-        SupportedNetwork[] memory networks = historyNetworks();
+    function onDeploymentChain(uint256 chainId) internal pure returns (bool) {
+        SupportedNetwork[] memory networks = deploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             if (networks[i].chainId == chainId) return true;
         }
@@ -59,12 +54,8 @@ abstract contract HistoryMigrationScriptTest is Test {
         assertDeclaration(chainId);
     }
 
-    function testDeclarationIsItsRecordOnZerog() external view {
-        assertDeclaration(LibSafeInvariants.ZEROG_CHAIN_ID);
-    }
-
     function testDeclarationIsItsHistoryRecordOnEveryDeploymentChain() external view {
-        SupportedNetwork[] memory networks = historyNetworks();
+        SupportedNetwork[] memory networks = deploymentNetworks();
         for (uint256 i = 0; i < networks.length; i++) {
             assertDeclaration(networks[i].chainId);
         }

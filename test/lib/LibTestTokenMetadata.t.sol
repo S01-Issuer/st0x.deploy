@@ -7,19 +7,17 @@ import {TokenConfig, Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibTestTokenMetadata} from "./LibTestTokenMetadata.sol";
 
 /// @title LibTestTokenMetadataTest
-/// @notice Offline coverage of which live name/symbol values
-/// `LibTestTokenMetadata` accepts.
+/// @notice Offline coverage for the metadata states the live-fork pins
+/// accept, so the renamed branch is tested before any chain renames.
 contract LibTestTokenMetadataTest is Test {
     function config() internal pure returns (TokenConfig memory) {
         return TokenConfig({
-            assetId: "US67066G1040",
-            listingTicker: "NVDA",
-            listingName: "NVIDIA Corporation",
             underlying: "NVDA",
             name: "NVIDIA Corporation ST0x",
             symbol: "tNVDA",
             region: Region.US,
-            underlyingName: "NVIDIA Corporation"
+            underlyingName: "NVIDIA Corporation",
+            assetId: ""
         });
     }
 
@@ -58,8 +56,11 @@ contract LibTestTokenMetadataTest is Test {
         }
     }
 
-    function testVaultRenamedOnlyOnTheRenamedName() external pure {
+    /// The renamed values and the state classification.
+    function testDerivedMetadataAndClassification() external pure {
         TokenConfig memory row = config();
+        assertEq(LibTestTokenMetadata.renamedName(row), "NVIDIA Corporation (ST0x)");
+        assertEq(LibTestTokenMetadata.renamedWrappedSymbol(row), "NVDAs");
         assertTrue(LibTestTokenMetadata.vaultRenamed(row, "NVIDIA Corporation (ST0x)"));
         assertFalse(LibTestTokenMetadata.vaultRenamed(row, "NVIDIA Corporation ST0x"));
         assertFalse(LibTestTokenMetadata.vaultRenamed(row, ""));

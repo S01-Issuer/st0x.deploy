@@ -8,39 +8,38 @@ import {
     DeployDependency,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployDeclaration} from "rain-deploy-0.1.38/src/lib/LibRainDeployDeclaration.sol";
-import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
-import {CloneDeploy} from "rain-factory-0.2.18/src/lib/LibRainDeployClone.sol";
-import {LibCloneCandidates} from "rain-factory-0.2.18/src/lib/LibCloneCandidates.sol";
-import {LibRainDeployCloneMechanism} from "rain-factory-0.2.18/src/lib/LibRainDeployCloneMechanism.sol";
+} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.30/src/lib/LibRainDeployDeclaration.sol";
+import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.30/src/lib/LibRainDeployZoltuMechanism.sol";
+import {CloneDeploy} from "rain-factory-0.2.11/src/lib/LibRainDeployClone.sol";
+import {LibCloneCandidates} from "rain-factory-0.2.11/src/lib/LibCloneCandidates.sol";
+import {LibRainDeployCloneMechanism} from "rain-factory-0.2.11/src/lib/LibRainDeployCloneMechanism.sol";
 import {
     RegistryBeaconProxyDeploy,
     RegistryBeaconProxyParams
-} from "rain-factory-0.2.18/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.14/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.8/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
-} from "rain-factory-deploy-0.2.14/src/generated/0_1_15/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.8/src/generated/0_1_15/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
     RUNTIME_CODE as TOFU_DECIMALS_RUNTIME_CODE
-} from "rain-tofu-erc20-decimals-deploy-0.1.9/src/generated/0_1_0/TOFUTokenDecimals.sol";
+} from "rain-tofu-erc20-decimals-deploy-0.1.4/src/generated/0_1_0/TOFUTokenDecimals.sol";
 
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {EU_AUTHORISER_SALT, LibEuAuthoriserClone} from "../lib/LibEuAuthoriserClone.sol";
-import {US_AUTHORISER_SALT} from "../lib/LibUsAuthoriserClone.sol";
 import {LibStoxDeployNetworks} from "../lib/LibStoxDeployNetworks.sol";
-import {LibStoxReleasedNetworks} from "../lib/LibStoxReleasedNetworks.sol";
+import {LibReleasedSuites} from "../lib/LibReleasedSuites.sol";
 import {LibProdTokenConfig, TokenConfig} from "../lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../lib/LibProdTokenParams.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
@@ -66,7 +65,6 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant PAYMENT_MINT_AUTHORIZER = "stox-offchain-asset-receipt-vault-payment-mint-authorizer";
     string constant ORCHESTRATOR = LibProdOrchestratorParams.ORCHESTRATOR;
     string constant EU_AUTHORISER = "stox-eu-assets-authoriser";
-    string constant US_AUTHORISER = "stox-us-assets-authoriser";
     string constant UNIFIED_DEPLOYER = "stox-unified-deployer";
     string constant WRAPPED_TOKEN_VAULT_BEACON_SET_DEPLOYER = "stox-wrapped-token-vault-beacon-set-deployer";
     string constant RECEIPT_VAULT_BEACON_SET_DEPLOYER = "stox-offchain-asset-receipt-vault-beacon-set-deployer";
@@ -109,34 +107,13 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployDeclaration.setNetworks(declared, LibStoxDeployNetworks.deploymentNetworks());
         LibRainDeployZoltuMechanism.extend(declared);
         LibRainDeployCloneMechanism.extend(declared);
-        LibRainDeployDeclaration.addReleased(declared, LibStoxReleasedNetworks.releasedSuites());
+        LibRainDeployDeclaration.addReleased(declared, LibReleasedSuites.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
-        LibCloneCandidates.addClones(declared, authoriserClones());
-        addTokenSuites(declared, LibProdTokenConfig.productionTokenConfigs());
+        LibCloneCandidates.addClones(declared, euAuthoriserClones());
+        addTokenSuites(declared, tokenConfigs());
         addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
-        setCandidateNetworks(declared);
         return declared;
-    }
-
-    /// Puts the US assets authoriser on 0G alone, keeps the EU assets
-    /// authoriser on every network, and puts every other candidate on every
-    /// deployment network but 0G. So no check requires a candidate on 0G but
-    /// the two clones, and no other dispatch reaches 0G. 0G runs the audited
-    /// releases `LibStoxReleasedNetworks` keeps on it, and its tokens come from
-    /// the 0G token creation, not the token suites.
-    /// @param declared The declaration, mutated.
-    function setCandidateNetworks(DeployDeclaration memory declared) internal pure {
-        bytes32 euAuthoriser = keccak256(bytes(EU_AUTHORISER));
-        bytes32 usAuthoriser = keccak256(bytes(US_AUTHORISER));
-        string[] memory zerogOnly = new string[](1);
-        zerogOnly[0] = LibStoxDeployNetworks.ZEROG;
-        string[] memory offZerog = LibStoxDeployNetworks.networksWithout(LibStoxDeployNetworks.ZEROG);
-        for (uint256 i = 0; i < declared.candidates.length; i++) {
-            bytes32 suite = keccak256(bytes(declared.candidates[i].snapshot.suite));
-            if (suite == euAuthoriser) continue;
-            declared.candidates[i].snapshot.networks = suite == usAuthoriser ? zerogOnly : offZerog;
-        }
     }
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
@@ -149,7 +126,14 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE,
                 V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
                 FACET_PATH,
-                one(TOFU_DECIMALS_ADDRESS, TOFU_DECIMALS_RUNTIME_CODE)
+                three(
+                    TOFU_DECIMALS_ADDRESS,
+                    TOFU_DECIMALS_RUNTIME_CODE,
+                    CONFIG_REGISTRY_ADDRESS,
+                    CONFIG_REGISTRY_RUNTIME_CODE,
+                    V4.STOX_GOVERNANCE_TIMELOCK_CANDIDATE,
+                    V4.STOX_GOVERNANCE_TIMELOCK_RUNTIME_CODE_CANDIDATE
+                )
             )
         );
         candidates[1] = anchored(
@@ -323,32 +307,19 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return candidates;
     }
 
-    /// The EU and US assets authorisers: clones of the 0.1.1 authoriser whose
-    /// init data names each chain's token-owner Safe, so each address is per
-    /// network. The US clone is only 0G's (`setCandidateNetworks`): every
-    /// other chain's US clone is the first `clone` of the 0.1.1 factory.
-    /// @return The clones.
-    function authoriserClones() internal pure returns (CloneDeploy[] memory) {
-        CloneDeploy[] memory clones = new CloneDeploy[](2);
-        clones[0] = authoriserClone(EU_AUTHORISER, EU_AUTHORISER_SALT);
-        clones[1] = authoriserClone(US_AUTHORISER, US_AUTHORISER_SALT);
-        return clones;
-    }
-
-    /// An open-salt clone of the 0.1.1 authoriser with each chain's Safe as
-    /// its initial admin.
-    /// @param suite The suite key.
-    /// @param salt The open salt.
+    /// The EU assets authoriser: a clone of the 0.1.1 authoriser whose init
+    /// data names each chain's token-owner Safe, so its address is per network.
     /// @return The clone.
-    function authoriserClone(string memory suite, bytes32 salt) internal pure returns (CloneDeploy memory) {
-        return CloneDeploy({
-            suite: suite,
+    function euAuthoriserClones() internal pure returns (CloneDeploy[] memory) {
+        CloneDeploy[] memory clones = new CloneDeploy[](1);
+        clones[0] = CloneDeploy({
+            suite: EU_AUTHORISER,
             factory: CLONE_FACTORY_ADDRESS,
             implementation: LibEuAuthoriserClone.implementation(),
             data: "",
             initDataPerNetwork: true,
             initData: LibEuAuthoriserClone.cloneData,
-            salt: salt,
+            salt: EU_AUTHORISER_SALT,
             dependencies: two(
                 CLONE_FACTORY_ADDRESS,
                 CLONE_FACTORY_RUNTIME_CODE,
@@ -356,6 +327,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_RUNTIME_CODE_0_1_1
             )
         });
+        return clones;
     }
 
     /// Suite keys allow only lowercase letters and hyphens; token symbols carry uppercase.
@@ -374,6 +346,13 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibCloneCandidates.addRegistryBeaconProxies(declared, wrapperSuites(configs));
     }
 
+    /// The production rows that get a token suite: those with a non-empty asset id.
+    /// @return The rows.
+    function tokenConfigs() internal pure returns (TokenConfig[] memory) {
+        return LibProdTokenConfig.v6TokenConfigs();
+    }
+
+    /// One registry beacon proxy suite per row, keyed `TOKEN_PREFIX` + the lowercased `symbol`.
     function tokenSuites(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyDeploy[] memory) {
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         RegistryBeaconProxyDeploy[] memory suites = new RegistryBeaconProxyDeploy[](params.length);
