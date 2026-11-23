@@ -30,7 +30,5 @@ from the repo and are deliberately absent — do not re-add them.
   timelock, not by the token-owner Safe.** Once a surface has moved, the Safe
   can no longer call it directly: a script touching it goes
   `timelock.schedule(...)` → delay → `timelock.execute(...)`, resolving the
-  address only via `LibTimelockInvariants.timelockForChainId`, except for the
-  surfaces `docs/TIMELOCK.md` lists as owned by
-  `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` (V6 tokens and beacons, among
-  others). Role model and runbook: `docs/TIMELOCK.md`.
+  address only via `LibTimelockInvariants.timelockForChainId`. Role model and
+  runbook: `docs/TIMELOCK.md`.
