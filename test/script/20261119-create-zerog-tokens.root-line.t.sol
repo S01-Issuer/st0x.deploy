@@ -57,10 +57,10 @@ import {CreateZerogTokensHarness} from "./CreateZerogTokensHarness.sol";
 import {ZerogTokenCreationFixture} from "./ZerogTokenCreationFixture.sol";
 
 /// @title CreateZerogTokensRootLineTest
-/// @notice The last batch on 0G, with the 0G backfill executed and the first two batches created: the two probes, the
-/// last 19 rows each created, authorised and handed to the timelock, then the record, onto the backfill.
+/// @notice The last batch on 0G, with the 0G backfill executed and the first three batches created: the two probes, the
+/// last 5 rows each created, authorised and handed to the timelock, then the record, onto the backfill.
 contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRecordScriptTest {
-    uint256 internal constant LAST_BATCH_FIRST_ROW = 40;
+    uint256 internal constant LAST_BATCH_FIRST_ROW = 60;
 
     function newScript() internal override returns (IRecordScriptHooks) {
         return IRecordScriptHooks(address(new CreateZerogTokensHarness("root-line")));
@@ -86,11 +86,11 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
         buildZerog();
     }
 
-    /// @dev The 0G backfill, then the first two batches, which leave the line at the backfill.
+    /// @dev The 0G backfill, then the first three batches, which leave the line at the backfill.
     function landOnto() internal override {
         landZerogBackfill();
         CreateZerogTokensHarness earlier = new CreateZerogTokensHarness("root-line-earlier");
-        for (uint256 batch = 0; batch < 2; batch++) {
+        for (uint256 batch = 0; batch < 3; batch++) {
             LibSafeFork.executeBundle(vm, Safe(payable(zerogSafe())), earlier.callAuthorBundle());
         }
     }
@@ -100,16 +100,16 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
     }
 
     function lastVault() internal view returns (address) {
-        return harness().callToken(LibProdTokenConfig.productionTokenConfigs().length - 1).receiptVault;
+        return harness().callToken(LibProdTokenConfig.canonicalTokenConfigs().length - 1).receiptVault;
     }
 
     function lastUnderlying() internal pure returns (string memory) {
-        TokenConfig[] memory rows = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         return rows[rows.length - 1].underlying;
     }
 
     function testBundleIsTheProbesThenTheLastRowsThenItsRecord() external view {
-        TokenConfig[] memory rows = LibProdTokenConfig.productionTokenConfigs();
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         SafeTx[] memory txs = sScript.callAuthorBundle();
         assertEq(txs.length, 2 + 3 * (rows.length - LAST_BATCH_FIRST_ROW) + 1, "bundle length");
         bytes memory probe = abi.encodeCall(ICloneableV2.initialize, (""));
@@ -224,7 +224,7 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
 
     function testPostStateRefusesARenamedWrapper() external {
         executeBundle();
-        address wrapper = harness().callToken(LibProdTokenConfig.productionTokenConfigs().length - 1).wrappedTokenVault;
+        address wrapper = harness().callToken(LibProdTokenConfig.canonicalTokenConfigs().length - 1).wrappedTokenVault;
         vm.mockCall(wrapper, abi.encodeCall(IERC20Metadata.symbol, ()), abi.encode("x"));
         vm.expectRevert(abi.encodeWithSelector(ZerogTokenMismatch.selector, lastUnderlying(), "wrapper symbol"));
         sScript.callAssertPostState();
@@ -282,7 +282,7 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
     }
 
     function lastToken() internal view returns (address receipt, address vault, address wrapper) {
-        TokenInstance memory created = harness().callToken(LibProdTokenConfig.productionTokenConfigs().length - 1);
+        TokenInstance memory created = harness().callToken(LibProdTokenConfig.canonicalTokenConfigs().length - 1);
         return (created.receipt, created.receiptVault, created.wrappedTokenVault);
     }
 
