@@ -10,13 +10,30 @@ import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol"
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 
 /// @title LibProdTokenConfigListingWellFormedTest
-/// @notice Every production row, in the table and on every chain, has a well-formed ISIN, listing ticker and listing
-/// name.
+/// @notice Every production row, in the table and on every chain, and every off-Base row has a well-formed ISIN,
+/// listing ticker and listing name.
 contract LibProdTokenConfigListingWellFormedTest is Test {
     function assertListingWellFormed(string memory rowName, TokenConfig memory config) internal pure {
         assertTrue(LibSecurity.isinWellFormed(config.assetId), string.concat(rowName, " assetId"));
         assertTrue(LibSecurity.tickerWellFormed(bytes(config.listingTicker)), string.concat(rowName, " listingTicker"));
         assertTrue(LibSecurity.nameWellFormed(bytes(config.listingName)), string.concat(rowName, " listingName"));
+    }
+
+    /// Each off-Base row's listing is well formed, and so are the ticker and name `setUnderlying` takes from it.
+    function testEveryOffBaseRowHasAWellFormedListingAndUnderlying() external pure {
+        TokenConfig[] memory rows = LibProdTokenConfig.offBaseTokenConfigs();
+        assertGt(rows.length, 0, "rows");
+        for (uint256 i = 0; i < rows.length; i++) {
+            assertListingWellFormed(rows[i].underlying, rows[i]);
+            assertTrue(
+                LibSecurity.tickerWellFormed(bytes(rows[i].underlying)),
+                string.concat(rows[i].underlying, " underlying")
+            );
+            assertTrue(
+                LibSecurity.nameWellFormed(bytes(rows[i].underlyingName)),
+                string.concat(rows[i].underlying, " underlyingName")
+            );
+        }
     }
 
     function testEveryRowOnEveryChainHasAWellFormedListing() external pure {
