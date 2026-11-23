@@ -822,63 +822,75 @@ library LibProdTokenConfig {
         configs = new TokenConfig[](6);
         configs[0] = TokenConfig({
             underlying: "AIR.PA",
+            ticker: "AIR.PA",
             assetId: "NL0000235190",
             listingTicker: "AIR",
             listingName: "Airbus SE",
             name: "Airbus SE ST0x",
             symbol: "tAIR.PA",
             region: Region.US,
-            underlyingName: "Airbus SE"
+            underlyingName: "Airbus SE",
+            isin: "NL0000235190"
         });
         configs[1] = TokenConfig({
             underlying: "BMW.DE",
+            ticker: "BMW.DE",
             assetId: "DE0005190003",
             listingTicker: "BMW",
             listingName: "Bayerische Motoren Werke Aktiengesellschaft",
             name: "Bayerische Motoren Werke Aktiengesellschaft ST0x",
             symbol: "tBMW.DE",
             region: Region.US,
-            underlyingName: "Bayerische Motoren Werke Aktiengesellschaft"
+            underlyingName: "Bayerische Motoren Werke Aktiengesellschaft",
+            isin: "DE0005190003"
         });
         configs[2] = TokenConfig({
             underlying: "MC.PA",
+            ticker: "MC.PA",
             assetId: "FR0000121014",
             listingTicker: "MC",
             listingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
             name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x",
             symbol: "tMC.PA",
             region: Region.US,
-            underlyingName: unicode"LVMH Moët Hennessy Louis Vuitton SE"
+            underlyingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
+            isin: "FR0000121014"
         });
         configs[3] = TokenConfig({
             underlying: "SIE.DE",
+            ticker: "SIE.DE",
             assetId: "DE0007236101",
             listingTicker: "SIE",
             listingName: "Siemens Aktiengesellschaft",
             name: "Siemens Aktiengesellschaft ST0x",
             symbol: "tSIE.DE",
             region: Region.US,
-            underlyingName: "Siemens Aktiengesellschaft"
+            underlyingName: "Siemens Aktiengesellschaft",
+            isin: "DE0007236101"
         });
         configs[4] = TokenConfig({
             underlying: "MBG.DE",
+            ticker: "MBG.DE",
             assetId: "DE0007100000",
             listingTicker: "MBG",
             listingName: "Mercedes-Benz Group AG",
             name: "Mercedes-Benz Group AG ST0x",
             symbol: "tMBG.DE",
             region: Region.US,
-            underlyingName: "Mercedes-Benz Group AG"
+            underlyingName: "Mercedes-Benz Group AG",
+            isin: "DE0007100000"
         });
         configs[5] = TokenConfig({
             underlying: "RHM.DE",
+            ticker: "RHM.DE",
             assetId: "DE0007030009",
             listingTicker: "RHM",
             listingName: "Rheinmetall AG",
             name: "Rheinmetall AG ST0x",
             symbol: "tRHM.DE",
             region: Region.US,
-            underlyingName: "Rheinmetall AG"
+            underlyingName: "Rheinmetall AG",
+            isin: "DE0007030009"
         });
     }
 
