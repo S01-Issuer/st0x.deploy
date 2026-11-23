@@ -18,13 +18,14 @@ function zerogPlaceholderTable() pure returns (TokenInstance[] memory table) {
 }
 
 /// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
-/// It overrides no address, so the tests run the Safe and timelock pins the script ships with. Its 0G table is
-/// `zerogPlaceholderTable` unless `setTable` or `useShippedTable` is called.
+/// It overrides no address, so the tests run the Safe and timelock pins the script ships with. The tests rebuild 0G as
+/// it was before the tokens existed, so by default the harness stands in `zerogPlaceholderTable` for the shipped
+/// table, which holds the created tokens; `setTable` stands in any other table, and `callShippedTable` reads the
+/// script's own.
 contract CreateZerogTokensHarness is CreateZerogTokens {
     string internal sArtifactTag;
     TokenInstance[] internal sTable;
     bool internal sTableSet;
-    bool internal sShippedTable;
 
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
@@ -44,14 +45,14 @@ contract CreateZerogTokensHarness is CreateZerogTokens {
         sTableSet = true;
     }
 
-    function useShippedTable() external {
-        sShippedTable = true;
-    }
-
     /// @inheritdoc CreateZerogTokens
     function zerogTable() internal view override returns (TokenInstance[] memory) {
-        if (sTableSet) return sTable;
-        return sShippedTable ? super.zerogTable() : zerogPlaceholderTable();
+        return sTableSet ? sTable : zerogPlaceholderTable();
+    }
+
+    /// @dev The table the script itself reads, whatever the harness stands in.
+    function callShippedTable() external view returns (TokenInstance[] memory) {
+        return super.zerogTable();
     }
 
     function callPreflight() external view {

@@ -154,10 +154,13 @@ contract BuildMigrationsDeclaredTest is Test {
     }
 
     /// @notice The 0G token creation is recorded right after the backfill on
-    /// every chain, and the first migration no chain has run yet follows it.
+    /// every chain, the 0G orchestrator roles' schedule and execution follow
+    /// it, and the first migration no chain has run yet follows them.
     function testEveryChainRecordsTheTokenCreationRightAfterTheBackfill() external view {
         (string memory json, uint256 rows) = manifest();
         uint256 creation = rowOf(json, rows, LibStoxMigrations.CREATE_ZEROG_TOKENS);
+        uint256 schedule = rowOf(json, rows, LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES);
+        uint256 execution = rowOf(json, rows, LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES);
         uint256 bind = rowOf(json, rows, LibStoxMigrations.BIND_BEACON_INITIAL_OWNER);
         SupportedNetwork[] memory nets = networks();
         for (uint256 n = 0; n < nets.length; n++) {
@@ -168,7 +171,17 @@ contract BuildMigrationsDeclaredTest is Test {
                 chain(creation, chainId)
             );
             assertEq(executedAtOf(json, creation, chainId), 0, chain(creation, chainId));
-            assertEq(ontoOf(json, bind, chainId), LibStoxMigrations.CREATE_ZEROG_TOKENS, chain(bind, chainId));
+            assertEq(ontoOf(json, schedule, chainId), LibStoxMigrations.CREATE_ZEROG_TOKENS, chain(schedule, chainId));
+            assertEq(executedAtOf(json, schedule, chainId), 0, chain(schedule, chainId));
+            assertEq(
+                ontoOf(json, execution, chainId),
+                LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES,
+                chain(execution, chainId)
+            );
+            assertEq(executedAtOf(json, execution, chainId), 0, chain(execution, chainId));
+            assertEq(
+                ontoOf(json, bind, chainId), LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES, chain(bind, chainId)
+            );
         }
     }
 

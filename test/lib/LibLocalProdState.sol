@@ -93,11 +93,9 @@ library LibLocalProdState {
         );
     }
 
-    /// @notice The chain's in-use beacons (`LibBeaconInvariants.prodBeaconsInUse`),
-    /// each serving its expected implementation and owned by the chain's
-    /// timelock. Base's V1 beacons carry the runtime and storage of their local
-    /// 0.1.1 counterparts. A chain that runs no orchestrator (0G) gets no
-    /// orchestrator set, as on chain.
+    /// @notice The chain's four in-use beacons, each serving its expected
+    /// implementation and owned by the chain's timelock. Base's V1 beacons
+    /// carry the runtime and storage of their local 0.1.1 counterparts.
     function beacons(Vm vm, uint256 chainId) internal {
         LibRainDeploy.etchZoltuFactory(vm);
         deployOnce(LibProdDeployV4.STOX_RECEIPT_CREATION_CODE_0_1_1, LibProdDeployV4.STOX_RECEIPT_0_1_1);
@@ -114,13 +112,13 @@ library LibLocalProdState {
             LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_BEACON_0_1_1
         );
         deployReceiptSet0_1_30();
-        if (LibAuthoriserInvariants.grantsOrchestrator(chainId)) deployOrchestratorSet0_1_30();
+        deployOrchestratorSet0_1_30();
 
         address[4] memory local = LibProdBeacons0_1_1.beacons();
         address[4] memory live = LibBeaconInvariants.prodBeaconsForChainId(chainId);
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
         address chainTimelock = LibTimelockInvariants.timelockForChainId(chainId);
-        for (uint256 i = 0; i < LibBeaconInvariants.prodBeaconsInUse(chainId); i++) {
+        for (uint256 i = 0; i < live.length; i++) {
             if (live[i] != local[i]) {
                 vm.etch(live[i], local[i].code);
                 vm.copyStorage(local[i], live[i]);
