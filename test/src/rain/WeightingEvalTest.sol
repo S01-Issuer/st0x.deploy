@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 import {EvalV4, SourceIndexV2, StackItem} from "rainlang-0.2.41/src/interface/IInterpreterV4.sol";
 import {StateNamespace} from "rainlang-0.2.41/src/interface/IInterpreterStoreV3.sol";
