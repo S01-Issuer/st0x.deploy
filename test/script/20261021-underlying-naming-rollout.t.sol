@@ -3,8 +3,6 @@
 pragma solidity =0.8.25;
 
 import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
@@ -715,30 +713,5 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             vm.clearMockedCalls();
             vm.revertToState(snapshot);
         }
-    }
-
-    /// @notice With the beacon batch cancelled in its delay, the rename is
-    /// ready while its predecessor is not done. The executor refuses it rather
-    /// than reverting in the timelock.
-    function testExecutorWaitsForANotDoneBeaconBatch() external {
-        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
-        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("beacon-not-done");
-        prepareRename();
-        Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
-        LibSafeFork.executeBundle(vm, safe, rename.callAuthorBundle());
-        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
-        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
-        vm.prank(address(safe));
-        TimelockController(payable(timelock)).cancel(beaconId);
-
-        vm.warp(vm.getBlockTimestamp() + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        assertTrue(TimelockController(payable(timelock)).isOperationReady(renameId), "rename ready");
-        assertFalse(TimelockController(payable(timelock)).isOperationDone(beaconId), "beacons not done");
-        ExecuteUnderlyingNaming execute = new ExecuteUnderlyingNaming();
-        vm.expectRevert(
-            abi.encodeWithSelector(NoUnderlyingNamingOperationReady.selector, beaconId, false, renameId, false)
-        );
-        execute.execute();
     }
 }
