@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
 
 import {RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {LocalBaseOrchestratorFixture} from "./LocalBaseOrchestratorFixture.sol";
@@ -15,8 +15,8 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title OrchestratorAdminToTimelockLocalTest
 /// @notice The move on a local Base whose root line is at the beacon-initial-owner
-/// bind, after the V5 backfill, so it runs whatever the live chains have
-/// recorded.
+/// bind, after the V5 backfill and the 0G token creation record, so it runs
+/// whatever the live chains have recorded.
 contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, RootLineRecordScriptTest {
     function newScript() internal override returns (IRecordScriptHooks) {
         return IRecordScriptHooks(address(new OrchestratorAdminToTimelockHarness("local")));
@@ -39,14 +39,14 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, R
         LibTestRootLine.write(
             vm, address(safe), LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5, MIGRATION_HEAD_GENESIS
         );
+        LibTestRootLine.write(
+            vm, address(safe), LibStoxMigrations.CREATE_ZEROG_TOKENS, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
+        );
     }
 
     function landOnto() internal override {
         LibTestRootLine.write(
-            vm,
-            address(safe),
-            LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
-            LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
+            vm, address(safe), LibStoxMigrations.BIND_BEACON_INITIAL_OWNER, LibStoxMigrations.CREATE_ZEROG_TOKENS
         );
     }
 

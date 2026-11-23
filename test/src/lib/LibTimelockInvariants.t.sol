@@ -4,13 +4,13 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibTimelockController} from "rain-deploy-0.1.33/src/lib/LibTimelockController.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibTimelockController} from "rain-deploy-0.1.38/src/lib/LibTimelockController.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     CREATION_CODE as TIMELOCK_CREATION_CODE
-} from "rain-deploy-0.1.33/src/generated/0_1_18/TimelockController.sol";
+} from "rain-deploy-0.1.38/src/generated/0_1_18/TimelockController.sol";
 import {LibTimelockInvariants, UnsupportedChainForGovernanceTimelock} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
@@ -160,6 +160,10 @@ contract LibTimelockInvariantsTest is Test {
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC,
             LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_BSC)
         );
+        assertEq(
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ZEROG,
+            LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_ZEROG)
+        );
     }
 
     /// @notice Every chain with a pinned token-owner Safe resolves through
@@ -187,6 +191,10 @@ contract LibTimelockInvariantsTest is Test {
         assertEq(
             LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BSC_CHAIN_ID),
             LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_BSC
+        );
+        assertEq(
+            LibTimelockInvariants.timelockForChainId(LibSafeInvariants.ZEROG_CHAIN_ID),
+            LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ZEROG
         );
     }
 

@@ -25,8 +25,8 @@ import {
     ActionDoesNotExist,
     InvalidMask
 } from "../../../src/error/ErrCorporateAction.sol";
-import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
+import {IAuthorizeV1, Unauthorized} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {
     CorporateActionNode,
     CompletionFilter,
@@ -40,6 +40,7 @@ import {LibTestCorporateAction} from "../../lib/LibTestCorporateAction.sol";
 import {MockAuthorizer} from "./MockAuthorizer.sol";
 import {DelegatecallHarness} from "./DelegatecallHarness.sol";
 import {CorporateActionHarness} from "./CorporateActionHarness.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 contract StoxCorporateActionsFacetTest is Test {
     StoxCorporateActionsFacet internal facetImpl;
@@ -189,7 +190,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// `FacetMustBeDelegatecalled` on the standalone facet, before any
     /// authorizer lookup.
     function testEveryEntryPointDirectCallReverts() external {
-        bytes[9] memory calls = [
+        bytes[10] memory calls = [
             abi.encodeWithSelector(StoxCorporateActionsFacet.completedActionCount.selector),
             abi.encodeCall(
                 StoxCorporateActionsFacet.scheduleCorporateAction,
@@ -201,7 +202,11 @@ contract StoxCorporateActionsFacetTest is Test {
             abi.encodeCall(StoxCorporateActionsFacet.nextOfType, (NODE_NONE, type(uint256).max, CompletionFilter.ALL)),
             abi.encodeCall(StoxCorporateActionsFacet.prevOfType, (NODE_NONE, type(uint256).max, CompletionFilter.ALL)),
             abi.encodeCall(StoxCorporateActionsFacet.getActionParameters, (1)),
-            abi.encodeWithSelector(StoxCorporateActionsFacet.cumulativeBalanceMultiplierSinceGenesis.selector)
+            abi.encodeWithSelector(StoxCorporateActionsFacet.cumulativeBalanceMultiplierSinceGenesis.selector),
+            abi.encodeCall(
+                StoxCorporateActionsFacet.initializeStoxToken,
+                (LibTestDeploy.vaultData("US0378331005", "AAPL", "Apple Inc.", address(0), bytes32(0)))
+            )
         ];
         for (uint256 i = 0; i < calls.length; i++) {
             (bool success, bytes memory returnData) = address(facetImpl).call(calls[i]);

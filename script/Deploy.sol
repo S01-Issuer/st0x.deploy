@@ -3,19 +3,24 @@
 pragma solidity =0.8.25;
 
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {RainDeployBroadcast} from "rain-deploy-0.1.33/src/abstract/RainDeployBroadcast.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.33/src/lib/LibConfigRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {RainDeployBroadcast} from "rain-deploy-0.1.38/src/abstract/RainDeployBroadcast.sol";
+import {
+    DeployDeclaration,
+    DeploySuite,
+    RainDeploySuitesBase
+} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.38/src/lib/LibRainDeployDeclaration.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {
     LibOffchainAssetReceiptVaultRbac,
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
-} from "rain-vats-0.2.22/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.25/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
-import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserInvariants, AuthoriserNotReady} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
@@ -33,11 +38,47 @@ error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 
 /// @title Deploy
 /// @notice `RainDeployBroadcast` over `StoxDeploySuites`: broadcasts the suite
-/// `DEPLOYMENT_SUITE` names to every network this repo deploys to. Before each
+/// `DEPLOYMENT_SUITE` names to every network it is declared on. Before each
 /// network it refuses unless every registry binding the suite's construction or
 /// initialisation resolves is bound to this repo's pin for that chain; an
 /// unbound name reverts in the registry.
 contract Deploy is StoxDeploySuites, RainDeployBroadcast {
+    /// @notice `StoxDeploySuites.declaration`, with the run's networks narrowed
+    /// to those the suite `requestedSuite` names is declared on. A run
+    /// broadcasts to every network it deploys to, so without this a suite kept
+    /// off 0G would still fork 0G, and a registry check there would refuse the
+    /// whole run. With no suite named, or an unknown one, the run's networks
+    /// stay every deployment network, and `run` refuses an unknown suite.
+    /// @return d The declaration.
+    function declaration()
+        internal
+        view
+        override(RainDeploySuitesBase, StoxDeploySuites)
+        returns (DeployDeclaration memory d)
+    {
+        d = super.declaration();
+        narrowToSuite(d, requestedSuite());
+    }
+
+    /// @notice The suite this run deploys: `DEPLOYMENT_SUITE`, the variable
+    /// `run` selects the suite by.
+    /// @return The suite key, empty when the variable is unset.
+    function requestedSuite() internal view virtual returns (string memory) {
+        return vm.envOr("DEPLOYMENT_SUITE", string(""));
+    }
+
+    /// @notice Sets `d`'s run networks to the networks the suite `requested`
+    /// names is declared on. No change for a key no suite has.
+    /// @param d The declaration, mutated.
+    /// @param requested The suite key.
+    function narrowToSuite(DeployDeclaration memory d, string memory requested) internal pure {
+        DeploySuite[] memory suites = allSuites(d);
+        uint256 index = suiteIndex(suites, requested);
+        if (index < suites.length) {
+            LibRainDeployDeclaration.setDeployNetworks(d, suites[index].networks);
+        }
+    }
+
     function preDeployCheck(DeployDeclaration memory, DeploySuite memory suite, SupportedNetwork memory)
         internal
         view
@@ -104,6 +145,9 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         address expectedAuthorizer = region == Region.US
             ? LibAuthoriserInvariants.authoriserForChainId(block.chainid)
             : LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
+        // A placeholder slot reads as zero, which an RBAC binding with no
+        // authoriser would otherwise match.
+        if (expectedAuthorizer == address(0)) revert AuthoriserNotReady(expectedAuthorizer);
         // slither-disable-next-line unused-return
         (bytes memory value,) = LibConfigRegistry.resolve(
             LibRegistryAuthority.ROOT_AUTHORITY, rbacName, OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE_HASH
