@@ -61,7 +61,7 @@ remappings = [
   # - OpenZeppelin/openzeppelin-contracts-upgradeable#232
   "@openzeppelin/contracts/=dependencies/@openzeppelin-contracts-5.7.0/",
   # rain-factory 0.2.18, rain-factory-deploy 0.2.14, rain-vats 0.2.25,
-  # rainlang 0.2.40, rainlang-deploy 0.1.15, rain-math-float-deploy 0.1.13,
+  # rainlang 0.2.41, rainlang-deploy 0.1.15, rain-math-float-deploy 0.1.13,
   # rain-tofu-erc20-decimals-deploy 0.1.9 and rain-extrospection-deploy 0.1.6
   # import rain-deploy 0.1.37. rain-deploy 0.1.38 only adds to it (the `zerog`
   # network and the 0.1.38 release record), so bridge that prefix to 0.1.38
