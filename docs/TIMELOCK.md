@@ -377,56 +377,23 @@ own the live tokens). For every beacon and token suite it also requires that
 timelock to be in its pinned state on the chain
 (`LibTimelockInvariants.assertTimelockState` with the chain's Safe as proposer:
 code, codehash, 48h delay and roles), since anyone can deploy it with another
-proposer bound at construction. Anyone names it from a signed listing
-(`nameListing`, below); after that only that timelock renames it, with
-`setUnderlying` and the 48h delay. Rollout rule: do not publish a V6 token to
-the st0x.registry, activate it in the bots, give it mint traffic, or trade it
-until it is named and its `name()` and `symbol()` read back as expected. Until
-then the vault reports `""` / `""` and the wrapper `"Wrapped "` / `"w"`, which
-the liquidity parser does not accept. A token's address commits to the vault
-beacon name, not to the implementation the beacon serves, so `VAULT_BEACON_NAME`
-must only ever resolve to a beacon that serves an implementation with the asset
-id hook and the `assetId()` getter. `Deploy.preDeployCheck` refuses a token
-suite unless the bound vault beacon serves
-`LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll a V6 vault beacon back to
-an implementation without the hook: the asset ids are public, so any undeployed
-pinned row could then be deployed with no asset id, forever.
-
-**Naming V6 tokens from a signed listing.** `nameListing` on a V6 token takes
-its asset id, ticker and underlying name, a proof, a root and a signature, and
-sets the ticker and name as `setUnderlying` does, once. It reverts unless the
-token has that asset id and no ticker or name yet, the leaf of the token's own
-address and the three fields is in the root, and the listing signer signed the
-root. The leaf is OpenZeppelin's `StandardMerkleTree` leaf of
-`(address, string, string, string)`. The digest (`LibListing.digest`) is EIP-712
-with no chain id and no verifying contract, and a V6 token's address is the same
-on every chain, so one signature names the same tokens on every chain, including
-chains added later.
-
-- **The signer binding.** `nameListing` reads `st0x.listing-signer.v1` from the
-  `ConfigRegistry` under `LibListing.LISTING_AUTHORITY`, the governance timelock
-  itself, at every call. Only the timelock writes under it, so binding or
-  rotating the signer is a timelock operation: the Safe schedules
-  `registerV5(LISTING_AUTHORITY, LISTING_SIGNER_NAME, "address", abi.encode(signer), "")`
-  on the registry, and anyone executes it after 48h. The timelock never approves
-  a registry delegate: a delegate could rebind at once. Operations never expire,
-  so before a bind or rotation check that no other pending operation targets the
-  registry or the timelock itself, and cancel abandoned binds. The signer key
-  signs listing roots and nothing else.
-- **Stale roots and a lost key.** A signed root never expires: a leaf can still
-  name a fresh token of its asset id on a new chain after the issuer renamed.
-  Rotating the signer on a chain retires every root the old key signed there;
-  sign the current roots again with the new key. A compromised key can name
-  unnamed V6 tokens with any name and symbol, which also feeds the mint
-  weighting's price key (`symbol()`); named tokens refuse. The response is to
-  rotate the signer and rename the affected tokens with `setUnderlying`, 48h
-  each.
-- **Deploy and name in one transaction.** Send Multicall3
-  (`0xcA11bde05977b3631167028862bE2a173976CA11`) `aggregate3` with the token's
-  factory call and its `nameListing` call, both with `allowFailure = false`, so
-  a refused naming deploys nothing. If the token already has code, send the
-  `nameListing` call alone. Check Multicall3's code on a chain before its first
-  listing.
+proposer bound at construction. That timelock names it later with
+`setUnderlying(ticker, underlyingName)`, so the first `setUnderlying` of each V6
+token is an operation on that timelock with the 48h delay. The naming-rollout
+scripts cover only the live rows, so a schedule and execute script with the
+`MalformedUnderlying` shape checks must exist before the first V6 row ships.
+Rollout rule: do not publish a V6 token to the st0x.registry, activate it in the
+bots, or trade it until its first `setUnderlying` has executed and its `name()`
+and `symbol()` read back as expected. Until then the vault reports `""` / `""`
+and the wrapper `"Wrapped "` / `"w"`, which the liquidity parser does not
+accept. A token's address commits to the vault beacon name, not to the
+implementation the beacon serves, so `VAULT_BEACON_NAME` must only ever resolve
+to a beacon that serves an implementation with the asset id hook and the
+`assetId()` getter. `Deploy.preDeployCheck` refuses a token suite unless the
+bound vault beacon serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`. Never roll
+a V6 vault beacon back to an implementation without the hook: the asset ids are
+public, so any undeployed pinned row could then be deployed with no asset id,
+forever.
 
 **Root-line order.** Every script is a migration on the root line, and each one
 sits onto exactly one predecessor. On each chain the naming rollout runs only
