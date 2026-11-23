@@ -103,14 +103,11 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         assertEq(writes.length, 2, "writes");
         assertEq(writes[0], key, "lead-time-key write");
         assertEq(writes[1], context[CONTEXT_LEAD_COLUMN][CONTEXT_ATTESTATION_ROW_TIME], "lead-time write");
-        assertEq(stack.length, 7, "stack length");
+        assertEq(stack.length, 4, "stack length");
         assertTrue(Float.wrap(StackItem.unwrap(stack[0])).eq(value), "value");
         assertEq(StackItem.unwrap(stack[1]), key, "lead-time-key");
         assertEq(StackItem.unwrap(stack[2]), symbol(tickerOf(vaultSymbol)), "ticker");
-        assertEq(StackItem.unwrap(stack[3]), bytes32(uint256(uint8(bytes(vaultSymbol)[0]))), "symbol-first");
-        assertEq(StackItem.unwrap(stack[4]), bytes32(uint256(1) << (8 * bytes(vaultSymbol).length)), "symbol-scale");
-        assertEq(StackItem.unwrap(stack[5]), symbol(vaultSymbol), "vault-symbol");
-        assertEq(StackItem.unwrap(stack[6]), priceDomain(), "price-domain");
+        assertEq(StackItem.unwrap(stack[3]), priceDomain(), "price-domain");
         return (stack, writes);
     }
 
