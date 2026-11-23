@@ -334,7 +334,7 @@ contract WorkflowChoicesTest is Test {
         networks[4] = "arbitrum";
         vm.expectRevert(bytes("fixture misses bsc"));
         this.externalAssertNetworks(networks);
-        vm.expectRevert(bytes("fixture network count: 1 != 5"));
+        vm.expectRevert(bytes(string.concat("fixture network count: 1 != ", vm.toString(networks.length))));
         this.externalAssertNetworks(one("base"));
     }
 
