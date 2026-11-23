@@ -168,9 +168,10 @@
   of its three legs is zero, not only the receipt vault. The creation script
   still refuses a table that is not all placeholders, so it cannot create the
   tokens again; its rehearsal tests stand in the placeholder table the bundles
-  were authored against. `LibUnderlyingNamingRollout.tokens` refuses 0G: its
-  leading rows follow Ethereum's order, not Base's, so the rollout's cut would
-  pick another token set.
+  were authored against. `LibUnderlyingNamingRollout.tokens` refuses every chain
+  outside the networks its batches were cut for, 0G included: 0G's rows follow
+  Ethereum's creation order, not the table order Base and Ethereum share, so the
+  rollout's cut would pick another token set.
 - **The underlying-naming rollout.** `LibUnderlyingNamingRollout` reconstructs
   two timelock operations per chain:
   - a beacon batch that upgrades the in-use wrapped-token-vault and

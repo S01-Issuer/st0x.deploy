@@ -5,6 +5,7 @@ pragma solidity ^0.8.25;
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
@@ -13,6 +14,7 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 import {LibSecurity} from "./LibSecurity.sol";
@@ -48,9 +50,10 @@ error MalformedUnderlying(string underlying, string underlyingName);
 /// renamed wrapper symbols, so the rename may not be scheduled.
 error DownstreamNotReadyForRename();
 
-/// @notice The rollout's rows were cut for tables in Base row order. 0G's
-/// table follows Ethereum's creation order, so its leading `TOKEN_COUNT` rows
-/// are another token set, and the rollout refuses 0G.
+/// @notice The rollout's batches were cut for the networks before 0G
+/// (`LibStoxDeployNetworks.networksBeforeZerog`), whose tables share Base's row
+/// order. Any other chain's leading `TOKEN_COUNT` rows can be another token
+/// set (0G's follow Ethereum's creation order), so the rollout refuses it.
 /// @param chainId The chain id.
 error UnderlyingNamingNotCutForChain(uint256 chainId);
 
@@ -136,14 +139,20 @@ library LibUnderlyingNamingRollout {
 
     /// @notice The production tokens this rollout renames on the chain: the
     /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
-    /// `UnderlyingNamingNotCutForChain` on 0G, whose leading rows are another
-    /// token set, `NoTokenTableForChain` on a chain with no table and
-    /// `TokenTableNotHydrated` on a placeholder one.
+    /// `NoTokenTableForChain` on a chain with no table,
+    /// `TokenTableNotHydrated` on a placeholder one, and
+    /// `UnderlyingNamingNotCutForChain` on a chain with a table that the
+    /// rollout was not cut for, 0G included.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
-        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) revert UnderlyingNamingNotCutForChain(chainId);
-        return leadingRows(chainId, LibTokenInvariants.productionTokensForChainId(chainId));
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+        if (!LibRainDeploy.hasChainId(
+                LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
+            )) {
+            revert UnderlyingNamingNotCutForChain(chainId);
+        }
+        return leadingRows(chainId, table);
     }
 
     /// @notice The leading `TOKEN_COUNT` rows of `table`, so the rename id

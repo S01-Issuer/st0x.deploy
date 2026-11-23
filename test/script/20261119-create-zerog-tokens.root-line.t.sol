@@ -51,7 +51,7 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdToke
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
 import {CreateZerogTokensHarness, zerogPlaceholderTable} from "./CreateZerogTokensHarness.sol";
 import {ZerogTokenCreationFixture} from "./ZerogTokenCreationFixture.sol";
@@ -263,7 +263,7 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
 
     /// @notice The shipped table holds the created tokens, so the script refuses to create them again, at row 0.
     function testPreflightRefusesTheShippedTable() external {
-        harness().useShippedTable();
+        harness().setTable(LibTokenInvariants.productionTokensZerog());
         vm.expectRevert(abi.encodeWithSelector(ZerogTokenRowNotPlaceholder.selector, 0));
         sScript.callPreflight();
     }

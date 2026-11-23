@@ -444,6 +444,20 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
+    /// @notice A chain whose table is not hydrated says so and carries no token rows, and every other chain keeps
+    /// its rows.
+    function testAnUnhydratedTokenTableIsSkippedAndSaysSo() external {
+        BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
+        harness.markUnhydrated(LibSafeInvariants.ZEROG_CHAIN_ID);
+        string memory json = harness.render();
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            bool skipped = nets[c].chainId == LibSafeInvariants.ZEROG_CHAIN_ID;
+            assertEq(vm.parseJsonBool(json, string.concat(chain(nets[c]), ".tokenTableHydrated")), !skipped);
+            assertEq(vm.keyExistsJson(json, index(string.concat(chain(nets[c]), ".tokens"), 0)), !skipped, nets[c].name);
+        }
+    }
+
     function testTokensAreTheChainsTableWithRegionRoutedAuthorisers() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();

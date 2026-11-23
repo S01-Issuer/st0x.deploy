@@ -284,6 +284,14 @@ contract BuildExpectedState is Script {
             : LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId);
     }
 
+    /// @notice Whether `chainId`'s token table is hydrated, so its tokens are written; virtual so a test can drive
+    /// the skip path with a chain it marks unhydrated.
+    /// @param chainId The chain id.
+    /// @return Whether the table is hydrated.
+    function tokenTableHydrated(uint256 chainId) internal view virtual returns (bool) {
+        return LibTokenInvariants.tokenTableHydrated(chainId);
+    }
+
     function chainJson(SupportedNetwork memory network) internal returns (string memory) {
         uint256 chainId = network.chainId;
         string memory key = vm.toString(chainId);
@@ -316,7 +324,7 @@ contract BuildExpectedState is Script {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
         }
-        bool hydrated = LibTokenInvariants.tokenTableHydrated(chainId);
+        bool hydrated = tokenTableHydrated(chainId);
         vm.serializeBool(key, "tokenTableHydrated", hydrated);
         return vm.serializeString(key, "tokens", hydrated ? tokensJson(chainId, key) : new string[](0));
     }
