@@ -2,17 +2,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// Thrown when `setUnderlying` is given a ticker `LibUnderlying.tickerWellFormed`
+/// Thrown when `setUnderlying` is given a ticker `LibSecurity.tickerWellFormed`
 /// refuses.
 /// @param ticker The refused ticker.
 error MalformedUnderlyingTicker(string ticker);
 
-/// Thrown when `setUnderlying` is given a name `LibUnderlying.nameWellFormed`
+/// Thrown when `setUnderlying` is given a name `LibSecurity.nameWellFormed`
 /// refuses.
 /// @param name The refused name.
 error MalformedUnderlyingName(string name);
 
-/// Thrown when `setUnderlying` is given an ISIN `LibUnderlying.isinWellFormed`
+/// Thrown when `setUnderlying` is given an ISIN `LibSecurity.isinWellFormed`
 /// refuses.
 /// @param isin The refused ISIN.
 error MalformedUnderlyingIsin(string isin);

@@ -16,13 +16,13 @@ import {
     NODE_NONE
 } from "../lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "../lib/LibStockSplit.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.12/src/lib/LibDecimalFloat.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.22/src/abstract/OffchainAssetReceiptVault.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.25/src/abstract/OffchainAssetReceiptVault.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
-import {LibUnderlying, ST0X_NAME_SUFFIX} from "../lib/LibUnderlying.sol";
+import {LibSecurity, ST0X_NAME_SUFFIX} from "../lib/LibSecurity.sol";
 import {MalformedUnderlyingTicker, MalformedUnderlyingName, MalformedUnderlyingIsin} from "../error/ErrUnderlying.sol";
 import {IStoxTokenConfigV1, StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../interface/IStoxTokenConfigV1.sol";
 import {
@@ -40,7 +40,7 @@ import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.22/src/interface/IOffchainAssetReceiptVaultV1.sol";
+} from "rain-vats-0.2.25/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 /// @title StoxCorporateActionsFacet
 /// @notice Diamond facet implementing the corporate action linked list.
@@ -57,7 +57,7 @@ import {
 /// Corporate-action storage lives at the ERC-7201 namespace
 /// `rain.storage.corporate-action.1` (see `LibCorporateAction`). The facet
 /// also implements `IStoxUnderlyingV2`, whose override lives at
-/// `rain.storage.underlying.1` (see `LibUnderlying`). Any future external
+/// `rain.storage.underlying.1` (see `LibSecurity`). Any future external
 /// entry points added here (e.g. list traversal) must also carry
 /// `onlyDelegatecalled`.
 contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IStoxTokenConfigV1 {
@@ -271,11 +271,11 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (msg.sender != IOwnable(address(this)).owner()) {
             revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
         }
-        if (!LibUnderlying.tickerWellFormed(bytes(newSymbol))) revert MalformedUnderlyingTicker(newSymbol);
-        if (!LibUnderlying.nameWellFormed(bytes(newName))) revert MalformedUnderlyingName(newName);
-        if (!LibUnderlying.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
+        if (!LibSecurity.tickerWellFormed(bytes(newSymbol))) revert MalformedUnderlyingTicker(newSymbol);
+        if (!LibSecurity.nameWellFormed(bytes(newName))) revert MalformedUnderlyingName(newName);
+        if (!LibSecurity.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
 
-        LibUnderlying.UnderlyingStorage storage underlyingStorage = LibUnderlying.getStorage();
+        LibSecurity.UnderlyingStorage storage underlyingStorage = LibSecurity.getStorage();
         emit UnderlyingSet(
             msg.sender,
             underlyingStorage.symbol,
@@ -299,17 +299,18 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (tag != STOX_TOKEN_CONFIG_V1_TAG) revert InvalidStoxTokenConfigTag(tag);
         (, StoxTokenConfigV1 memory config) = abi.decode(data, (bytes32, StoxTokenConfigV1));
         if (keccak256(abi.encode(tag, config)) != keccak256(data)) revert NonCanonicalStoxTokenConfig();
-        if (!LibUnderlying.isinWellFormed(config.assetId)) revert MalformedAssetId(config.assetId);
-        if (!LibUnderlying.tickerWellFormed(bytes(config.listingTicker))) {
+        if (!LibSecurity.isinWellFormed(config.assetId)) revert MalformedAssetId(config.assetId);
+        if (!LibSecurity.tickerWellFormed(bytes(config.listingTicker))) {
             revert MalformedListingTicker(config.listingTicker);
         }
-        if (!LibUnderlying.nameWellFormed(bytes(config.listingName))) revert MalformedListingName(config.listingName);
+        if (!LibSecurity.nameWellFormed(bytes(config.listingName))) revert MalformedListingName(config.listingName);
 
         LibStoxTokenConfig.StoxTokenConfigStorage storage s = LibStoxTokenConfig.getStorage();
         s.assetId = config.assetId;
         s.listingTicker = config.listingTicker;
         s.listingName = config.listingName;
         s.region = config.region;
+        s.assetIdKind = config.assetIdKind;
 
         emit StoxTokenInitialized(msg.sender, config);
 
@@ -330,7 +331,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
     /// with no override.
     function resolveUnderlying() internal view returns (string memory, string memory, string memory) {
         LibUnderlyingSnapshot.Lookup memory row = LibUnderlyingSnapshot.lookup(UNDERLYING_SNAPSHOT_ROOT, address(this));
-        LibUnderlying.UnderlyingStorage storage o = LibUnderlying.getStorage();
+        LibSecurity.UnderlyingStorage storage o = LibSecurity.getStorage();
         if (o.timestamp > row.asOf) return (o.symbol, o.name, o.isin);
         if (row.found) return (row.ticker, row.name, row.isin);
         if (o.timestamp > 0) return (o.symbol, o.name, o.isin);

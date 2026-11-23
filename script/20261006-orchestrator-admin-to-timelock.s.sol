@@ -7,9 +7,9 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.33/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.33/src/lib/LibSafeFork.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
@@ -76,10 +76,13 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// `renounceRole` itself immediately.
 ///
 /// The record is applied onto the beacon-initial-owner bind record, which
-/// follows the migration-registry-v5 backfill record, which follows the
-/// EMERGENCY grant's, so the registry refuses it on a chain where
-/// that grant has not executed: the Safe must be granted `EMERGENCY_ROLE` while
-/// it can still do so directly.
+/// follows the 0G token creation record and the migration-registry-v5
+/// backfill record before it, which follows the EMERGENCY grant's, so the
+/// registry refuses it on a chain where that grant has not executed: the Safe
+/// must be granted `EMERGENCY_ROLE` while it can still do so directly. On 0G
+/// (`LibStoxMigrations.withoutHistory`) the backfill writes the EMERGENCY
+/// grant's record record-only, without the grant, so there the line proves
+/// nothing about it. The pre-flight's own `EMERGENCY_ROLE` check covers 0G.
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a
@@ -125,7 +128,8 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
-/// `20261006-grant-orchestrator-emergency` has executed there.
+/// `20261022-bind-beacon-initial-owner` has landed there: the pre-flight
+/// refuses unless that record heads the root line.
 contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {

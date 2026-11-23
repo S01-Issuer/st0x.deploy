@@ -5,10 +5,11 @@ pragma solidity =0.8.25;
 import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {
     ExecuteUnderlyingNaming,
@@ -20,7 +21,8 @@ import {
     ScheduleUnderlyingNamingBeacons,
     ImplementationNotDeployed,
     BeaconAlreadyUpgraded,
-    OperationAlreadyScheduled
+    OperationAlreadyScheduled,
+    BeaconUpgradeMovedMetadata
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 import {
     ScheduleUnderlyingNamingRename,
@@ -39,15 +41,20 @@ import {IStoxUnderlyingV2} from "../../src/interface/IStoxUnderlyingV2.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
-import {LibTimelockController} from "rain-deploy-0.1.33/src/lib/LibTimelockController.sol";
+import {LibTimelockController} from "rain-deploy-0.1.38/src/lib/LibTimelockController.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibTokenInvariants, TokenInstance, NoTokenTableForChain} from "../../src/lib/LibTokenInvariants.sol";
-import {BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
-import {ST0X_NAME_SUFFIX} from "../../src/lib/LibUnderlying.sol";
+import {
+    LibTokenInvariants,
+    TokenInstance,
+    NoTokenTableForChain,
+    ReceiptVaultOwnerMismatch
+} from "../../src/lib/LibTokenInvariants.sol";
+import {BeaconImplementationMismatch, BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
+import {ST0X_NAME_SUFFIX} from "../../src/lib/LibSecurity.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,
@@ -183,7 +190,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
 
     function testRenameBatchExactOnEveryDeploymentNetwork() external pure {
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 i = 0; i < networks.length; i++) {
             assertRenameBatchExact(networks[i].chainId, networks[i].name);
         }
@@ -251,7 +258,9 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         vm.expectPartialRevert(ImplementationNotDeployed.selector);
         beacons.callPreflight();
         vm.expectRevert(
-            abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK)
+            abi.encodeWithSelector(
+                UnexpectedMigrationLine.selector, LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
+            )
         );
         rename.callPreflight();
         plantImplementations();
@@ -261,7 +270,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
             string.concat(network, ": beacon record")
         );
-        completeOwnershipHandover(chainId, rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         assertEq(
             LibStoxMigrations.head(),
@@ -308,7 +316,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
     }
 
     function testRolloutOnEveryDeploymentNetwork() external {
-        string[] memory networks = LibStoxDeployNetworks.deploymentNetworks();
+        string[] memory networks = LibStoxDeployNetworks.networksBeforeZerog();
         for (uint256 i = 0; i < networks.length; i++) {
             assertRollout(networks[i]);
         }
@@ -330,7 +338,6 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("nvda");
         authorVerifyExecute(address(beacons), beacons.callArtifactPath());
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("nvda");
-        completeOwnershipHandover(chainId, rename);
         authorVerifyExecute(address(rename), rename.callArtifactPath());
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
@@ -504,12 +511,90 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         beacons.callPreflight();
     }
 
+    /// @notice The rename pre-flight refuses a production vault the timelock
+    /// does not own, since its `setUnderlying` would revert the whole batch.
+    function testRenamePreflightRefusesAVaultOffTheTimelock() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("owner");
+        prepareRename();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        address vault = LibUnderlyingNamingRollout.tokens(block.chainid)[0].receiptVault;
+        vm.prank(timelock);
+        Ownable(vault).transferOwnership(safe);
+        vm.expectRevert(abi.encodeWithSelector(ReceiptVaultOwnerMismatch.selector, vault, timelock, safe));
+        rename.callPreflight();
+    }
+
+    /// @notice The beacon pre-flight refuses a beacon that serves anything but
+    /// its pinned from-implementation, so a batch is never scheduled over an
+    /// upgrade it does not know about.
+    function testBeaconPreflightRefusesAnUnknownFromImplementation() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        plantImplementations();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("from-impl");
+        beacons.callPreflight();
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address[2] memory beaconAddresses = [
+            LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid),
+            LibUnderlyingNamingRollout.wrappedTokenVaultBeacon(block.chainid)
+        ];
+        address[2] memory froms = [
+            LibUnderlyingNamingRollout.RECEIPT_VAULT_FROM_IMPLEMENTATION,
+            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION
+        ];
+        // Any deployed implementation that is neither side of the batch.
+        address other = LibUnderlyingNamingRollout.FACET;
+        for (uint256 beaconIndex = 0; beaconIndex < beaconAddresses.length; beaconIndex++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.prank(timelock);
+            UpgradeableBeacon(beaconAddresses[beaconIndex]).upgradeTo(other);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    BeaconImplementationMismatch.selector, beaconAddresses[beaconIndex], froms[beaconIndex], other
+                )
+            );
+            beacons.callPreflight();
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice The beacon batch's execution proof refuses a wrapper whose name
+    /// or a vault whose symbol moved across the upgrade.
+    function testBeaconProofRefusesEachBrokenUpgrade() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        landBeaconSchedule();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("proof-refusals");
+        TokenInstance memory first = LibUnderlyingNamingRollout.tokens(block.chainid)[0];
+
+        uint256 snapshot = vm.snapshotState();
+        // A value read before the batch and another after it: the first wrapper's name, the last vault's symbol.
+        bytes[] memory moved = new bytes[](2);
+        moved[0] = abi.encode("Before");
+        moved[1] = abi.encode("After");
+        vm.mockCalls(first.wrappedTokenVault, abi.encodeWithSignature("name()"), moved);
+        vm.expectRevert(
+            abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, first.wrappedTokenVault, "Before", "After")
+        );
+        beacons.callProveExecution();
+        vm.revertToState(snapshot);
+        vm.clearMockedCalls();
+
+        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
+        address lastVault = chainTokens[chainTokens.length - 1].receiptVault;
+        vm.mockCalls(lastVault, abi.encodeWithSignature("symbol()"), moved);
+        vm.expectRevert(abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, lastVault, "Before", "After"));
+        beacons.callProveExecution();
+    }
+
     /// @notice The rename pre-flight refuses once the rename is registered.
     function testRenamePreflightRefusesARegisteredRename() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("refusals");
-        prepareRename(rename);
+        prepareRename();
         rename.callPreflight();
         executePrefix(rename.callAuthorBundle(), 1);
         vm.expectRevert(
@@ -586,7 +671,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
     function testRenamePreflightRefusesAMismatchedTicker() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("ticker");
-        prepareRename(rename);
+        prepareRename();
         rename.callPreflight();
         TokenInstance memory last =
             LibUnderlyingNamingRollout.tokens(block.chainid)[LibUnderlyingNamingRollout.TOKEN_COUNT - 1];

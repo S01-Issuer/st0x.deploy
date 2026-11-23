@@ -5,13 +5,13 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
     OffchainAssetReceiptVaultConfigV3
-} from "rain-vats-0.2.22/src/interface/IOffchainAssetReceiptVaultV1.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.11/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+} from "rain-vats-0.2.25/src/interface/IOffchainAssetReceiptVaultV1.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.14/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";

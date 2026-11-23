@@ -95,7 +95,35 @@
         "0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "tokenTableHydrated": true
+    },
+    "16661": {
+      "authoriser": "0x6173C9ac3cCb2f6a2F175b0d1fb5DA86fDD5F221",
+      "beaconSetDeployer": "0xd64246e6b25F745f005E6233e050C9B879E660Dc",
+      "beacons": [
+        {
+          "beacon": "0x0000000000000000000000000000000000000000",
+          "implementation": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
+          "v1Implementation": "0x0000000000000000000000000000000000000000"
+        },
+        {
+          "beacon": "0x0000000000000000000000000000000000000000",
+          "implementation": "0x2BCcEd626566Ef1e65F922DD03748C5C7aa2d748",
+          "v1Implementation": "0x0000000000000000000000000000000000000000"
+        },
+        {
+          "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
+          "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
+          "v1Implementation": "0x0000000000000000000000000000000000000000"
+        }
+      ],
+      "euAuthoriser": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",
+      "network": "zerog",
+      "receiptVaults": [],
+      "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "tokenTableHydrated": false
     },
     "4663": {
       "authoriser": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
@@ -186,7 +214,8 @@
         "0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "tokenTableHydrated": true
     },
     "56": {
       "authoriser": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
@@ -277,7 +306,8 @@
         "0x21ebe855F15c2e1BAdea603c1cB07B964096A616"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "tokenTableHydrated": true
     },
     "8453": {
       "authoriser": "0x315b16faa6eE413faBCa877d3851B3818369f0cD",
@@ -368,7 +398,8 @@
         "0x37a2B2D6Fe9cFC474692a3a0016519332BD49509"
       ],
       "safe": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
-      "timelock": "0x48ba1371A78E6cC54157c63721756ab444510DB3"
+      "timelock": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
+      "tokenTableHydrated": true
     },
     "999": {
       "authoriser": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
@@ -459,9 +490,11 @@
         "0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+      "tokenTableHydrated": true
     }
   },
+  "registryRootAuthority": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
   "safePolicy": {
     "owners": [
       "0x4746095B1Ea1A84446d34448f44e74D3d51f92F2",

@@ -15,11 +15,15 @@ error GrantEuAuthoriserRolesRecordedByBackfill(uint256 chainId);
 error NoGrantEuAuthoriserRolesOnChain(uint256 chainId);
 
 /// @notice This script's declaration on the root line: after the
-/// governance-timelock history, recorded as history at its V2 moment.
+/// governance-timelock record, recorded as history at its V2 moment,
+/// record-only on 0G (`LibStoxMigrations.withoutHistory`).
+/// @param chainId The chain id.
 /// @return The declaration.
-function grantEuAuthoriserRolesDeclaration() pure returns (ScriptDeclaration memory) {
+function grantEuAuthoriserRolesDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES, onto: LibStoxMigrations.GOVERNANCE_TIMELOCK, history: true
+        id: LibStoxMigrations.GRANT_EU_AUTHORISER_ROLES,
+        onto: LibStoxMigrations.GOVERNANCE_TIMELOCK,
+        history: !LibStoxMigrations.withoutHistory(chainId)
     });
 }
 
@@ -39,8 +43,8 @@ contract GrantEuAuthoriserRoles is IStoxScript, IStoxHistoryMigration {
     }
 
     /// @inheritdoc IStoxScript
-    function declaration(uint256) external pure returns (ScriptDeclaration memory) {
-        return grantEuAuthoriserRolesDeclaration();
+    function declaration(uint256 chainId) external pure returns (ScriptDeclaration memory) {
+        return grantEuAuthoriserRolesDeclaration(chainId);
     }
 
     function run() external view {

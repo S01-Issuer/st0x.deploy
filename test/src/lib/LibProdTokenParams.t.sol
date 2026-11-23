@@ -5,17 +5,17 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
-import {DeployDependency, LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.33/src/generated/0_1_29/ConfigRegistry.sol";
+import {DeployDependency, LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS
-} from "rain-factory-deploy-0.2.11/src/generated/0_2_5/CloneFactory.sol";
+} from "rain-factory-deploy-0.2.14/src/generated/0_2_5/CloneFactory.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyParams
-} from "rain-factory-0.2.14/src/lib/LibRainDeployRegistryBeaconProxy.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.22/src/interface/IAuthorizeV1.sol";
+} from "rain-factory-0.2.18/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
@@ -23,8 +23,8 @@ import {LibStoxTokenProxy} from "../../../src/generated/LibStoxTokenProxy.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../../../src/interface/IStoxTokenConfigV1.sol";
-import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
+import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
 import {LibTestTokenRows} from "../../lib/LibTestTokenRows.sol";
@@ -67,6 +67,7 @@ contract LibProdTokenParamsTest is Test {
             assertEq(abi.encode(tag, config), params[i].data, "canonical");
             assertEq(tag, STOX_TOKEN_CONFIG_V1_TAG, "tag");
             assertEq(config.assetId, configs[i].assetId, "asset id");
+            assertEq(uint8(config.assetIdKind), uint8(AssetIdKind.ISIN), "asset id kind");
             assertEq(config.listingTicker, configs[i].listingTicker, "listing ticker");
             assertEq(config.listingName, configs[i].listingName, "listing name");
             assertEq(uint8(config.region), uint8(configs[i].region), "region");

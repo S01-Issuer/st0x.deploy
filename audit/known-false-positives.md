@@ -25,3 +25,18 @@ built rows, `testLeadingRowsCutsALongerTableAndRefusesAShorterOne` tests the cut
 on a longer table, and `testTokenSetIsPinnedByIdentity` fails on a 57th row.
 Both calls stay: the rename pre-flight must check the rows it sets, and the
 rename id must not move when a table grows.
+
+## `src/lib/LibTokenInvariants.sol`: hydrated guard on the placeholder 0G table
+
+Mutants: in `hydrated(chainId, tokens)`, the loop bound `i < tokens.length`
+becomes `i < 1`, `return tokens;` becomes `return new TokenInstance[](0);`, and
+`tokens[i].receiptVault` becomes `tokens[i].wrappedTokenVault`. The guard is
+interim: the only table it reads is the 0G table, and every row of that table is
+still a placeholder, so each mutant reverts `TokenTableNotHydrated` on the first
+row exactly as the original does. On the tables that exist today the mutants are
+indistinguishable; `testZerogPlaceholderTableIsRefused` pins the refusal.
+Killing them is deferred to the hydration PR
+([RAI-4598](https://linear.app/makeitrain/issue/RAI-4598)), which replaces the
+0G table and adds 0G to
+`testProductionTokenAddressesAreNonzeroAndUniquePerChain`, where the row-for-row
+coverage lands. Remove this entry in that PR.

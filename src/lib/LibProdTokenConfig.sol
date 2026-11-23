@@ -36,7 +36,7 @@ pragma solidity ^0.8.25;
 /// snapshot row and no override reports the `name` + `symbol` it was
 /// initialized with, and the wrapped token vault `"Wrapped " + name` /
 /// `"w" + symbol`.
-/// @param assetId The ISIN of the underlying, as the Final Terms state it.
+/// @param assetId The listing-time ISIN of the share line the token tracks.
 /// @param listingTicker The underlying's ticker as listed.
 /// @param listingName The underlying's name as listed.
 /// @param underlying The frozen chain-agnostic join key, matching
@@ -44,7 +44,9 @@ pragma solidity ^0.8.25;
 /// @param ticker The current underlying ticker, as the snapshot records it.
 /// @param name The receipt vault's ERC-20 `name()`, verbatim from Base.
 /// @param symbol The receipt vault's ERC-20 `symbol()`, verbatim from Base.
-/// @param region Where the underlying is listed.
+/// @param region The issuance region, which picks the token's RBAC and
+/// authoriser. It is not the listing venue: tMC.PA is Paris-listed and issued
+/// under US.
 /// @param underlyingName The issuer's current legal name, without any ST0x
 /// suffix: the `name` argument of `setUnderlying`. Usually the live `name`
 /// without " ST0x"; it differs where the issuer has since been renamed
@@ -248,7 +250,7 @@ library LibProdTokenConfig {
             ticker: "SGOV",
             assetId: "US46436E7186",
             listingTicker: "SGOV",
-            listingName: " iShares 0-3 Month Treasury Bond ETF",
+            listingName: "iShares 0-3 Month Treasury Bond ETF",
             name: " iShares 0-3 Month Treasury Bond ETF ST0x",
             symbol: "tSGOV",
             region: Region.US,
@@ -819,6 +821,190 @@ library LibProdTokenConfig {
         });
     }
 
+    /// @notice Tokens live on Ethereum, HyperEVM, Robinhood and BSC that no Base row carries, with Ethereum's verbatim
+    /// names and symbols. Every chain issues them under US, so their region routes them to the US authoriser.
+    /// @return configs The rows.
+    function offBaseTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
+        configs = new TokenConfig[](6);
+        configs[0] = TokenConfig({
+            underlying: "AIR.PA",
+            ticker: "AIR.PA",
+            assetId: "NL0000235190",
+            listingTicker: "AIR",
+            listingName: "Airbus SE",
+            name: "Airbus SE ST0x",
+            symbol: "tAIR.PA",
+            region: Region.US,
+            underlyingName: "Airbus SE",
+            isin: "NL0000235190"
+        });
+        configs[1] = TokenConfig({
+            underlying: "BMW.DE",
+            ticker: "BMW.DE",
+            assetId: "DE0005190003",
+            listingTicker: "BMW",
+            listingName: "Bayerische Motoren Werke Aktiengesellschaft",
+            name: "Bayerische Motoren Werke Aktiengesellschaft ST0x",
+            symbol: "tBMW.DE",
+            region: Region.US,
+            underlyingName: "Bayerische Motoren Werke Aktiengesellschaft",
+            isin: "DE0005190003"
+        });
+        configs[2] = TokenConfig({
+            underlying: "MC.PA",
+            ticker: "MC.PA",
+            assetId: "FR0000121014",
+            listingTicker: "MC",
+            listingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
+            name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x",
+            symbol: "tMC.PA",
+            region: Region.US,
+            underlyingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
+            isin: "FR0000121014"
+        });
+        configs[3] = TokenConfig({
+            underlying: "SIE.DE",
+            ticker: "SIE.DE",
+            assetId: "DE0007236101",
+            listingTicker: "SIE",
+            listingName: "Siemens Aktiengesellschaft",
+            name: "Siemens Aktiengesellschaft ST0x",
+            symbol: "tSIE.DE",
+            region: Region.US,
+            underlyingName: "Siemens Aktiengesellschaft",
+            isin: "DE0007236101"
+        });
+        configs[4] = TokenConfig({
+            underlying: "MBG.DE",
+            ticker: "MBG.DE",
+            assetId: "DE0007100000",
+            listingTicker: "MBG",
+            listingName: "Mercedes-Benz Group AG",
+            name: "Mercedes-Benz Group AG ST0x",
+            symbol: "tMBG.DE",
+            region: Region.US,
+            underlyingName: "Mercedes-Benz Group AG",
+            isin: "DE0007100000"
+        });
+        configs[5] = TokenConfig({
+            underlying: "RHM.DE",
+            ticker: "RHM.DE",
+            assetId: "DE0007030009",
+            listingTicker: "RHM",
+            listingName: "Rheinmetall AG",
+            name: "Rheinmetall AG ST0x",
+            symbol: "tRHM.DE",
+            region: Region.US,
+            underlyingName: "Rheinmetall AG",
+            isin: "DE0007030009"
+        });
+    }
+
+    /// @notice The canonical token order: the 0.1.1 beacon-set deployers' creation sequence that Ethereum and HyperEVM
+    /// agree on, slots 0-64. A chain created in this order holds the same token at the same address.
+    /// @return The underlyings.
+    function canonicalTokenOrder() internal pure returns (string[65] memory) {
+        return [
+            "MSTR",
+            "TSLA",
+            "COIN",
+            "SPYM",
+            "SIVR",
+            "CRCL",
+            "NVDA",
+            "IAU",
+            "PPLT",
+            "AMZN",
+            "BMNR",
+            "IBHG",
+            "SGOV",
+            "QQQM",
+            "VWO",
+            "ARKK",
+            "SPCX",
+            "CEG",
+            "DRAM",
+            "TSM",
+            "SKHY",
+            "ASML",
+            "MU",
+            "AMD",
+            "AVGO",
+            "AMAT",
+            "LRCX",
+            "TTWO",
+            "RKLB",
+            "HOOD",
+            "ORCL",
+            "SMCI",
+            "BABA",
+            "TQQQ",
+            "AAPL",
+            "GOOGL",
+            "INTC",
+            "LLY",
+            "MSFT",
+            "PTY",
+            "FTF",
+            "CBRS",
+            "AIR.PA",
+            "BMW.DE",
+            "MC.PA",
+            "SIE.DE",
+            "MBG.DE",
+            "RHM.DE",
+            "MCD",
+            "NKE",
+            "GRND",
+            "DNUT",
+            "PLBY",
+            "TR",
+            "WEN",
+            "FGI",
+            "BIRD",
+            "SPY",
+            "SNES",
+            "WMT",
+            "MC",
+            "DIS",
+            "IFX",
+            "SOI",
+            "TPRO"
+        ];
+    }
+
+    /// @notice The canonical token rows, in `canonicalTokenOrder`.
+    /// @return configs The rows.
+    function canonicalTokenConfigs() internal pure returns (TokenConfig[] memory configs) {
+        string[65] memory order = canonicalTokenOrder();
+        TokenConfig[] memory production = productionTokenConfigs();
+        TokenConfig[] memory offBase = offBaseTokenConfigs();
+        configs = new TokenConfig[](order.length);
+        for (uint256 i = 0; i < order.length; i++) {
+            configs[i] = rowIn(order[i], production, offBase);
+        }
+    }
+
+    /// @notice The row for `underlying` in `first`, else in `second`.
+    /// @param underlying The ticker join key.
+    /// @param first The table searched first.
+    /// @param second The table searched next.
+    /// @return The row. Reverts `UnknownUnderlying` when neither has one.
+    function rowIn(string memory underlying, TokenConfig[] memory first, TokenConfig[] memory second)
+        internal
+        pure
+        returns (TokenConfig memory)
+    {
+        bytes32 key = keccak256(bytes(underlying));
+        for (uint256 i = 0; i < first.length; i++) {
+            if (keccak256(bytes(first[i].underlying)) == key) return first[i];
+        }
+        for (uint256 i = 0; i < second.length; i++) {
+            if (keccak256(bytes(second[i].underlying)) == key) return second[i];
+        }
+        revert UnknownUnderlying(underlying);
+    }
+
     function testTokenConfigs() internal pure returns (TokenConfig[] memory) {
         TokenConfig[] memory configs = new TokenConfig[](2);
         configs[0] = TokenConfig({
@@ -848,20 +1034,15 @@ library LibProdTokenConfig {
         return configs;
     }
 
-    /// @notice The production row for `underlying`.
+    /// @notice The production or off-Base row for `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row. Reverts `UnknownUnderlying` when there is none.
     function configOf(string memory underlying) internal pure returns (TokenConfig memory) {
-        TokenConfig[] memory configs = productionTokenConfigs();
-        for (uint256 rowIndex = 0; rowIndex < configs.length; rowIndex++) {
-            if (keccak256(bytes(configs[rowIndex].underlying)) == keccak256(bytes(underlying))) {
-                return configs[rowIndex];
-            }
-        }
-        revert UnknownUnderlying(underlying);
+        return rowIn(underlying, productionTokenConfigs(), offBaseTokenConfigs());
     }
 
-    /// @notice The region of the production row for `underlying`.
+    /// @notice The region of the production or off-Base row for
+    /// `underlying`.
     /// @param underlying The ticker join key.
     /// @return The row's region. Reverts `UnknownUnderlying` when there is
     /// none.
