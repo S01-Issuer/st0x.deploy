@@ -12,6 +12,11 @@ import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 /// @param chainId The chain id.
 error NoTokenTableForChain(uint256 chainId);
 
+/// @notice A chain whose production token table still holds placeholder
+/// addresses, because the token deploy has not run there yet.
+/// @param chainId The chain id.
+error TokenTableNotHydrated(uint256 chainId);
+
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
 /// "tMSTR" / "wtMSTR") is the chain-agnostic join key: it matches the
@@ -543,11 +548,27 @@ library LibTokenInvariants {
     /// https://basescan.org/address/0x5ED9f297f10e2b72950F5abc2c2B770ee831805b
     address internal constant TPRO_WRAPPED_TOKEN_VAULT = address(0x5ED9f297f10e2b72950F5abc2c2B770ee831805b);
 
+    // ---- tQSEP / wtQSEP — QS Energy Inc ST0x ----
+    // Deliberately NOT a `productionTokensBase()` row. tQSEP is a Base-only,
+    // non-traded token on the shared receipt-vault beacon that never entered
+    // the token table, so every table-driven migration skipped it: both
+    // authoriser swaps left its vault on the V3 clone, and the timelock
+    // migration left its `owner()` on the token-owner Safe. A table row would
+    // make the cross-chain deploy treat tQSEP as missing on every other
+    // chain. Its expected authoriser is `LibAuthoriserInvariants
+    // .STOX_PROD_AUTHORISER`, once the Safe calls `setAuthorizer` on the vault.
+    /// https://basescan.org/address/0x311aA382B864799b3dE5C69478f841229D353B78
+    address internal constant QSEP_RECEIPT = address(0x311aA382B864799b3dE5C69478f841229D353B78);
+    /// https://basescan.org/address/0x4A9a9FC94a507559481270d0BFf3315Ab92Fcefa
+    address internal constant QSEP_RECEIPT_VAULT = address(0x4A9a9FC94a507559481270d0BFf3315Ab92Fcefa);
+    /// https://basescan.org/address/0x849E389982209F901B7B9ffCA57ae4c9EeB11c0d
+    address internal constant QSEP_WRAPPED_TOKEN_VAULT = address(0x849E389982209F901B7B9ffCA57ae4c9EeB11c0d);
+
     /// @notice Returns the production token instance triples on Base, in
     /// the order they were deployed. This is the structured source of truth
     /// the flat `productionReceiptVaults()` accessor derives from; consumers
     /// that need the receipt / wrapped-vault legs or the underlying join key
-    /// (cross-chain parity, per-token config checks) iterate this instead.
+    /// iterate this instead.
     /// @return tokens The production token instances on Base.
     function productionTokensBase() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](59);
@@ -1634,8 +1655,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on Robinhood
     /// Chain (chain id 4663) — Base's underlyings in Base row order, so the
-    /// tables pair by index as well as by key (the cross-chain parity pin
-    /// asserts the alignment).
+    /// tables pair by index as well as by key.
     /// @return tokens The production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](59);
@@ -1997,8 +2017,7 @@ library LibTokenInvariants {
 
     /// @notice Returns the production token instance triples on BNB Smart
     /// Chain (chain id 56) — Base's underlyings in Base row order, so the
-    /// tables pair by index as well as by key (the cross-chain parity pin
-    /// asserts the alignment).
+    /// tables pair by index as well as by key.
     /// @return tokens The production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](59);
@@ -2358,6 +2377,84 @@ library LibTokenInvariants {
         });
     }
 
+    /// @notice Returns the production token instance triples on 0G (chain id
+    /// 16661) in `LibProdTokenConfig.canonicalTokenConfigs()` order, so each 0G
+    /// address is the token Ethereum and HyperEVM hold at the same address.
+    ///
+    /// **ALL PLACEHOLDERS** (`address(0)`) until the 0G token deployment
+    /// executes and the post-execution pin PR hydrates every entry in one
+    /// reviewed change; all-or-nothing, as for every other chain's table
+    /// (`testZerogTokenTableIsAllPlaceholders` pins it until then).
+    /// @return tokens The production token instances on 0G.
+    function productionTokensZerog() internal pure returns (TokenInstance[] memory tokens) {
+        tokens = new TokenInstance[](65);
+        tokens[0] = TokenInstance("MSTR", address(0), address(0), address(0));
+        tokens[1] = TokenInstance("TSLA", address(0), address(0), address(0));
+        tokens[2] = TokenInstance("COIN", address(0), address(0), address(0));
+        tokens[3] = TokenInstance("SPYM", address(0), address(0), address(0));
+        tokens[4] = TokenInstance("SIVR", address(0), address(0), address(0));
+        tokens[5] = TokenInstance("CRCL", address(0), address(0), address(0));
+        tokens[6] = TokenInstance("NVDA", address(0), address(0), address(0));
+        tokens[7] = TokenInstance("IAU", address(0), address(0), address(0));
+        tokens[8] = TokenInstance("PPLT", address(0), address(0), address(0));
+        tokens[9] = TokenInstance("AMZN", address(0), address(0), address(0));
+        tokens[10] = TokenInstance("BMNR", address(0), address(0), address(0));
+        tokens[11] = TokenInstance("IBHG", address(0), address(0), address(0));
+        tokens[12] = TokenInstance("SGOV", address(0), address(0), address(0));
+        tokens[13] = TokenInstance("QQQM", address(0), address(0), address(0));
+        tokens[14] = TokenInstance("VWO", address(0), address(0), address(0));
+        tokens[15] = TokenInstance("ARKK", address(0), address(0), address(0));
+        tokens[16] = TokenInstance("SPCX", address(0), address(0), address(0));
+        tokens[17] = TokenInstance("CEG", address(0), address(0), address(0));
+        tokens[18] = TokenInstance("DRAM", address(0), address(0), address(0));
+        tokens[19] = TokenInstance("TSM", address(0), address(0), address(0));
+        tokens[20] = TokenInstance("SKHY", address(0), address(0), address(0));
+        tokens[21] = TokenInstance("ASML", address(0), address(0), address(0));
+        tokens[22] = TokenInstance("MU", address(0), address(0), address(0));
+        tokens[23] = TokenInstance("AMD", address(0), address(0), address(0));
+        tokens[24] = TokenInstance("AVGO", address(0), address(0), address(0));
+        tokens[25] = TokenInstance("AMAT", address(0), address(0), address(0));
+        tokens[26] = TokenInstance("LRCX", address(0), address(0), address(0));
+        tokens[27] = TokenInstance("TTWO", address(0), address(0), address(0));
+        tokens[28] = TokenInstance("RKLB", address(0), address(0), address(0));
+        tokens[29] = TokenInstance("HOOD", address(0), address(0), address(0));
+        tokens[30] = TokenInstance("ORCL", address(0), address(0), address(0));
+        tokens[31] = TokenInstance("SMCI", address(0), address(0), address(0));
+        tokens[32] = TokenInstance("BABA", address(0), address(0), address(0));
+        tokens[33] = TokenInstance("TQQQ", address(0), address(0), address(0));
+        tokens[34] = TokenInstance("AAPL", address(0), address(0), address(0));
+        tokens[35] = TokenInstance("GOOGL", address(0), address(0), address(0));
+        tokens[36] = TokenInstance("INTC", address(0), address(0), address(0));
+        tokens[37] = TokenInstance("LLY", address(0), address(0), address(0));
+        tokens[38] = TokenInstance("MSFT", address(0), address(0), address(0));
+        tokens[39] = TokenInstance("PTY", address(0), address(0), address(0));
+        tokens[40] = TokenInstance("FTF", address(0), address(0), address(0));
+        tokens[41] = TokenInstance("CBRS", address(0), address(0), address(0));
+        tokens[42] = TokenInstance("AIR.PA", address(0), address(0), address(0));
+        tokens[43] = TokenInstance("BMW.DE", address(0), address(0), address(0));
+        tokens[44] = TokenInstance("MC.PA", address(0), address(0), address(0));
+        tokens[45] = TokenInstance("SIE.DE", address(0), address(0), address(0));
+        tokens[46] = TokenInstance("MBG.DE", address(0), address(0), address(0));
+        tokens[47] = TokenInstance("RHM.DE", address(0), address(0), address(0));
+        tokens[48] = TokenInstance("MCD", address(0), address(0), address(0));
+        tokens[49] = TokenInstance("NKE", address(0), address(0), address(0));
+        tokens[50] = TokenInstance("GRND", address(0), address(0), address(0));
+        tokens[51] = TokenInstance("DNUT", address(0), address(0), address(0));
+        tokens[52] = TokenInstance("PLBY", address(0), address(0), address(0));
+        tokens[53] = TokenInstance("TR", address(0), address(0), address(0));
+        tokens[54] = TokenInstance("WEN", address(0), address(0), address(0));
+        tokens[55] = TokenInstance("FGI", address(0), address(0), address(0));
+        tokens[56] = TokenInstance("BIRD", address(0), address(0), address(0));
+        tokens[57] = TokenInstance("SPY", address(0), address(0), address(0));
+        tokens[58] = TokenInstance("SNES", address(0), address(0), address(0));
+        tokens[59] = TokenInstance("WMT", address(0), address(0), address(0));
+        tokens[60] = TokenInstance("MC", address(0), address(0), address(0));
+        tokens[61] = TokenInstance("DIS", address(0), address(0), address(0));
+        tokens[62] = TokenInstance("IFX", address(0), address(0), address(0));
+        tokens[63] = TokenInstance("SOI", address(0), address(0), address(0));
+        tokens[64] = TokenInstance("TPRO", address(0), address(0), address(0));
+    }
+
     /// @notice Returns the production receipt vault addresses on Base, in
     /// the order they were deployed. Provided so consumers (e.g. invariant
     /// assertions, migration scripts) can iterate without hardcoding the
@@ -2381,7 +2478,9 @@ library LibTokenInvariants {
         return vaults;
     }
 
-    /// @notice The chain's production token table.
+    /// @notice The chain's production token table. Reverts
+    /// `NoTokenTableForChain` on a chain with no table and
+    /// `TokenTableNotHydrated` on a chain whose table is still a placeholder.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function productionTokensForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
@@ -2390,7 +2489,36 @@ library LibTokenInvariants {
         if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();
         if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return productionTokensRobinhood();
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return productionTokensBsc();
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return hydrated(chainId, productionTokensZerog());
         revert NoTokenTableForChain(chainId);
+    }
+
+    /// @notice Whether `chainId`'s token table names every token's receipt
+    /// vault. A table of placeholders (0G's, whose tokens the 0G token
+    /// creation makes) does not. A generator skips the token output of a chain whose table is not hydrated
+    /// and says so; every other consumer goes through
+    /// `productionTokensForChainId`, which refuses that table.
+    /// @param chainId The chain id.
+    /// @return Whether every row has a receipt vault.
+    function tokenTableHydrated(uint256 chainId) internal pure returns (bool) {
+        TokenInstance[] memory tokens =
+            chainId == LibSafeInvariants.ZEROG_CHAIN_ID ? productionTokensZerog() : productionTokensForChainId(chainId);
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i].receiptVault == address(0)) return false;
+        }
+        return true;
+    }
+
+    /// @notice `tokens`, unless a row has no receipt vault yet, so consumers
+    /// fail closed on a placeholder table instead of targeting `address(0)`.
+    /// @param chainId The chain id, for the revert.
+    /// @param tokens The chain's token table.
+    /// @return The same table.
+    function hydrated(uint256 chainId, TokenInstance[] memory tokens) internal pure returns (TokenInstance[] memory) {
+        for (uint256 i = 0; i < tokens.length; i++) {
+            if (tokens[i].receiptVault == address(0)) revert TokenTableNotHydrated(chainId);
+        }
+        return tokens;
     }
 
     /// @notice Assert that every production receipt vault reports the same
@@ -2438,6 +2566,22 @@ library LibTokenInvariants {
         assertUniformAuthoriser(productionTokensBase(), expected);
     }
 
+    /// @notice The authoriser a token's receipt vault must report on a chain: the chain's EU authoriser for an EU
+    /// underlying (`LibProdTokenConfig` region), `usAuthoriser` otherwise.
+    /// @param underlying The token's underlying ticker.
+    /// @param usAuthoriser The authoriser every US receipt vault on the chain shares.
+    /// @param chainId The chain id.
+    /// @return The expected authoriser.
+    function expectedAuthoriser(string memory underlying, address usAuthoriser, uint256 chainId)
+        internal
+        pure
+        returns (address)
+    {
+        return LibProdTokenConfig.regionOf(underlying) == Region.EU
+            ? LibAuthoriserInvariants.euAuthoriserForChainId(chainId)
+            : usAuthoriser;
+    }
+
     /// @notice Chain-parametric `assertUniformAuthoriser`: assert every
     /// receipt vault in the supplied token table reports `expected` as its
     /// authoriser. The Base overload delegates here with
@@ -2451,10 +2595,7 @@ library LibTokenInvariants {
     /// @param expected The authoriser every US receipt vault must share.
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
         for (uint256 i = 0; i < tokens.length; i++) {
-            address expectedForToken = expected;
-            if (LibProdTokenConfig.regionOf(tokens[i].underlying) == Region.EU) {
-                expectedForToken = LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
-            }
+            address expectedForToken = expectedAuthoriser(tokens[i].underlying, expected, block.chainid);
             address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
             if (actual != expectedForToken) {
                 revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expectedForToken, actual);

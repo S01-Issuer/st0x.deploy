@@ -6,10 +6,9 @@ import {
     ERC4626Upgradeable
 } from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/extensions/ERC4626Upgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
-import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.11/src/interface/ICloneableV2.sol";
+import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.18/src/interface/ICloneableV2.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
-import {IStoxAssetIdV1} from "../interface/IStoxAssetIdV1.sol";
 
 /// @dev Error raised when a zero address is provided for the vault asset.
 error ZeroAsset();
@@ -35,7 +34,7 @@ error ZeroAsset();
 /// asset's own name when its `underlyingName()` is non-empty (e.g.
 /// "NVIDIA Corporation (ST0x)"), else "Wrapped " + that name. Any ERC-20
 /// asset can be wrapped.
-contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2, IStoxAssetIdV1 {
+contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2 {
     /// @dev Emitted when the StoxWrappedTokenVault is initialized.
     /// @param sender The address that initiated the initialization.
     /// @param asset The address of the underlying asset for the vault.
@@ -90,12 +89,6 @@ contract StoxWrappedTokenVault is ERC4626Upgradeable, ICloneableV2, IStoxAssetId
         string memory underlying = tryAssetString(IStoxUnderlyingV1.underlyingSymbol.selector);
         if (bytes(underlying).length > 0) return string.concat(underlying, "s");
         return string.concat("w", IERC20Metadata(asset()).symbol());
-    }
-
-    /// The asset's `IStoxAssetIdV1.assetId()`, or "" when the asset does not answer a well-formed one; never reverts.
-    /// @return The asset id, or "".
-    function assetId() external view override returns (string memory) {
-        return tryAssetString(IStoxAssetIdV1.assetId.selector);
     }
 
     /// @dev Calls a zero-argument `string`-returning getter on the asset and

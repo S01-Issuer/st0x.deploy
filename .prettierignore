@@ -1,4 +1,5 @@
 ideal-roles.json
+expected-state.json
 privileged-addresses.json
 migrations.json
 subgraph/networks.json

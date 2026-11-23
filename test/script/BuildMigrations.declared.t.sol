@@ -3,11 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 
-import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title BuildMigrationsDeclaredTest
@@ -17,7 +17,7 @@ contract BuildMigrationsDeclaredTest is Test {
     string internal constant MANIFEST = "migrations.json";
 
     function networks() internal pure returns (SupportedNetwork[] memory) {
-        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        return LibStoxMigrations.lineNetworks();
     }
 
     function index(string memory at, uint256 i) internal pure returns (string memory) {
@@ -76,7 +76,7 @@ contract BuildMigrationsDeclaredTest is Test {
 
     function testTheManifestIsTheRootLine() external view {
         (string memory json,) = manifest();
-        assertEq(vm.parseJsonUint(json, ".version"), 1);
+        assertEq(vm.parseJsonUint(json, ".version"), 2);
         assertEq(vm.parseJsonBytes32(json, ".genesis"), MIGRATION_HEAD_GENESIS);
         assertEq(vm.parseJsonAddress(json, ".writer"), LibRegistryAuthority.ROOT_AUTHORITY);
         assertEq(vm.parseJsonBytes32(json, ".namespace"), LibStoxMigrations.NAMESPACE);
@@ -91,7 +91,17 @@ contract BuildMigrationsDeclaredTest is Test {
         }
     }
 
-    function testEveryRowIsDeclaredOnEveryDeploymentNetwork() external view {
+    function testTheNetworksAreEveryChainWithALine() external view {
+        (string memory json,) = manifest();
+        SupportedNetwork[] memory nets = networks();
+        assertEq(vm.parseJsonKeys(json, ".networks").length, nets.length);
+        for (uint256 n = 0; n < nets.length; n++) {
+            string memory at = string.concat(".networks.", vm.toString(nets[n].chainId));
+            assertEq(vm.parseJsonString(json, string.concat(at, ".network")), nets[n].name, at);
+        }
+    }
+
+    function testEveryRowIsDeclaredOnEveryChainWithALine() external view {
         (string memory json, uint256 rows) = manifest();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < rows; i++) {
@@ -132,6 +142,45 @@ contract BuildMigrationsDeclaredTest is Test {
                 assertGe(moment, last, at);
                 last = moment;
             }
+        }
+    }
+
+    /// @dev The manifest row of `id`.
+    function rowOf(string memory json, uint256 rows, bytes32 id) internal pure returns (uint256) {
+        for (uint256 i = 0; i < rows; i++) {
+            if (idOf(json, i) == id) return i;
+        }
+        revert("no row");
+    }
+
+    /// @notice The 0G token creation is recorded right after the backfill on
+    /// every chain, and the first migration no chain has run yet follows it.
+    function testEveryChainRecordsTheTokenCreationRightAfterTheBackfill() external view {
+        (string memory json, uint256 rows) = manifest();
+        uint256 creation = rowOf(json, rows, LibStoxMigrations.CREATE_ZEROG_TOKENS);
+        uint256 bind = rowOf(json, rows, LibStoxMigrations.BIND_BEACON_INITIAL_OWNER);
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 n = 0; n < nets.length; n++) {
+            uint256 chainId = nets[n].chainId;
+            assertEq(
+                ontoOf(json, creation, chainId),
+                LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5,
+                chain(creation, chainId)
+            );
+            assertEq(executedAtOf(json, creation, chainId), 0, chain(creation, chainId));
+            assertEq(ontoOf(json, bind, chainId), LibStoxMigrations.CREATE_ZEROG_TOKENS, chain(bind, chainId));
+        }
+    }
+
+    /// @notice 0G's line holds every record, each record-only, in the order
+    /// of every other chain off Base: 0G ran none of the history.
+    function testZerogsLineIsTheOffBaseLineRecordOnly() external view {
+        (string memory json, uint256 rows) = manifest();
+        uint256 zerog = LibSafeInvariants.ZEROG_CHAIN_ID;
+        uint256 ethereum = LibSafeInvariants.ETHEREUM_CHAIN_ID;
+        for (uint256 i = 0; i < rows; i++) {
+            assertEq(ontoOf(json, i, zerog), ontoOf(json, i, ethereum), chain(i, zerog));
+            assertEq(executedAtOf(json, i, zerog), 0, chain(i, zerog));
         }
     }
 }

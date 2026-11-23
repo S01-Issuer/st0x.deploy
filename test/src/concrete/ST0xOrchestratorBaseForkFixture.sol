@@ -3,35 +3,35 @@
 pragma solidity ^0.8.25;
 
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {IRainlangV2} from "rainlang-0.2.32/src/interface/IRainlangV2.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {IRainlangV2} from "rainlang-0.2.40/src/interface/IRainlangV2.sol";
 import {
     EvaluableV4,
     SignedContextV2,
     IParserV2,
     IInterpreterV4,
     IInterpreterStoreV3
-} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
 import {
     DEPLOYED_ADDRESS as RAINLANG_0_1_12,
     BYTECODE_HASH as RAINLANG_0_1_12_CODEHASH
-} from "rainlang-deploy-0.1.12/src/generated/0_1_12/Rainlang.sol";
+} from "rainlang-deploy-0.1.15/src/generated/0_1_12/Rainlang.sol";
 import {
     DEPLOYED_ADDRESS as RAINLANG_COMPILER_0_1_12,
     BYTECODE_HASH as RAINLANG_COMPILER_0_1_12_CODEHASH
-} from "rainlang-deploy-0.1.12/src/generated/0_1_12/RainlangCompiler.sol";
+} from "rainlang-deploy-0.1.15/src/generated/0_1_12/RainlangCompiler.sol";
 import {
     DEPLOYED_ADDRESS as RAINLANG_INTERPRETER_0_1_12,
     BYTECODE_HASH as RAINLANG_INTERPRETER_0_1_12_CODEHASH
-} from "rainlang-deploy-0.1.12/src/generated/0_1_12/RainlangInterpreter.sol";
+} from "rainlang-deploy-0.1.15/src/generated/0_1_12/RainlangInterpreter.sol";
 import {
     DEPLOYED_ADDRESS as RAINLANG_STORE_0_1_12,
     BYTECODE_HASH as RAINLANG_STORE_0_1_12_CODEHASH
-} from "rainlang-deploy-0.1.12/src/generated/0_1_12/RainlangStore.sol";
+} from "rainlang-deploy-0.1.15/src/generated/0_1_12/RainlangStore.sol";
 import {
     DEPLOYED_ADDRESS as RAINLANG_PARSER_0_1_12,
     BYTECODE_HASH as RAINLANG_PARSER_0_1_12_CODEHASH
-} from "rainlang-deploy-0.1.12/src/generated/0_1_12/RainlangParser.sol";
+} from "rainlang-deploy-0.1.15/src/generated/0_1_12/RainlangParser.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
