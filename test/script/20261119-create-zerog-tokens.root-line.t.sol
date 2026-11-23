@@ -28,8 +28,6 @@ import {
     ZerogAuthoriserSafeAdmin,
     ZerogDeployersOutOfStep,
     ZerogOrchestratorGranted,
-    ZerogTokenRowNotPlaceholder,
-    ZerogTokenTableLengthMismatch,
     ZerogTokenMismatch
 } from "../../script/20261119-create-zerog-tokens.s.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -51,7 +49,7 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdToke
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
 import {CreateZerogTokensHarness} from "./CreateZerogTokensHarness.sol";
 import {ZerogTokenCreationFixture} from "./ZerogTokenCreationFixture.sol";
@@ -242,43 +240,6 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
         vm.mockCall(lastVault(), abi.encodeCall(IAuthorisable.authorizer, ()), abi.encode(address(0xBEEF)));
         vm.expectRevert(abi.encodeWithSelector(ZerogTokenMismatch.selector, lastUnderlying(), "authoriser"));
         sScript.callAssertPostState();
-    }
-
-    /// @notice A 0G table row with any leg already set is refused at that row: the table is filled from these tokens
-    /// only after they exist (RAI-4598).
-    function testPreflightRefusesATableRowThatIsNotAPlaceholder() external {
-        uint256 last = LibTokenInvariants.productionTokensZerog().length - 1;
-        uint256[3] memory rowsToSet = [uint256(0), last / 2, last];
-        for (uint256 leg = 0; leg < 3; leg++) {
-            TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
-            uint256 row = rowsToSet[leg];
-            if (leg == 0) table[row].receipt = address(0xBEEF);
-            if (leg == 1) table[row].receiptVault = address(0xBEEF);
-            if (leg == 2) table[row].wrappedTokenVault = address(0xBEEF);
-            harness().setTable(table);
-            vm.expectRevert(abi.encodeWithSelector(ZerogTokenRowNotPlaceholder.selector, row));
-            sScript.callPreflight();
-        }
-    }
-
-    /// @notice A table out of config order, or of another length, is refused: rows pair with the configs by index.
-    function testPreflightRefusesATableOutOfConfigOrderOrLength() external {
-        TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
-        string memory first = table[0].underlying;
-        table[0].underlying = table[1].underlying;
-        table[1].underlying = first;
-        harness().setTable(table);
-        vm.expectRevert(abi.encodeWithSelector(ZerogTokenRowNotPlaceholder.selector, 0));
-        sScript.callPreflight();
-
-        table = LibTokenInvariants.productionTokensZerog();
-        TokenInstance[] memory shorter = new TokenInstance[](table.length - 1);
-        for (uint256 i = 0; i < shorter.length; i++) {
-            shorter[i] = table[i];
-        }
-        harness().setTable(shorter);
-        vm.expectRevert(abi.encodeWithSelector(ZerogTokenTableLengthMismatch.selector, shorter.length, table.length));
-        sScript.callPreflight();
     }
 
     function lastToken() internal view returns (address receipt, address vault, address wrapper) {

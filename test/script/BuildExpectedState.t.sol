@@ -428,22 +428,17 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// @notice Each chain says whether its token table is hydrated, and a chain
-    /// whose table is not (0G until its tokens exist) carries no token rows.
-    /// The rows come back with the table, with no change to the generator.
+    /// whose table is not carries no token rows.
     function testAnUnhydratedTokenTableIsSkippedAndSaysSo() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
-        bool skipped = false;
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 id = nets[c].chainId;
             bool hydrated = LibTokenInvariants.tokenTableHydrated(id);
             assertEq(vm.parseJsonBool(json, string.concat(chain(nets[c]), ".tokenTableHydrated")), hydrated);
             if (hydrated) continue;
-            skipped = true;
             assertFalse(vm.keyExistsJson(json, index(string.concat(chain(nets[c]), ".tokens"), 0)), "no token rows");
         }
-        assertTrue(skipped, "0G is skipped");
-        assertFalse(LibTokenInvariants.tokenTableHydrated(LibSafeInvariants.ZEROG_CHAIN_ID), "0G not hydrated");
     }
 
     function testTokensAreTheChainsTableWithRegionRoutedAuthorisers() external {
@@ -524,19 +519,21 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// The unprefixed fields are the initialized metadata, the `renamed` fields the metadata once the rename batch has
-    /// run, which renames only its leading rows; each set is one consistent state of the vault and wrapper.
+    /// run, which renames only its leading rows and only on a chain with a `renameMigration`; each set is one
+    /// consistent state of the vault and wrapper.
     function testTokenMetadataIsTheInitializedAndRenamedStates() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             TokenInstance[] memory tokens = tokenTable(nets[c].chainId);
             string memory list = string.concat(chain(nets[c]), ".tokens");
+            bool renaming = vm.parseJsonBytes32(json, string.concat(chain(nets[c]), ".renameMigration")) != bytes32(0);
             for (uint256 i = 0; i < tokens.length; i++) {
                 assertTokenMetadata(
                     json,
                     index(list, i),
                     LibProdTokenConfig.configOf(tokens[i].underlying),
-                    LibUnderlyingNamingRollout.renamesRow(i)
+                    renaming && LibUnderlyingNamingRollout.renamesRow(i)
                 );
             }
         }

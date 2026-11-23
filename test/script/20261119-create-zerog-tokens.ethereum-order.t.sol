@@ -100,6 +100,22 @@ contract CreateZerogTokensEthereumOrderTest is Test {
         return [token.receipt, token.receiptVault, token.wrappedTokenVault];
     }
 
+    /// @notice 0G's token table is the creation's addresses row for row: the receipt and vault the receipt-vault
+    /// deployer and the wrapper the wrapper deployer created at the row's nonce.
+    function testZerogTableIsEachRowsCreationAddresses() external view {
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
+        TokenInstance[] memory created = zerogTokens();
+        assertEq(table.length, created.length, "0G rows");
+        for (uint256 i = 0; i < table.length; i++) {
+            assertEq(table[i].underlying, created[i].underlying, "underlying");
+            assertEq(table[i].receipt, created[i].receipt, string.concat(table[i].underlying, " receipt"));
+            assertEq(table[i].receiptVault, created[i].receiptVault, string.concat(table[i].underlying, " vault"));
+            assertEq(
+                table[i].wrappedTokenVault, created[i].wrappedTokenVault, string.concat(table[i].underlying, " wrapper")
+            );
+        }
+    }
+
     /// @notice Every 0G row whose underlying Ethereum's table carries gets Ethereum's vault and wrapper for that
     /// underlying, and the rows Ethereum's table does not carry are exactly slots 42-47.
     function testEachRowIsEthereumsTokenForItsUnderlying() external view {

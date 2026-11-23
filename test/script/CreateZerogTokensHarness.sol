@@ -12,8 +12,6 @@ import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 /// It overrides no address, so the tests run the Safe and timelock pins the script ships with.
 contract CreateZerogTokensHarness is CreateZerogTokens {
     string internal sArtifactTag;
-    TokenInstance[] internal sTable;
-    bool internal sTableSet;
 
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
@@ -22,20 +20,6 @@ contract CreateZerogTokensHarness is CreateZerogTokens {
     /// @inheritdoc CreateZerogTokens
     function artifactPath() internal view override returns (string memory) {
         return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
-    }
-
-    /// @dev Stands `table` in for 0G's token table.
-    function setTable(TokenInstance[] memory table) external {
-        delete sTable;
-        for (uint256 i = 0; i < table.length; i++) {
-            sTable.push(table[i]);
-        }
-        sTableSet = true;
-    }
-
-    /// @inheritdoc CreateZerogTokens
-    function zerogTable() internal view override returns (TokenInstance[] memory) {
-        return sTableSet ? sTable : super.zerogTable();
     }
 
     function callPreflight() external view {

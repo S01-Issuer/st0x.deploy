@@ -31,17 +31,8 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenCo
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
+import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {RoleGrant} from "../src/lib/RoleGrant.sol";
-
-/// @notice A 0G token table row already has a deployed address, or names another underlying than its config row.
-/// @param index The row.
-error ZerogTokenRowNotPlaceholder(uint256 index);
-
-/// @notice The 0G token table has another number of rows than the configs, so its rows cannot pair with them by index.
-/// @param tableLength The table's row count.
-/// @param rowCount The config row count.
-error ZerogTokenTableLengthMismatch(uint256 tableLength, uint256 rowCount);
 
 /// @notice A created token is not wired, owned, authorised, named or empty as expected.
 /// @param underlying The token's underlying.
@@ -190,17 +181,6 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
         TokenConfig[] memory rows = configs();
         uint256 created = createdCount(rows.length);
         assertCreated(rows, created, created);
-        TokenInstance[] memory table = zerogTable();
-        if (table.length != rows.length) revert ZerogTokenTableLengthMismatch(table.length, rows.length);
-        for (uint256 i = 0; i < rows.length; i++) {
-            if (
-                keccak256(bytes(table[i].underlying)) != keccak256(bytes(rows[i].underlying))
-                    || table[i].receipt != address(0) || table[i].receiptVault != address(0)
-                    || table[i].wrappedTokenVault != address(0)
-            ) {
-                revert ZerogTokenRowNotPlaceholder(i);
-            }
-        }
     }
 
     /// @notice Reverts unless the in-use beacons (the three token beacons: 0G runs no orchestrator) are owned by the
@@ -317,13 +297,6 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
         }
         if (last) txs[txs.length - 1] = LibStoxMigrations.recordTx(declared());
         return txs;
-    }
-
-    /// @notice 0G's token table, which the pre-flight holds to placeholders in creation order.
-    /// @dev Virtual so a test can stand in another table.
-    /// @return The table.
-    function zerogTable() internal view virtual returns (TokenInstance[] memory) {
-        return LibTokenInvariants.productionTokensZerog();
     }
 
     /// @notice A value-free CALL bundle entry.

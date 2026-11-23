@@ -332,6 +332,25 @@ contract MigrateGovernanceToTimelockTest is Test {
 
     /// @notice A second authoring after full migration refuses: nothing is
     /// left on the Safe to move.
+    /// @notice On 0G the active-chain helpers resolve 0G's US authoriser clone and its token table, and the vaults
+    /// are the table's receipt vaults in order.
+    function testActiveChainHelpersResolveZerog() external {
+        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertEq(_activeChainAuthoriser(), LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG, "authoriser");
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
+        TokenInstance[] memory tokens = _activeChainTokens();
+        address[] memory vaults = _activeChainVaults();
+        assertEq(tokens.length, table.length, "tokens");
+        assertEq(vaults.length, table.length, "vaults");
+        for (uint256 i = 0; i < table.length; i++) {
+            assertEq(tokens[i].underlying, table[i].underlying, "underlying");
+            assertEq(tokens[i].receipt, table[i].receipt, table[i].underlying);
+            assertEq(tokens[i].receiptVault, table[i].receiptVault, table[i].underlying);
+            assertEq(tokens[i].wrappedTokenVault, table[i].wrappedTokenVault, table[i].underlying);
+            assertEq(vaults[i], table[i].receiptVault, table[i].underlying);
+        }
+    }
+
     function testRunRefusesWhenNothingToMigrate() external {
         selectBaseFork();
         address timelock = pinnedTimelock();

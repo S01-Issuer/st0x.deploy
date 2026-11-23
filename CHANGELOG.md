@@ -253,6 +253,16 @@
   Both workflows now pass `legacy: true` unconditionally: `--legacy` is one flag
   over the whole `forge script` run, so it cannot vary per network within a run,
   and type-0 is valid on every network these scripts ship to.
+- **The 0G token table is hydrated.** `20261119-create-zerog-tokens` created all
+  65 0G tokens on 23 Nov 2026, in four Safe bundles of 20, 20, 20 and 5 rows,
+  each token owned by the 0G governance timelock with no supply.
+  `productionTokensZerog()` now holds each row's receipt, receipt vault and
+  wrapped token vault, which are the addresses the two 0.1.1 beacon-set
+  deployers created at the row's nonce. The script's pre-flight no longer
+  requires a placeholder table, since the table now names the created tokens.
+  `LibTokenInvariants.hydrated` and `tokenTableHydrated` refuse a row when any
+  of its three legs is `address(0)`, not only its receipt vault, and the guard
+  reads every chain's table through `tokenTableForChainId`.
 
 ### New contracts
 

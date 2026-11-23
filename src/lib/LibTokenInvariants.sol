@@ -2380,79 +2380,404 @@ library LibTokenInvariants {
     /// @notice Returns the production token instance triples on 0G (chain id
     /// 16661) in `LibProdTokenConfig.canonicalTokenConfigs()` order, so each 0G
     /// address is the token Ethereum and HyperEVM hold at the same address.
-    ///
-    /// **ALL PLACEHOLDERS** (`address(0)`) until the 0G token deployment
-    /// executes and the post-execution pin PR hydrates every entry in one
-    /// reviewed change; all-or-nothing, as for every other chain's table
-    /// (`testZerogTokenTableIsAllPlaceholders` pins it until then).
+    /// `20261119-create-zerog-tokens` created them on 23 Nov 2026 in four
+    /// token-owner Safe bundles of 20, 20, 20 and 5 rows: row `i` is the
+    /// receipt and vault the 0.1.1 receipt-vault beacon-set deployer created at
+    /// nonces `3 + 2i` and `4 + 2i`, and the wrapper the 0.1.1 wrapper
+    /// beacon-set deployer created at nonce `1 + i`.
     /// @return tokens The production token instances on 0G.
     function productionTokensZerog() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](65);
-        tokens[0] = TokenInstance("MSTR", address(0), address(0), address(0));
-        tokens[1] = TokenInstance("TSLA", address(0), address(0), address(0));
-        tokens[2] = TokenInstance("COIN", address(0), address(0), address(0));
-        tokens[3] = TokenInstance("SPYM", address(0), address(0), address(0));
-        tokens[4] = TokenInstance("SIVR", address(0), address(0), address(0));
-        tokens[5] = TokenInstance("CRCL", address(0), address(0), address(0));
-        tokens[6] = TokenInstance("NVDA", address(0), address(0), address(0));
-        tokens[7] = TokenInstance("IAU", address(0), address(0), address(0));
-        tokens[8] = TokenInstance("PPLT", address(0), address(0), address(0));
-        tokens[9] = TokenInstance("AMZN", address(0), address(0), address(0));
-        tokens[10] = TokenInstance("BMNR", address(0), address(0), address(0));
-        tokens[11] = TokenInstance("IBHG", address(0), address(0), address(0));
-        tokens[12] = TokenInstance("SGOV", address(0), address(0), address(0));
-        tokens[13] = TokenInstance("QQQM", address(0), address(0), address(0));
-        tokens[14] = TokenInstance("VWO", address(0), address(0), address(0));
-        tokens[15] = TokenInstance("ARKK", address(0), address(0), address(0));
-        tokens[16] = TokenInstance("SPCX", address(0), address(0), address(0));
-        tokens[17] = TokenInstance("CEG", address(0), address(0), address(0));
-        tokens[18] = TokenInstance("DRAM", address(0), address(0), address(0));
-        tokens[19] = TokenInstance("TSM", address(0), address(0), address(0));
-        tokens[20] = TokenInstance("SKHY", address(0), address(0), address(0));
-        tokens[21] = TokenInstance("ASML", address(0), address(0), address(0));
-        tokens[22] = TokenInstance("MU", address(0), address(0), address(0));
-        tokens[23] = TokenInstance("AMD", address(0), address(0), address(0));
-        tokens[24] = TokenInstance("AVGO", address(0), address(0), address(0));
-        tokens[25] = TokenInstance("AMAT", address(0), address(0), address(0));
-        tokens[26] = TokenInstance("LRCX", address(0), address(0), address(0));
-        tokens[27] = TokenInstance("TTWO", address(0), address(0), address(0));
-        tokens[28] = TokenInstance("RKLB", address(0), address(0), address(0));
-        tokens[29] = TokenInstance("HOOD", address(0), address(0), address(0));
-        tokens[30] = TokenInstance("ORCL", address(0), address(0), address(0));
-        tokens[31] = TokenInstance("SMCI", address(0), address(0), address(0));
-        tokens[32] = TokenInstance("BABA", address(0), address(0), address(0));
-        tokens[33] = TokenInstance("TQQQ", address(0), address(0), address(0));
-        tokens[34] = TokenInstance("AAPL", address(0), address(0), address(0));
-        tokens[35] = TokenInstance("GOOGL", address(0), address(0), address(0));
-        tokens[36] = TokenInstance("INTC", address(0), address(0), address(0));
-        tokens[37] = TokenInstance("LLY", address(0), address(0), address(0));
-        tokens[38] = TokenInstance("MSFT", address(0), address(0), address(0));
-        tokens[39] = TokenInstance("PTY", address(0), address(0), address(0));
-        tokens[40] = TokenInstance("FTF", address(0), address(0), address(0));
-        tokens[41] = TokenInstance("CBRS", address(0), address(0), address(0));
-        tokens[42] = TokenInstance("AIR.PA", address(0), address(0), address(0));
-        tokens[43] = TokenInstance("BMW.DE", address(0), address(0), address(0));
-        tokens[44] = TokenInstance("MC.PA", address(0), address(0), address(0));
-        tokens[45] = TokenInstance("SIE.DE", address(0), address(0), address(0));
-        tokens[46] = TokenInstance("MBG.DE", address(0), address(0), address(0));
-        tokens[47] = TokenInstance("RHM.DE", address(0), address(0), address(0));
-        tokens[48] = TokenInstance("MCD", address(0), address(0), address(0));
-        tokens[49] = TokenInstance("NKE", address(0), address(0), address(0));
-        tokens[50] = TokenInstance("GRND", address(0), address(0), address(0));
-        tokens[51] = TokenInstance("DNUT", address(0), address(0), address(0));
-        tokens[52] = TokenInstance("PLBY", address(0), address(0), address(0));
-        tokens[53] = TokenInstance("TR", address(0), address(0), address(0));
-        tokens[54] = TokenInstance("WEN", address(0), address(0), address(0));
-        tokens[55] = TokenInstance("FGI", address(0), address(0), address(0));
-        tokens[56] = TokenInstance("BIRD", address(0), address(0), address(0));
-        tokens[57] = TokenInstance("SPY", address(0), address(0), address(0));
-        tokens[58] = TokenInstance("SNES", address(0), address(0), address(0));
-        tokens[59] = TokenInstance("WMT", address(0), address(0), address(0));
-        tokens[60] = TokenInstance("MC", address(0), address(0), address(0));
-        tokens[61] = TokenInstance("DIS", address(0), address(0), address(0));
-        tokens[62] = TokenInstance("IFX", address(0), address(0), address(0));
-        tokens[63] = TokenInstance("SOI", address(0), address(0), address(0));
-        tokens[64] = TokenInstance("TPRO", address(0), address(0), address(0));
+        tokens[0] = TokenInstance({
+            underlying: "MSTR",
+            receipt: address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
+            receiptVault: address(0x8500189061e2206Bc33Bf04DC10fFB1Fe7dED637),
+            wrappedTokenVault: address(0xd9fE7488B86D3aEaf457b181C744BD1A5a120833)
+        });
+        tokens[1] = TokenInstance({
+            underlying: "TSLA",
+            receipt: address(0x3a3E00d6fb65E686941f77DD375ca677Ad7772c2),
+            receiptVault: address(0xB41fD00d0bA60D9Ae8dCE405cB6AAd5710E5F84d),
+            wrappedTokenVault: address(0x550499e28A3CE8cb1dB3e3Db23fDD0357eD3ff48)
+        });
+        tokens[2] = TokenInstance({
+            underlying: "COIN",
+            receipt: address(0x5cF43A3fFd5B979C36B6512800cdAa6A2EF4f352),
+            receiptVault: address(0x5100ED387Ab3ED37667199aD8f9F6D963157d28e),
+            wrappedTokenVault: address(0xa3d1be1Ab9F4E72309Cb9Bfeaa14aFe46D012e36)
+        });
+        tokens[3] = TokenInstance({
+            underlying: "SPYM",
+            receipt: address(0xB023d277f4a50cE056Dd921C28fF7e27F56B3445),
+            receiptVault: address(0x484AaA9e6542774026b24aeD4EC3058400eD2439),
+            wrappedTokenVault: address(0x7dF3ad1ECC10DBF0296D05F91a697e4A059771c2)
+        });
+        tokens[4] = TokenInstance({
+            underlying: "SIVR",
+            receipt: address(0x89dC2d5B33e8DcbD24A2e4A07f7B06f55b5bb24e),
+            receiptVault: address(0xc6100518997004eFb0701Da3c56000B3d093470a),
+            wrappedTokenVault: address(0x2B310218001C38cf82816c2098AedDCE22D3Df27)
+        });
+        tokens[5] = TokenInstance({
+            underlying: "CRCL",
+            receipt: address(0xDf228279B380e8445970a3B4162B9509D4339520),
+            receiptVault: address(0xeF63EdB9F39Dcd03C103A11e2e7E1878308b9586),
+            wrappedTokenVault: address(0x25Ab6926BA171e1618b214cda774104B2f6ec884)
+        });
+        tokens[6] = TokenInstance({
+            underlying: "NVDA",
+            receipt: address(0xA26C89357e6cb53Bf670db2e0e939f5489Ba26A8),
+            receiptVault: address(0xf6A89b0c9FF897000E37bBD06397992278FfC50d),
+            wrappedTokenVault: address(0xa3947d2A74F5a3A7135A9d0c66B28fC7315f30Da)
+        });
+        tokens[7] = TokenInstance({
+            underlying: "IAU",
+            receipt: address(0x9003CAc529d1299891C2aaa08b4c810b81F49488),
+            receiptVault: address(0xb9A1D1822F57f52959b8c5097A8322D534bceDEe),
+            wrappedTokenVault: address(0x33f3a6401ce08f705eE4B8a03fc37F298395b720)
+        });
+        tokens[8] = TokenInstance({
+            underlying: "PPLT",
+            receipt: address(0x216cbEeC16cF7e4dBd53e6e3D8B54b7dA23BE146),
+            receiptVault: address(0x47C2e6644eFDF58E86dA45dC60e0f67A65043B99),
+            wrappedTokenVault: address(0xCbD06C802BFe993de94d0d635AB5B1fa764519D8)
+        });
+        tokens[9] = TokenInstance({
+            underlying: "AMZN",
+            receipt: address(0xA583addaA69142E8588D9ffE3767Dbb0F23fd516),
+            receiptVault: address(0x6615f3D82989949fa7d167b40FEc0Ef30cdbA476),
+            wrappedTokenVault: address(0x4404E24629a33b85FC1E2D7beA673Cd283054594)
+        });
+        tokens[10] = TokenInstance({
+            underlying: "BMNR",
+            receipt: address(0x34BF824C28121EbD421026D70a03A7Ec9Ee5a0d4),
+            receiptVault: address(0x00472aA0D0611F933c22b8148F02B0cDd1Ae5fbc),
+            wrappedTokenVault: address(0x35e1D3d3Fa6D43438641d2b8f63cBf84C84435c0)
+        });
+        tokens[11] = TokenInstance({
+            underlying: "IBHG",
+            receipt: address(0x8e05CB17994Ee9B207e87993717F6Fb2ee7D0bD3),
+            receiptVault: address(0x36b30F5B5D1AcD3D8135Afe7a5516A300021f139),
+            wrappedTokenVault: address(0x03bBb4148ba82d63993D32fB8E6Eff8Cc51A56f2)
+        });
+        tokens[12] = TokenInstance({
+            underlying: "SGOV",
+            receipt: address(0xE4B5Af0bAc3dC97b77d6eE4E95F59c74c679ee5c),
+            receiptVault: address(0x344147366F648640076d363FAF659c214788E99d),
+            wrappedTokenVault: address(0x06b17E431a957Dd8522Bf106653BAc6B39F437E6)
+        });
+        tokens[13] = TokenInstance({
+            underlying: "QQQM",
+            receipt: address(0x1Eb9583d1BB2b00B3CB5ead921d021b445F77dBc),
+            receiptVault: address(0x5Aa65dfF455C7f18C21370086EaFaEe4f2b63608),
+            wrappedTokenVault: address(0x63fDfe9cf53cB1FD5d98fE7537B881B86aE04A31)
+        });
+        tokens[14] = TokenInstance({
+            underlying: "VWO",
+            receipt: address(0x1A09A154E2ae3890d1e18507a37bC3e2FCfA10cc),
+            receiptVault: address(0x2cc8DCfC649f9633C482C81473cC251226375fE3),
+            wrappedTokenVault: address(0x01EE8b582147D1Aa8A8f2Adc2EBB91fA60082AB0)
+        });
+        tokens[15] = TokenInstance({
+            underlying: "ARKK",
+            receipt: address(0xF1E5f11e7fAA40b2C2CEdfAD825D81207f793862),
+            receiptVault: address(0xDf406836D5A092894ee5d5bdC7F58e5bdc8D196A),
+            wrappedTokenVault: address(0x5D80cAcaABCe0ab4C1541493ceB25D97970D250a)
+        });
+        tokens[16] = TokenInstance({
+            underlying: "SPCX",
+            receipt: address(0x46dC08972b1d5D5876d244292c551dbbbC7d7e80),
+            receiptVault: address(0x659Ea9dd1C833fc76E5328E0E616d8b9D9836dc3),
+            wrappedTokenVault: address(0xC32C8166164E2cA18BB5fbf3E82CB776943d97FB)
+        });
+        tokens[17] = TokenInstance({
+            underlying: "CEG",
+            receipt: address(0x99Ffbf38E7c0D9C440BA629D0108E7d0E96cB710),
+            receiptVault: address(0x6240E93f1A08d43002e52b210cD49c54C813D780),
+            wrappedTokenVault: address(0xc842fC56Dd39B62357d027a0F3B3266353cac991)
+        });
+        tokens[18] = TokenInstance({
+            underlying: "DRAM",
+            receipt: address(0xbD4Fa8Fd2643b46eADC499b5A468108817988830),
+            receiptVault: address(0x5F5a1Bdc00ade7702ea5944B1374DC598dA3759f),
+            wrappedTokenVault: address(0x7e1263f1e1EeF7eCe7fA7e568842f213a6CEa956)
+        });
+        tokens[19] = TokenInstance({
+            underlying: "TSM",
+            receipt: address(0x2Ce6A6B9E573ec0444C00103ACEee9dC23223621),
+            receiptVault: address(0x7Ac659f601bEa2d9f490E0D0D8a68c4282fD9B21),
+            wrappedTokenVault: address(0x050dB961D36DC2047c779798694AeE455CD40BE6)
+        });
+        tokens[20] = TokenInstance({
+            underlying: "SKHY",
+            receipt: address(0xd3150728FFDb338eFd9b07ae90A7D5e688bc3B20),
+            receiptVault: address(0xa3a7BEcF428b250Ec1b88Dbc65F579a9570670c7),
+            wrappedTokenVault: address(0xD13bBc46C4582246656868d32227A99A538D97E1)
+        });
+        tokens[21] = TokenInstance({
+            underlying: "ASML",
+            receipt: address(0x6AEBd84df448d2E25080590797075b399Ca43549),
+            receiptVault: address(0x77Ee94C8B85cF48a426F84B0F2d796eC77e41c7b),
+            wrappedTokenVault: address(0xb8605a64B57E7A8631c87F3187c783493231bdD9)
+        });
+        tokens[22] = TokenInstance({
+            underlying: "MU",
+            receipt: address(0x98A3887f51AA93079978D265Cb20E215AfEB8b0f),
+            receiptVault: address(0x2C845ed32c5fDE012eb14508d0d24BD3300B1D71),
+            wrappedTokenVault: address(0xF01523C4ca52dF88f07938D4Fb32FCBb6b159867)
+        });
+        tokens[23] = TokenInstance({
+            underlying: "AMD",
+            receipt: address(0x0e257A952817ef779407aA27E5CD5F27863883Aa),
+            receiptVault: address(0xe2De878d8Ca6bA544BFE80a10fAb0395DF32Cff0),
+            wrappedTokenVault: address(0xb904955bC71FE6c8e6aBE676ACca640Abc771622)
+        });
+        tokens[24] = TokenInstance({
+            underlying: "AVGO",
+            receipt: address(0x607991FE92F9476eBedA4761295E5E2cc37e2834),
+            receiptVault: address(0x503a69b2918DFA152eb0e0803174ed90ba5be756),
+            wrappedTokenVault: address(0xCee4981Fc273C105e2b9eA1fD19031Aa9a6cf113)
+        });
+        tokens[25] = TokenInstance({
+            underlying: "AMAT",
+            receipt: address(0x8C8810F83a0F5a8C1A3D541411100DBFB68C5b0c),
+            receiptVault: address(0x26139195f7a82a52c62C4047F843C99c61Ed9a5E),
+            wrappedTokenVault: address(0x44DE27A07B33CD708A49fa79629fAC1df03C56d3)
+        });
+        tokens[26] = TokenInstance({
+            underlying: "LRCX",
+            receipt: address(0x2630CA3D952b265F88C189f3679FA985dF34A93D),
+            receiptVault: address(0xe68A46547CdBBB181587B32cCD1A505Bedf0a994),
+            wrappedTokenVault: address(0xD1c1D974837d3f79A92E14048993AD28a6228831)
+        });
+        tokens[27] = TokenInstance({
+            underlying: "TTWO",
+            receipt: address(0x47E3487B12272Bb1F933452F855CEb1C5e27204E),
+            receiptVault: address(0xb62E913f0cC881862527Fa7e41e1C98eEf09cedD),
+            wrappedTokenVault: address(0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208)
+        });
+        tokens[28] = TokenInstance({
+            underlying: "RKLB",
+            receipt: address(0xFf5b15a4f478F296893b0b244D9b118Be87bCda2),
+            receiptVault: address(0xED0c085d92C262FB46937CB0B3C9763Af7fCCf30),
+            wrappedTokenVault: address(0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3)
+        });
+        tokens[29] = TokenInstance({
+            underlying: "HOOD",
+            receipt: address(0x9e2C9bE59aEB0D9ea7bF070B37fc02AF8a5af239),
+            receiptVault: address(0xDA52106FC0D44096Fd500E096b9045FdAc1d27B9),
+            wrappedTokenVault: address(0x3209384FB852E7D0510aFa896236f3f866c3876f)
+        });
+        tokens[30] = TokenInstance({
+            underlying: "ORCL",
+            receipt: address(0xE3D23D83a750789D6c4150B70013D896e623c948),
+            receiptVault: address(0xC982730643321f3643436Eb4a6E910219Caa55f0),
+            wrappedTokenVault: address(0x1B2A2C8c3621642c64cf1245016488fA0f76da78)
+        });
+        tokens[31] = TokenInstance({
+            underlying: "SMCI",
+            receipt: address(0x1B5df34bD6397Ba7d9A365263692A006e7a2972a),
+            receiptVault: address(0x3b3936b5Ec170Cdb5823012dBF4dF1d56Cfa1ba5),
+            wrappedTokenVault: address(0x8DdAEC53399E5324BbC60a368eA853c713629B1d)
+        });
+        tokens[32] = TokenInstance({
+            underlying: "BABA",
+            receipt: address(0xB7D42b94A8E51b098270ac92ceD23fDC8042FDB3),
+            receiptVault: address(0x15d415952a36D4cE80671e918B2531bdB25274E5),
+            wrappedTokenVault: address(0x908266E3C3bFBb603d2EdF295deBE37C88985239)
+        });
+        tokens[33] = TokenInstance({
+            underlying: "TQQQ",
+            receipt: address(0x58916AC4e186ad201376288a6655Ea46b55b8ac5),
+            receiptVault: address(0xf3875383506677BCdA6b9F12c48Ff7fE300970D7),
+            wrappedTokenVault: address(0x04eE4ED5FF6643eA955503f966012b684f479966)
+        });
+        tokens[34] = TokenInstance({
+            underlying: "AAPL",
+            receipt: address(0x5f1DBfBf9345f3185C52aC3c080a0EDDb4f540c2),
+            receiptVault: address(0xb526Bf49DAB7F72B772FEF4B6D572C254A454ef7),
+            wrappedTokenVault: address(0x4E3600f48C61eF4513c72923ab50851bD546FFA9)
+        });
+        tokens[35] = TokenInstance({
+            underlying: "GOOGL",
+            receipt: address(0xdC29d07D2125699FA44cAB7e940542b526dB0abd),
+            receiptVault: address(0x50DE74136b67911799fc39B726bFC2707cCec769),
+            wrappedTokenVault: address(0xca678d0d69F9E815d1A4f4dF05C904b2DDE017f8)
+        });
+        tokens[36] = TokenInstance({
+            underlying: "INTC",
+            receipt: address(0x8CF3E580465e8DFaE05FF42BbFCe0d98BfF79580),
+            receiptVault: address(0x06aE3f6CFaE124039902a79Da44ad2a4A4489250),
+            wrappedTokenVault: address(0xd702276d50fdCf58b0E41b3f1f9651faBC1141f4)
+        });
+        tokens[37] = TokenInstance({
+            underlying: "LLY",
+            receipt: address(0x9a288A27a9898f145AF9575b46617bB1DF705106),
+            receiptVault: address(0x1eE2cE9654FFa008029e8e328a95f45EBfB3bC63),
+            wrappedTokenVault: address(0xa6890e89D99Fd4F275c016d89A28ec24A428846D)
+        });
+        tokens[38] = TokenInstance({
+            underlying: "MSFT",
+            receipt: address(0x824eA918F35821a72E34b4eaD257AF60603cb20C),
+            receiptVault: address(0xb3f9A61b0e97c7F7Bb85Ea5E9Dad0da8f3496B57),
+            wrappedTokenVault: address(0xAbb2641950C7dE9D3ec9AA05668e112E1DB701F6)
+        });
+        tokens[39] = TokenInstance({
+            underlying: "PTY",
+            receipt: address(0x7b66449B3d7cD6569F1e235f6E4A664C24538EA8),
+            receiptVault: address(0xdf4F0897Ec6f0C37Bfc974a815cA440A3c2C2e8B),
+            wrappedTokenVault: address(0xc80730995D2C53114BAaFd2736E02f4E274D5B83)
+        });
+        tokens[40] = TokenInstance({
+            underlying: "FTF",
+            receipt: address(0x05215bE061F61d341703a6b63AcFDFf396965425),
+            receiptVault: address(0x334ccaD2e7D774F5e6A13437977dD0878926deF8),
+            wrappedTokenVault: address(0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5)
+        });
+        tokens[41] = TokenInstance({
+            underlying: "CBRS",
+            receipt: address(0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8),
+            receiptVault: address(0x75E0d127794b9C26eE35c55fbaBcc41c53Ccb37C),
+            wrappedTokenVault: address(0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962)
+        });
+        tokens[42] = TokenInstance({
+            underlying: "AIR.PA",
+            receipt: address(0x9452c603A552f35003206f9001C51007C36F530F),
+            receiptVault: address(0x4Da175A70020EeEFa71C36d710307ed0803Aed60),
+            wrappedTokenVault: address(0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c)
+        });
+        tokens[43] = TokenInstance({
+            underlying: "BMW.DE",
+            receipt: address(0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C),
+            receiptVault: address(0x6872cEe8E1a07Dd8C1154755f7e215F2973caE52),
+            wrappedTokenVault: address(0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8)
+        });
+        tokens[44] = TokenInstance({
+            underlying: "MC.PA",
+            receipt: address(0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F),
+            receiptVault: address(0xaE7115d434c84F2f4a1196BaD67415d479804af1),
+            wrappedTokenVault: address(0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a)
+        });
+        tokens[45] = TokenInstance({
+            underlying: "SIE.DE",
+            receipt: address(0xee6F971a9Bf473355286749b52Bfe614Df5fC129),
+            receiptVault: address(0x269CA594b6463F0D94086fb2D77dFaad32d1c6C4),
+            wrappedTokenVault: address(0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054)
+        });
+        tokens[46] = TokenInstance({
+            underlying: "MBG.DE",
+            receipt: address(0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4),
+            receiptVault: address(0xA1768baE756058fE00dD281C405DDe1C48B00F3B),
+            wrappedTokenVault: address(0x6a73364EaE305199B62585C4486C24f3b72b2C72)
+        });
+        tokens[47] = TokenInstance({
+            underlying: "RHM.DE",
+            receipt: address(0xbf56725da5a71B3111C660c2279ADA6D1270772E),
+            receiptVault: address(0x8790337c4Ce51b66CBa179129d830A3683780ff6),
+            wrappedTokenVault: address(0x24ae429A29882b06898afCBAef20BfDb93f67e20)
+        });
+        tokens[48] = TokenInstance({
+            underlying: "MCD",
+            receipt: address(0x37BbE0cd96266CFc10960521EfB32A822ef780E0),
+            receiptVault: address(0xC04160F3e18e120C2259f3FE33864823bF3b9015),
+            wrappedTokenVault: address(0xe26b53fb8B0819682432d27C88D6505883cabafF)
+        });
+        tokens[49] = TokenInstance({
+            underlying: "NKE",
+            receipt: address(0x6884986776e2e221B7Cd5c566bBD9338051F24fB),
+            receiptVault: address(0x5e6e803242E52451FfdA82Fd7b5Ce4967B95C76E),
+            wrappedTokenVault: address(0x8fe134109A9Eb38D3f071a9Df4911081B4aa0814)
+        });
+        tokens[50] = TokenInstance({
+            underlying: "GRND",
+            receipt: address(0x9765A993735a639191ea2AAd2ac92eb122Bd394c),
+            receiptVault: address(0xdca06fddf5320870C8E9D0534aa102677C36bCc4),
+            wrappedTokenVault: address(0xB80Bd4D599EeBBF2851d4E7F5594918B82FF1823)
+        });
+        tokens[51] = TokenInstance({
+            underlying: "DNUT",
+            receipt: address(0x0eE9d8bB4D7d035b5Dc33937573Cc03BDb419c6e),
+            receiptVault: address(0x4a88c84AA04a5151997e8E503BEe7fD92E0918A9),
+            wrappedTokenVault: address(0xb7fC2b7881cceeB73D8DEccf69B6AcB8aC2E0826)
+        });
+        tokens[52] = TokenInstance({
+            underlying: "PLBY",
+            receipt: address(0xea8AF911CE3582d8fB5d6F1cd4695Ba115d1BdCA),
+            receiptVault: address(0x4a18036Dce22168D8891919a1c75aC2CAf9a08AB),
+            wrappedTokenVault: address(0xBe127eeD812DC1F622227FAdc8639d4138B47b2e)
+        });
+        tokens[53] = TokenInstance({
+            underlying: "TR",
+            receipt: address(0xEb36fc7B191b8358c0Cc839A873fCe1108fc36d1),
+            receiptVault: address(0xF88e511a3c762eE7E9ddd348a417F8e8db45BDEE),
+            wrappedTokenVault: address(0x1abADE2601DA2617f441e2c2B3Fff870445FEfd1)
+        });
+        tokens[54] = TokenInstance({
+            underlying: "WEN",
+            receipt: address(0x8231910EA52Ce2753C70D07545cEBfe476a609bA),
+            receiptVault: address(0x6c6f1CBe2fA860b1a15A02922d97A2d614db4923),
+            wrappedTokenVault: address(0x441Eaae749B7BA0C4462F2b19a47fBe8De0DFac2)
+        });
+        tokens[55] = TokenInstance({
+            underlying: "FGI",
+            receipt: address(0x7B3aA82Ca4Ef0eE146C32183366f3dED77400E0c),
+            receiptVault: address(0xfEa217600e2b00bBB2172a99345016a0cEb7d29f),
+            wrappedTokenVault: address(0x685DFd386968B58D895F934485820C479C79a8bB)
+        });
+        tokens[56] = TokenInstance({
+            underlying: "BIRD",
+            receipt: address(0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2),
+            receiptVault: address(0x2E04C503ebd584C3c0Bb1d57E0C51E7B7EaE28E1),
+            wrappedTokenVault: address(0xe93A1Bb48e797dDa936f405A7A253f55040584D5)
+        });
+        tokens[57] = TokenInstance({
+            underlying: "SPY",
+            receipt: address(0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C),
+            receiptVault: address(0x76D34283ec6d29b1b07E0e6077f5c436AD163B9c),
+            wrappedTokenVault: address(0xfBA650082205E5807a5eAF28BdcC8E851bB2f753)
+        });
+        tokens[58] = TokenInstance({
+            underlying: "SNES",
+            receipt: address(0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f),
+            receiptVault: address(0xF8bF43D61E4Cd2a5b5DfaD01BaC84693d7B95e51),
+            wrappedTokenVault: address(0x06096908dBC38fc54509024674E4fd1891B5F7CA)
+        });
+        tokens[59] = TokenInstance({
+            underlying: "WMT",
+            receipt: address(0x395717EE8201419b21B40A400ea959a7D7d43A36),
+            receiptVault: address(0xfAE9AfE275E57759f8Fbae5f252c65aDBF1b773F),
+            wrappedTokenVault: address(0x23A0944e82766242dA76cb0f77e0b7812e5487EA)
+        });
+        tokens[60] = TokenInstance({
+            underlying: "MC",
+            receipt: address(0x9835e52FAFA9A92678C8A9420034706B1edD431e),
+            receiptVault: address(0x4d4D633bf04ABF6e4cF152C7c5c1ecD906Ab3de4),
+            wrappedTokenVault: address(0x5Ce8b84756dDdE011734F04dC4bA2930C981B443)
+        });
+        tokens[61] = TokenInstance({
+            underlying: "DIS",
+            receipt: address(0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7),
+            receiptVault: address(0xd78025Aa344E549A1D76eCE1591c481cC7Bc3548),
+            wrappedTokenVault: address(0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f)
+        });
+        tokens[62] = TokenInstance({
+            underlying: "IFX",
+            receipt: address(0xe509C440B68c4FBf95e24d7476d3e5Bc8b25a8BB),
+            receiptVault: address(0x89857176e95973FDC8f365532CF4c162b3EE11f0),
+            wrappedTokenVault: address(0x88c10BEcFf283c21e9253d688ec06804359cF795)
+        });
+        tokens[63] = TokenInstance({
+            underlying: "SOI",
+            receipt: address(0x7e26dE68d52b54f9CBc8D64833c1fEDA82C36A92),
+            receiptVault: address(0xdab834808F67f8aC69642996A28571D4B2aD484E),
+            wrappedTokenVault: address(0xE828671B6EDd47122e4AcDE7aba6D12c58F244A3)
+        });
+        tokens[64] = TokenInstance({
+            underlying: "TPRO",
+            receipt: address(0xe26C011A6dcFd8286a3Cf47718F14299d33f9478),
+            receiptVault: address(0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536),
+            wrappedTokenVault: address(0x5d6775Cb5b22faF47471986e99265C1a4846d845)
+        });
     }
 
     /// @notice Returns the production receipt vault addresses on Base, in
@@ -2480,45 +2805,60 @@ library LibTokenInvariants {
 
     /// @notice The chain's production token table. Reverts
     /// `NoTokenTableForChain` on a chain with no table and
-    /// `TokenTableNotHydrated` on a chain whose table is still a placeholder.
+    /// `TokenTableNotHydrated` on a chain whose table still has a placeholder.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function productionTokensForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        return hydrated(chainId, tokenTableForChainId(chainId));
+    }
+
+    /// @notice The chain's token table as written, placeholders included.
+    /// Reverts `NoTokenTableForChain` on a chain with no table.
+    /// @param chainId The chain id.
+    /// @return The chain's token instances.
+    function tokenTableForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) return productionTokensBase();
         if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) return productionTokensEthereum();
         if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();
         if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return productionTokensRobinhood();
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return productionTokensBsc();
-        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return hydrated(chainId, productionTokensZerog());
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return productionTokensZerog();
         revert NoTokenTableForChain(chainId);
     }
 
-    /// @notice Whether `chainId`'s token table names every token's receipt
-    /// vault. A table of placeholders (0G's, whose tokens the 0G token
-    /// creation makes) does not. A generator skips the token output of a chain whose table is not hydrated
-    /// and says so; every other consumer goes through
-    /// `productionTokensForChainId`, which refuses that table.
+    /// @notice Whether `chainId`'s token table names every leg of every
+    /// token. A table with a placeholder row (one whose tokens are not
+    /// deployed yet) does not. A generator skips the token output of a chain
+    /// whose table is not hydrated and says so; every other consumer goes
+    /// through `productionTokensForChainId`, which refuses that table.
     /// @param chainId The chain id.
-    /// @return Whether every row has a receipt vault.
+    /// @return Whether every row is hydrated.
     function tokenTableHydrated(uint256 chainId) internal pure returns (bool) {
-        TokenInstance[] memory tokens =
-            chainId == LibSafeInvariants.ZEROG_CHAIN_ID ? productionTokensZerog() : productionTokensForChainId(chainId);
+        TokenInstance[] memory tokens = tokenTableForChainId(chainId);
         for (uint256 i = 0; i < tokens.length; i++) {
-            if (tokens[i].receiptVault == address(0)) return false;
+            if (!rowHydrated(tokens[i])) return false;
         }
         return true;
     }
 
-    /// @notice `tokens`, unless a row has no receipt vault yet, so consumers
+    /// @notice `tokens`, unless a row has a placeholder leg, so consumers
     /// fail closed on a placeholder table instead of targeting `address(0)`.
     /// @param chainId The chain id, for the revert.
     /// @param tokens The chain's token table.
     /// @return The same table.
     function hydrated(uint256 chainId, TokenInstance[] memory tokens) internal pure returns (TokenInstance[] memory) {
         for (uint256 i = 0; i < tokens.length; i++) {
-            if (tokens[i].receiptVault == address(0)) revert TokenTableNotHydrated(chainId);
+            if (!rowHydrated(tokens[i])) revert TokenTableNotHydrated(chainId);
         }
         return tokens;
+    }
+
+    /// @notice Whether `token` names its receipt, receipt vault and wrapped
+    /// token vault.
+    /// @param token The row.
+    /// @return Whether no leg is `address(0)`.
+    function rowHydrated(TokenInstance memory token) internal pure returns (bool) {
+        return token.receipt != address(0) && token.receiptVault != address(0) && token.wrappedTokenVault != address(0);
     }
 
     /// @notice Assert that every production receipt vault reports the same

@@ -10,7 +10,8 @@ import {IAuthorisable} from "../../src/interface/IAuthorisable.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 import {CreateZerogTokensHarness} from "./CreateZerogTokensHarness.sol";
 
 /// @title CreateZerogTokensRowsAreLiveTokensTest
@@ -20,6 +21,8 @@ import {CreateZerogTokensHarness} from "./CreateZerogTokensHarness.sol";
 contract CreateZerogTokensRowsAreLiveTokensTest is Test {
     uint256 internal constant ETHEREUM_BLOCK = 26465320;
     uint256 internal constant HYPEREVM_BLOCK = 51879801;
+    /// @notice The 0G block of the last creation bundle (Safe nonce 5).
+    uint256 internal constant ZEROG_BLOCK = 51156480;
 
     function assertRowsAreLiveTokens(string memory network, uint256 blockNumber) internal {
         vm.createSelectFork(network, blockNumber);
@@ -53,5 +56,14 @@ contract CreateZerogTokensRowsAreLiveTokensTest is Test {
 
     function testEachRowIsHyperEvmsLiveTokenAtItsNonce() external {
         assertRowsAreLiveTokens(LibRainDeploy.HYPEREVM, HYPEREVM_BLOCK);
+    }
+
+    /// @notice On 0G after the last bundle every row of the table is created as the script's post-state expects:
+    /// proxies, wiring, the timelock as owner, the region's authoriser, names, and the migration recorded.
+    function testZerogTableRowsAreLiveAfterTheLastBundle() external {
+        vm.createSelectFork(LibStoxDeployNetworks.ZEROG, ZEROG_BLOCK);
+        CreateZerogTokensHarness script = new CreateZerogTokensHarness("zerog-live");
+        assertEq(script.callCreatedCount(), LibTokenInvariants.productionTokensZerog().length, "created rows");
+        script.callAssertPostState();
     }
 }

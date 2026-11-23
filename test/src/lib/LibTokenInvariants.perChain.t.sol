@@ -40,6 +40,10 @@ contract LibTokenInvariantsPerChainTest is Test {
             LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.BSC_CHAIN_ID),
             LibTokenInvariants.productionTokensBsc()
         );
+        assertSame(
+            LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID),
+            LibTokenInvariants.productionTokensZerog()
+        );
     }
 
     function testBaseTableDiffersFromEveryOtherChainsSoTheSelectionIsObservable() external pure {
@@ -72,22 +76,59 @@ contract LibTokenInvariantsPerChainTest is Test {
         );
     }
 
-    /// Every table but 0G's names each token's receipt vault. 0G's is
-    /// placeholders, so a generator skips its token output.
-    function testOnlyZerogsTokenTableIsNotHydrated() external pure {
-        assertFalse(LibTokenInvariants.tokenTableHydrated(LibSafeInvariants.ZEROG_CHAIN_ID), "0G");
+    /// Every deployment chain's table names every leg of every token.
+    function testEveryDeploymentChainsTokenTableIsHydrated() external pure {
         SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < nets.length; i++) {
             assertTrue(LibTokenInvariants.tokenTableHydrated(nets[i].chainId), nets[i].name);
         }
     }
 
-    /// 0G's table is still all placeholders, so the resolver refuses it
-    /// rather than hand consumers `address(0)` targets.
-    function testZerogPlaceholderTableIsRefused() external {
-        vm.expectRevert(abi.encodeWithSelector(TokenTableNotHydrated.selector, LibSafeInvariants.ZEROG_CHAIN_ID));
-        lib.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+    /// The guard hands back each chain's table as written, row for row and
+    /// leg for leg.
+    function testHydratedReturnsEachChainsTableRowForRow() external view {
+        SupportedNetwork[] memory nets =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < nets.length; i++) {
+            uint256 id = nets[i].chainId;
+            TokenInstance[] memory table = LibTokenInvariants.tokenTableForChainId(id);
+            assertRows(lib.hydrated(id, table), table, nets[i].name);
+            assertRows(LibTokenInvariants.productionTokensForChainId(id), table, nets[i].name);
+        }
+    }
+
+    /// A placeholder in any leg of the first or the last row of a table is
+    /// refused.
+    function testHydratedRefusesAPlaceholderInAnyLegOfAnyRow() external {
+        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
+        uint256 last = LibTokenInvariants.productionTokensZerog().length - 1;
+        uint256[2] memory rows = [uint256(0), last];
+        for (uint256 r = 0; r < rows.length; r++) {
+            for (uint256 leg = 0; leg < 3; leg++) {
+                TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
+                if (leg == 0) table[rows[r]].receipt = address(0);
+                if (leg == 1) table[rows[r]].receiptVault = address(0);
+                if (leg == 2) table[rows[r]].wrappedTokenVault = address(0);
+                vm.expectRevert(abi.encodeWithSelector(TokenTableNotHydrated.selector, id));
+                lib.hydrated(id, table);
+            }
+        }
+    }
+
+    /// A row is hydrated exactly when none of its three legs is `address(0)`.
+    function testRowHydratedNeedsEveryLeg(address receipt, address receiptVault, address wrappedTokenVault)
+        external
+        pure
+    {
+        assertEq(
+            LibTokenInvariants.rowHydrated(TokenInstance("X", receipt, receiptVault, wrappedTokenVault)),
+            receipt != address(0) && receiptVault != address(0) && wrappedTokenVault != address(0)
+        );
+        assertFalse(LibTokenInvariants.rowHydrated(TokenInstance("X", address(0), address(1), address(1))));
+        assertFalse(LibTokenInvariants.rowHydrated(TokenInstance("X", address(1), address(0), address(1))));
+        assertFalse(LibTokenInvariants.rowHydrated(TokenInstance("X", address(1), address(1), address(0))));
+        assertTrue(LibTokenInvariants.rowHydrated(TokenInstance("X", address(1), address(1), address(1))));
     }
 
     function testUndeployedChainHasNoTable(uint256 chainId) external {
@@ -144,6 +185,19 @@ contract LibTokenInvariantsPerChainTest is Test {
     function testExpectedAuthoriserUnknownUnderlyingReverts() external {
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
         lib.expectedAuthoriser("NOPE", address(0xA11CE), LibSafeInvariants.BASE_CHAIN_ID);
+    }
+
+    function assertRows(TokenInstance[] memory actual, TokenInstance[] memory expected, string memory label)
+        internal
+        pure
+    {
+        assertEq(actual.length, expected.length, label);
+        for (uint256 i = 0; i < expected.length; i++) {
+            assertEq(actual[i].underlying, expected[i].underlying, label);
+            assertEq(actual[i].receipt, expected[i].receipt, label);
+            assertEq(actual[i].receiptVault, expected[i].receiptVault, label);
+            assertEq(actual[i].wrappedTokenVault, expected[i].wrappedTokenVault, label);
+        }
     }
 
     function assertSame(TokenInstance[] memory a, TokenInstance[] memory b) internal pure {
