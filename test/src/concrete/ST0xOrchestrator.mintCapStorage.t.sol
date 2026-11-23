@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.5/src/lib/LibLeakyBucket.sol";
-import {SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 
 import {MintAuthV1, MintLimitV1, MintCapKind} from "src/interface/IST0xOrchestratorV2.sol";
 import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrchestratorMintWeightingFixture.sol";

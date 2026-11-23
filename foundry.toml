@@ -95,7 +95,7 @@ rain-tofu-erc20-decimals-deploy = "0.1.9"
 "rain-math-float-deploy" = "0.1.13"
 "rain-metadata" = "0.1.46"
 "rain-string" = "0.3.11"
-rainlang = "0.2.40"
+rainlang = "0.2.41"
 rainlang-deploy = "0.1.15"
 
 [soldeer]
