@@ -25,21 +25,6 @@ contract ScheduleUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutF
         return LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS;
     }
 
-    /// @dev With its own record at the head and its batch not registered, the pre-flight authors a reschedule.
-    function ownRecordPreflightRefusal() internal pure override returns (bytes memory) {
-        return "";
-    }
-
-    function acceptsAnEarlierRecord() internal pure override returns (bool) {
-        return true;
-    }
-
-    /// @dev The rename schedule's record may head the line over this one after a reschedule, so it is not foreign.
-    function assumeForeign(bytes32 record) internal view override {
-        super.assumeForeign(record);
-        vm.assume(record != LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
-    }
-
     function declaredOnto() internal pure override returns (bytes32) {
         return LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK;
     }
