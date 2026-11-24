@@ -5,11 +5,20 @@ pragma solidity ^0.8.25;
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
+import {
+    ORCHESTRATOR_BURN_ROLE,
+    ORCHESTRATOR_EMERGENCY_ROLE,
+    ORCHESTRATOR_MINT_ROLE
+} from "../concrete/ST0xOrchestrator.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "./LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
+
+/// @notice `LibOrchestratorInvariants.expectedGrants` has no pair for `role`.
+/// @param role The role.
+error ZerogOrchestratorRoleNotExpected(bytes32 role);
 
 /// @notice After the batch executed, a grant it makes is not held.
 /// @param target The contract.
@@ -54,15 +63,25 @@ library LibZerogOrchestratorRoles {
         targets = new address[](GRANT_COUNT);
         pairs = new RoleGrant[](GRANT_COUNT);
         targets[0] = orchestrator;
-        pairs[0] = orchestratorGrants[2];
+        pairs[0] = pairOf(orchestratorGrants, ORCHESTRATOR_MINT_ROLE);
         targets[1] = orchestrator;
-        pairs[1] = orchestratorGrants[3];
+        pairs[1] = pairOf(orchestratorGrants, ORCHESTRATOR_BURN_ROLE);
         targets[2] = orchestrator;
-        pairs[2] = orchestratorGrants[1];
+        pairs[2] = pairOf(orchestratorGrants, ORCHESTRATOR_EMERGENCY_ROLE);
         targets[3] = authoriser;
         pairs[3] = authoriserGrants[LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX];
         targets[4] = authoriser;
         pairs[4] = authoriserGrants[LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX + 1];
+    }
+
+    /// @param expected The expected pairs.
+    /// @param role The role.
+    /// @return `role`'s pair in `expected`.
+    function pairOf(RoleGrant[] memory expected, bytes32 role) private pure returns (RoleGrant memory) {
+        for (uint256 grantIndex = 0; grantIndex < expected.length; grantIndex++) {
+            if (expected[grantIndex].role == role) return expected[grantIndex];
+        }
+        revert ZerogOrchestratorRoleNotExpected(role);
     }
 
     /// @return targets The orchestrator three times, then the US authoriser twice.
