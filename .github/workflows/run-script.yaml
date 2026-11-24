@@ -114,6 +114,40 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
       - name: Install Soldeer dependencies
         run: nix develop --command forge soldeer install
+      - name: Fetch the Safe queue
+        if: inputs.sig == 'runOnSafeQueue()'
+        env:
+          BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
+          ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
+          HYPEREVM_RPC_URL: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
+          ROBINHOOD_RPC_URL: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
+          BSC_RPC_URL: ${{ secrets.RPC_URL_BSC_FORK }}
+          ZEROG_RPC_URL: ${{ secrets.RPC_URL_ZEROG_FORK }}
+          SCRIPT: ${{ inputs.script }}
+          NETWORK: ${{ inputs.network }}
+        run: |
+          set -euo pipefail
+          safe=$(nix develop --command forge script "script/${SCRIPT}.s.sol" --sig 'queueSafe()' --rpc-url "${NETWORK}" --json \
+            | jq -rs 'map(select(.returns != null))[0].returns["0"].value')
+          chain_id=$(nix develop --command cast chain-id --rpc-url "${NETWORK}")
+          nonce=$(nix develop --command cast call "${safe}" 'nonce()(uint256)' --rpc-url "${NETWORK}")
+          service=$(curl -fsS -A st0x.deploy "https://safe-config.safe.global/api/v1/chains/${chain_id}/" | jq -r .transactionService)
+          mkdir -p out
+          curl -fsS "${service}/api/v1/safes/${safe}/multisig-transactions/?executed=false&nonce__gte=${nonce}&ordering=nonce&limit=100" \
+            | jq --argjson live "${nonce}" '
+                .results as $q
+                | if ([$q[].nonce] | unique | length) != ($q | length) then error("two proposals at one nonce") else . end
+                | if [$q[].nonce] != [range($live; $live + ($q | length))] then error("the queue has a gap") else . end
+                | {
+                    to: [$q[].to],
+                    value: [$q[].value],
+                    data: [$q[] | (.data // "0x")],
+                    operation: [$q[].operation],
+                    nonce: [$q[].nonce],
+                    safeTxHash: [$q[].safeTxHash]
+                  }' > out/safe-queue.json
+          echo "Safe ${safe} on chain ${chain_id} at nonce ${nonce}; queued:"
+          cat out/safe-queue.json
       - name: Run script
         env:
           # Expose every authoring network's RPC; `--rpc-url ${NETWORK}`
@@ -131,6 +165,7 @@ jobs:
           SCRIPT: ${{ inputs.script }}
           SIG: ${{ inputs.sig }}
           NETWORK: ${{ inputs.network }}
+          SAFE_QUEUE: out/safe-queue.json
         run: |
           nix develop --command forge script "script/${SCRIPT}.s.sol" \
             --sig "${SIG}" \
