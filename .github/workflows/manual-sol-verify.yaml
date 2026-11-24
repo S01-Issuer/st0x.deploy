@@ -24,7 +24,7 @@ on:
         default: ''
 jobs:
   verify:
-    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-verify.yaml@82a56c2831a0196fa6c6a998eb6f02fc319493ff
+    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-verify.yaml@main
     with:
       contract: ${{ inputs.contract }}
       address: ${{ inputs.address }}
