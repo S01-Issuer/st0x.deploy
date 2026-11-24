@@ -19,6 +19,23 @@ contract ScheduleZerogOrchestratorRolesHarness is ScheduleZerogOrchestratorRoles
         return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
     }
 
+    /// @inheritdoc ScheduleZerogOrchestratorRoles
+    function rescheduleArtifactPath() internal view override returns (string memory) {
+        return vm.replace(super.rescheduleArtifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
+    }
+
+    function callReschedulePreflight() external view {
+        reschedulePreflight();
+    }
+
+    function callRescheduleArtifactPath() external view returns (string memory) {
+        return rescheduleArtifactPath();
+    }
+
+    function callScheduleTx() external view returns (SafeTx memory) {
+        return scheduleTx();
+    }
+
     function callPreflight() external view {
         preflight();
     }

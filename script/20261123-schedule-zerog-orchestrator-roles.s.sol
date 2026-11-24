@@ -8,7 +8,9 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
@@ -30,6 +32,15 @@ error ZerogOrchestratorRolesAlreadyScheduled(bytes32 id);
 /// @notice After the bundle the operation is not pending, or is ready inside its delay.
 /// @param id The operation id.
 error ZerogOrchestratorRolesNotPendingInsideDelay(bytes32 id);
+
+/// @notice `reschedule` and `verifyReschedule` run only on 0G: no other chain schedules the batch.
+/// @param chainId The active chain id.
+error ZerogOrchestratorRolesRescheduleOffZerog(uint256 chainId);
+
+/// @notice The root-line head is not this script's record, so the batch was not scheduled and cancelled: either the
+/// schedule has not landed, and `run()` is the path, or a later migration has.
+/// @param head The root-line head.
+error ZerogOrchestratorRolesRescheduleNotAtTheSchedule(bytes32 head);
 
 /// @notice This script's declaration on the root line: right after the 0G token creation on every chain.
 /// @return The declaration.
@@ -53,8 +64,13 @@ function scheduleZerogOrchestratorRolesDeclaration() pure returns (ScriptDeclara
 /// 0.1.30 set deployer and made its first `deploy(timelock)` in one Multicall3 call, so the timelock was the
 /// instance's only initial admin and no one else could take the pinned address.
 ///
+/// `reschedule()` is the recovery after the Safe cancels the scheduled batch (docs/TIMELOCK.md, "A cancelled 0G
+/// batch"). The record stays at the head, so `run()` refuses; `reschedule()` authors the `scheduleBatch` call alone,
+/// as one direct Safe call, and `verifyReschedule(string)` is its signer check.
+///
 /// @dev Dispatch via `Actions → run-script` with `script = 20261123-schedule-zerog-orchestrator-roles` per chain.
-/// After the delay anyone executes the batch: `20261123-execute-zerog-orchestrator-roles` `execute()`.
+/// After the delay anyone executes the batch: `20261123-execute-zerog-orchestrator-roles` `execute()`. The recovery
+/// is the same dispatch on `zerog` with `sig = reschedule()`.
 contract ScheduleZerogOrchestratorRoles is SafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
@@ -88,6 +104,12 @@ contract ScheduleZerogOrchestratorRoles is SafeBundleScript, IStoxScript {
         return block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID;
     }
 
+    /// @notice Where `reschedule()` writes its one-call Safe Transaction Builder JSON.
+    /// @return The path.
+    function rescheduleArtifactPath() internal view virtual returns (string memory) {
+        return string.concat("out/20261123-reschedule-zerog-orchestrator-roles-", vm.toString(block.chainid), ".json");
+    }
+
     /// @inheritdoc SafeBundleScript
     /// @dev On 0G: the orchestrator beacon set and instance are the audited 0.1.30 ones, the timelock administers the
     /// orchestrator and holds the US authoriser's map before these grants, none of the five grants is held and the
@@ -98,7 +120,12 @@ contract ScheduleZerogOrchestratorRoles is SafeBundleScript, IStoxScript {
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
         if (!onZerog()) return;
+        assertZerogBeforeSchedule(chainSafe);
+    }
 
+    /// @notice The 0G state the batch is scheduled against, for `run()` and `reschedule()` alike.
+    /// @param chainSafe The 0G Safe.
+    function assertZerogBeforeSchedule(address chainSafe) internal view {
         LibOrchestratorInvariants.assertBeaconSet();
         LibOrchestratorInvariants.assertInstance();
         if (!IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE).hasRole(bytes32(0), timelock())) {
@@ -123,22 +150,117 @@ contract ScheduleZerogOrchestratorRoles is SafeBundleScript, IStoxScript {
             return txs;
         }
         txs = new SafeTx[](2);
-        txs[0] = SafeTx({
+        txs[0] = scheduleTx();
+        txs[1] = LibStoxMigrations.recordTx(scheduleZerogOrchestratorRolesDeclaration());
+    }
+
+    /// @notice The `scheduleBatch` call on the 0G timelock: the bundle's first call, and the whole recovery.
+    /// @return The call.
+    function scheduleTx() internal view returns (SafeTx memory) {
+        return SafeTx({
             to: timelock(), value: 0, data: LibZerogOrchestratorRoles.scheduleCalldata(), operation: Enum.Operation.Call
         });
-        txs[1] = LibStoxMigrations.recordTx(scheduleZerogOrchestratorRolesDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
-        if (onZerog()) {
-            TimelockController controller = TimelockController(payable(timelock()));
-            bytes32 id = LibZerogOrchestratorRoles.operationId(timelock());
-            if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
-                revert ZerogOrchestratorRolesNotPendingInsideDelay(id);
-            }
-        }
+        if (onZerog()) assertPendingInsideDelay();
         LibStoxMigrations.assertRecorded(scheduleZerogOrchestratorRolesDeclaration());
+    }
+
+    /// @notice Reverts unless the batch is pending and not yet ready.
+    function assertPendingInsideDelay() internal view {
+        TimelockController controller = TimelockController(payable(timelock()));
+        bytes32 id = LibZerogOrchestratorRoles.operationId(timelock());
+        if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
+            revert ZerogOrchestratorRolesNotPendingInsideDelay(id);
+        }
+    }
+
+    /// @notice Reverts unless the Safe can re-schedule a cancelled batch on 0G: the root-line head is this script's
+    /// record, the batch is not registered on the timelock (OpenZeppelin's `cancel` deletes it, so neither pending
+    /// nor done), none of its grants is held, and every other check `run()` makes on 0G before scheduling holds.
+    function reschedulePreflight() internal view {
+        if (!onZerog()) revert ZerogOrchestratorRolesRescheduleOffZerog(block.chainid);
+        bytes32 lineHead = LibStoxMigrations.head();
+        if (lineHead != LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES) {
+            revert ZerogOrchestratorRolesRescheduleNotAtTheSchedule(lineHead);
+        }
+        address chainSafe = address(safe());
+        LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
+        LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
+        assertZerogBeforeSchedule(chainSafe);
+    }
+
+    /// @notice The recovery after a Safe `cancel` of the batch, on 0G. Checks the state (`reschedulePreflight`),
+    /// executes the `scheduleBatch` call alone through the Safe on the fork, requires the batch pending inside its
+    /// delay and the line unchanged, proves the batch executes after the delay, then writes the one-call artifact and
+    /// logs the call's fields and its `SafeTxHash` at the Safe's nonce before execution. The Safe UI proposes a
+    /// one-call artifact as a direct call (operation 0), not a MultiSend, so that hash is the one the signers see.
+    /// @return The direct call's `SafeTxHash` at the nonce before execution.
+    function reschedule() external returns (bytes32) {
+        string memory path = rescheduleArtifactPath();
+        if (vm.exists(path)) vm.removeFile(path);
+        reschedulePreflight();
+        SafeTx[] memory txs = new SafeTx[](1);
+        txs[0] = scheduleTx();
+        Safe chainSafe = safe();
+        uint256 nonce = chainSafe.nonce();
+        bytes32 safeTxHash = LibSafeTx.safeTxHash(chainSafe, txs[0], nonce);
+        LibSafeFork.execute(vm, chainSafe, txs[0]);
+        assertPendingInsideDelay();
+        bytes32 lineHead = LibStoxMigrations.head();
+        if (lineHead != LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES) {
+            revert ZerogOrchestratorRolesRescheduleNotAtTheSchedule(lineHead);
+        }
+        assertReversible();
+        string memory json = LibSafeTxBuilderJson.toJson(
+            vm,
+            address(chainSafe),
+            block.chainid,
+            "ST0x RBAC: re-schedule the cancelled 0G orchestrator MINT, BURN, EMERGENCY, DEPOSIT and WITHDRAW grants",
+            txs
+        );
+        vm.writeFile(path, json);
+        console2.log("==== TX BUILDER JSON BEGIN ====");
+        console2.log(json);
+        console2.log("==== TX BUILDER JSON END ====");
+        logDirectCall(chainSafe, txs[0], nonce, safeTxHash);
+        console2.log("Artifact:", path);
+        return safeTxHash;
+    }
+
+    /// @notice The signer check for `reschedule()`: re-runs its pre-flight on live 0G, refuses an artifact that is not
+    /// exactly the one `scheduleBatch` call, and logs the direct call's `SafeTxHash` at the live nonce.
+    /// @param jsonPath The `reschedule()` artifact.
+    /// @return safeTxHash The direct call's `SafeTxHash` at the live nonce.
+    function verifyReschedule(string calldata jsonPath) external view returns (bytes32 safeTxHash) {
+        reschedulePreflight();
+        SafeTx[] memory expected = new SafeTx[](1);
+        expected[0] = scheduleTx();
+        Safe chainSafe = safe();
+        LibSafeTxBuilderJson.requireMatches(vm, vm.readFile(jsonPath), address(chainSafe), expected);
+        uint256 nonce = chainSafe.nonce();
+        safeTxHash = LibSafeTx.safeTxHash(chainSafe, expected[0], nonce);
+        console2.log("Artifact verified against live state.");
+        logDirectCall(chainSafe, expected[0], nonce, safeTxHash);
+    }
+
+    /// @notice Logs the direct call's `execTransaction` fields and its hash.
+    /// @param chainSafe The Safe.
+    /// @param txn The call.
+    /// @param nonce The nonce it consumes.
+    /// @param safeTxHash Its hash at that nonce.
+    function logDirectCall(Safe chainSafe, SafeTx memory txn, uint256 nonce, bytes32 safeTxHash) internal pure {
+        console2.log("Safe:", address(chainSafe));
+        console2.log("Nonce:", nonce);
+        console2.log("To:", txn.to);
+        console2.log("Value:", txn.value);
+        console2.log("Operation: 0 (Call); safeTxGas, baseGas, gasPrice 0; gasToken, refundReceiver address(0)");
+        console2.log("Data:", vm.toString(txn.data));
+        console2.log("Data keccak256:", vm.toString(keccak256(txn.data)));
+        console2.log("Operation id:", vm.toString(LibZerogOrchestratorRoles.operationId(txn.to)));
+        console2.log("Direct-call SafeTxHash:", vm.toString(safeTxHash));
     }
 
     /// @inheritdoc SafeBundleScript

@@ -526,6 +526,108 @@ would revert. 0G needs its own arm of the admin move, record-only there because
 the timelock already holds the role;
 [#624](https://github.com/S01-Issuer/st0x.deploy/pull/624) owns that arm.
 
+**0G procedure.** The schedule bundle grants `MINT` and `BURN`, so every signer
+checks it before approving. The 0G Safe is
+`0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329` (threshold 3), the 0G timelock is
+`0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B`, and the batch's operation id is
+`0x03862515933fa4272c3fa3ad4feebfc1533c8f5347da2b962dd7449304dc4ea3`
+(`testOperationIdIsTheDocumentedOne` pins it).
+
+1. Actions → `run-script` → `20261123-schedule-zerog-orchestrator-roles`,
+   network `zerog`, `run()`. The artifact is
+   `out/20261123-schedule-zerog-orchestrator-roles-16661.json`: the
+   `scheduleBatch` call on the 0G timelock, then the root-line record. `run()`
+   lands it on a fork and requires the operation pending and not yet ready
+   there; that check runs only in this simulation, not on chain.
+2. Every signer, the proposer included, unzips the artifact into `out/` and runs
+   `forge script script/20261123-schedule-zerog-orchestrator-roles.s.sol --sig 'verify(string)' out/20261123-schedule-zerog-orchestrator-roles-16661.json --rpc-url zerog`.
+   It re-derives the bundle from live 0G state, requires the artifact to match
+   it byte for byte, and prints the MultiSend `SafeTxHash` at the Safe's live
+   nonce. Every signer must get the same hash.
+3. Sign and execute through the Safe UI on 0G, as Safe nonces 0 to 5 on 0G were.
+   One signer imports the CI artifact (never a locally generated JSON) into the
+   Safe Transaction Builder on 0G and proposes it without executing. The Safe
+   UI's `SafeTxHash` must equal the one `verify` printed. The Safe UI builds
+   that transaction as: `to` MultiSendCallOnly v1.4.1
+   `0x9641d764fc13c8B624c04430C7356C1C7C8102e2`, `value` 0, `data` the
+   `multiSend` payload, `operation` 1 (DELEGATECALL), `safeTxGas`, `baseGas` and
+   `gasPrice` 0, `gasToken` and `refundReceiver` the zero address. Three owners
+   must confirm. Each confirms in the Safe UI, either with an off-chain
+   signature or on chain with `approveHash(<SafeTxHash>)` from the owner's own
+   address; the Safe UI lists both kinds. The owner who executes is one of the
+   three and needs neither, because the Safe counts the sender. The Safe UI then
+   sends `execTransaction` with the signatures sorted by ascending owner
+   address. An off-chain signature is its 65-byte ECDSA signature. An on-chain
+   approval, and the executing owner, are `r = owner`, `s = 0`, `v = 1`. After
+   it lands, check on chain that the batch is pending:
+   `cast call 0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B 'isOperationPending(bytes32)(bool)' 0x03862515933fa4272c3fa3ad4feebfc1533c8f5347da2b962dd7449304dc4ea3 --rpc-url zerog`
+   must print `true`.
+4. After 48h, Actions → `manual-broadcast` →
+   `20261123-execute-zerog-orchestrator-roles`, `sig = execute()`, network
+   `zerog`. `execute()` refuses if the broadcasting key holds the timelock's
+   `EXECUTOR_ROLE`, so the execution proves that anyone can execute, and it
+   refuses if the batch is not ready. It does not check the key's other timelock
+   roles. Afterwards it requires the operation done and every grant held.
+5. Actions → `run-script` → `20261123-execute-zerog-orchestrator-roles`,
+   `run()`, on each chain. On 0G its pre-flight refuses until the batch has
+   executed and every grant is held. On the other five chains the root line
+   needs the `20261119-create-zerog-tokens` record, then the
+   `20261123-schedule-zerog-orchestrator-roles` record (its `run()`, the record
+   alone), before this one. Each of these record bundles is one transaction, so
+   the Safe UI proposes a direct call instead of the MultiSend that `verify`
+   hashes: compare the call's target and data with the artifact. On 0G, sign and
+   execute the execute record as in step 3, except that it is that direct call:
+   `to` the registry, `operation` 0, and the hash to compare is the Safe UI's
+   hash of it, not the `verify` MultiSend hash.
+
+**A cancelled 0G batch.** The Safe is the timelock's canceller (no dedicated
+`TIMELOCK_CANCELLER` is set), so a `cancel` is a deliberate veto by the Safe.
+The schedule record lands in the same Safe transaction as `scheduleBatch`, so
+after a `cancel` the root-line head is still
+`20261123-schedule-zerog-orchestrator-roles`. `run()` cannot run again (its
+`assertNext` wants the 0G token creation as the head), and the execute record
+refuses with `ZerogOrchestratorRolesNotExecuted`, so every later 0G migration
+waits.
+
+First decide why the Safe cancelled:
+
+- **The batch itself is wrong**, for example the service signer key leaked or a
+  grantee is wrong. Do not re-schedule it. Change `LibZerogOrchestratorRoles` in
+  a reviewed PR, which gives a new operation id (`execute()`, the execute record
+  and `reschedule()` all read it from the library), and schedule the new
+  calldata the same way.
+- **The batch is still correct** and the reason for the cancel has nothing to do
+  with its contents, for example it was scheduled at the wrong time. Then, and
+  only once that reason is resolved, re-schedule the same batch:
+
+1. Actions → `run-script` → `20261123-schedule-zerog-orchestrator-roles`,
+   network `zerog`, `sig = reschedule()`. `reschedule()` refuses unless the head
+   is this script's record and the operation is not registered on the timelock
+   (neither pending nor done), and it reruns every 0G check `run()` makes before
+   scheduling: the Safe policy, the timelock state, the beacon set and instance,
+   the timelock as the orchestrator admin, the US authoriser's admin roles, and
+   none of the five grants held. It lands the one `scheduleBatch` call on a
+   fork, requires the same operation pending inside the delay and the line
+   unchanged, and proves the batch executes after the delay. The artifact is
+   `out/20261123-reschedule-zerog-orchestrator-roles-16661.json`.
+2. Every signer, the proposer included, unzips it into `out/` and runs
+   `forge script script/20261123-schedule-zerog-orchestrator-roles.s.sol --sig 'verifyReschedule(string)' out/20261123-reschedule-zerog-orchestrator-roles-16661.json --rpc-url zerog`.
+   It reruns the same pre-flight on live 0G, requires the artifact to be exactly
+   that one call, and prints its fields and the `Direct-call SafeTxHash` at the
+   live nonce. Every signer must get the same hash.
+3. Sign and execute as in step 3 above, except that the Safe UI proposes the
+   one-call artifact as a direct call: `to` the 0G timelock, `operation` 0, and
+   `data` the `Data:` line `verifyReschedule` printed. The Safe UI's
+   `SafeTxHash` must equal the `Direct-call SafeTxHash`. Then check
+   `isOperationPending` as in step 3.
+4. Continue at step 4 above after the new 48h. The same targets, payloads, salt
+   and predecessor give the same operation id, so `execute()` and the execute
+   record work unchanged. `testCancelledBatchRecoversByADirectReschedule` covers
+   the whole path on a 0G fork.
+
+Never write the `20261123-execute-zerog-orchestrator-roles` record by hand: its
+pre-flight is the only check that the grants really executed.
+
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a
 leaked `MINT` or `BURN` key is also a 48h timelock operation; the orchestrator

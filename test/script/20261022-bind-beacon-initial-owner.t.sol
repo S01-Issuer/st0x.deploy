@@ -24,9 +24,10 @@ import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 
 /// @title BindBeaconInitialOwnerTest
 /// @notice The bind on every deployment network at its pinned pre-backfill
-/// block, with the V5 backfill and the 0G token creation's record executed
-/// first, the root's unscoped
-/// approval of the Safe and the governance timelock written on the fork.
+/// block, with the V5 backfill, the 0G token creation's record and the 0G
+/// orchestrator roles schedule and execute records executed first, the root's
+/// unscoped approval of the Safe and the governance timelock written on the
+/// fork.
 contract BindBeaconInitialOwnerTest is Test {
     function executeBackfill(address safe, string memory tag) internal {
         LibSafeFork.executeBundle(

@@ -414,11 +414,11 @@ library LibBeaconInvariants {
     function assertProdBeaconsOwnedBy(uint256 chainId, address expectedOwner) internal view {
         address[4] memory beacons = prodBeaconsForChainId(chainId);
         bytes32[4] memory codehashes = prodBeaconCodehashesForChainId(chainId);
-        for (uint256 i = 0; i < beacons.length; i++) {
-            _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
-            address actualOwner = IOwnable(beacons[i]).owner();
+        for (uint256 beaconIndex = 0; beaconIndex < beacons.length; beaconIndex++) {
+            _assertDeployedPinnedBeacon(beacons[beaconIndex], codehashes[beaconIndex]);
+            address actualOwner = IOwnable(beacons[beaconIndex]).owner();
             if (actualOwner != expectedOwner) {
-                revert BeaconOwnerMismatch(beacons[i], expectedOwner, actualOwner);
+                revert BeaconOwnerMismatch(beacons[beaconIndex], expectedOwner, actualOwner);
             }
         }
     }

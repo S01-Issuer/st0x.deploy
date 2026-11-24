@@ -100,6 +100,16 @@ abstract contract ZerogOrchestratorRolesFixture is Test {
     function scheduleAsSigners() internal returns (bytes32 safeTxHash) {
         SafeTx memory multiSend;
         (multiSend, safeTxHash) = scheduleSafeTx();
+        landAsSigners(multiSend, safeTxHash);
+        new ScheduleZerogOrchestratorRolesHarness("signers-post").callAssertPostState();
+    }
+
+    /// @notice `txn` as the signers land a 0G Safe transaction: three owners each `approveHash` its hash on chain,
+    /// then one of them executes it with the three pre-approved signatures.
+    /// @param txn The Safe transaction.
+    /// @param safeTxHash Its hash at the Safe's live nonce.
+    function landAsSigners(SafeTx memory txn, bytes32 safeTxHash) internal {
+        assertEq(LibSafeTx.safeTxHash(zerogSafe(), txn, zerogSafe().nonce()), safeTxHash, "hash at the live nonce");
         address[] memory owners = signers();
         for (uint256 signerIndex = 0; signerIndex < owners.length; signerIndex++) {
             assertTrue(zerogSafe().isOwner(owners[signerIndex]), "signer is an owner");
@@ -107,8 +117,7 @@ abstract contract ZerogOrchestratorRolesFixture is Test {
             zerogSafe().approveHash(safeTxHash);
         }
         vm.prank(OWNER_C);
-        assertTrue(LibSafeFork.exec(zerogSafe(), multiSend, LibSafeTx.approvedHashSignatures(owners)), "Safe executed");
-        new ScheduleZerogOrchestratorRolesHarness("signers-post").callAssertPostState();
+        assertTrue(LibSafeFork.exec(zerogSafe(), txn, LibSafeTx.approvedHashSignatures(owners)), "Safe executed");
     }
 
     /// @notice After the delay, `execute()` from the test's default sender, which holds no role.

@@ -15,8 +15,9 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title OrchestratorAdminToTimelockLocalTest
 /// @notice The move on a local Base whose root line is at the beacon-initial-owner
-/// bind, after the V5 backfill and the 0G token creation record, so it runs
-/// whatever the live chains have recorded.
+/// bind, after the V5 backfill, the 0G token creation record and the 0G
+/// orchestrator roles schedule and execute records, so it runs whatever the
+/// live chains have recorded.
 contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, RootLineRecordScriptTest {
     function newScript() internal override returns (IRecordScriptHooks) {
         return IRecordScriptHooks(address(new OrchestratorAdminToTimelockHarness("local")));

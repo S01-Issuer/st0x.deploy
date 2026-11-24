@@ -76,13 +76,13 @@ contract BuildExpectedState is Script {
         address[4] memory renamed = renamedImplementations(chainId);
         address owner = LibTimelockInvariants.timelockForChainId(chainId);
         string[] memory rows = new string[](derived.length);
-        for (uint256 i = 0; i < rows.length; i++) {
-            string memory row = string.concat(key, ".beacon.", vm.toString(i));
-            vm.serializeAddress(row, "beacon", derived[i]);
-            vm.serializeBytes32(row, "codehash", codehashes[i]);
-            vm.serializeAddress(row, "implementation", implementations[i]);
-            vm.serializeAddress(row, "renamedImplementation", renamed[i]);
-            rows[i] = vm.serializeAddress(row, "owner", owner);
+        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            string memory row = string.concat(key, ".beacon.", vm.toString(rowIndex));
+            vm.serializeAddress(row, "beacon", derived[rowIndex]);
+            vm.serializeBytes32(row, "codehash", codehashes[rowIndex]);
+            vm.serializeAddress(row, "implementation", implementations[rowIndex]);
+            vm.serializeAddress(row, "renamedImplementation", renamed[rowIndex]);
+            rows[rowIndex] = vm.serializeAddress(row, "owner", owner);
         }
         return rows;
     }

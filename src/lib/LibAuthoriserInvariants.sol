@@ -292,8 +292,8 @@ library LibAuthoriserInvariants {
     {
         RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
         RoleGrant[] memory withoutOrchestrator = new RoleGrant[](ORCHESTRATOR_GRANT_INDEX);
-        for (uint256 i = 0; i < ORCHESTRATOR_GRANT_INDEX; i++) {
-            withoutOrchestrator[i] = grants[i];
+        for (uint256 grantIndex = 0; grantIndex < ORCHESTRATOR_GRANT_INDEX; grantIndex++) {
+            withoutOrchestrator[grantIndex] = grants[grantIndex];
         }
         return withoutOrchestrator;
     }

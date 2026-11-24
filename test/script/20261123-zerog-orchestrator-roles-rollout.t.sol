@@ -8,13 +8,15 @@ import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
 import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
-import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {
     ScheduleZerogOrchestratorRoles,
     TimelockNotOrchestratorAdmin,
     ZerogOrchestratorRolesAlreadyScheduled,
-    ZerogOrchestratorRolesNotPendingInsideDelay
+    ZerogOrchestratorRolesNotPendingInsideDelay,
+    ZerogOrchestratorRolesRescheduleNotAtTheSchedule,
+    ZerogOrchestratorRolesRescheduleOffZerog
 } from "../../script/20261123-schedule-zerog-orchestrator-roles.s.sol";
 import {
     ExecuteZerogOrchestratorRoles,
@@ -28,7 +30,7 @@ import {ExpectedGrantMissing, LibAuthoriserInvariants} from "../../src/lib/LibAu
 import {ContractRoles, LibIdealRoles} from "../../src/lib/LibIdealRoles.sol";
 import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {
     LibZerogOrchestratorRoles,
@@ -147,11 +149,16 @@ contract ZerogOrchestratorRolesRolloutTest is ZerogOrchestratorRolesFixture {
 
     /// @notice On live 0G the orchestrator and US authoriser lack exactly the batch's five pairs of what
     /// `LibIdealRoles` expects of them, and the EU authoriser and the timelock already hold all of theirs.
+    /// The mint-caps orchestrator is left out, by its target: it is not deployed on 0G, so it has no code to hold a
+    /// role, and the batch does not grant it anything.
     function testTheBatchIsExactlyWhatZerogLacks() external view {
         ContractRoles[] memory ideal = LibIdealRoles.contractRoles(LibSafeInvariants.ZEROG_CHAIN_ID);
         (address[] memory targets, RoleGrant[] memory grants) = LibZerogOrchestratorRoles.grants();
+        address mintCaps = LibOrchestratorInvariants.mintCapsInstance();
+        assertEq(mintCaps.code.length, 0, "the mint-caps orchestrator is not deployed on 0G");
         uint256 lacking = 0;
-        for (uint256 contractIndex = 0; contractIndex < 4; contractIndex++) {
+        for (uint256 contractIndex = 0; contractIndex < ideal.length; contractIndex++) {
+            if (ideal[contractIndex].target == mintCaps) continue;
             for (uint256 grantIndex = 0; grantIndex < ideal[contractIndex].expected.length; grantIndex++) {
                 RoleGrant memory pair = ideal[contractIndex].expected[grantIndex];
                 if (IAccessControl(ideal[contractIndex].target).hasRole(pair.role, pair.grantee)) continue;
@@ -263,6 +270,116 @@ contract ZerogOrchestratorRolesRolloutTest is ZerogOrchestratorRolesFixture {
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
         vm.expectRevert(abi.encodeWithSelector(ZerogOrchestratorRolesNotPendingInsideDelay.selector, id));
         schedule.callAssertPostState();
+    }
+
+    /// @notice The operation id docs/TIMELOCK.md gives the signers for their `isOperationPending` check.
+    function testOperationIdIsTheDocumentedOne() external pure {
+        assertEq(
+            LibZerogOrchestratorRoles.operationId(zerogTimelock()),
+            0x03862515933fa4272c3fa3ad4feebfc1533c8f5347da2b962dd7449304dc4ea3,
+            "documented operation id"
+        );
+    }
+
+    /// @notice The cancel recovery end to end. The signers schedule, then the Safe cancels: the line stays at the
+    /// schedule record, `run()` and the execute record refuse, and `reschedule()` authors the one direct call. Its
+    /// artifact verifies, the signers land it at the hash it printed, the same operation is pending inside the delay,
+    /// and after it a roleless key executes and the Safe records the execution.
+    function testCancelledBatchRecoversByADirectReschedule() external {
+        scheduleAsSigners();
+        TimelockController timelock = TimelockController(payable(zerogTimelock()));
+        bytes32 id = LibZerogOrchestratorRoles.operationId(zerogTimelock());
+        SafeTx memory cancel = SafeTx({
+            to: zerogTimelock(),
+            value: 0,
+            data: abi.encodeCall(TimelockController.cancel, (id)),
+            operation: Enum.Operation.Call
+        });
+        landAsSigners(cancel, LibSafeTx.safeTxHash(zerogSafe(), cancel, zerogSafe().nonce()));
+        assertFalse(timelock.isOperation(id), "cancelled");
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES, "head stays");
+
+        ScheduleZerogOrchestratorRolesHarness schedule = new ScheduleZerogOrchestratorRolesHarness("reschedule");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UnexpectedMigrationLine.selector, LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES
+            )
+        );
+        schedule.callPreflight();
+        ExecuteZerogOrchestratorRolesHarness record = new ExecuteZerogOrchestratorRolesHarness("cancelled");
+        vm.expectRevert(abi.encodeWithSelector(ZerogOrchestratorRolesNotExecuted.selector, id));
+        record.callPreflight();
+
+        SafeTx memory direct = schedule.callScheduleTx();
+        assertEq(direct.to, zerogTimelock(), "to");
+        assertEq(direct.value, 0, "value");
+        assertEq(direct.data, LibZerogOrchestratorRoles.scheduleCalldata(), "data");
+        assertEq(uint8(direct.operation), uint8(Enum.Operation.Call), "a direct call");
+        bytes32 expected = LibSafeTx.safeTxHash(zerogSafe(), direct, zerogSafe().nonce());
+        uint256 beforeRun = vm.snapshotState();
+        assertEq(schedule.reschedule(), expected, "reschedule() prints the direct-call hash");
+        vm.revertToState(beforeRun);
+        assertEq(
+            schedule.verifyReschedule(schedule.callRescheduleArtifactPath()), expected, "artifact verifies on live 0G"
+        );
+
+        landAsSigners(direct, expected);
+        assertTrue(timelock.isOperationPending(id) && !timelock.isOperationReady(id), "same id pending in the delay");
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES, "line unchanged");
+        ExecuteZerogOrchestratorRoles early = new ExecuteZerogOrchestratorRoles();
+        vm.expectRevert(abi.encodeWithSelector(ZerogOrchestratorRolesNotReady.selector, id, true, false));
+        early.execute();
+
+        executeAfterTheDelay();
+        assertTrue(timelock.isOperationDone(id), "done");
+        LibZerogOrchestratorRoles.assertGranted();
+        landExecutionRecord();
+        assertEq(LibStoxMigrations.head(), LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES, "execution recorded");
+    }
+
+    /// @notice `reschedule()` refuses unless the batch was scheduled and cancelled: before the schedule lands (the
+    /// line is at the token creation), while the batch is pending, after it has executed and its record landed, and
+    /// off 0G.
+    function testRescheduleRefusesUnlessTheBatchWasCancelled() external {
+        ScheduleZerogOrchestratorRolesHarness schedule = new ScheduleZerogOrchestratorRolesHarness("not-cancelled");
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ZerogOrchestratorRolesRescheduleNotAtTheSchedule.selector, LibStoxMigrations.CREATE_ZEROG_TOKENS
+            )
+        );
+        schedule.callReschedulePreflight();
+
+        scheduleAsSigners();
+        bytes32 id = LibZerogOrchestratorRoles.operationId(zerogTimelock());
+        vm.expectRevert(abi.encodeWithSelector(ZerogOrchestratorRolesAlreadyScheduled.selector, id));
+        schedule.callReschedulePreflight();
+
+        executeAfterTheDelay();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ZerogOrchestratorRoleAlreadyGranted.selector,
+                LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
+                keccak256("MINT"),
+                LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
+            )
+        );
+        schedule.callReschedulePreflight();
+        landExecutionRecord();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ZerogOrchestratorRolesRescheduleNotAtTheSchedule.selector,
+                LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES
+            )
+        );
+        schedule.callReschedulePreflight();
+
+        vm.chainId(LibSafeInvariants.HYPEREVM_CHAIN_ID);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ZerogOrchestratorRolesRescheduleOffZerog.selector, LibSafeInvariants.HYPEREVM_CHAIN_ID
+            )
+        );
+        schedule.callReschedulePreflight();
     }
 
     function testExecuteRefusesOffZerog() external {

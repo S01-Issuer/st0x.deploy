@@ -28,11 +28,11 @@ contract BuildPrivilegedAddresses is Script {
         address[4] memory implementations = LibBeaconInvariants.prodImplementationsForChainId(chainId);
         address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(chainId);
         string[] memory rows = new string[](pinned.length);
-        for (uint256 i = 0; i < rows.length; i++) {
-            string memory row = string.concat(key, ".beacon.", vm.toString(i));
-            vm.serializeAddress(row, "beacon", pinned[i]);
-            vm.serializeAddress(row, "implementation", implementations[i]);
-            rows[i] = vm.serializeAddress(row, "v1Implementation", v1[i]);
+        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            string memory row = string.concat(key, ".beacon.", vm.toString(rowIndex));
+            vm.serializeAddress(row, "beacon", pinned[rowIndex]);
+            vm.serializeAddress(row, "implementation", implementations[rowIndex]);
+            rows[rowIndex] = vm.serializeAddress(row, "v1Implementation", v1[rowIndex]);
         }
         return rows;
     }
