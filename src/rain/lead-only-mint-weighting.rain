@@ -18,6 +18,7 @@ using-words-from st0x-attest-subparser
   "Lead attestation missing"
 ),
 
+symbol: underlying-symbol(mint-token()),
 price-domain: [eip712-domain-separator name "prices" version "1"],
 :ensure(
   binary-equal-to(lead-domain() price-domain)
@@ -30,7 +31,7 @@ price-domain: [eip712-domain-separator name "prices" version "1"],
 ),
 
 :ensure(
-  binary-equal-to(lead-symbol() mint-underlying-symbol())
+  binary-equal-to(lead-symbol() symbol)
   "Attestation for another token"
 ),
 
@@ -47,7 +48,7 @@ price-domain: [eip712-domain-separator name "prices" version "1"],
   "Times disagree"
 ),
 
-lead-time-key: hash("lead-time" mint-underlying-symbol()),
+lead-time-key: hash("lead-time" symbol),
 :ensure(
   greater-than-or-equal-to(lead-time() get(lead-time-key))
   "Lead time went backwards"

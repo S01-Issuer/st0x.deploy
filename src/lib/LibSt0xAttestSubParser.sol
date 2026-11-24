@@ -59,11 +59,16 @@ uint256 constant SUB_PARSER_WORD_LEAD_CURRENCY = 13;
 uint256 constant SUB_PARSER_WORD_ATTESTED_SOURCE = 14;
 /// @dev Index of `attested-currency` in the word list.
 uint256 constant SUB_PARSER_WORD_ATTESTED_CURRENCY = 15;
+/// @dev Index of `underlying-symbol` in the word list.
+uint256 constant SUB_PARSER_WORD_UNDERLYING_SYMBOL = 16;
 
 /// @dev The number of words. The parse meta, the word parsers and the operand
 /// handlers are all indexed by the constants above, so all three are this
 /// long.
-uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 16;
+uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 17;
+
+/// @dev The number of extern opcodes.
+uint256 constant EXTERN_OPCODES_LENGTH = 1;
 
 /// @title LibSt0xAttestSubParser
 /// @notice The words of `St0xAttestSubParser`. Each one names a cell of the
@@ -389,6 +394,10 @@ library LibSt0xAttestSubParser {
         meta[SUB_PARSER_WORD_ATTESTED_CURRENCY] = AuthoringMetaV2(
             "attested-currency",
             "The currency pool attestor N attested its price in, as an IntOrAString bytes32, so a Rainlang string literal compares equal to it. N is the operand and is required. A string: compare it with binary-equal-to, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
+        );
+        meta[SUB_PARSER_WORD_UNDERLYING_SYMBOL] = AuthoringMetaV2(
+            "underlying-symbol",
+            "The underlyingSymbol() of the token address input, read at eval, as an IntOrAString bytes32 so it compares binary-equal to the attested symbols. One input, one output, no operand. Reverts at eval if the symbol is empty or longer than 31 bytes. A string: compare it with binary-equal-to, never numerically."
         );
         return abi.encode(meta);
     }

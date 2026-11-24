@@ -35,6 +35,7 @@ using-words-from st0x-attest-subparser
   "Attestor not allowlisted"
 ),
 
+symbol: underlying-symbol(mint-token()),
 price-domain: [eip712-domain-separator name "prices" version "1"],
 :ensure(
   binary-equal-to(lead-domain() price-domain)
@@ -65,7 +66,7 @@ price-domain: [eip712-domain-separator name "prices" version "1"],
 :ensure(
   binary-equal-to(
     lead-symbol() attested-symbol<0>() attested-symbol<1>()
-    mint-underlying-symbol()
+    symbol
   )
   "Attestation for another token"
 ),
@@ -86,7 +87,7 @@ price-domain: [eip712-domain-separator name "prices" version "1"],
   "Times disagree"
 ),
 
-lead-time-key: hash("lead-time" mint-underlying-symbol()),
+lead-time-key: hash("lead-time" symbol),
 :ensure(
   greater-than-or-equal-to(lead-time() get(lead-time-key))
   "Lead time went backwards"
