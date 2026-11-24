@@ -1,5 +1,20 @@
 # Changelog
 
+## Deploy requires the governance timelock (RAI-4173)
+
+### Token config and deploy
+
+- **`Deploy.preDeployCheck` refuses a beacon or token suite unless the
+  governance timelock that owns them is in its pinned state**
+  (`LibTimelockInvariants.assertTimelockState` with the chain's Safe as
+  proposer, so `TimelockNotDeployed`, `TimelockCodehashMismatch`,
+  `TimelockMissingRole` and the other `LibTimelockController` errors). It runs
+  after the binding checks. `stox-orchestrator-beacon` now goes through the
+  beacon branch too, so it is refused unless the beacon initial owner binding is
+  `STOX_GOVERNANCE_TIMELOCK` (`NameNotRegistered` when unbound,
+  `BeaconInitialOwnerMismatch` when bound to another address); before, it had no
+  check.
+
 ## Registry-config tokens (rain.vats 0.2.9)
 
 ### StoxReceiptVault
