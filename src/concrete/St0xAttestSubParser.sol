@@ -27,9 +27,7 @@ import {
     DESCRIBED_BY_META_HASH,
     PARSE_META as SUB_PARSER_PARSE_META,
     SUB_PARSER_WORD_PARSERS,
-    OPERAND_HANDLER_FUNCTION_POINTERS as SUB_PARSER_OPERAND_HANDLERS,
-    OPCODE_FUNCTION_POINTERS as EXTERN_OPCODE_FUNCTION_POINTERS,
-    INTEGRITY_FUNCTION_POINTERS as EXTERN_INTEGRITY_FUNCTION_POINTERS
+    OPERAND_HANDLER_FUNCTION_POINTERS as SUB_PARSER_OPERAND_HANDLERS
 } from "../generated/St0xAttestSubParserPointers.sol";
 
 /// @title St0xAttestSubParser
@@ -176,19 +174,10 @@ contract St0xAttestSubParser is BaseRainlangSubParser, BaseRainlangExtern {
         }
     }
 
+    /// @notice One run function per extern opcode, in opcode order, built from
+    /// the function references so the table never moves the code it points at.
     /// @inheritdoc BaseRainlangExtern
     function opcodeFunctionPointers() internal pure virtual override returns (bytes memory) {
-        return EXTERN_OPCODE_FUNCTION_POINTERS;
-    }
-
-    /// @inheritdoc BaseRainlangExtern
-    function integrityFunctionPointers() internal pure virtual override returns (bytes memory) {
-        return EXTERN_INTEGRITY_FUNCTION_POINTERS;
-    }
-
-    /// @notice One run function per extern opcode, in opcode order.
-    /// @inheritdoc IOpcodeToolingV1
-    function buildOpcodeFunctionPointers() external pure override returns (bytes memory) {
         unchecked {
             function(OperandV2, StackItem[] memory) internal view returns (StackItem[] memory) lengthPointer;
             uint256 length = EXTERN_OPCODES_LENGTH;
@@ -210,9 +199,16 @@ contract St0xAttestSubParser is BaseRainlangSubParser, BaseRainlangExtern {
         }
     }
 
-    /// @notice One integrity function per extern opcode, in opcode order.
-    /// @inheritdoc IIntegrityToolingV1
-    function buildIntegrityFunctionPointers() external pure override returns (bytes memory) {
+    /// @inheritdoc IOpcodeToolingV1
+    function buildOpcodeFunctionPointers() external pure override returns (bytes memory) {
+        return opcodeFunctionPointers();
+    }
+
+    /// @notice One integrity function per extern opcode, in opcode order, built
+    /// from the function references so the table never moves the code it
+    /// points at.
+    /// @inheritdoc BaseRainlangExtern
+    function integrityFunctionPointers() internal pure virtual override returns (bytes memory) {
         unchecked {
             function(OperandV2, uint256, uint256) internal pure returns (uint256, uint256) lengthPointer;
             uint256 length = EXTERN_OPCODES_LENGTH;
@@ -232,6 +228,11 @@ contract St0xAttestSubParser is BaseRainlangSubParser, BaseRainlangExtern {
             }
             return LibConvert.unsafeTo16BitBytes(pointersDynamic);
         }
+    }
+
+    /// @inheritdoc IIntegrityToolingV1
+    function buildIntegrityFunctionPointers() external pure override returns (bytes memory) {
+        return integrityFunctionPointers();
     }
 
     /// @inheritdoc BaseRainlangSubParser
