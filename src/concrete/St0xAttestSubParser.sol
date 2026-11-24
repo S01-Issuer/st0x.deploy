@@ -25,7 +25,7 @@ import {
 /// @notice Registered in an expression with `using-words-from`, provides
 /// `lead`, `attestor<N>`, `lead-symbol`, `lead-price`, `lead-time`,
 /// `attested-symbol<N>`, `attested-price<N>`, `attested-time<N>`,
-/// `mint-underlying-symbol`, `mint-amount`, `lead-domain`, `attestor-domain<N>`,
+/// `mint-token`, `mint-amount`, `lead-domain`, `attestor-domain<N>`,
 /// `lead-source`, `lead-currency`, `attested-source<N>` and
 /// `attested-currency<N>`, each of which compiles to a `context` read of the
 /// grid in `LibSt0xAttestContext`.
@@ -90,7 +90,7 @@ contract St0xAttestSubParser is BaseRainlangSubParser {
                     LibParseOperand.handleOperandSingleFullNoDefault,
                     // attested-time<N>
                     LibParseOperand.handleOperandSingleFullNoDefault,
-                    // mint-underlying-symbol
+                    // mint-token
                     LibParseOperand.handleOperandDisallowed,
                     // mint-amount
                     LibParseOperand.handleOperandDisallowed,
@@ -141,7 +141,7 @@ contract St0xAttestSubParser is BaseRainlangSubParser {
                     LibSt0xAttestSubParser.subParserAttestedSymbol,
                     LibSt0xAttestSubParser.subParserAttestedPrice,
                     LibSt0xAttestSubParser.subParserAttestedTime,
-                    LibSt0xAttestSubParser.subParserMintUnderlyingSymbol,
+                    LibSt0xAttestSubParser.subParserMintToken,
                     LibSt0xAttestSubParser.subParserMintAmount,
                     LibSt0xAttestSubParser.subParserLeadDomain,
                     LibSt0xAttestSubParser.subParserAttestorDomain,

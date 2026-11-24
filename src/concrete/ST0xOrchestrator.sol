@@ -20,7 +20,6 @@ import {ReceiptVault} from "rain-vats-0.2.25/src/abstract/ReceiptVault.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.5/src/lib/LibLeakyBucket.sol";
 import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.5/src/lib/LibTOFUTokenDecimals.sol";
-import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.5/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV5,
     EvaluableV4,
@@ -41,7 +40,6 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.31/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 import {IST0xOrchestratorV2, MintAuthV1, MintLimitV1, MintCapKind, Digest} from "../interface/IST0xOrchestratorV2.sol";
 import {LibSt0xAttestContext} from "../lib/LibSt0xAttestContext.sol";
-import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
 import {LibStoxConfig} from "../lib/LibStoxConfig.sol";
 import {ICLONEABLE_V2_SUCCESS, ICloneableV2} from "rain-factory-0.2.18/src/interface/ICloneableV2.sol";
 
@@ -130,7 +128,7 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// **Mint weighting.** One Rainlang expression, set by `MINT_ADMIN_ROLE` and
 /// global across every token, minter and recipient, converts each mint into
 /// the charge. `mint` builds the context grid of `LibSt0xAttestContext` (the
-/// token's `underlyingSymbol()`, the amount as a `Float` of whole tokens, then the signed
+/// token's address, the amount as a `Float` of whole tokens, then the signed
 /// context the minter passed, every signature verified) and evaluates the
 /// expression over it. The last output is the charge on both buckets. What
 /// the signed context must contain is the expression's to check and revert
@@ -357,14 +355,12 @@ contract ST0xOrchestrator is
 
     /// @dev Evaluate the mint weighting over this mint and its signed context
     /// and return the charge. Reverts `MintWeightingUnset` if no expression
-    /// has been set, `MintUnderlyingSymbolEmpty` if the token's
-    /// `underlyingSymbol()` is empty, `MintUnderlyingSymbolTooLong` if it is
-    /// longer than the 31 bytes an `IntOrAString` holds,
-    /// `UnsupportedMintWeightingOutputs` if the expression left nothing on its
-    /// stack, and with whatever the expression itself reverts with.
+    /// has been set, `UnsupportedMintWeightingOutputs` if the expression left
+    /// nothing on its stack, and with whatever the expression itself reverts
+    /// with.
     ///
     /// The context is the grid of `LibSt0xAttestContext`: the token's
-    /// `underlyingSymbol()` as an `IntOrAString`, and the amount as a `Float` in whole tokens per
+    /// address, and the amount as a `Float` in whole tokens per
     /// the token's decimals as the TOFU singleton first read them. Building the grid verifies every
     /// signed context entry's signature and reverts `InvalidSignature(i)` on the first
     /// that fails.
@@ -379,15 +375,9 @@ contract ST0xOrchestrator is
         EvaluableV4 memory evaluable = $.mintWeighting;
         if (address(evaluable.interpreter) == address(0)) revert MintWeightingUnset();
 
-        string memory underlyingSymbol = IStoxUnderlyingV1(token).underlyingSymbol();
-        if (bytes(underlyingSymbol).length == 0) revert MintUnderlyingSymbolEmpty(token);
-        // `fromStringV3` keeps the length mod 32, so a longer ticker would alias a shorter one.
-        if (bytes(underlyingSymbol).length > LENGTH_MASK_V3) {
-            revert MintUnderlyingSymbolTooLong(token, bytes(underlyingSymbol).length);
-        }
         uint8 decimals = LibTOFUTokenDecimals.safeDecimalsForToken(token);
         bytes32[][] memory context = LibSt0xAttestContext.build(
-            bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(underlyingSymbol))),
+            bytes32(uint256(uint160(token))),
             Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, decimals)),
             signedContext
         );
