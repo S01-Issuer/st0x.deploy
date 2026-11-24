@@ -18,9 +18,8 @@ import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 /// @title BuildPrivilegedAddresses
 /// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, the
 /// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, in-use
-/// production beacons (`LibBeaconInvariants.prodBeaconsInUse`: no orchestrator beacon on 0G), whether its token table
-/// is hydrated, and its receipt vaults (none where the table still holds a placeholder leg). `address(0)` is
-/// none.
+/// production beacons (`LibBeaconInvariants.prodBeaconsInUse`: no orchestrator beacon on 0G), and its receipt vaults.
+/// `address(0)` is none.
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 
@@ -48,13 +47,7 @@ contract BuildPrivilegedAddresses is Script {
         vm.serializeAddress(key, "euAuthoriser", LibAuthoriserInvariants.euAuthoriserForChainId(chainId));
         vm.serializeAddress(key, "beaconSetDeployer", LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId));
         vm.serializeString(key, "beacons", beaconsJson(chainId, key));
-        bool hydrated = LibTokenInvariants.tokenTableHydrated(chainId);
-        vm.serializeBool(key, "tokenTableHydrated", hydrated);
-        return vm.serializeAddress(
-            key,
-            "receiptVaults",
-            hydrated ? LibTokenInvariants.productionReceiptVaultsForChainId(chainId) : new address[](0)
-        );
+        return vm.serializeAddress(key, "receiptVaults", LibTokenInvariants.productionReceiptVaultsForChainId(chainId));
     }
 
     function render() public returns (string memory) {

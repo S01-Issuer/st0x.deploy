@@ -25,18 +25,3 @@ built rows, `testLeadingRowsCutsALongerTableAndRefusesAShorterOne` tests the cut
 on a longer table, and `testTokenSetIsPinnedByIdentity` fails on a 57th row.
 Both calls stay: the rename pre-flight must check the rows it sets, and the
 rename id must not move when a table grows.
-
-## `src/lib/LibTokenInvariants.sol` and the generators: the unhydrated-table paths
-
-Mutants: `tokenTableHydrated` returns `true`, or reads 0G's table through
-`productionTokensForChainId` instead of `productionTokensZerog()`, and
-`BuildExpectedState.chainJson` and `BuildPrivilegedAddresses.chainJson` always
-take their hydrated branch. Every production table is hydrated, 0G's included
-([RAI-4598](https://linear.app/makeitrain/issue/RAI-4598)), so each mutant gives
-the same result as the original on every table that exists. The check itself is
-pinned through `tableHydrated`, which `hydrated` and `tokenTableHydrated` share:
-`testHydratedRefusesAZeroLegInAnyRow` and `testTableHydratedNeedsEveryLeg`
-refuse a zero in each leg of each row, and
-`testEveryDeploymentChainsTokenTableIsHydrated` pins every chain's result. The
-paths stay so that a chain added with a placeholder table is skipped and says
-so, instead of publishing `address(0)` targets.

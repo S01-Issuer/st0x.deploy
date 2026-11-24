@@ -12,11 +12,6 @@ import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 /// @param chainId The chain id.
 error NoTokenTableForChain(uint256 chainId);
 
-/// @notice A chain whose production token table still holds placeholder
-/// addresses, because the token deploy has not run there yet.
-/// @param chainId The chain id.
-error TokenTableNotHydrated(uint256 chainId);
-
 /// @notice One production token's contract triple on a single chain, keyed
 /// by the underlying ticker. The underlying symbol (e.g. "MSTR", not
 /// "tMSTR" / "wtMSTR") is the chain-agnostic join key: it matches the
@@ -2378,30 +2373,7 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on 0G (chain id
-    /// 16661) in `LibProdTokenConfig.canonicalTokenConfigs()` order, so each 0G
-    /// address is the token Ethereum and HyperEVM hold at the same address.
-    ///
-    /// Created on 2026-11-23 by `20261119-create-zerog-tokens` through the
-    /// 0.1.1 unified deployer, in four bundles of the 0G token-owner Safe
-    /// `0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329`. Each bundle also put
-    /// every vault it created on its region's authoriser clone and handed it
-    /// to the 0G timelock `0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B`.
-    /// - Safe nonce 2, rows 0-19, block 51156372: safeTxHash
-    ///   `0x5f31c2c857b0926e3fcc6bb1b6544cfab37a1adb2068ea76d81033217e6e78a5`,
-    ///   tx `0x97a19040d5e91df30d1f8b9ed62f752fc508575d87e989c9376cfa1c177c9d98`.
-    /// - Safe nonce 3, rows 20-39, block 51156409: safeTxHash
-    ///   `0xb81e623ac5f67764ab47407dcc6ce0040de801ac3db2a4e56b5e0ac6f07ab6b1`,
-    ///   tx `0x4096b20c8a0c8723261147cd7f5d11b0b7076846a3894f063b20431d0d321485`.
-    /// - Safe nonce 4, rows 40-59, block 51156448: safeTxHash
-    ///   `0x91937b0465428d2404898c149f87c72fcd5d140c10216163a3b1f96afc8da29a`,
-    ///   tx `0x9ab2a6e3c12cd64971994e13e45296145d374c14b8cb227a6014544e62e5b4be`.
-    /// - Safe nonce 5, rows 60-64 and the root-line record, block 51156480:
-    ///   safeTxHash
-    ///   `0x42550ecac50a5cff010f128c2eecdd873cc104553bf6001bce802193a356ede5`,
-    ///   tx `0xe6872cd5302397d09aaa0d68b00e04e1f348ec13e720e519900118b555e25862`.
-    /// Row `i` is the `i`th `StoxWrappedTokenVaultInitialized` event of those
-    /// bundles: the event's emitter is the wrapper, its asset is the vault,
-    /// and the vault's `receipt()` is the receipt.
+    /// 16661), in `LibProdTokenConfig.canonicalTokenConfigs()` order.
     /// @return tokens The production token instances on 0G.
     function productionTokensZerog() internal pure returns (TokenInstance[] memory tokens) {
         tokens = new TokenInstance[](65);
@@ -2821,8 +2793,7 @@ library LibTokenInvariants {
     }
 
     /// @notice The chain's production token table. Reverts
-    /// `NoTokenTableForChain` on a chain with no table and
-    /// `TokenTableNotHydrated` on a chain whose table is still a placeholder.
+    /// `NoTokenTableForChain` on a chain with no table.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function productionTokensForChainId(uint256 chainId) internal pure returns (TokenInstance[] memory) {
@@ -2831,48 +2802,8 @@ library LibTokenInvariants {
         if (chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) return productionTokensHyperEvm();
         if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) return productionTokensRobinhood();
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) return productionTokensBsc();
-        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return hydrated(chainId, productionTokensZerog());
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) return productionTokensZerog();
         revert NoTokenTableForChain(chainId);
-    }
-
-    /// @notice Whether `chainId`'s token table names all three legs of every
-    /// token. A table that still holds a placeholder leg does not. A
-    /// generator skips the token output of a chain whose table is not
-    /// hydrated and says so; every other consumer goes through
-    /// `productionTokensForChainId`, which refuses a placeholder 0G table.
-    /// @param chainId The chain id.
-    /// @return Whether every row has a receipt, a receipt vault and a wrapper.
-    function tokenTableHydrated(uint256 chainId) internal pure returns (bool) {
-        return tableHydrated(
-            chainId == LibSafeInvariants.ZEROG_CHAIN_ID ? productionTokensZerog() : productionTokensForChainId(chainId)
-        );
-    }
-
-    /// @notice `tokens`, unless a row still has a placeholder leg, so
-    /// consumers fail closed on a placeholder table instead of targeting
-    /// `address(0)`.
-    /// @param chainId The chain id, for the revert.
-    /// @param tokens The chain's token table.
-    /// @return The same table.
-    function hydrated(uint256 chainId, TokenInstance[] memory tokens) internal pure returns (TokenInstance[] memory) {
-        if (!tableHydrated(tokens)) revert TokenTableNotHydrated(chainId);
-        return tokens;
-    }
-
-    /// @notice Whether every row of `tokens` names its receipt, its receipt
-    /// vault and its wrapper. A zero in any leg of any row is a placeholder.
-    /// @param tokens The table.
-    /// @return Whether no leg of any row is `address(0)`.
-    function tableHydrated(TokenInstance[] memory tokens) internal pure returns (bool) {
-        for (uint256 i = 0; i < tokens.length; i++) {
-            if (
-                tokens[i].receipt == address(0) || tokens[i].receiptVault == address(0)
-                    || tokens[i].wrappedTokenVault == address(0)
-            ) {
-                return false;
-            }
-        }
-        return true;
     }
 
     /// @notice Assert that every production receipt vault reports the same
