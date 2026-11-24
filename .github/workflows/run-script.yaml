@@ -74,6 +74,8 @@ on:
           # The 0G orchestrator roles cancel recovery:
           # `20261123-schedule-zerog-orchestrator-roles` on `zerog` only.
           - 'reschedule()'
+          # Applies the chain's queued Safe transactions on the fork, then `run()`.
+          - 'runOnSafeQueue()'
 # Manually dispatches an operational script from `script/` and uploads any
 # JSON it writes to `out/` as a build artifact.
 #
