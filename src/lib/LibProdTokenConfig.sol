@@ -27,7 +27,7 @@ pragma solidity ^0.8.25;
 ///
 /// `assetId`, `listingTicker` and `listingName` record the listing each
 /// token tracks; no deploy input reads them.
-/// @param assetId The listing-time ISIN of the share line the token tracks.
+/// @param assetId The listing-time asset id: the share line's ISIN where one exists, else `ST0X` and one or more of `A-Z`, `0-9`, never 12 long.
 /// @param listingTicker The underlying's ticker as listed.
 /// @param listingName The underlying's name as listed.
 /// @param underlying The chain-agnostic ticker join key, matching
