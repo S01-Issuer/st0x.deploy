@@ -49,8 +49,10 @@ abstract contract StoxSafeBundleScript is SafeBundleScript {
         ) revert SafeQueueMalformed();
 
         Safe queued = safe();
+        uint256 liveNonce = queued.nonce();
         for (uint256 queueIndex = 0; queueIndex < to.length; queueIndex++) {
-            if (nonce[queueIndex] != queued.nonce()) revert SafeQueueNonceMismatch(queued.nonce(), nonce[queueIndex]);
+            uint256 expectedNonce = liveNonce + queueIndex;
+            if (nonce[queueIndex] != expectedNonce) revert SafeQueueNonceMismatch(expectedNonce, nonce[queueIndex]);
             SafeTx memory txn = SafeTx({
                 to: to[queueIndex],
                 value: value[queueIndex],
