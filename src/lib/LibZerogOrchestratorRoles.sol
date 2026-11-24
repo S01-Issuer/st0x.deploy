@@ -45,21 +45,24 @@ library LibZerogOrchestratorRoles {
     /// @return pairs The `(role, grantee)` pairs.
     function grants() internal pure returns (address[] memory targets, RoleGrant[] memory pairs) {
         uint256 chainId = LibSafeInvariants.ZEROG_CHAIN_ID;
+        address safe = LibSafeInvariants.safeForChainId(chainId);
+        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
         address orchestrator = LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE;
         address authoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
-        address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
+        RoleGrant[] memory orchestratorGrants = LibOrchestratorInvariants.expectedGrants(safe, timelock);
+        RoleGrant[] memory authoriserGrants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
         targets = new address[](GRANT_COUNT);
         pairs = new RoleGrant[](GRANT_COUNT);
         targets[0] = orchestrator;
-        pairs[0] = RoleGrant(keccak256("MINT"), signer);
+        pairs[0] = orchestratorGrants[2];
         targets[1] = orchestrator;
-        pairs[1] = RoleGrant(keccak256("BURN"), signer);
+        pairs[1] = orchestratorGrants[3];
         targets[2] = orchestrator;
-        pairs[2] = RoleGrant(keccak256("EMERGENCY"), LibSafeInvariants.safeForChainId(chainId));
+        pairs[2] = orchestratorGrants[1];
         targets[3] = authoriser;
-        pairs[3] = RoleGrant(keccak256("DEPOSIT"), LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        pairs[3] = authoriserGrants[LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX];
         targets[4] = authoriser;
-        pairs[4] = RoleGrant(keccak256("WITHDRAW"), LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        pairs[4] = authoriserGrants[LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX + 1];
     }
 
     /// @return targets The orchestrator three times, then the US authoriser twice.

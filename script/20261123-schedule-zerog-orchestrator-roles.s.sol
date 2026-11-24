@@ -64,9 +64,9 @@ function scheduleZerogOrchestratorRolesDeclaration() pure returns (ScriptDeclara
 /// 0.1.30 set deployer and made its first `deploy(timelock)` in one Multicall3 call, so the timelock was the
 /// instance's only initial admin and no one else could take the pinned address.
 ///
-/// `reschedule()` is the recovery after the Safe cancels the scheduled batch (docs/TIMELOCK.md, "A cancelled 0G
-/// batch"). The record stays at the head, so `run()` refuses; `reschedule()` authors the `scheduleBatch` call alone,
-/// as one direct Safe call, and `verifyReschedule(string)` is its signer check.
+/// `reschedule()` is the recovery after the Safe cancels the scheduled batch. The record stays at the head, so `run()`
+/// refuses; `reschedule()` authors the `scheduleBatch` call alone, as one direct Safe call, and
+/// `verifyReschedule(string)` is its signer check.
 ///
 /// @dev Dispatch via `Actions → run-script` with `script = 20261123-schedule-zerog-orchestrator-roles` per chain.
 /// After the delay anyone executes the batch: `20261123-execute-zerog-orchestrator-roles` `execute()`. The recovery
