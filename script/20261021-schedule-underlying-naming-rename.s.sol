@@ -7,8 +7,8 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -16,11 +16,10 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {
     LibUnderlyingNamingRollout,
-    UnderlyingNamingBatchMoved,
     UnderlyingNamingReleaseNotFrozen,
     DownstreamNotReadyForRename
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
-import {ST0X_NAME_SUFFIX} from "../src/lib/LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "../src/lib/LibSecurity.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations, SafeNotApprovedWriter} from "../src/lib/LibStoxMigrations.sol";
 
@@ -116,11 +115,10 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The timelock may write the batch's record. The release
-    /// is frozen, the downstream services accept the new
+    /// @dev The timelock may write the batch's record. The release is frozen, the downstream services accept the new
     /// symbols, every row is well formed, the Safe and timelock are the pinned ones,
     /// the beacon batch is registered, the rename batch is not, every ticker
-    /// is bound to its vault, the timelock owns every vault, and the derived id is the pinned one.
+    /// is bound to its vault, and the timelock owns every vault.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         if (!downstreamReady()) revert DownstreamNotReadyForRename();
@@ -133,8 +131,6 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
         bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
         if (!controller.isOperation(beaconId)) revert BeaconBatchNotScheduled(beaconId);
         bytes32 id = LibUnderlyingNamingRollout.renameOperationId(timelock(), block.chainid);
-        (, bytes32 pinned) = LibUnderlyingNamingRollout.pinnedOperationIds(block.chainid);
-        if (id != pinned) revert UnderlyingNamingBatchMoved(pinned, id);
         if (controller.isOperation(id)) revert RenameAlreadyScheduled(id);
 
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);

@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {BeaconBatchNotScheduled} from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
@@ -27,15 +27,6 @@ contract ScheduleUnderlyingNamingRenameRootLineTest is UnderlyingNamingRolloutFi
         return LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME;
     }
 
-    /// @dev With its own record at the head and its batch not registered, the pre-flight authors a reschedule.
-    function ownRecordPreflightRefusal() internal pure override returns (bytes memory) {
-        return "";
-    }
-
-    function acceptsAnEarlierRecord() internal pure override returns (bool) {
-        return true;
-    }
-
     function declaredOnto() internal pure override returns (bytes32) {
         return LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS;
     }
@@ -46,7 +37,7 @@ contract ScheduleUnderlyingNamingRenameRootLineTest is UnderlyingNamingRolloutFi
     }
 
     function landOnto() internal override {
-        landBeaconScheduleAndHandOver(ScheduleUnderlyingNamingRenameHarness(address(sScript)));
+        landBeaconSchedule();
     }
 
     /// @dev Past the delay the post-state refuses the ready operation before the record.

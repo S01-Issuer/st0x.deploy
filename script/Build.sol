@@ -4,17 +4,17 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {Vm, VmSafe} from "forge-std-1.17.0/src/Vm.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibRainDeploySnapshot} from "rain-deploy-0.1.30/src/lib/LibRainDeploySnapshot.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRainDeploySnapshot} from "rain-deploy-0.1.38/src/lib/LibRainDeploySnapshot.sol";
 import {
     DeployCandidate,
     DeployDeclaration,
     DeploySuite
-} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
+} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyParams
-} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+} from "rain-factory-0.2.18/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdTokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
@@ -42,12 +42,12 @@ import {LibProdOrchestratorParams} from "../src/lib/LibProdOrchestratorParams.so
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.30/src/generated/0_1_29/ConfigRegistry.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
+} from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
-import {LibGenParseMeta} from "rainlang-0.2.32/src/lib/codegen/LibGenParseMeta.sol";
+import {LibGenParseMeta} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
 
 contract Build is Script, StoxDeploySuites {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
@@ -155,8 +155,8 @@ contract Build is Script, StoxDeploySuites {
     }
 
     function genTokenProxy() internal {
-        // The proxy runtime code ignores a row's init data and salt, so it is built without a row.
-        RegistryBeaconProxyParams memory params = LibProdTokenParams.proxyParams("", bytes32(0));
+        RegistryBeaconProxyParams memory params =
+            LibProdTokenParams.tokenParams(LibProdTokenConfig.productionTokenConfigs())[0];
         // The generated vault beacon constant is from the previous compile.
         params.beacon = LibRainDeploy.zoltuAddress(type(StoxReceiptVaultBeacon).creationCode);
         bytes memory code = LibRainDeployRegistryBeaconProxy.registryBeaconProxyRuntimeCode(
@@ -524,6 +524,14 @@ contract Build is Script, StoxDeploySuites {
         vm.writeLine(
             GEN_V4_PATH,
             "address constant STOX_PROD_AUTHORISER_V4_CLONE_BSC = address(0x66566cc91dEAf818859bD4b09B7903ac48998157);"
+        );
+        // 0G V4 authoriser clone: the CloneFactory 0.1.15 open-salt clone
+        // `LibUsAuthoriserClone` derives, so the address commits to the 0G
+        // Safe as initial admin and no other caller can land a clone there
+        // with other init data.
+        vm.writeLine(
+            GEN_V4_PATH,
+            "address constant STOX_PROD_AUTHORISER_V4_CLONE_ZEROG = address(0x6173C9ac3cCb2f6a2F175b0d1fb5DA86fDD5F221);"
         );
         vm.writeLine(GEN_V4_PATH, "uint256 constant V4_SWAP_DEADLINE = 1_793_491_200;");
         // ST0x orchestrator beacon + production instance — CREATE-derived

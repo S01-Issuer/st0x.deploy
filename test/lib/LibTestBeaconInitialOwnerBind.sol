@@ -4,15 +4,17 @@ pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.30/src/lib/LibConfigRegistryDeploy.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
-import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 
 import {StoxGovernanceTimelock} from "../../src/concrete/StoxGovernanceTimelock.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {BindBeaconInitialOwnerHarness} from "../script/BindBeaconInitialOwnerHarness.sol";
+import {CreateZerogTokensHarness} from "../script/CreateZerogTokensHarness.sol";
+import {LibTestConfigRegistryDelegates} from "./LibTestConfigRegistryDelegates.sol";
 
 /// @title LibTestBeaconInitialOwnerBind
 /// @notice The beacon-initial-owner bind's ConfigRegistry state on a fork,
@@ -33,18 +35,28 @@ library LibTestBeaconInitialOwnerBind {
         return LibRainDeploy.etchAndDeployZoltu(vm, type(StoxGovernanceTimelock).creationCode);
     }
 
-    /// @notice The root approves `safe` to bind the beacon initial owner.
+    /// @notice The root approves `safe` unscoped, as on chain.
     function approveSafe(Vm vm, address safe) internal {
-        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
-        IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS)
-            .approveV5(LibStoxConfig.BEACON_INITIAL_OWNER_NAME, safe);
+        LibTestConfigRegistryDelegates.approveUnscoped(vm, safe);
     }
 
-    /// @notice Deploys the timelock, approves `safe` and executes the bind
-    /// bundle from it.
+    /// @notice Executes from `safe`, on a chain other than 0G with the line at
+    /// the backfill, the 0G token creation's bundle: its record alone, the
+    /// bind's onto.
+    function executeZerogTokensRecord(Vm vm, address safe, string memory artifactTag) internal {
+        CreateZerogTokensHarness creation = new CreateZerogTokensHarness(artifactTag);
+        creation.callPreflight();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), creation.callAuthorBundle());
+        creation.callAssertPostState();
+    }
+
+    /// @notice Deploys the timelock, approves `safe` and executes from it,
+    /// with the line at the backfill, the 0G token creation's record and then
+    /// the bind bundle.
     function execute(Vm vm, address safe, string memory artifactTag) internal {
         deployTimelock(vm, safe);
         approveSafe(vm, safe);
+        executeZerogTokensRecord(vm, safe, artifactTag);
         BindBeaconInitialOwnerHarness bind = new BindBeaconInitialOwnerHarness(artifactTag);
         bind.callPreflight();
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), bind.callAuthorBundle());
