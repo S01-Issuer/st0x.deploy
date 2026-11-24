@@ -12,6 +12,7 @@ import {
     OrchestratorRoleAdminUnexpected,
     OrchestratorVaultLogicUnexpected
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
+import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {BeaconOwnerMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
@@ -100,12 +101,13 @@ contract LibOrchestratorInvariantsTest is Test {
         harness.callAssertInstance();
     }
 
-    /// @notice On every chain the 0.1.30 set deployer reporting the pinned
-    /// beacon, serving the 0.1.30 orchestrator and owned by the chain's
-    /// timelock, passes.
+    /// @notice On every chain that runs an orchestrator (all but 0G) the 0.1.30
+    /// set deployer reporting the pinned beacon, serving the 0.1.30
+    /// orchestrator and owned by the chain's timelock, passes.
     function testAssertBeaconSetPassesOnEveryChain() external {
         uint256[] memory chainIds = LibLocalProdState.chainIds();
         for (uint256 i = 0; i < chainIds.length; i++) {
+            if (!LibAuthoriserInvariants.grantsOrchestrator(chainIds[i])) continue;
             uint256 snapshot = vm.snapshotState();
             vm.chainId(chainIds[i]);
             LibLocalProdState.beacons(vm, chainIds[i]);
@@ -114,11 +116,13 @@ contract LibOrchestratorInvariantsTest is Test {
         }
     }
 
-    /// @notice On every chain the set deployer's first instance, whose
-    /// vault-logic lock reads the 0.1.30 receipt set, passes.
+    /// @notice On every chain that runs an orchestrator (all but 0G) the set
+    /// deployer's first instance, whose vault-logic lock reads the 0.1.30
+    /// receipt set, passes.
     function testAssertInstancePassesOnEveryChain() external {
         uint256[] memory chainIds = LibLocalProdState.chainIds();
         for (uint256 i = 0; i < chainIds.length; i++) {
+            if (!LibAuthoriserInvariants.grantsOrchestrator(chainIds[i])) continue;
             uint256 snapshot = vm.snapshotState();
             vm.chainId(chainIds[i]);
             LibLocalProdState.orchestrator(vm, chainIds[i]);
