@@ -411,10 +411,12 @@ sequence on a fork of each chain.
    empty values. The Safe can still `cancel` the operation during its delay.
 
 4. Execute each matured batch with `20261021-execute-underlying-naming`
-   `execute()` from the CI deploy key, one operation per dispatch. On HyperEVM
-   the rename batch needs more gas than a small block holds, so enable big
-   blocks for the deploy key (`manual-hyperevm-big-blocks`) before executing it
-   there. After the rename batch executes, the Safe signs `run-script`
+   `execute()` from the CI deploy key, one operation per dispatch. If only the
+   beacon batch was cancelled, the pending rename waits for the rescheduled
+   beacon batch, its predecessor, and the execute script waits for it too. On
+   HyperEVM the rename batch needs more gas than a small block holds, so enable
+   big blocks for the deploy key (`manual-hyperevm-big-blocks`) before executing
+   it there. After the rename batch executes, the Safe signs `run-script`
    `20261021-execute-underlying-naming` `run()`. It writes the execution's
    record, and until it lands the root line stays at the rename schedule and
    every later migration on that chain refuses.
