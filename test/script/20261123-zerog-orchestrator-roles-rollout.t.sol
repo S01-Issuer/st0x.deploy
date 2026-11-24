@@ -272,8 +272,8 @@ contract ZerogOrchestratorRolesRolloutTest is ZerogOrchestratorRolesFixture {
         schedule.callAssertPostState();
     }
 
-    /// @notice The operation id docs/TIMELOCK.md gives the signers for their `isOperationPending` check.
-    function testOperationIdIsTheDocumentedOne() external pure {
+    /// @notice The batch's operation id, which signers check with `isOperationPending`.
+    function testOperationIdIsPinned() external pure {
         assertEq(
             LibZerogOrchestratorRoles.operationId(zerogTimelock()),
             0x03862515933fa4272c3fa3ad4feebfc1533c8f5347da2b962dd7449304dc4ea3,

@@ -172,9 +172,8 @@ contract LibUnderlyingNamingRolloutTest is Test {
         return LibUnderlyingNamingRollout.tokens(chainId);
     }
 
-    /// 0G's table is hydrated, but its leading `TOKEN_COUNT` rows hold a
-    /// token that Base's leading rows do not, so the rollout refuses 0G
-    /// rather than rename another token set.
+    /// 0G's leading `TOKEN_COUNT` rows hold a token Base's leading rows do
+    /// not, so the rollout refuses 0G.
     function testTokensRefusesZerog() external {
         TokenInstance[] memory zerog = LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();

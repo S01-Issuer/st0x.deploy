@@ -90,9 +90,8 @@ abstract contract ZerogTokenCreationFixture is Test {
         LibTestRootLine.approve(vm, safe);
     }
 
-    /// @notice What 0G transaction 0x5d7b34d5f54c46ed036ec4959de1736f15af1b2b351f3dfc08f80bb1fcafc60c (block 50776661)
-    /// did through Multicall3, before any token existed: the 0.1.30 orchestrator beacon-set deployer, then its first
-    /// `deploy` with the timelock as admin, in one transaction, so no one else could take the pinned instance.
+    /// @notice Deploys the 0.1.30 orchestrator beacon-set deployer and makes its first `deploy` with the timelock as
+    /// admin, as 0G transaction 0x5d7b34d5f54c46ed036ec4959de1736f15af1b2b351f3dfc08f80bb1fcafc60c does in one call.
     /// @param timelock The 0G timelock.
     function claimOrchestratorFor(address timelock) internal {
         deployReleased("stox-orchestrator-beacon-set-deployer@0_1_30");

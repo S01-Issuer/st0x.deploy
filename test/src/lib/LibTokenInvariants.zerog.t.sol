@@ -18,7 +18,7 @@ import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvari
 import {ZerogOrchestratorRolesFixture} from "../../script/ZerogOrchestratorRolesFixture.sol";
 
 /// @title LibTokenInvariantsZerogTest
-/// @notice The hydrated 0G token table against live 0G right after the token creation's last bundle.
+/// @notice The 0G token table against live 0G at the token creation's last bundle.
 contract LibTokenInvariantsZerogTest is ZerogOrchestratorRolesFixture {
     function setUp() external {
         forkZerogAtTheTokenRecord();

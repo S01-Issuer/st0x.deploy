@@ -60,9 +60,8 @@ function scheduleZerogOrchestratorRolesDeclaration() pure returns (ScriptDeclara
 /// so it is the only route.
 ///
 /// The orchestrator's `DEFAULT_ADMIN_ROLE` is not enumerable, so the pre-flight can prove only that the timelock holds
-/// it. 0G transaction 0x5d7b34d5f54c46ed036ec4959de1736f15af1b2b351f3dfc08f80bb1fcafc60c (block 50776661) deployed the
-/// 0.1.30 set deployer and made its first `deploy(timelock)` in one Multicall3 call, so the timelock was the
-/// instance's only initial admin and no one else could take the pinned address.
+/// it. The timelock is the instance's only initial admin: the 0.1.30 set deployer and its first `deploy(timelock)` are
+/// one 0G transaction, 0x5d7b34d5f54c46ed036ec4959de1736f15af1b2b351f3dfc08f80bb1fcafc60c.
 ///
 /// `reschedule()` is the recovery after the Safe cancels the scheduled batch. The record stays at the head, so `run()`
 /// refuses; `reschedule()` authors the `scheduleBatch` call alone, as one direct Safe call, and

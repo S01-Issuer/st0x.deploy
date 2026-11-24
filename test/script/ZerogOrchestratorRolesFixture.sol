@@ -28,9 +28,7 @@ import {ScheduleZerogOrchestratorRolesHarness} from "./ScheduleZerogOrchestrator
 /// the signers will (three owners `approveHash`, one executes), executes the batch after the delay from a roleless
 /// key, and mints and burns as the issuance service through the orchestrator.
 abstract contract ZerogOrchestratorRolesFixture is Test {
-    /// @notice The block of Safe nonce 5, the token creation's last bundle and its record, tx
-    /// 0xe6872cd5302397d09aaa0d68b00e04e1f348ec13e720e519900118b555e25862. Nothing the roles depend on has moved
-    /// since: the Safe's next nonce is still 6.
+    /// @notice The block of the token creation's last bundle and its record.
     uint256 internal constant ZEROG_TOKEN_RECORD_BLOCK = LibTestZerogTokenCreation.LAST_BUNDLE_BLOCK;
 
     /// @notice A Safe owner.

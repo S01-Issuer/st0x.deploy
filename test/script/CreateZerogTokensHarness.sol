@@ -18,10 +18,8 @@ function zerogPlaceholderTable() pure returns (TokenInstance[] memory table) {
 }
 
 /// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
-/// It overrides no address, so the tests run the Safe and timelock pins the script ships with. The tests rebuild 0G as
-/// it was before the tokens existed, so by default the harness stands in `zerogPlaceholderTable` for the shipped
-/// table, which holds the created tokens; `setTable` stands in any other table, and `callShippedTable` reads the
-/// script's own.
+/// It overrides no address, so the tests run the Safe and timelock pins the script ships with. Its 0G table is
+/// `zerogPlaceholderTable` unless `setTable` is called; `callShippedTable` reads the script's own.
 contract CreateZerogTokensHarness is CreateZerogTokens {
     string internal sArtifactTag;
     TokenInstance[] internal sTable;
