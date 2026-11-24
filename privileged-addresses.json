@@ -95,8 +95,7 @@
         "0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-      "tokenTableHydrated": true
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
     },
     "16661": {
       "authoriser": "0x6173C9ac3cCb2f6a2F175b0d1fb5DA86fDD5F221",
@@ -188,8 +187,7 @@
         "0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-      "tokenTableHydrated": true
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
     },
     "4663": {
       "authoriser": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
@@ -280,8 +278,7 @@
         "0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-      "tokenTableHydrated": true
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
     },
     "56": {
       "authoriser": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
@@ -372,8 +369,7 @@
         "0x21ebe855F15c2e1BAdea603c1cB07B964096A616"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-      "tokenTableHydrated": true
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
     },
     "8453": {
       "authoriser": "0x315b16faa6eE413faBCa877d3851B3818369f0cD",
@@ -464,8 +460,7 @@
         "0x37a2B2D6Fe9cFC474692a3a0016519332BD49509"
       ],
       "safe": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
-      "timelock": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
-      "tokenTableHydrated": true
+      "timelock": "0x48ba1371A78E6cC54157c63721756ab444510DB3"
     },
     "999": {
       "authoriser": "0x66566cc91dEAf818859bD4b09B7903ac48998157",
@@ -556,8 +551,7 @@
         "0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536"
       ],
       "safe": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
-      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-      "tokenTableHydrated": true
+      "timelock": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B"
     }
   },
   "registryRootAuthority": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
