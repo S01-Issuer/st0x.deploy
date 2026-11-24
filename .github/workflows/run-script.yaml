@@ -74,8 +74,6 @@ on:
           # The 0G orchestrator roles cancel recovery:
           # `20261123-schedule-zerog-orchestrator-roles` on `zerog` only.
           - 'reschedule()'
-          # Applies the chain's queued Safe transactions on the fork, then `run()`.
-          - 'runOnSafeQueue()'
 # Manually dispatches an operational script from `script/` and uploads any
 # JSON it writes to `out/` as a build artifact.
 #
@@ -114,8 +112,10 @@ jobs:
       - uses: DeterminateSystems/nix-installer-action@21a544727d0c62386e78b4befe52d19ad12692e3 # v17
       - name: Install Soldeer dependencies
         run: nix develop --command forge soldeer install
+      # A bundle script authors on top of its Safe's queued transactions
+      # (`StoxSafeBundleScript.setUp`); any other script has no `queueSafe()`
+      # and runs on the chain as it is.
       - name: Fetch the Safe queue
-        if: inputs.sig == 'runOnSafeQueue()'
         env:
           BASE_RPC_URL: ${{ secrets.RPC_URL_BASE_FORK }}
           ETHEREUM_RPC_URL: ${{ secrets.RPC_URL_ETHEREUM_FORK }}
@@ -128,7 +128,11 @@ jobs:
         run: |
           set -euo pipefail
           safe=$(nix develop --command forge script "script/${SCRIPT}.s.sol" --sig 'queueSafe()' --rpc-url "${NETWORK}" --json \
-            | jq -rs 'map(select(.returns != null))[0].returns["0"].value')
+            | jq -rs 'map(select(.returns != null))[0].returns["0"].value // empty' || true)
+          if [ -z "${safe}" ]; then
+            echo "script/${SCRIPT}.s.sol is not a bundle script; no queue"
+            exit 0
+          fi
           chain_id=$(nix develop --command cast chain-id --rpc-url "${NETWORK}")
           nonce=$(nix develop --command cast call "${safe}" 'nonce()(uint256)' --rpc-url "${NETWORK}")
           service=$(curl -fsS -A st0x.deploy "https://safe-config.safe.global/api/v1/chains/${chain_id}/" | jq -r .transactionService)

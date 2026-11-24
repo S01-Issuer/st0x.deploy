@@ -23,18 +23,20 @@ error SafeQueueNonceMismatch(uint256 expected, uint256 actual);
 error SafeQueueHashMismatch(uint256 nonce, bytes32 expected, bytes32 actual);
 
 /// @title StoxSafeBundleScript
-/// @notice `SafeBundleScript` that can author its bundle on top of the Safe transactions queued ahead of it.
+/// @notice `SafeBundleScript` that authors its bundle on top of the Safe transactions queued ahead of it.
 abstract contract StoxSafeBundleScript is SafeBundleScript {
     /// @return The Safe the bundle is for.
     function queueSafe() external view returns (address) {
         return address(safe());
     }
 
-    /// @notice Executes on the fork, through the Safe, every transaction in the queue file at `SAFE_QUEUE`, in nonce
-    /// order from the Safe's live nonce, each checked against its `safeTxHash`, then authors with `run()`.
-    /// @return The bundle's MultiSend `safeTxHash` at the nonce after the queue.
-    function runOnSafeQueue() external returns (bytes32) {
-        string memory json = vm.readFile(vm.envString("SAFE_QUEUE"));
+    /// @notice Executes on the fork, through the Safe, every transaction in the queue file at `SAFE_QUEUE`, if it
+    /// exists, in nonce order from the Safe's live nonce, each checked against its `safeTxHash`. The script's
+    /// entrypoint then runs on top of the queue.
+    function setUp() public virtual {
+        string memory path = vm.envOr("SAFE_QUEUE", string(""));
+        if (bytes(path).length == 0 || !vm.exists(path)) return;
+        string memory json = vm.readFile(path);
         address[] memory to = vm.parseJsonAddressArray(json, ".to");
         uint256[] memory value = vm.parseJsonUintArray(json, ".value");
         bytes[] memory data = vm.parseJsonBytesArray(json, ".data");
@@ -61,6 +63,5 @@ abstract contract StoxSafeBundleScript is SafeBundleScript {
             }
             LibSafeFork.execute(vm, queued, txn);
         }
-        return this.run();
     }
 }
