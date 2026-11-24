@@ -182,8 +182,8 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
         sScript.callPreflight();
     }
 
-    /// @notice No reviewed step creates the orchestrator on 0G, and whoever first calls the permissionless 0.1.30
-    /// deployer picks its admin. So a clone that grants its pinned address `DEPOSIT` or `WITHDRAW` is refused.
+    /// @notice The creation runs before the 0G orchestrator roles batch, so a clone that already grants the
+    /// orchestrator `DEPOSIT` or `WITHDRAW` is not the state it was reviewed against and is refused.
     /// @param withdraw Whether the grant is `WITHDRAW` rather than `DEPOSIT`.
     /// @param onEu Whether the grant is on the EU clone rather than the US one.
     function testPreflightRefusesAnAuthoriserThatGrantsTheOrchestrator(bool withdraw, bool onEu) external {

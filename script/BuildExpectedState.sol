@@ -28,9 +28,9 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
-/// `network`, `beaconSetDeployer`, `beacons` (the in-use beacons, `LibBeaconInvariants.prodBeaconsInUse`: beacon,
+/// `network`, `beaconSetDeployer`, `beacons` (the four in-use beacons: beacon,
 /// codehash, implementation, renamedImplementation once `renameMigration` is recorded, owner), the token-owner `safe`
-/// lock-down, the `timelock`, the `orchestrator` (every field zero on a chain that runs none, 0G), the V4
+/// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
 /// token's renamed metadata; zero on a network its rename and beacon batches were not cut for, 0G, so the renamed
@@ -75,7 +75,7 @@ contract BuildExpectedState is Script {
         bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(chainId);
         address[4] memory renamed = renamedImplementations(chainId);
         address owner = LibTimelockInvariants.timelockForChainId(chainId);
-        string[] memory rows = new string[](LibBeaconInvariants.prodBeaconsInUse(chainId));
+        string[] memory rows = new string[](derived.length);
         for (uint256 i = 0; i < rows.length; i++) {
             string memory row = string.concat(key, ".beacon.", vm.toString(i));
             vm.serializeAddress(row, "beacon", derived[i]);
@@ -138,18 +138,8 @@ contract BuildExpectedState is Script {
         return vm.serializeUint(at, "minDelay", LibTimelockInvariants.TIMELOCK_MIN_DELAY);
     }
 
-    /// Every field zero on a chain that runs no orchestrator (0G, `LibAuthoriserInvariants.grantsOrchestrator`): its
-    /// beacon-set deployer is not deployed there, so neither its beacon nor its instance is expected live.
     function orchestratorJson(uint256 chainId, string memory key) internal returns (string memory) {
         string memory at = string.concat(key, ".orchestrator");
-        if (!LibAuthoriserInvariants.grantsOrchestrator(chainId)) {
-            vm.serializeAddress(at, "setDeployer", address(0));
-            vm.serializeAddress(at, "beacon", address(0));
-            vm.serializeBytes32(at, "beaconCodehash", bytes32(0));
-            vm.serializeAddress(at, "implementation", address(0));
-            vm.serializeAddress(at, "owner", address(0));
-            return vm.serializeAddress(at, "instance", address(0));
-        }
         vm.serializeAddress(at, "setDeployer", LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30);
         vm.serializeAddress(at, "beacon", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON);
         vm.serializeBytes32(at, "beaconCodehash", LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30);

@@ -63,6 +63,9 @@ contract BindBeaconInitialOwnerTest is Test {
         );
         script.callPreflight();
         LibTestBeaconInitialOwnerBind.executeZerogTokensRecord(vm, safe, network);
+        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, LibStoxMigrations.CREATE_ZEROG_TOKENS));
+        script.callPreflight();
+        LibTestBeaconInitialOwnerBind.executeZerogOrchestratorRolesRecords(vm, safe, network);
 
         uint256 preRun = vm.snapshotState();
         script.run();
@@ -93,6 +96,7 @@ contract BindBeaconInitialOwnerTest is Test {
         deployTimelock(safe);
         executeBackfill(safe, tag);
         LibTestBeaconInitialOwnerBind.executeZerogTokensRecord(vm, safe, tag);
+        LibTestBeaconInitialOwnerBind.executeZerogOrchestratorRolesRecords(vm, safe, tag);
         LibTestConfigRegistryDelegates.revokeUnscoped(vm, safe);
         return (script, safe);
     }

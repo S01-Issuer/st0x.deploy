@@ -237,11 +237,12 @@ records the 2026-07-29 governance migration.
 
 `20261103-hand-safe-owned-base-vaults-to-timelock` sits on every chain's root
 line after the orchestrator admin move, which follows the beacon initial owner
-bind, the 0G token creation record and the V5 backfill. On Base its bundle is
-one `transferOwnership(timelock)` per vault of the six the Safe still owns, plus
-the record; elsewhere it is the record alone. On every chain the pre-flight
-requires every other token-table vault to be timelock-owned. A vault of the six
-that the timelock already owns is skipped.
+bind, the 0G orchestrator roles execute and schedule records, the 0G token
+creation record and the V5 backfill. On Base its bundle is one
+`transferOwnership(timelock)` per vault of the six the Safe still owns, plus the
+record; elsewhere it is the record alone. On every chain the pre-flight requires
+every other token-table vault to be timelock-owned. A vault of the six that the
+timelock already owns is skipped.
 
 Decide Base Safe nonce 706 first. It is the Safe's older queued MultiSend that
 moves the same six (from `20260729-migrate-governance-to-timelock`), and it is
@@ -341,11 +342,15 @@ sequence on a fork of each chain.
 
 0. The chain's root line must already hold, in order, the V5 backfill
    (`20261030-backfill-migration-registry-v5`), the 0G token creation
-   (`20261119-create-zerog-tokens`, the record alone off 0G), the beacon initial
-   owner bind (`20261022-bind-beacon-initial-owner`), the orchestrator admin
-   move (`20261006-orchestrator-admin-to-timelock`), and the Safe-owned Base
-   vault handover (`20261103-hand-safe-owned-base-vaults-to-timelock`, the
-   record alone off Base). The beacon schedule refuses at any other head.
+   (`20261119-create-zerog-tokens`, the record alone off 0G), the 0G
+   orchestrator roles schedule and execute
+   (`20261123-schedule-zerog-orchestrator-roles` and
+   `20261123-execute-zerog-orchestrator-roles`, the records alone off 0G), the
+   beacon initial owner bind (`20261022-bind-beacon-initial-owner`), the
+   orchestrator admin move (`20261006-orchestrator-admin-to-timelock`), and the
+   Safe-owned Base vault handover
+   (`20261103-hand-safe-owned-base-vaults-to-timelock`, the record alone off
+   Base). The beacon schedule refuses at any other head.
 1. Deploy the three implementations at their Zoltu addresses (permissionless):
    the facet, the receipt-vault implementation and the wrapped-token-vault
    implementation named in `LibUnderlyingNamingRollout`, by dispatching the
@@ -490,12 +495,15 @@ records imply:
    the backfill records it as history on the root line.
 2. `20261006-orchestrator-admin-to-timelock` — `DEFAULT_ADMIN_ROLE` moves from
    the Safe to the timelock, recorded on the root line after
-   `20261022-bind-beacon-initial-owner`, which follows the backfill and the 0G
-   token creation record, so the registry refuses it on a chain where step 1 has
-   not executed. On 0G the backfill records step 1 record-only
-   (`LibStoxMigrations.withoutHistory`), so there the pre-flight's own
-   `EMERGENCY_ROLE` check is the guard, not the line. The Safe-owned Base vault
-   handover (`20261103-hand-safe-owned-base-vaults-to-timelock`) comes after it.
+   `20261022-bind-beacon-initial-owner`, which follows the backfill, the 0G
+   token creation record and the 0G orchestrator roles schedule and execute
+   records (`20261123-schedule-zerog-orchestrator-roles` and
+   `20261123-execute-zerog-orchestrator-roles`, record-only off 0G), so the
+   registry refuses it on a chain where step 1 has not executed. On 0G the
+   backfill records step 1 record-only (`LibStoxMigrations.withoutHistory`), so
+   there the pre-flight's own `EMERGENCY_ROLE` check is the guard, not the line.
+   The Safe-owned Base vault handover
+   (`20261103-hand-safe-owned-base-vaults-to-timelock`) comes after it.
 
 Step 1 and the EU authoriser grant were recorded in the V2 registry. The records
 are read from V5, so `20261030-backfill-migration-registry-v5` carries them over
@@ -503,9 +511,20 @@ as history, per chain, before step 2 can run.
 
 On 0G (`LibStoxMigrations.withoutHistory`) none of the backfilled steps ran. The
 backfill writes each of their records there record-only, so a record on 0G does
-not mean its step ran. The admin move's pre-flight checks the Safe's
-`EMERGENCY_ROLE` itself, so it still refuses 0G until a reviewed 0G arm decides
-that role there.
+not mean its step ran. The 0G orchestrator was claimed for the 0G timelock when
+it was created (the set deployer and its first `deploy(timelock)` in one
+transaction), so the timelock already holds `DEFAULT_ADMIN_ROLE` there and the
+Safe never did. `20261123-schedule-zerog-orchestrator-roles`, recorded right
+after the 0G token creation, schedules the 0G grants through the timelock:
+`MINT` and `BURN` to the service signer and `EMERGENCY` to the Safe on the
+orchestrator, and `DEPOSIT` and `WITHDRAW` to the orchestrator on the US
+authoriser. `20261123-execute-zerog-orchestrator-roles` executes them after the
+delay and records it. Executing that batch does not make
+`20261006-orchestrator-admin-to-timelock` runnable on 0G: its bundle has the
+Safe hand over `DEFAULT_ADMIN_ROLE`, which the Safe never held there, so it
+would revert. 0G needs its own arm of the admin move, record-only there because
+the timelock already holds the role;
+[#624](https://github.com/S01-Issuer/st0x.deploy/pull/624) owns that arm.
 
 `MINT`, `BURN` and `EMERGENCY` are themselves operations and stay off the
 timelock; who may hold them is delay-gated, in both directions. Revoking a

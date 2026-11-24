@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {IERC4626} from "@openzeppelin-contracts-5.7.0/interfaces/IERC4626.sol";
 import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
@@ -14,24 +13,22 @@ import {LibBeaconInvariants} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibInvariants} from "../../../src/lib/LibInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {ZerogOrchestratorRolesFixture} from "../../script/ZerogOrchestratorRolesFixture.sol";
 
 /// @title LibTokenInvariantsZerogTest
 /// @notice The hydrated 0G token table against live 0G right after the token creation's last bundle.
-contract LibTokenInvariantsZerogTest is Test {
-    /// @notice The block of Safe nonce 5, the last creation bundle, tx
-    /// 0xe6872cd5302397d09aaa0d68b00e04e1f348ec13e720e519900118b555e25862.
-    uint256 internal constant ZEROG_LAST_BUNDLE_BLOCK = 51156480;
-
+contract LibTokenInvariantsZerogTest is ZerogOrchestratorRolesFixture {
     function setUp() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ZEROG, ZEROG_LAST_BUNDLE_BLOCK);
+        forkZerogAtTheTokenRecord();
     }
 
-    /// @notice The multichain production bundle passes on live 0G for 0G's table and 0G's US clone, and every vault
-    /// is owned by the 0G timelock.
-    function testProductionStateHoldsOnLiveZerog() external view {
+    /// @notice Once the 0G orchestrator roles execute, the multichain production bundle passes on live 0G for 0G's
+    /// table and 0G's US clone, and every vault is owned by the 0G timelock.
+    function testProductionStateHoldsOnLiveZerog() external {
+        scheduleAsSigners();
+        executeAfterTheDelay();
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
         assertEq(block.chainid, id, "0G fork");
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(id);

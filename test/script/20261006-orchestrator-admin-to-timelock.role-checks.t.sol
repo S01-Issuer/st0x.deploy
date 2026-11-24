@@ -42,11 +42,26 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, R
         LibTestRootLine.write(
             vm, address(safe), LibStoxMigrations.CREATE_ZEROG_TOKENS, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
         );
+        LibTestRootLine.write(
+            vm,
+            address(safe),
+            LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES,
+            LibStoxMigrations.CREATE_ZEROG_TOKENS
+        );
+        LibTestRootLine.write(
+            vm,
+            address(safe),
+            LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES,
+            LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES
+        );
     }
 
     function landOnto() internal override {
         LibTestRootLine.write(
-            vm, address(safe), LibStoxMigrations.BIND_BEACON_INITIAL_OWNER, LibStoxMigrations.CREATE_ZEROG_TOKENS
+            vm,
+            address(safe),
+            LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
+            LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES
         );
     }
 

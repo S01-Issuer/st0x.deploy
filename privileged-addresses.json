@@ -116,6 +116,11 @@
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
           "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
           "v1Implementation": "0x0000000000000000000000000000000000000000"
+        },
+        {
+          "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+          "implementation": "0x1c3a4D12F88Bd39303Bb8510C6c1fa8Ad37A4b72",
+          "v1Implementation": "0x0000000000000000000000000000000000000000"
         }
       ],
       "euAuthoriser": "0x8Fc06579571A105C5a699FA11d95b9c73747f8eb",

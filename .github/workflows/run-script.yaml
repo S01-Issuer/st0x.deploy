@@ -37,6 +37,8 @@ on:
           - 20261111-qsep-set-fleet-authoriser
           - 20261113-bind-orchestrator-config
           - 20261119-create-zerog-tokens
+          - 20261123-schedule-zerog-orchestrator-roles
+          - 20261123-execute-zerog-orchestrator-roles
       network:
         description: 'Network to author against (default: base)'
         required: true
