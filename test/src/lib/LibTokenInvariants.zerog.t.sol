@@ -17,14 +17,13 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibTestZerogTokenCreation} from "../../lib/LibTestZerogTokenCreation.sol";
 
 /// @title LibTokenInvariantsZerogTest
 /// @notice The 0G token table against live 0G at the token creation's last bundle.
 contract LibTokenInvariantsZerogTest is Test {
-    uint256 internal constant ZEROG_LAST_BUNDLE_BLOCK = 51156480;
-
     function setUp() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ZEROG, ZEROG_LAST_BUNDLE_BLOCK);
+        vm.createSelectFork(LibStoxDeployNetworks.ZEROG, LibTestZerogTokenCreation.LAST_BUNDLE_BLOCK);
     }
 
     /// @notice The multichain production bundle passes on live 0G for 0G's table and 0G's US clone, and every vault

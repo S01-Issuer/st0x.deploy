@@ -7,13 +7,12 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {LibTestZerogTokenCreation} from "../lib/LibTestZerogTokenCreation.sol";
 import {CreateZerogTokensHarness} from "./CreateZerogTokensHarness.sol";
 
 /// @title CreateZerogTokensShippedTableTest
 /// @notice The shipped 0G token table against the token creation script's derived rows and post-state.
 contract CreateZerogTokensShippedTableTest is Test {
-    uint256 internal constant ZEROG_LAST_BUNDLE_BLOCK = 51156480;
-
     /// @notice Each shipped row is the token the script derives for that row.
     function testShippedTableIsEachRowsCreatedToken() external {
         vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
@@ -33,7 +32,7 @@ contract CreateZerogTokensShippedTableTest is Test {
 
     /// @notice On live 0G at the last bundle's block, every row is created and the script's post-state holds.
     function testPostStateHoldsOnLiveZerogAfterTheLastBundle() external {
-        vm.createSelectFork(LibStoxDeployNetworks.ZEROG, ZEROG_LAST_BUNDLE_BLOCK);
+        vm.createSelectFork(LibStoxDeployNetworks.ZEROG, LibTestZerogTokenCreation.LAST_BUNDLE_BLOCK);
         CreateZerogTokensHarness script = new CreateZerogTokensHarness("shipped-table-live");
         assertEq(script.callCreatedCount(), LibTokenInvariants.productionTokensZerog().length, "every row created");
         script.callAssertPostState();
