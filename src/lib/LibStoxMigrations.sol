@@ -50,9 +50,9 @@ error LineHeadMismatch(bytes32 head);
 /// those records.
 ///
 /// Every record is on one line: writer `LibRegistryAuthority.ROOT_AUTHORITY`,
-/// namespace `NAMESPACE`. The chain's token-owner Safe, an unscoped delegate
-/// of the root, writes every record, so the line does not depend on which
-/// account performs a migration:
+/// namespace `NAMESPACE`. The chain's token-owner Safe, the root's delegate for
+/// `NAMESPACE` or unscoped, writes every record, so the line does not depend
+/// on which account performs a migration:
 ///
 /// - a migration the Safe performs directly is recorded as the last call of
 ///   the Safe's MultiSend, so the record and the change land atomically;
@@ -186,9 +186,9 @@ library LibStoxMigrations {
         return LibMigrationRegistry.onto(LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.onto);
     }
 
-    /// @notice The registry call, sent by the Safe as an unscoped delegate of
-    /// the root, that writes `declared`'s record. Verifies the registry's code
-    /// hash first.
+    /// @notice The registry call, sent by the Safe as the root's delegate for
+    /// `NAMESPACE` or unscoped, that writes `declared`'s record. Verifies the
+    /// registry's code hash first.
     /// @param declared The declaration.
     /// @return The registry.
     /// @return The calldata.
