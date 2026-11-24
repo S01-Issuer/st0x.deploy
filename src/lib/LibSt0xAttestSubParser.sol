@@ -17,7 +17,7 @@ import {
     CONTEXT_LEAD_COLUMN,
     CONTEXT_MINT_COLUMN,
     CONTEXT_MINT_ROW_AMOUNT,
-    CONTEXT_MINT_ROW_SYMBOL,
+    CONTEXT_MINT_ROW_UNDERLYING_SYMBOL,
     CONTEXT_SIGNERS_COLUMN,
     CONTEXT_SIGNERS_ROW_ATTESTOR_0,
     CONTEXT_SIGNERS_ROW_LEAD
@@ -43,8 +43,8 @@ uint256 constant SUB_PARSER_WORD_ATTESTED_SYMBOL = 5;
 uint256 constant SUB_PARSER_WORD_ATTESTED_PRICE = 6;
 /// @dev Index of `attested-time` in the word list.
 uint256 constant SUB_PARSER_WORD_ATTESTED_TIME = 7;
-/// @dev Index of `mint-symbol` in the word list.
-uint256 constant SUB_PARSER_WORD_MINT_SYMBOL = 8;
+/// @dev Index of `mint-underlying-symbol` in the word list.
+uint256 constant SUB_PARSER_WORD_MINT_UNDERLYING_SYMBOL = 8;
 /// @dev Index of `mint-amount` in the word list.
 uint256 constant SUB_PARSER_WORD_MINT_AMOUNT = 9;
 /// @dev Index of `lead-domain` in the word list.
@@ -199,18 +199,19 @@ library LibSt0xAttestSubParser {
         );
     }
 
-    /// @notice `mint-symbol`: the symbol of the token being minted.
+    /// @notice `mint-underlying-symbol`: the `underlyingSymbol()` of the token
+    /// being minted.
     /// @return Whether the sub parse succeeded.
     /// @return The bytecode for the context opcode.
     /// @return The constants for the context opcode, always empty.
     //slither-disable-next-line dead-code
-    function subParserMintSymbol(uint256, uint256, OperandV2)
+    function subParserMintUnderlyingSymbol(uint256, uint256, OperandV2)
         internal
         pure
         returns (bool, bytes memory, bytes32[] memory)
     {
         //slither-disable-next-line unused-return
-        return LibSubParse.subParserContext(CONTEXT_MINT_COLUMN, CONTEXT_MINT_ROW_SYMBOL);
+        return LibSubParse.subParserContext(CONTEXT_MINT_COLUMN, CONTEXT_MINT_ROW_UNDERLYING_SYMBOL);
     }
 
     /// @notice `mint-amount`: the amount the mint is requesting.
@@ -359,9 +360,9 @@ library LibSt0xAttestSubParser {
             "attested-time",
             "The time pool attestor N attested, as a Rain Float in seconds comparable against now(). N is the operand and is required. Reverts at eval if fewer than N+1 pool attestations were provided."
         );
-        meta[SUB_PARSER_WORD_MINT_SYMBOL] = AuthoringMetaV2(
-            "mint-symbol",
-            "The symbol of the token the mint is requested for, as an IntOrAString bytes32. Check every attested symbol against it so an attestation for one token cannot be used for a mint of another. No operand. A string: compare it with binary-equal-to, never numerically."
+        meta[SUB_PARSER_WORD_MINT_UNDERLYING_SYMBOL] = AuthoringMetaV2(
+            "mint-underlying-symbol",
+            "The underlyingSymbol() of the token the mint is requested for, as an IntOrAString bytes32. Check every attested symbol against it so an attestation for one token cannot be used for a mint of another. No operand. A string: compare it with binary-equal-to, never numerically."
         );
         meta[SUB_PARSER_WORD_MINT_AMOUNT] = AuthoringMetaV2(
             "mint-amount", "The amount of the token being requested for the mint, as a Rain Float. No operand."

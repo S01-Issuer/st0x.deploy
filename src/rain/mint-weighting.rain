@@ -62,12 +62,10 @@ price-domain: [eip712-domain-separator name "prices" version "1"],
   "Same operator twice"
 ),
 
-:ensure(string-starts-with(mint-symbol() "t") "Vault symbol has no t prefix"),
-ticker: string-strip-prefix(mint-symbol() "t"),
 :ensure(
   binary-equal-to(
     lead-symbol() attested-symbol<0>() attested-symbol<1>()
-    ticker
+    mint-underlying-symbol()
   )
   "Attestation for another token"
 ),
@@ -88,7 +86,7 @@ ticker: string-strip-prefix(mint-symbol() "t"),
   "Times disagree"
 ),
 
-lead-time-key: hash("lead-time" ticker),
+lead-time-key: hash("lead-time" mint-underlying-symbol()),
 :ensure(
   greater-than-or-equal-to(lead-time() get(lead-time-key))
   "Lead time went backwards"
