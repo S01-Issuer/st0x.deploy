@@ -1,5 +1,5 @@
 /* 0. weighting */ 
-using-words-from 0x28Df1347eae93f7d85bCBe4b6605034a2F6F1cBD
+using-words-from 0x89832bFf73E9daD09C90CceC4b46Ac511A10F015
 
 :ensure(
   binary-equal-to(lead() 0xB05Da3f2e145C6b156D97872386Bc8645B34b668)
@@ -14,6 +14,7 @@ using-words-from 0x28Df1347eae93f7d85bCBe4b6605034a2F6F1cBD
   "Attestor not allowlisted"
 ),
 
+symbol: underlying-symbol(mint-token()),
 price-domain: [eip712-domain-separator name "prices" version "1"],
 :ensure(
   binary-equal-to(lead-domain() price-domain)
@@ -41,12 +42,10 @@ price-domain: [eip712-domain-separator name "prices" version "1"],
   "Same operator twice"
 ),
 
-:ensure(string-starts-with(mint-symbol() "t") "Vault symbol has no t prefix"),
-ticker: string-strip-prefix(mint-symbol() "t"),
 :ensure(
   binary-equal-to(
     lead-symbol() attested-symbol<0>() attested-symbol<1>()
-    ticker
+    symbol
   )
   "Attestation for another token"
 ),
@@ -67,7 +66,7 @@ ticker: string-strip-prefix(mint-symbol() "t"),
   "Times disagree"
 ),
 
-lead-time-key: hash("lead-time" ticker),
+lead-time-key: hash("lead-time" symbol),
 :ensure(
   greater-than-or-equal-to(lead-time() get(lead-time-key))
   "Lead time went backwards"
