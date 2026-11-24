@@ -218,12 +218,14 @@ contract Build is Script, StoxDeploySuites {
             subParser,
             "St0xAttestSubParserPointers",
             string.concat(
-                LibCodeGen.describedByMetaHashConstantString(vm, "St0xAttestSubParser"),
-                LibGenParseMeta.parseMetaConstantString(
-                    vm, LibSt0xAttestSubParser.authoringMetaV2(), PARSE_META_BUILD_DEPTH
+                string.concat(
+                    LibCodeGen.describedByMetaHashConstantString(vm, "St0xAttestSubParser"),
+                    LibGenParseMeta.parseMetaConstantString(
+                        vm, LibSt0xAttestSubParser.authoringMetaV2(), PARSE_META_BUILD_DEPTH
+                    ),
+                    LibCodeGen.subParserWordParsersConstantString(vm, St0xAttestSubParser(subParser)),
+                    LibCodeGen.operandHandlerFunctionPointersConstantString(vm, St0xAttestSubParser(subParser))
                 ),
-                LibCodeGen.subParserWordParsersConstantString(vm, St0xAttestSubParser(subParser)),
-                LibCodeGen.operandHandlerFunctionPointersConstantString(vm, St0xAttestSubParser(subParser)),
                 LibCodeGen.literalParserFunctionPointersConstantString(vm, St0xAttestSubParser(subParser)),
                 LibCodeGen.opcodeFunctionPointersConstantString(vm, St0xAttestSubParser(subParser)),
                 LibCodeGen.integrityFunctionPointersConstantString(vm, St0xAttestSubParser(subParser))
