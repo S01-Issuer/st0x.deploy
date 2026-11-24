@@ -17,18 +17,18 @@ on:
         description: 'Deployed address (Zoltu: one address on every network)'
         required: true
         type: string
-      networks:
-        description: 'Whitespace separated foundry chain ids or names'
-        required: true
+      constructor-args:
+        description: 'ABI-encoded constructor arguments (0x…); empty for none'
+        required: false
         type: string
-        default: '8453 1 999 56'
+        default: ''
 jobs:
   verify:
-    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-verify.yaml@main
+    uses: rainlanguage/rainix/.github/workflows/rainix-manual-sol-verify.yaml@82a56c2831a0196fa6c6a998eb6f02fc319493ff
     with:
       contract: ${{ inputs.contract }}
       address: ${{ inputs.address }}
-      networks: ${{ inputs.networks }}
+      constructor-args: ${{ inputs.constructor-args }}
     # Cross-org caller: `secrets: inherit` does not reach a reusable in another
     # org, so every explorer key is passed by name.
     secrets:
