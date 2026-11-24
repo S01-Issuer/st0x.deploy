@@ -143,18 +143,19 @@ contract MigrateGovernanceToTimelockTest is Test {
         }
     }
 
-    /// @notice The active-chain helpers select the active chain's own
-    /// authoriser, token table and receipt vaults on every deployment network.
-    function testActiveChainHelpersSelectTheActiveChainsPins() external {
+    /// @notice The test's active-chain helpers resolve what the script resolves on every deployment network, 0G
+    /// included: the script's authoriser, the script's token table, and that table's
+    /// receipt vaults in order.
+    function testActiveChainHelpersMatchTheScriptOnEveryNetwork() external {
+        MigrateGovernanceToTimelockHarness script = new MigrateGovernanceToTimelockHarness(address(0));
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         bool sawZerog = false;
         for (uint256 i = 0; i < nets.length; i++) {
-            uint256 id = nets[i].chainId;
-            vm.chainId(id);
-            if (id == LibSafeInvariants.ZEROG_CHAIN_ID) sawZerog = true;
-            assertEq(_activeChainAuthoriser(), LibAuthoriserInvariants.authoriserForChainId(id), nets[i].name);
-            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(id);
+            vm.chainId(nets[i].chainId);
+            if (nets[i].chainId == LibSafeInvariants.ZEROG_CHAIN_ID) sawZerog = true;
+            assertEq(_activeChainAuthoriser(), script.callActiveChainAuthoriser(), nets[i].name);
+            TokenInstance[] memory table = script.callTokensForActiveChain();
             TokenInstance[] memory tokens = _activeChainTokens();
             address[] memory vaults = _activeChainVaults();
             assertEq(tokens.length, table.length, nets[i].name);

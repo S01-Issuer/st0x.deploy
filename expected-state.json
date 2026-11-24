@@ -1966,6 +1966,13 @@
           "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
           "renamedImplementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099"
+        },
+        {
+          "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+          "codehash": "0x448cd06335de9e79ecdc51aa7c6647926860a1976f407de6f79f363b85ccaf2b",
+          "implementation": "0x1c3a4D12F88Bd39303Bb8510C6c1fa8Ad37A4b72",
+          "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+          "renamedImplementation": "0x1c3a4D12F88Bd39303Bb8510C6c1fa8Ad37A4b72"
         }
       ],
       "euAuthoriser": {
@@ -1974,12 +1981,12 @@
       },
       "network": "zerog",
       "orchestrator": {
-        "beacon": "0x0000000000000000000000000000000000000000",
-        "beaconCodehash": "0x0000000000000000000000000000000000000000000000000000000000000000",
-        "implementation": "0x0000000000000000000000000000000000000000",
-        "instance": "0x0000000000000000000000000000000000000000",
-        "owner": "0x0000000000000000000000000000000000000000",
-        "setDeployer": "0x0000000000000000000000000000000000000000"
+        "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
+        "beaconCodehash": "0x448cd06335de9e79ecdc51aa7c6647926860a1976f407de6f79f363b85ccaf2b",
+        "implementation": "0x1c3a4D12F88Bd39303Bb8510C6c1fa8Ad37A4b72",
+        "instance": "0x3A7387a484d87Aa8bBA45E98AAB401Ce4FBF03E2",
+        "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+        "setDeployer": "0x945D0Faf6f268e805246907507ef1044e70E75D7"
       },
       "renameMigration": "0x0000000000000000000000000000000000000000000000000000000000000000",
       "safe": {
@@ -4038,6 +4045,11 @@
           "address": "0x1c3a4D12F88Bd39303Bb8510C6c1fa8Ad37A4b72",
           "codehash": "0xbc2cc8eba1d10bc3b91a61fca8cdca9c18487e5fd99262f07d9703959ae4747c",
           "key": "stox-orchestrator@0_1_30"
+        },
+        {
+          "address": "0x945D0Faf6f268e805246907507ef1044e70E75D7",
+          "codehash": "0x779b9e3b829a16736d5d29c81e925395da9ff76d7d94c3618d48bdf1bc438a60",
+          "key": "stox-orchestrator-beacon-set-deployer@0_1_30"
         }
       ]
     },

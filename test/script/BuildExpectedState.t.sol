@@ -82,12 +82,7 @@ contract BuildExpectedStateTest is Test {
             if (nets[c].chainId == LibSafeInvariants.BASE_CHAIN_ID) {
                 assertKeys(json, string.concat(at, ".qsep"), qsepFields());
             }
-            assertRowKeys(
-                json,
-                string.concat(at, ".beacons"),
-                LibBeaconInvariants.prodBeaconsInUse(nets[c].chainId),
-                beaconFields()
-            );
+            assertRowKeys(json, string.concat(at, ".beacons"), 4, beaconFields());
             assertKeys(json, string.concat(at, ".safe"), safeFields());
             assertKeys(json, string.concat(at, ".timelock"), timelockFields());
             assertKeys(json, string.concat(at, ".orchestrator"), orchestratorFields());
@@ -112,8 +107,8 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The rows are the in-use beacons the chain's set deployer getters resolve on a local build, so no row is left
-    /// for the dashboard to resolve: all four, or the three token beacons on a chain that runs no orchestrator (0G).
+    /// The rows are the four in-use beacons the chain's set deployer getters resolve on a local build, so no row is
+    /// left for the dashboard to resolve.
     function testBeaconsAreTheInUseSetAtTheirExpectedImplementationsOwnedByTheTimelock() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -122,7 +117,7 @@ contract BuildExpectedStateTest is Test {
             address[4] memory resolved = resolvedBeacons(id);
             address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(id);
             bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(id);
-            uint256 inUse = LibAuthoriserInvariants.grantsOrchestrator(id) ? 4 : 3;
+            uint256 inUse = 4;
             string memory list = string.concat(chain(nets[c]), ".beacons");
             assertFalse(vm.keyExistsJson(json, index(list, inUse)));
             for (uint256 i = 0; i < inUse; i++) {
@@ -227,20 +222,15 @@ contract BuildExpectedStateTest is Test {
         return upgrades;
     }
 
-    /// Every value is concrete: zero appears only as each chain's Safe guard, and on 0G as its six orchestrator
-    /// fields (it runs none) and its `renameMigration` (no 0G bundle for the naming exists).
-    function testZeroIsOnlyTheSafeGuardAnAbsentOrchestratorAndNoRename() external {
+    /// Every value is concrete: zero appears only as each chain's Safe guard, and on 0G as its `renameMigration` (no
+    /// 0G bundle for the naming exists).
+    function testZeroIsOnlyTheSafeGuardAndNoRename() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
-        uint256 absent = 0;
-        for (uint256 i = 0; i < nets.length; i++) {
-            if (!LibAuthoriserInvariants.grantsOrchestrator(nets[i].chainId)) absent++;
-        }
         uint256 unrenamed = nets.length - LibStoxDeployNetworks.networksBeforeZerog().length;
-        assertEq(absent, 1, "0G runs no orchestrator");
         assertEq(unrenamed, 1, "only 0G expects no rename");
         // A zero `bytes32` also contains the zero address's text.
-        assertEq(vm.split(json, vm.toString(address(0))).length - 1, nets.length + 6 * absent + unrenamed);
+        assertEq(vm.split(json, vm.toString(address(0))).length - 1, nets.length + unrenamed);
     }
 
     function testSafeIsTheChainsSafeWithThePinnedPolicy() external {
@@ -343,8 +333,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// The beacon and instance are the set deployer's nonce 1 and nonce 2 CREATEs, the beacon is a 0.1.30
-    /// `UpgradeableBeacon` serving the 0.1.30 orchestrator, and the chain's timelock owns it.
-    /// On a chain that runs no orchestrator (0G) every field is zero: its set deployer is not deployed there.
+    /// `UpgradeableBeacon` serving the 0.1.30 orchestrator, and the chain's timelock owns it, on every chain.
     function testOrchestratorIsThe0_1_30BeaconSetOwnedByTheTimelock() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -353,15 +342,6 @@ contract BuildExpectedStateTest is Test {
             address setDeployer = vm.parseJsonAddress(json, string.concat(at, ".setDeployer"));
             address beacon = vm.parseJsonAddress(json, string.concat(at, ".beacon"));
             address instance = vm.parseJsonAddress(json, string.concat(at, ".instance"));
-            if (!LibAuthoriserInvariants.grantsOrchestrator(nets[i].chainId)) {
-                assertEq(setDeployer, address(0));
-                assertEq(beacon, address(0));
-                assertEq(instance, address(0));
-                assertEq(vm.parseJsonBytes32(json, string.concat(at, ".beaconCodehash")), bytes32(0));
-                assertEq(vm.parseJsonAddress(json, string.concat(at, ".implementation")), address(0));
-                assertEq(vm.parseJsonAddress(json, string.concat(at, ".owner")), address(0));
-                continue;
-            }
             assertEq(setDeployer, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30);
             assertEq(beacon, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON);
             assertEq(beacon, vm.computeCreateAddress(setDeployer, 1));
@@ -382,21 +362,12 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The orchestrator's implementation and set deployer are the released 0.1.30 Zoltu suites on that chain. On a
-    /// chain that runs no orchestrator (0G) the implementation is still required, the set deployer is not.
+    /// The orchestrator's implementation and set deployer are the released 0.1.30 Zoltu suites on every chain.
     function testOrchestratorCodeIsItsReleasedZoltuSuites() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
             string memory at = chain(nets[i]);
-            if (!LibAuthoriserInvariants.grantsOrchestrator(nets[i].chainId)) {
-                assertEq(zoltuAddress(json, at, "stox-orchestrator@0_1_30"), LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30);
-                vm.expectRevert(
-                    abi.encodeWithSelector(ZoltuRowMissing.selector, "stox-orchestrator-beacon-set-deployer@0_1_30")
-                );
-                this.zoltuAddressOf(json, at, "stox-orchestrator-beacon-set-deployer@0_1_30");
-                continue;
-            }
             assertEq(
                 zoltuAddress(json, at, "stox-orchestrator@0_1_30"),
                 vm.parseJsonAddress(json, string.concat(at, ".orchestrator.implementation"))
@@ -774,7 +745,7 @@ contract BuildExpectedStateTest is Test {
         string memory at = string.concat(".chains.", vm.toString(id));
         assertEq(vm.parseJsonBytes32(json, string.concat(at, ".renameMigration")), bytes32(0));
         string memory list = string.concat(at, ".beacons");
-        for (uint256 i = 0; i < LibBeaconInvariants.prodBeaconsInUse(id); i++) {
+        for (uint256 i = 0; i < 4; i++) {
             assertEq(
                 vm.parseJsonAddress(json, string.concat(index(list, i), ".renamedImplementation")),
                 vm.parseJsonAddress(json, string.concat(index(list, i), ".implementation"))
