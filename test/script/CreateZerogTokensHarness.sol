@@ -8,9 +8,7 @@ import {CreateZerogTokens} from "../../script/20261119-create-zerog-tokens.s.sol
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
-/// @dev 0G's token table as the bundles were authored against it, before the tokens existed: the shipped table's
-/// underlyings in its order, with every leg a placeholder.
-/// @return table The placeholder table.
+/// @dev The shipped 0G table's underlyings in its order, every leg `address(0)`.
 function zerogPlaceholderTable() pure returns (TokenInstance[] memory table) {
     TokenInstance[] memory shipped = LibTokenInvariants.productionTokensZerog();
     table = new TokenInstance[](shipped.length);
@@ -20,9 +18,8 @@ function zerogPlaceholderTable() pure returns (TokenInstance[] memory table) {
 }
 
 /// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
-/// It overrides no address, so the tests run the Safe and timelock pins the script ships with. The tests rebuild 0G as
-/// it was before the tokens existed, so by default the harness stands in `zerogPlaceholderTable` for the shipped
-/// table, which now holds the created tokens; `useShippedTable` runs the shipped one.
+/// It overrides no address, so the tests run the Safe and timelock pins the script ships with. Its 0G table is
+/// `zerogPlaceholderTable` unless `setTable` or `useShippedTable` is called.
 contract CreateZerogTokensHarness is CreateZerogTokens {
     string internal sArtifactTag;
     TokenInstance[] internal sTable;
@@ -47,7 +44,6 @@ contract CreateZerogTokensHarness is CreateZerogTokens {
         sTableSet = true;
     }
 
-    /// @dev Runs the shipped table instead of the placeholder one.
     function useShippedTable() external {
         sShippedTable = true;
     }

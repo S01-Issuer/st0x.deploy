@@ -244,8 +244,7 @@ contract CreateZerogTokensRootLineTest is ZerogTokenCreationFixture, RootLineRec
         sScript.callAssertPostState();
     }
 
-    /// @notice A 0G table row with any leg already set is refused at that row: the table is filled from these tokens
-    /// only after they exist (RAI-4598).
+    /// @notice A 0G table row with any leg already set is refused at that row.
     function testPreflightRefusesATableRowThatIsNotAPlaceholder() external {
         uint256 last = zerogPlaceholderTable().length - 1;
         uint256[3] memory rowsToSet = [uint256(0), last / 2, last];

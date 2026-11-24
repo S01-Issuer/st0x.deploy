@@ -93,7 +93,12 @@ contract BuildExpectedStateTest is Test {
             assertKeys(json, string.concat(at, ".orchestrator"), orchestratorFields());
             assertKeys(json, string.concat(at, ".authoriser"), authoriserFields());
             assertKeys(json, string.concat(at, ".euAuthoriser"), authoriserFields());
-            assertRowKeys(json, string.concat(at, ".tokens"), tokenTable(nets[c].chainId).length, tokenFields());
+            assertRowKeys(
+                json,
+                string.concat(at, ".tokens"),
+                LibTokenInvariants.productionTokensForChainId(nets[c].chainId).length,
+                tokenFields()
+            );
             assertRowKeys(json, string.concat(at, ".zoltu"), expectedZoltu(nets[c]).length, deploymentFields());
         }
         SupportedNetwork[] memory v2 = v2Networks();
@@ -427,29 +432,12 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// @notice Each chain says whether its token table is hydrated, and a chain
-    /// whose table is not carries no token rows. Every deployment chain's
-    /// table is hydrated now, 0G's included, so each carries its rows.
-    function testEachChainSaysItsTokenTableIsHydratedAndCarriesItsRows() external {
-        string memory json = build.render();
-        SupportedNetwork[] memory nets = networks();
-        for (uint256 c = 0; c < nets.length; c++) {
-            uint256 id = nets[c].chainId;
-            assertTrue(LibTokenInvariants.tokenTableHydrated(id), nets[c].name);
-            assertTrue(vm.parseJsonBool(json, string.concat(chain(nets[c]), ".tokenTableHydrated")), nets[c].name);
-            string memory list = string.concat(chain(nets[c]), ".tokens");
-            uint256 rows = LibTokenInvariants.productionTokensForChainId(id).length;
-            assertTrue(vm.keyExistsJson(json, index(list, rows - 1)), "last token row");
-            assertFalse(vm.keyExistsJson(json, index(list, rows)), "no row past the table");
-        }
-    }
-
     function testTokensAreTheChainsTableWithRegionRoutedAuthorisers() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 id = nets[c].chainId;
-            TokenInstance[] memory tokens = tokenTable(id);
+            TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(id);
             string memory list = string.concat(chain(nets[c]), ".tokens");
             assertFalse(vm.keyExistsJson(json, index(list, tokens.length)));
             for (uint256 i = 0; i < tokens.length; i++) {
@@ -527,9 +515,9 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
-            TokenInstance[] memory tokens = tokenTable(nets[c].chainId);
+            TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[c].chainId);
             string memory list = string.concat(chain(nets[c]), ".tokens");
-            // The naming batches were cut only for the networks before 0G (`testZerogHasNoRenameMigration`).
+            // 0G has no rename migration (`testZerogHasNoRenameMigration`).
             bool chainRenames = LibRainDeploy.hasChainId(
                 LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
             );
@@ -588,7 +576,7 @@ contract BuildExpectedStateTest is Test {
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             string memory list = string.concat(chain(nets[c]), ".tokens");
-            uint256 n = tokenTable(nets[c].chainId).length;
+            uint256 n = LibTokenInvariants.productionTokensForChainId(nets[c].chainId).length;
             for (uint256 i = 0; i < n; i++) {
                 string memory row = index(list, i);
                 assertEq(
@@ -606,7 +594,7 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
-            TokenInstance[] memory tokens = tokenTable(nets[c].chainId);
+            TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[c].chainId);
             string memory list = string.concat(chain(nets[c]), ".tokens");
             for (uint256 i = 0; i < tokens.length; i++) {
                 string memory row = index(list, i);
@@ -634,7 +622,7 @@ contract BuildExpectedStateTest is Test {
             assertEq(vaultBeacon, resolved[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
             assertEq(wrapperBeacon, resolved[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]);
             string memory list = string.concat(at, ".tokens");
-            uint256 n = tokenTable(id).length;
+            uint256 n = LibTokenInvariants.productionTokensForChainId(id).length;
             for (uint256 i = 0; i < n; i++) {
                 string memory row = index(list, i);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptBeacon")), receiptBeacon);
@@ -754,7 +742,7 @@ contract BuildExpectedStateTest is Test {
         bytes32 wrapperHash =
             registryBeaconProxyCodehash(beaconRow(json, at, LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX));
         string memory list = string.concat(at, ".tokens");
-        uint256 n = tokenTable(network.chainId).length;
+        uint256 n = LibTokenInvariants.productionTokensForChainId(network.chainId).length;
         for (uint256 i = 0; i < n; i++) {
             string memory row = index(list, i);
             assertEq(vm.parseJsonBytes32(json, string.concat(row, ".receiptCodehash")), receiptHash);
@@ -1047,16 +1035,9 @@ contract BuildExpectedStateTest is Test {
         assertEq(vm.parseJsonAddress(json, string.concat(at, ".owner")), owner);
     }
 
-    /// @dev The chain's token rows the render carries: its table, or none while the table is not hydrated.
-    function tokenTable(uint256 chainId) internal pure returns (TokenInstance[] memory) {
-        return LibTokenInvariants.tokenTableHydrated(chainId)
-            ? LibTokenInvariants.productionTokensForChainId(chainId)
-            : new TokenInstance[](0);
-    }
-
     function chainFields(uint256 chainId) internal pure returns (string[] memory) {
         bool isBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-        string[] memory fields = new string[](isBase ? 13 : 12);
+        string[] memory fields = new string[](isBase ? 12 : 11);
         fields[0] = "network";
         fields[1] = "beaconSetDeployer";
         fields[2] = "beacons";
@@ -1068,9 +1049,8 @@ contract BuildExpectedStateTest is Test {
         fields[8] = "zoltu";
         fields[9] = "renameMigration";
         fields[10] = "tokens";
-        fields[11] = "tokenTableHydrated";
         if (isBase) {
-            fields[12] = "qsep";
+            fields[11] = "qsep";
         }
         return fields;
     }

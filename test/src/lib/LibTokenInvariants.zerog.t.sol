@@ -19,10 +19,8 @@ import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol"
 import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 
 /// @title LibTokenInvariantsZerogTest
-/// @notice The hydrated 0G token table against live 0G right after the token creation's last bundle.
+/// @notice The 0G token table against live 0G at the token creation's last bundle.
 contract LibTokenInvariantsZerogTest is Test {
-    /// @notice The block of Safe nonce 5, the last creation bundle, tx
-    /// 0xe6872cd5302397d09aaa0d68b00e04e1f348ec13e720e519900118b555e25862.
     uint256 internal constant ZEROG_LAST_BUNDLE_BLOCK = 51156480;
 
     function setUp() external {

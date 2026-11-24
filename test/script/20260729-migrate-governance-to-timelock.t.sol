@@ -144,8 +144,7 @@ contract MigrateGovernanceToTimelockTest is Test {
     }
 
     /// @notice The active-chain helpers select the active chain's own
-    /// authoriser, token table and receipt vaults on every deployment network,
-    /// 0G included now that its table is hydrated.
+    /// authoriser, token table and receipt vaults on every deployment network.
     function testActiveChainHelpersSelectTheActiveChainsPins() external {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());

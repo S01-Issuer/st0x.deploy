@@ -141,22 +141,14 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    /// @notice Each chain's receipt vaults are its token table's, or none
-    /// while the table is not hydrated, and the chain says which. Every
-    /// deployment chain's table is hydrated now, 0G's included, so each lists
-    /// its vaults.
     function testReceiptVaultsAreEachChainsTokenTable() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
-            uint256 id = nets[i].chainId;
-            bool hydrated = LibTokenInvariants.tokenTableHydrated(id);
-            assertTrue(hydrated, nets[i].name);
-            assertEq(vm.parseJsonBool(json, string.concat(chain(nets[i]), ".tokenTableHydrated")), hydrated);
             assertAddresses(
                 json,
                 string.concat(chain(nets[i]), ".receiptVaults"),
-                LibTokenInvariants.productionReceiptVaultsForChainId(id)
+                LibTokenInvariants.productionReceiptVaultsForChainId(nets[i].chainId)
             );
         }
     }

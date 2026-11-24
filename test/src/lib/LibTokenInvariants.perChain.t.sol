@@ -8,12 +8,7 @@ import {LibAuthoriserInvariants, UnsupportedChainForAuthoriser} from "../../../s
 import {LibProdTokenConfig, Region, TokenConfig, UnknownUnderlying} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {
-    LibTokenInvariants,
-    NoTokenTableForChain,
-    TokenInstance,
-    TokenTableNotHydrated
-} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {LibTokenInvariantsPerChainHarness} from "./LibTokenInvariantsPerChainHarness.sol";
 
 contract LibTokenInvariantsPerChainTest is Test {
@@ -52,7 +47,6 @@ contract LibTokenInvariantsPerChainTest is Test {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         for (uint256 i = 0; i < nets.length; i++) {
             if (nets[i].chainId == LibSafeInvariants.BASE_CHAIN_ID) continue;
-            if (!LibTokenInvariants.tokenTableHydrated(nets[i].chainId)) continue;
             TokenInstance[] memory other = LibTokenInvariants.productionTokensForChainId(nets[i].chainId);
             assertTrue(other.length != base.length || other[0].receiptVault != base[0].receiptVault);
         }
@@ -62,7 +56,6 @@ contract LibTokenInvariantsPerChainTest is Test {
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < nets.length; i++) {
-            if (!LibTokenInvariants.tokenTableHydrated(nets[i].chainId)) continue;
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[i].chainId);
             address[] memory vaults = LibTokenInvariants.productionReceiptVaultsForChainId(nets[i].chainId);
             assertEq(vaults.length, tokens.length);
@@ -74,72 +67,6 @@ contract LibTokenInvariantsPerChainTest is Test {
             LibTokenInvariants.productionReceiptVaults(),
             LibTokenInvariants.productionReceiptVaultsForChainId(LibSafeInvariants.BASE_CHAIN_ID)
         );
-    }
-
-    /// Every deployment chain's table names all three legs of every token,
-    /// 0G's included, so no generator skips a chain's token output.
-    function testEveryDeploymentChainsTokenTableIsHydrated() external pure {
-        SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
-        for (uint256 i = 0; i < nets.length; i++) {
-            assertTrue(LibTokenInvariants.tokenTableHydrated(nets[i].chainId), nets[i].name);
-        }
-        assertTrue(LibTokenInvariants.tokenTableHydrated(LibSafeInvariants.ZEROG_CHAIN_ID), "0G");
-    }
-
-    /// The guard hands back every deployment chain's table unchanged.
-    function testHydratedReturnsEachChainsTableUnchanged() external view {
-        SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
-        for (uint256 i = 0; i < nets.length; i++) {
-            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(nets[i].chainId);
-            assertIdentical(lib.hydrated(nets[i].chainId, table), table);
-        }
-    }
-
-    /// A zero in any one leg of any one row of 0G's table makes the guard
-    /// refuse the whole table, on the first row as on the last, and makes the
-    /// table check report it not hydrated.
-    function testHydratedRefusesAZeroLegInAnyRow() external {
-        uint256 chainId = LibSafeInvariants.ZEROG_CHAIN_ID;
-        assertTrue(lib.isTableHydrated(LibTokenInvariants.productionTokensZerog()), "0G table");
-        uint256 rows = LibTokenInvariants.productionTokensZerog().length;
-        for (uint256 row = 0; row < rows; row++) {
-            for (uint256 leg = 0; leg < 3; leg++) {
-                TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
-                zeroLeg(table[row], leg);
-                assertFalse(lib.isTableHydrated(table), table[row].underlying);
-                vm.expectRevert(abi.encodeWithSelector(TokenTableNotHydrated.selector, chainId));
-                lib.hydrated(chainId, table);
-            }
-        }
-    }
-
-    /// A one-row table is hydrated only when none of its three legs is zero,
-    /// and an empty table has no placeholder.
-    function testTableHydratedNeedsEveryLeg(address receipt, address receiptVault, address wrappedTokenVault)
-        external
-        view
-    {
-        TokenInstance[] memory table = new TokenInstance[](1);
-        table[0] = TokenInstance("X", receipt, receiptVault, wrappedTokenVault);
-        assertEq(
-            lib.isTableHydrated(table),
-            receipt != address(0) && receiptVault != address(0) && wrappedTokenVault != address(0)
-        );
-        for (uint256 leg = 0; leg < 3; leg++) {
-            table[0] = TokenInstance("X", receipt, receiptVault, wrappedTokenVault);
-            zeroLeg(table[0], leg);
-            assertFalse(lib.isTableHydrated(table));
-        }
-        assertTrue(lib.isTableHydrated(new TokenInstance[](0)), "empty");
-    }
-
-    /// @dev Zeroes leg `leg` of `token`: 0 the receipt, 1 the receipt vault, 2 the wrapper.
-    function zeroLeg(TokenInstance memory token, uint256 leg) internal pure {
-        if (leg == 0) token.receipt = address(0);
-        else if (leg == 1) token.receiptVault = address(0);
-        else token.wrappedTokenVault = address(0);
     }
 
     function testUndeployedChainHasNoTable(uint256 chainId) external {
@@ -196,16 +123,6 @@ contract LibTokenInvariantsPerChainTest is Test {
     function testExpectedAuthoriserUnknownUnderlyingReverts() external {
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
         lib.expectedAuthoriser("NOPE", address(0xA11CE), LibSafeInvariants.BASE_CHAIN_ID);
-    }
-
-    function assertIdentical(TokenInstance[] memory a, TokenInstance[] memory b) internal pure {
-        assertEq(a.length, b.length);
-        for (uint256 i = 0; i < a.length; i++) {
-            assertEq(a[i].underlying, b[i].underlying);
-            assertEq(a[i].receipt, b[i].receipt);
-            assertEq(a[i].receiptVault, b[i].receiptVault);
-            assertEq(a[i].wrappedTokenVault, b[i].wrappedTokenVault);
-        }
     }
 
     function assertSame(TokenInstance[] memory a, TokenInstance[] memory b) internal pure {
