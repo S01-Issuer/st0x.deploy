@@ -49,7 +49,7 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
-    /// The migration whose record on the chain selects each token's renamed metadata: the underlying naming on the
+    /// The migration whose record on the chain selects each token's renamed metadata: the rename batch on the
     /// networks its rename and beacon batches were cut for (`LibStoxDeployNetworks.networksBeforeZerog`), or zero.
     /// 0G's root line records the naming too, after the 0G token creation, but no reviewed 0G bundle for it exists, so
     /// 0G expects no renamed state.
@@ -57,7 +57,7 @@ contract BuildExpectedState is Script {
         return LibRainDeploy.hasChainId(
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
         )
-            ? LibStoxMigrations.EXECUTE_UNDERLYING_NAMING
+            ? LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME
             : bytes32(0);
     }
 

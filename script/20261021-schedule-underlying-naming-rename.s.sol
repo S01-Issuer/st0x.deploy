@@ -54,10 +54,10 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch
 /// (rollout step 3 in `docs/TIMELOCK.md`): `setUnderlying(ticker,
 /// underlyingName)` on every production vault of the chain, ticker from
-/// `TokenConfig.underlying` and name from `TokenConfig.underlyingName`. Two
-/// Safe calls: `timelock.scheduleBatch(...)`, with the beacon batch as
-/// predecessor so the timelock refuses to execute the rename first, then the
-/// Safe's root-line record.
+/// `TokenConfig.underlying` and name from `TokenConfig.underlyingName`. One
+/// Safe call: `timelock.scheduleBatch(...)`, with the beacon batch as
+/// predecessor so the timelock refuses to execute the rename first. The
+/// batch's last call writes its root-line record.
 ///
 /// **The pre-flight refuses until
 /// `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set**, which
