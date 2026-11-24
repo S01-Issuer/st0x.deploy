@@ -30,19 +30,13 @@ import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariant
 /// pinned addresses, one facet per function, every value read from `src`.
 /// Facets deploy their own Zoltu dependencies, so any subset composes.
 library LibLocalProdState {
-    /// @notice The chain id of every deployment network whose production state
-    /// is pinned, in declaration order: each one whose token table is
-    /// hydrated (`LibTokenInvariants.tokenTableHydrated`).
+    /// @notice The chain id of every deployment network, in declaration order.
     function chainIds() internal pure returns (uint256[] memory) {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         uint256[] memory ids = new uint256[](networks.length);
-        uint256 count = 0;
         for (uint256 i = 0; i < networks.length; i++) {
-            if (LibTokenInvariants.tokenTableHydrated(networks[i].chainId)) ids[count++] = networks[i].chainId;
-        }
-        assembly ("memory-safe") {
-            mstore(ids, count)
+            ids[i] = networks[i].chainId;
         }
         return ids;
     }

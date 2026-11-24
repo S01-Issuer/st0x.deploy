@@ -7,6 +7,7 @@ import {
     LibUnderlyingNamingRollout,
     MalformedUnderlying,
     DownstreamNotReadyForRename,
+    UnderlyingNamingNotCutForChain,
     UnderlyingNamingTokenTableShort
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
@@ -163,6 +164,29 @@ contract LibUnderlyingNamingRolloutTest is Test {
         this.externalAssertRowsWellFormed(rows);
 
         this.externalAssertRowsWellFormed(new TokenConfig[](0));
+    }
+
+    function externalTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
+        return LibUnderlyingNamingRollout.tokens(chainId);
+    }
+
+    /// 0G's leading `TOKEN_COUNT` rows are not Base's, so the rollout refuses
+    /// 0G.
+    function testTokensRefusesZerog() external {
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        uint256 count = LibUnderlyingNamingRollout.TOKEN_COUNT;
+        bool sameSet = true;
+        for (uint256 rowIndex = 0; rowIndex < count; rowIndex++) {
+            if (keccak256(bytes(zerog[rowIndex].underlying)) != keccak256(bytes(base[rowIndex].underlying))) {
+                sameSet = false;
+            }
+        }
+        assertFalse(sameSet, "0G's leading rows differ from Base's");
+        vm.expectRevert(
+            abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, LibSafeInvariants.ZEROG_CHAIN_ID)
+        );
+        this.externalTokens(LibSafeInvariants.ZEROG_CHAIN_ID);
     }
 
     /// A table longer than `TOKEN_COUNT` is cut to its leading rows, so a

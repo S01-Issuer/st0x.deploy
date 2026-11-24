@@ -42,10 +42,10 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// (`wrappedTokenVault.asset()`), the
 /// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
 /// `receiptVaultCodehash`, `receiptCodehash`,
-/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`, or none where `tokenTableHydrated` is false (a table of
-/// placeholders, as 0G's until its tokens exist); on Base, `qsep` (tQSEP's legs, `owner`, `authoriser`). Under `v2`, per network V2 was checked on: `network`,
-/// `deployments` (each `LibProdDeployV2` key, address, codehash), `beaconSetDeployer`, and `receiptBeacon`,
-/// `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon, implementation, owner).
+/// `wrappedTokenVaultCodehash`, `owner` and `authoriser`; on Base, `qsep` (tQSEP's legs, `owner`, `authoriser`).
+/// Under `v2`, per network V2 was checked on: `network`, `deployments` (each `LibProdDeployV2` key, address,
+/// codehash), `beaconSetDeployer`, and `receiptBeacon`, `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon,
+/// implementation, owner).
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
@@ -316,9 +316,7 @@ contract BuildExpectedState is Script {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
         }
-        bool hydrated = LibTokenInvariants.tokenTableHydrated(chainId);
-        vm.serializeBool(key, "tokenTableHydrated", hydrated);
-        return vm.serializeString(key, "tokens", hydrated ? tokensJson(chainId, key) : new string[](0));
+        return vm.serializeString(key, "tokens", tokensJson(chainId, key));
     }
 
     function v2DeploymentJson(string memory key, uint256 i, string memory name, address deployed, bytes32 codehash)

@@ -6,14 +6,25 @@ import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {CreateZerogTokens} from "../../script/20261119-create-zerog-tokens.s.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
-import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+
+/// @dev The shipped 0G table's underlyings in its order, every leg `address(0)`.
+function zerogPlaceholderTable() pure returns (TokenInstance[] memory table) {
+    TokenInstance[] memory shipped = LibTokenInvariants.productionTokensZerog();
+    table = new TokenInstance[](shipped.length);
+    for (uint256 i = 0; i < shipped.length; i++) {
+        table[i] = TokenInstance(shipped[i].underlying, address(0), address(0), address(0));
+    }
+}
 
 /// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
-/// It overrides no address, so the tests run the Safe and timelock pins the script ships with.
+/// It overrides no address, so the tests run the Safe and timelock pins the script ships with. Its 0G table is
+/// `zerogPlaceholderTable` unless `setTable` or `useShippedTable` is called.
 contract CreateZerogTokensHarness is CreateZerogTokens {
     string internal sArtifactTag;
     TokenInstance[] internal sTable;
     bool internal sTableSet;
+    bool internal sShippedTable;
 
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
@@ -33,9 +44,14 @@ contract CreateZerogTokensHarness is CreateZerogTokens {
         sTableSet = true;
     }
 
+    function useShippedTable() external {
+        sShippedTable = true;
+    }
+
     /// @inheritdoc CreateZerogTokens
     function zerogTable() internal view override returns (TokenInstance[] memory) {
-        return sTableSet ? sTable : super.zerogTable();
+        if (sTableSet) return sTable;
+        return sShippedTable ? super.zerogTable() : zerogPlaceholderTable();
     }
 
     function callPreflight() external view {

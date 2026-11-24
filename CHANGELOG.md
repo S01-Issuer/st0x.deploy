@@ -1,5 +1,20 @@
 # Changelog
 
+## Deploy requires the governance timelock (RAI-4173)
+
+### Token config and deploy
+
+- **`Deploy.preDeployCheck` refuses a beacon or token suite unless the
+  governance timelock that owns them is in its pinned state**
+  (`LibTimelockInvariants.assertTimelockState` with the chain's Safe as
+  proposer, so `TimelockNotDeployed`, `TimelockCodehashMismatch`,
+  `TimelockMissingRole` and the other `LibTimelockController` errors). It runs
+  after the binding checks. `stox-orchestrator-beacon` now goes through the
+  beacon branch too, so it is refused unless the beacon initial owner binding is
+  `STOX_GOVERNANCE_TIMELOCK` (`NameNotRegistered` when unbound,
+  `BeaconInitialOwnerMismatch` when bound to another address); before, it had no
+  check.
+
 ## Registry-config tokens (rain.vats 0.2.9)
 
 ### StoxReceiptVault
@@ -160,6 +175,18 @@
 
 ### Deploy scripts
 
+- **The 0G token table holds the live tokens.** `20261119-create-zerog-tokens`
+  created the 65 0G tokens on 2026-11-23 in Safe nonces 2-5, and
+  `productionTokensZerog()` now pins each row's receipt, vault and wrapper. Each
+  row that Ethereum's table also carries has the same addresses there.
+  `productionTokensForChainId` returns 0G's table as it does every other
+  chain's, and `BuildExpectedState` and `BuildPrivilegedAddresses` write every
+  chain's tokens and receipt vaults, with no `tokenTableHydrated` key. The
+  creation script still refuses a table that is not all placeholders, so it
+  cannot create the tokens again; its rehearsal tests stand in the placeholder
+  table the bundles were authored against. `LibUnderlyingNamingRollout.tokens`
+  refuses 0G: its leading rows follow Ethereum's order, not Base's, so the
+  rollout's cut would pick another token set.
 - **The underlying-naming rollout.** `LibUnderlyingNamingRollout` reconstructs
   two timelock operations per chain:
   - a beacon batch that upgrades the in-use wrapped-token-vault and

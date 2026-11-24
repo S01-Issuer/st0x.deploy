@@ -141,25 +141,16 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    /// @notice Each chain's receipt vaults are its token table's, or none
-    /// while the table is not hydrated (0G until its tokens exist), and the
-    /// chain says which.
     function testReceiptVaultsAreEachChainsTokenTable() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
-        bool skipped = false;
         for (uint256 i = 0; i < nets.length; i++) {
-            uint256 id = nets[i].chainId;
-            bool hydrated = LibTokenInvariants.tokenTableHydrated(id);
-            assertEq(vm.parseJsonBool(json, string.concat(chain(nets[i]), ".tokenTableHydrated")), hydrated);
-            if (!hydrated) skipped = true;
             assertAddresses(
                 json,
                 string.concat(chain(nets[i]), ".receiptVaults"),
-                hydrated ? LibTokenInvariants.productionReceiptVaultsForChainId(id) : new address[](0)
+                LibTokenInvariants.productionReceiptVaultsForChainId(nets[i].chainId)
             );
         }
-        assertTrue(skipped, "0G is skipped");
     }
 
     function testWriteWritesTheRender() external {
