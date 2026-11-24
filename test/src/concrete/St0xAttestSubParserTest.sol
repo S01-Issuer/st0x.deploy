@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {MessageHashUtils} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MessageHashUtils.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {SignedContextV2, SIGNED_CONTEXT_V2_TYPEHASH} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
@@ -38,6 +39,7 @@ import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestContext, CONTEXT_ATTESTATION_ROWS} from "src/lib/LibSt0xAttestContext.sol";
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestTofu} from "test/lib/LibTestTofu.sol";
+import {MockUnderlyingERC20} from "test/concrete/MockUnderlyingERC20.sol";
 import {BuildWeightingBindings} from "script/BuildWeightingBindings.sol";
 
 /// @title St0xAttestSubParserTest
@@ -121,6 +123,22 @@ abstract contract St0xAttestSubParserTest is Test, BuildWeightingBindings {
     /// The signers column encoding of an address.
     function signer(address account) internal pure returns (bytes32) {
         return bytes32(uint256(uint160(account)));
+    }
+
+    /// The mint column encoding of a token address.
+    function tokenWord(address token) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(token)));
+    }
+
+    /// A token whose `underlyingSymbol()` is `ticker` and whose `symbol()` is
+    /// "t" + `ticker`, as a vault's are after `setUnderlying`.
+    function underlyingToken(string memory ticker) internal returns (address) {
+        MockUnderlyingERC20 token = new MockUnderlyingERC20();
+        token.setUnderlyingValues(ticker, "");
+        vm.mockCall(
+            address(token), abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(string.concat("t", ticker))
+        );
+        return address(token);
     }
 
     function priceDomain() internal pure returns (bytes32) {
@@ -231,7 +249,7 @@ abstract contract St0xAttestSubParserTest is Test, BuildWeightingBindings {
     /// A grid with the lead and `poolSize` pool attestors all attesting the
     /// same `[symbol, price, time]`, and the given mint.
     function uniformGrid(
-        bytes32 mintSymbol,
+        bytes32 mintToken,
         bytes32 mintAmount,
         bytes32 attestedSymbol,
         bytes32 price,
@@ -243,6 +261,6 @@ abstract contract St0xAttestSubParserTest is Test, BuildWeightingBindings {
         for (uint256 i = 0; i < poolSize; i++) {
             attestations[i + 1] = attest(OPERATOR_KEY_0 + i, attestedSymbol, price, time);
         }
-        return LibSt0xAttestContext.build(mintSymbol, mintAmount, attestations);
+        return LibSt0xAttestContext.build(mintToken, mintAmount, attestations);
     }
 }
