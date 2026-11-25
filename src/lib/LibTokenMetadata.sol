@@ -12,10 +12,10 @@ import {LibSecurity} from "./LibSecurity.sol";
 /// - `Listed`: the receipt vault was initialized with `StoxTokenConfigV1`, so
 ///   it reads `listingName + " (ST0x)"` / `"t" + listingTicker`, and the
 ///   wrapper reads the receipt vault's name / `listingTicker + "s"`.
-/// - `Renamed`: after `setUnderlying(underlying, underlyingName)`, the
-///   receipt vault reads `underlyingName + " (ST0x)"` / `"t" + underlying`,
-///   and the wrapper reads `underlyingName + " (ST0x)"` /
-///   `underlying + "s"` (e.g. `NVDAs`).
+/// - `Renamed`: after `setUnderlying(ticker, underlyingName, isin)`, the
+///   receipt vault reads `underlyingName + " (ST0x)"` / `"t" + ticker`, and
+///   the wrapper reads `underlyingName + " (ST0x)"` / `ticker + "s"` (e.g.
+///   `NVDAs`).
 enum TokenMetadataState {
     Initialized,
     Listed,
@@ -46,7 +46,7 @@ library LibTokenMetadata {
     /// @param config The token's row.
     /// @return The renamed wrapper symbol.
     function renamedWrappedSymbol(TokenConfig memory config) internal pure returns (string memory) {
-        return string.concat(config.underlying, "s");
+        return string.concat(config.ticker, "s");
     }
 
     /// @notice The receipt vault's name in the given state.
@@ -64,7 +64,7 @@ library LibTokenMetadata {
     /// @param state The token's metadata state.
     /// @return The vault symbol.
     function vaultSymbol(TokenConfig memory config, TokenMetadataState state) internal pure returns (string memory) {
-        if (state == TokenMetadataState.Renamed) return LibSecurity.vaultSymbol(config.underlying);
+        if (state == TokenMetadataState.Renamed) return LibSecurity.vaultSymbol(config.ticker);
         if (state == TokenMetadataState.Listed) return LibSecurity.vaultSymbol(config.listingTicker);
         return config.symbol;
     }
