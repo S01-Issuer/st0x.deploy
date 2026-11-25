@@ -32,10 +32,12 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
 /// `network`, `beaconSetDeployer`, `beacons` (the four in-use beacons: beacon,
-/// codehash, implementation, renamedImplementation once `renameMigration` is recorded, owner), the token-owner `safe`
+/// codehash, implementation, renamedImplementation once `upgradeMigration` is recorded, owner), the token-owner `safe`
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
-/// under `zoltu` (key, address, codehash), `renameMigration` (the rename batch's record,
+/// under `zoltu` (key, address, codehash), `upgradeMigration` (the beacon batch's record,
+/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS`, on every network), `renameMigration` (the rename
+/// batch's record,
 /// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME`, on every network: its record on the chain selects the
 /// renamed fields, which repeat the current ones on a network the rename and beacon batches were not cut for, 0G),
 /// `registryDelegates` (each delegation the root is expected to have approved in a
@@ -55,7 +57,7 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
-    /// The implementations `renameMigration`'s beacon batch moves the beacons to; the current ones where the batch was
+    /// The implementations `upgradeMigration`'s beacon batch moves the beacons to; the current ones where the batch was
     /// not cut (`LibUnderlyingNamingRollout.cutForChain`).
     function renamedImplementations(uint256 chainId) internal pure returns (address[4] memory) {
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
@@ -340,6 +342,7 @@ contract BuildExpectedState is Script {
             )
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
+        vm.serializeBytes32(key, "upgradeMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
         vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
         vm.serializeString(key, "registryDelegates", registryDelegatesJson(chainId, key));
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
