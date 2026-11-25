@@ -38,8 +38,8 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
 /// token's renamed metadata; on a network its rename and beacon batches were not cut for, 0G, the renamed fields
 /// repeat the current ones), `registryDelegates` (each delegation the root is expected to have approved in a
-/// registry it writes through: registry, account, delegate, unscoped, scope, zero when unscoped), and per production
-/// token under `tokens`: `underlying`, `assetId`, `listingTicker`,
+/// registry it writes through: `registry`, `account`, `delegate`, `unscoped`; an unscoped one carries no `scope`, a
+/// scoped one its non-zero `scope`), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
 /// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`, `decimals`, `wrappedTokenVaultName`,
 /// `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
@@ -260,14 +260,26 @@ contract BuildExpectedState is Script {
         return rows;
     }
 
-    function registryDelegateJson(string memory row, address registry, address delegate, bytes32 scope)
-        internal
-        returns (string memory)
-    {
+    function registryDelegateJson(string memory row, address registry, address delegate) internal {
         vm.serializeAddress(row, "registry", registry);
         vm.serializeAddress(row, "account", LibRegistryAuthority.ROOT_AUTHORITY);
         vm.serializeAddress(row, "delegate", delegate);
-        vm.serializeBool(row, "unscoped", scope == bytes32(0));
+    }
+
+    function unscopedRegistryDelegateJson(string memory row, address registry, address delegate)
+        internal
+        returns (string memory)
+    {
+        registryDelegateJson(row, registry, delegate);
+        return vm.serializeBool(row, "unscoped", true);
+    }
+
+    function scopedRegistryDelegateJson(string memory row, address registry, address delegate, bytes32 scope)
+        internal
+        returns (string memory)
+    {
+        registryDelegateJson(row, registry, delegate);
+        vm.serializeBool(row, "unscoped", false);
         return vm.serializeBytes32(row, "scope", scope);
     }
 
@@ -277,17 +289,17 @@ contract BuildExpectedState is Script {
         string memory at = string.concat(key, ".registryDelegate.");
         address safe = LibSafeInvariants.safeForChainId(chainId);
         string[] memory rows = new string[](3);
-        rows[0] = registryDelegateJson(
-            string.concat(at, "0"), LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, safe, bytes32(0)
+        rows[0] = unscopedRegistryDelegateJson(
+            string.concat(at, "0"), LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, safe
         );
-        rows[1] = registryDelegateJson(
+        rows[1] = scopedRegistryDelegateJson(
             string.concat(at, "1"),
             LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
             LibTimelockInvariants.timelockForChainId(chainId),
             LibStoxMigrations.NAMESPACE
         );
-        rows[2] = registryDelegateJson(
-            string.concat(at, "2"), LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, safe, bytes32(0)
+        rows[2] = unscopedRegistryDelegateJson(
+            string.concat(at, "2"), LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, safe
         );
         return rows;
     }
