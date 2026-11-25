@@ -697,11 +697,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
         string memory vaultName = string.concat(config.underlyingName, ST0X_NAME_SUFFIX);
         address[5] memory targets = [
-            token.receiptVault,
-            token.receiptVault,
-            token.receiptVault,
-            token.wrappedTokenVault,
-            token.wrappedTokenVault
+            token.receiptVault, token.receiptVault, token.receiptVault, token.wrappedTokenVault, token.wrappedTokenVault
         ];
         bytes4[5] memory selectors = [
             IERC20Metadata.symbol.selector,
