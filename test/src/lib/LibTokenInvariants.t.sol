@@ -76,10 +76,12 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// How many rows of `table` carry `underlying`.
-    function rowsFor(TokenInstance[] memory table, string memory underlying) internal pure returns (uint256 count) {
+    function rowsFor(TokenInstance[] memory table, string memory underlying) internal pure returns (uint256) {
+        uint256 count = 0;
         for (uint256 i = 0; i < table.length; i++) {
             if (keccak256(bytes(table[i].underlying)) == keccak256(bytes(underlying))) count++;
         }
+        return count;
     }
 
     /// `table` carries each of Base's underlyings and each of the six off-Base
