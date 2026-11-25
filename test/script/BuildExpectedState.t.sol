@@ -727,6 +727,19 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
+    /// The upgrade migration is the beacon batch's record, the id of the script that schedules it.
+    function testUpgradeMigrationIsTheBeaconBatchRecord() external {
+        string memory json = build.render();
+        string memory script = "script/20261021-schedule-underlying-naming-beacons.s.sol";
+        assertTrue(vm.exists(script));
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            bytes32 id = vm.parseJsonBytes32(json, string.concat(chain(nets[c]), ".upgradeMigration"));
+            assertEq(id, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
+            assertEq(id, keccak256(bytes(script)));
+        }
+    }
+
     /// The rename migration is the rename batch's record, the id of the script that schedules it.
     function testRenameMigrationIsTheRenameBatchRecord() external {
         string memory json = build.render();
@@ -1048,7 +1061,7 @@ contract BuildExpectedStateTest is Test {
 
     function chainFields(uint256 chainId) internal pure returns (string[] memory) {
         bool isBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-        string[] memory fields = new string[](isBase ? 13 : 12);
+        string[] memory fields = new string[](isBase ? 14 : 13);
         fields[0] = "network";
         fields[1] = "beaconSetDeployer";
         fields[2] = "beacons";
@@ -1058,11 +1071,12 @@ contract BuildExpectedStateTest is Test {
         fields[6] = "authoriser";
         fields[7] = "euAuthoriser";
         fields[8] = "zoltu";
-        fields[9] = "renameMigration";
-        fields[10] = "registryDelegates";
-        fields[11] = "tokens";
+        fields[9] = "upgradeMigration";
+        fields[10] = "renameMigration";
+        fields[11] = "registryDelegates";
+        fields[12] = "tokens";
         if (isBase) {
-            fields[12] = "qsep";
+            fields[13] = "qsep";
         }
         return fields;
     }

@@ -162,6 +162,33 @@ abstract contract RootLineBatchRecordScriptTest is Test {
         );
     }
 
+    /// A batch the Safe cancels, inside or after the delay, schedules again from the same
+    /// script and its execution writes the record.
+    function testACancelledBatchReschedulesAndWritesItsRecord(uint256 elapsed) external {
+        elapsed = bound(elapsed, 0, 2 * LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        bytes32 headBefore = LibStoxMigrations.head();
+        schedule();
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + elapsed);
+        vm.prank(safeAddress());
+        controller().cancel(operationId());
+        assertFalse(controller().isOperation(operationId()), "cancelled");
+        assertEq(LibStoxMigrations.applied(declaredId()), 0, "no record");
+        assertEq(LibStoxMigrations.head(), headBefore, "line unmoved");
+        sScript.callPreflight();
+        scheduleThenExecutePredecessors();
+        executeBatch();
+        assertTrue(controller().isOperationDone(operationId()), "rescheduled operation done");
+        assertEq(LibStoxMigrations.applied(declaredId()), block.timestamp, "record stamped at the block");
+        assertEq(LibStoxMigrations.head(), declaredId(), "record heads the line");
+        assertEq(
+            IMigrationRegistryV5(registry())
+                .appliedByV5(LibRegistryAuthority.ROOT_AUTHORITY, LibStoxMigrations.NAMESPACE, declaredId()),
+            timelock(),
+            "written by the timelock"
+        );
+    }
+
     function testExecuteRefusesATimelockRevokedAfterScheduling() external {
         scheduleThenExecutePredecessors();
         LibTestRootLine.revoke(vm, timelock());
