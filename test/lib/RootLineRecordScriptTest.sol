@@ -108,11 +108,15 @@ abstract contract RootLineRecordScriptTest is Test {
         assertFalse(declaration.history, "history");
     }
 
+    function beforeOntoPreflightRefusal(bytes32 lineHead) internal view virtual returns (bytes memory) {
+        return abi.encodeWithSelector(UnexpectedMigrationLine.selector, lineHead);
+    }
+
     function testPreflightRefusesTheLineBeforeItsOnto() external {
         assertTrue(vm.revertToState(sBeforeOnto), "snapshot before the onto");
         bytes32 lineHead = LibStoxMigrations.head();
         assertTrue(lineHead != declaredOnto(), "line before the onto");
-        vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, lineHead));
+        vm.expectRevert(beforeOntoPreflightRefusal(lineHead));
         sScript.callPreflight();
     }
 

@@ -23,6 +23,7 @@ import {
 import {BuildExpectedState} from "../../script/BuildExpectedState.sol";
 import {BuildExpectedStateHarness} from "./BuildExpectedStateHarness.sol";
 import {LibLocalProdState} from "../lib/LibLocalProdState.sol";
+import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
@@ -183,6 +184,7 @@ contract BuildExpectedStateTest is Test {
     /// cut for: every one before 0G.
     function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
         string memory json = build.render();
+        LibTestRootLine.etchRegistry(vm);
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 c = 0; c < nets.length; c++) {
@@ -722,16 +724,16 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The rename migration is the id of the script that executes the rename batch.
-    function testRenameMigrationIsTheExecuteUnderlyingNamingScript() external {
+    /// The rename migration is the rename batch's record, the id of the script that schedules it.
+    function testRenameMigrationIsTheRenameBatchRecord() external {
         string memory json = build.render();
-        string memory script = "script/20261021-execute-underlying-naming.s.sol";
+        string memory script = "script/20261021-schedule-underlying-naming-rename.s.sol";
         assertTrue(vm.exists(script));
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 c = 0; c < nets.length; c++) {
             bytes32 id = vm.parseJsonBytes32(json, string.concat(chain(nets[c]), ".renameMigration"));
-            assertEq(id, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
+            assertEq(id, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
             assertEq(id, keccak256(bytes(script)));
         }
     }

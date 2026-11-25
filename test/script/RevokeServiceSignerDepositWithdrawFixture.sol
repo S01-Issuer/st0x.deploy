@@ -21,6 +21,7 @@ import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title RevokeServiceSignerDepositWithdrawFixture
 /// @notice Brings a forked deployment network to the service-signer revoke's
@@ -31,11 +32,16 @@ abstract contract RevokeServiceSignerDepositWithdrawFixture is UnderlyingNamingR
         LibTestRootLine.write(vm, LibSafeInvariants.safeForChainId(block.chainid), declared.id, declared.onto);
     }
 
-    /// @notice Lands the root line up to the naming execution's onto.
+    function writeTimelockRecord(ScriptDeclaration memory declared) internal {
+        LibTestRootLine.write(vm, LibTimelockInvariants.timelockForChainId(block.chainid), declared.id, declared.onto);
+    }
+
+    /// @notice Lands the root line up to the naming execution's onto: each
+    /// naming batch's record, as the timelock.
     function advanceRootLineToNamingExecution() internal {
         advanceRootLineToBeaconSchedule();
-        writeRecord(scheduleUnderlyingNamingBeaconsDeclaration());
-        writeRecord(scheduleUnderlyingNamingRenameDeclaration());
+        writeTimelockRecord(scheduleUnderlyingNamingBeaconsDeclaration());
+        writeTimelockRecord(scheduleUnderlyingNamingRenameDeclaration());
     }
 
     function landNamingExecutionRecord() internal {

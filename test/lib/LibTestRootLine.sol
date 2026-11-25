@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {IMigrationRegistryV5} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
+import {IMigrationRegistryV5, Prerequisite} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
 import {IRegistryDelegatesV3} from "rain-deploy-0.1.38/src/interface/IRegistryDelegatesV3.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
@@ -30,6 +30,18 @@ library LibTestRootLine {
     function revoke(Vm vm, address delegate) internal {
         vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS).revokeUnscopedV5(delegate);
+    }
+
+    /// @dev The `applyMigrationV5` calldata that records `id` onto `onto` on the root line.
+    function recordCalldata(bytes32 id, bytes32 onto) internal pure returns (bytes memory) {
+        Prerequisite[] memory prerequisites = new Prerequisite[](1);
+        prerequisites[0] = Prerequisite({
+            writer: LibRegistryAuthority.ROOT_AUTHORITY, namespace: LibStoxMigrations.NAMESPACE, migration: onto
+        });
+        return abi.encodeCall(
+            IMigrationRegistryV5.applyMigrationV5,
+            (LibRegistryAuthority.ROOT_AUTHORITY, LibStoxMigrations.NAMESPACE, id, prerequisites, "")
+        );
     }
 
     function write(Vm vm, address safe, bytes32 id, bytes32 onto) internal {
