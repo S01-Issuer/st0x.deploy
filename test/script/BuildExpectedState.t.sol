@@ -7,6 +7,9 @@ import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRai
 import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 import {DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     RUNTIME_CODE as TIMELOCK_RUNTIME_CODE
@@ -95,6 +98,11 @@ contract BuildExpectedStateTest is Test {
                 tokenFields()
             );
             assertRowKeys(json, string.concat(at, ".zoltu"), expectedZoltu(nets[c]).length, deploymentFields());
+            string memory delegates = string.concat(at, ".registryDelegates");
+            assertFalse(vm.keyExistsJson(json, index(delegates, 3)), delegates);
+            assertKeys(json, index(delegates, 0), registryDelegateFields(false));
+            assertKeys(json, index(delegates, 1), registryDelegateFields(true));
+            assertKeys(json, index(delegates, 2), registryDelegateFields(false));
         }
         SupportedNetwork[] memory v2 = v2Networks();
         for (uint256 c = 0; c < v2.length; c++) {
@@ -884,6 +892,44 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
+    function testRegistryDelegatesAreTheRootsExpectedDelegations() external {
+        string memory json = build.render();
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            uint256 id = nets[c].chainId;
+            address safe = LibSafeInvariants.safeForChainId(id);
+            string memory list = string.concat(chain(nets[c]), ".registryDelegates");
+            assertFalse(vm.keyExistsJson(json, index(list, 3)));
+            assertRegistryDelegate(
+                json, index(list, 0), LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, safe, true
+            );
+            assertRegistryDelegate(
+                json,
+                index(list, 1),
+                LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
+                LibTimelockInvariants.timelockForChainId(id),
+                false
+            );
+            assertEq(vm.parseJsonBytes32(json, string.concat(index(list, 1), ".scope")), LibStoxMigrations.NAMESPACE);
+            assertRegistryDelegate(
+                json, index(list, 2), LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, safe, true
+            );
+        }
+    }
+
+    function assertRegistryDelegate(
+        string memory json,
+        string memory row,
+        address registry,
+        address delegate,
+        bool unscoped
+    ) internal pure {
+        assertEq(vm.parseJsonAddress(json, string.concat(row, ".registry")), registry);
+        assertEq(vm.parseJsonAddress(json, string.concat(row, ".account")), LibRegistryAuthority.ROOT_AUTHORITY);
+        assertEq(vm.parseJsonAddress(json, string.concat(row, ".delegate")), delegate);
+        assertEq(vm.parseJsonBool(json, string.concat(row, ".unscoped")), unscoped);
+    }
+
     function testUnknownUnderlyingRevertsTyped() external {
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
@@ -1000,7 +1046,7 @@ contract BuildExpectedStateTest is Test {
 
     function chainFields(uint256 chainId) internal pure returns (string[] memory) {
         bool isBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-        string[] memory fields = new string[](isBase ? 12 : 11);
+        string[] memory fields = new string[](isBase ? 13 : 12);
         fields[0] = "network";
         fields[1] = "beaconSetDeployer";
         fields[2] = "beacons";
@@ -1011,9 +1057,22 @@ contract BuildExpectedStateTest is Test {
         fields[7] = "euAuthoriser";
         fields[8] = "zoltu";
         fields[9] = "renameMigration";
-        fields[10] = "tokens";
+        fields[10] = "registryDelegates";
+        fields[11] = "tokens";
         if (isBase) {
-            fields[11] = "qsep";
+            fields[12] = "qsep";
+        }
+        return fields;
+    }
+
+    function registryDelegateFields(bool scoped) internal pure returns (string[] memory) {
+        string[] memory fields = new string[](scoped ? 5 : 4);
+        fields[0] = "registry";
+        fields[1] = "account";
+        fields[2] = "delegate";
+        fields[3] = "unscoped";
+        if (scoped) {
+            fields[4] = "scope";
         }
         return fields;
     }
