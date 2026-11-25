@@ -20,6 +20,7 @@ import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
 import {IReceiptVaultV3} from "rain-vats-0.2.25/src/interface/IReceiptVaultV3.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {IAuthorisable} from "../src/interface/IAuthorisable.sol";
 import {IStoxUnifiedDeployerV1} from "../src/interface/IStoxUnifiedDeployerV1.sol";
@@ -94,7 +95,7 @@ function createZerogTokensDeclaration() pure returns (ScriptDeclaration memory) 
 /// already created there refuses it, so a creation that lands between authoring and execution reverts the whole
 /// bundle. Each vault is the Safe's only inside its own bundle: the bundle hands it to the timelock before it ends, so
 /// the delay governs it from then on and nothing is minted before that.
-contract CreateZerogTokens is SafeBundleScript, IStoxScript {
+contract CreateZerogTokens is StoxSafeBundleScript, IStoxScript {
     /// @notice Rows per bundle. A row's three entries cost about 0.75M gas, so a full batch uses about 15M: well
     /// under 0G's 36M block, and under the 16.7M per-transaction cap of EIP-7825 if 0G adopts it.
     uint256 internal constant BATCH_SIZE = 20;

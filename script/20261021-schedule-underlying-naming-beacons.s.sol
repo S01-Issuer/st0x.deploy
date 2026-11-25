@@ -11,6 +11,7 @@ import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -82,7 +83,7 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261021-schedule-underlying-naming-beacons` per chain, after the
 /// implementations are deployed there.
-contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
+contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleUnderlyingNamingBeaconsDeclaration();
