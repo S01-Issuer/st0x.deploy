@@ -19,10 +19,10 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.33/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.33/src/lib/LibSafeTxBuilderJson.sol";
-import {LibSafe} from "rain-deploy-0.1.33/src/lib/LibSafe.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
+import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 
@@ -31,11 +31,6 @@ import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.s
 /// governance timelock is deployed and its pin hydrated.
 /// @param chainId The active chain id whose pin is unhydrated.
 error TimelockNotPinned(uint256 chainId);
-
-/// @notice This chain has no production token table to migrate. A typed
-/// revert rather than a silent fallback to another chain's table.
-/// @param chainId The active chain id without a token table.
-error UnsupportedChainForTokenTable(uint256 chainId);
 
 /// @notice The chain's V4 authoriser clone has no runtime code.
 /// @param authoriser The authoriser address with no code.
@@ -130,8 +125,9 @@ struct MigrationTargets {
 /// @param id The timelock operation id that failed to complete.
 error GovernanceLoopNotProven(bytes32 id);
 
-/// @notice This script's declaration: history on every chain; on Base, onto
-/// the rehearsal execute; elsewhere, onto the multisig threshold migration.
+/// @notice This script's declaration: history, record-only on 0G
+/// (`LibStoxMigrations.withoutHistory`); on Base, onto the rehearsal execute;
+/// elsewhere, onto the multisig threshold migration.
 /// @param chainId The chain id.
 /// @return The declaration.
 function migrateGovernanceToTimelockDeclaration(uint256 chainId) pure returns (ScriptDeclaration memory) {
@@ -140,7 +136,7 @@ function migrateGovernanceToTimelockDeclaration(uint256 chainId) pure returns (S
         onto: chainId == LibSafeInvariants.BASE_CHAIN_ID
             ? LibStoxMigrations.EXECUTE_TIMELOCK_OPERATIONS
             : LibStoxMigrations.MULTISIG_THRESHOLD,
-        history: true
+        history: !LibStoxMigrations.withoutHistory(chainId)
     });
 }
 
@@ -255,27 +251,14 @@ contract MigrateGovernanceToTimelock is Script, IStoxScript, IStoxHistoryMigrati
         return LibTimelockInvariants.timelockForChainId(block.chainid);
     }
 
-    /// @notice The chain's V4 authoriser clone, selected by chain id from
-    /// `LibProdDeployV4`. Every chain's clone proxies the same Zoltu-deployed
-    /// 0.1.1 impl address, so they share one EIP-1167 codehash pin.
+    /// @notice The chain's V4 authoriser clone, read from the one
+    /// chain-to-clone table in `LibAuthoriserInvariants`, which reverts for a
+    /// chain without a slot. Every chain's clone proxies the same
+    /// Zoltu-deployed 0.1.1 impl address, so they share one EIP-1167 codehash
+    /// pin.
     /// @return The active chain's authoriser clone.
     function activeChainAuthoriser() internal view returns (address) {
-        if (block.chainid == LibSafeInvariants.BASE_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
-        }
-        if (block.chainid == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ETHEREUM;
-        }
-        if (block.chainid == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_HYPEREVM;
-        }
-        if (block.chainid == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD;
-        }
-        if (block.chainid == LibSafeInvariants.BSC_CHAIN_ID) {
-            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
-        }
-        revert UnsupportedChainForTokenTable(block.chainid);
+        return LibAuthoriserInvariants.authoriserForChainId(block.chainid);
     }
 
     /// @notice The chain's production token table, selected by chain id.

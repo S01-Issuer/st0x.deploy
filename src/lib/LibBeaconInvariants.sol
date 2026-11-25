@@ -12,7 +12,7 @@ import {LibProdDeployV1} from "./LibProdDeployV1.sol";
 import {
     REGISTRY_BEACON_PROXY_PREFIX,
     REGISTRY_BEACON_PROXY_SUFFIX
-} from "rain-extrospection-0.1.19/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+} from "rain-extrospection-0.1.31/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 
 /// @notice Minimal `Ownable`-like surface used to read a beacon's owner.
 /// Every OpenZeppelin `UpgradeableBeacon` exposes `owner()`; this library
@@ -281,6 +281,7 @@ library LibBeaconInvariants {
         if (
             chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID
                 || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID || chainId == LibSafeInvariants.BSC_CHAIN_ID
+                || chainId == LibSafeInvariants.ZEROG_CHAIN_ID
         ) return false;
         revert UnsupportedChainForProdBeacons(chainId);
     }
@@ -383,7 +384,7 @@ library LibBeaconInvariants {
         return impls;
     }
 
-    /// @notice Assert the active chain's four IN-USE production beacons are
+    /// @notice Assert the active chain's IN-USE production beacons, all four on every chain, are
     /// deployed and owned by THAT chain's governance timelock. This is the
     /// ownership invariant that matters operationally: whoever owns an in-use
     /// beacon can repoint every production vault proxy on the chain, so each
@@ -397,7 +398,7 @@ library LibBeaconInvariants {
     }
 
     /// @notice Owner-parametric `assertProdBeaconsOwnedByChainTimelock`: assert
-    /// the active chain's four IN-USE production beacons are deployed and
+    /// the active chain's IN-USE production beacons, all four on every chain, are deployed and
     /// owned by `expectedOwner`. Parameterised because the beacon owner is a
     /// principal an operational script deliberately mutates — the
     /// governance-timelock migration's authoring and tests assert it against
@@ -413,11 +414,11 @@ library LibBeaconInvariants {
     function assertProdBeaconsOwnedBy(uint256 chainId, address expectedOwner) internal view {
         address[4] memory beacons = prodBeaconsForChainId(chainId);
         bytes32[4] memory codehashes = prodBeaconCodehashesForChainId(chainId);
-        for (uint256 i = 0; i < beacons.length; i++) {
-            _assertDeployedPinnedBeacon(beacons[i], codehashes[i]);
-            address actualOwner = IOwnable(beacons[i]).owner();
+        for (uint256 beaconIndex = 0; beaconIndex < beacons.length; beaconIndex++) {
+            _assertDeployedPinnedBeacon(beacons[beaconIndex], codehashes[beaconIndex]);
+            address actualOwner = IOwnable(beacons[beaconIndex]).owner();
             if (actualOwner != expectedOwner) {
-                revert BeaconOwnerMismatch(beacons[i], expectedOwner, actualOwner);
+                revert BeaconOwnerMismatch(beacons[beaconIndex], expectedOwner, actualOwner);
             }
         }
     }

@@ -6,12 +6,31 @@ import {
     DeployDeclaration,
     DeploySuite,
     UnknownDeploymentSuite
-} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {Deploy} from "../../script/Deploy.sol";
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 
 contract DeployPreDeployCheckHarness is Deploy {
+    /// @dev The run's suite. `vm.setEnv` is process-wide, so the harness does
+    /// not read `DEPLOYMENT_SUITE` unless a test asks it to: a test running in
+    /// parallel that sets it cannot reach another test's declaration.
+    string internal sRequestedSuite;
+    bool internal sRequestedSuiteFromEnv;
+
+    function setRequestedSuite(string memory suite) external {
+        sRequestedSuite = suite;
+    }
+
+    /// @dev From now on the run's suite is `Deploy`'s own `DEPLOYMENT_SUITE` read.
+    function readRequestedSuiteFromEnv() external {
+        sRequestedSuiteFromEnv = true;
+    }
+
+    function requestedSuite() internal view override returns (string memory) {
+        return sRequestedSuiteFromEnv ? super.requestedSuite() : sRequestedSuite;
+    }
+
     function governanceTimelockSuite() external view returns (DeploySuite memory) {
         return suiteByName(declaration(), GOVERNANCE_TIMELOCK);
     }
@@ -22,10 +41,11 @@ contract DeployPreDeployCheckHarness is Deploy {
 
     function beaconSuites() external view returns (DeploySuite[] memory) {
         DeployDeclaration memory declared = declaration();
-        DeploySuite[] memory suites = new DeploySuite[](3);
+        DeploySuite[] memory suites = new DeploySuite[](4);
         suites[0] = suiteByName(declared, RECEIPT_BEACON);
         suites[1] = suiteByName(declared, RECEIPT_VAULT_BEACON);
         suites[2] = suiteByName(declared, WRAPPED_TOKEN_VAULT_BEACON);
+        suites[3] = suiteByName(declared, ORCHESTRATOR_BEACON);
         return suites;
     }
 
@@ -57,15 +77,16 @@ contract DeployPreDeployCheckHarness is Deploy {
     }
 
     function checkedSuiteNames(TokenConfig[] memory configs) external pure returns (string[] memory) {
-        string[] memory names = new string[](5 + 2 * configs.length);
+        string[] memory names = new string[](6 + 2 * configs.length);
         names[0] = GOVERNANCE_TIMELOCK;
         names[1] = RECEIPT_BEACON;
         names[2] = RECEIPT_VAULT_BEACON;
         names[3] = WRAPPED_TOKEN_VAULT_BEACON;
-        names[4] = AUTHORISER;
+        names[4] = ORCHESTRATOR_BEACON;
+        names[5] = AUTHORISER;
         for (uint256 i = 0; i < configs.length; i++) {
-            names[5 + 2 * i] = tokenSuiteName(configs[i]);
-            names[6 + 2 * i] = string.concat(tokenSuiteName(configs[i]), WRAPPER_SUFFIX);
+            names[6 + 2 * i] = tokenSuiteName(configs[i]);
+            names[7 + 2 * i] = string.concat(tokenSuiteName(configs[i]), WRAPPER_SUFFIX);
         }
         return names;
     }
@@ -76,6 +97,13 @@ contract DeployPreDeployCheckHarness is Deploy {
 
     function deployNetworkConfigs() external view returns (SupportedNetwork[] memory) {
         return LibRainDeploy.declaredNetworkConfigs(declaration().deployNetworks);
+    }
+
+    /// @dev The networks a run that names `suite` deploys to.
+    function deployNetworkConfigsFor(string memory suite) external view returns (SupportedNetwork[] memory) {
+        DeployDeclaration memory declared = declaration();
+        narrowToSuite(declared, suite);
+        return LibRainDeploy.declaredNetworkConfigs(declared.deployNetworks);
     }
 
     function exposedPreDeployCheck(DeploySuite memory suite, SupportedNetwork memory network) external view {

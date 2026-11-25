@@ -4,24 +4,29 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistry.sol";
-import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
-import {IRegistryDelegatesV3} from "rain-deploy-0.1.33/src/interface/IRegistryDelegatesV3.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistry.sol";
+import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.38/src/interface/IRegistryDelegatesV3.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.33/src/generated/candidate/MigrationRegistry.sol";
+} from "rain-deploy-0.1.38/src/generated/candidate/MigrationRegistry.sol";
 
 import {LibOrchestratorInvariants} from "../../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
-import {LibStoxMigrations, NoGovernanceTimelockMigrationOnChain} from "../../../src/lib/LibStoxMigrations.sol";
+import {
+    LibStoxMigrations,
+    NoGovernanceTimelockMigrationOnChain,
+    SafeNotApprovedWriter
+} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
 import {LibTestPreBackfillFork} from "../../lib/LibTestPreBackfillFork.sol";
+import {LibTestRootLine} from "../../lib/LibTestRootLine.sol";
 
 /// @title LibStoxMigrationsTest
 /// @notice The pinned execution moment of the governance-timelock migration is the chain's own record of
@@ -47,6 +52,32 @@ contract LibStoxMigrationsTest is Test {
 
     function testNamespace() external pure {
         assertEq(LibStoxMigrations.NAMESPACE, keccak256("st0x.deploy"));
+    }
+
+    /// @notice The chains with a root line are the deployment networks, in
+    /// their order, 0G last.
+    function testLineNetworksAreTheDeploymentNetworks() external pure {
+        SupportedNetwork[] memory deployed =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        SupportedNetwork[] memory lines = LibStoxMigrations.lineNetworks();
+        assertEq(lines.length, deployed.length);
+        for (uint256 i = 0; i < deployed.length; i++) {
+            assertEq(lines[i].name, deployed[i].name);
+            assertEq(lines[i].chainId, deployed[i].chainId);
+        }
+        assertEq(lines[deployed.length - 1].name, LibStoxDeployNetworks.ZEROG);
+        assertEq(lines[deployed.length - 1].chainId, LibSafeInvariants.ZEROG_CHAIN_ID);
+    }
+
+    /// @notice Only 0G joined after the backfilled history ran everywhere else.
+    function testOnlyZerogIsWithoutHistory(uint256 chainId) external pure {
+        assertEq(LibStoxMigrations.withoutHistory(chainId), chainId == LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertTrue(LibStoxMigrations.withoutHistory(LibSafeInvariants.ZEROG_CHAIN_ID));
+        SupportedNetwork[] memory deployed =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        for (uint256 i = 0; i < deployed.length; i++) {
+            assertFalse(LibStoxMigrations.withoutHistory(deployed[i].chainId), deployed[i].name);
+        }
     }
 
     /// @notice A catalogued network ST0x does not deploy to has no moment.
@@ -83,11 +114,12 @@ contract LibStoxMigrationsTest is Test {
         LibMigrationRegistry.checkCodeHash();
     }
 
-    /// @notice Every network ST0x deploys to has a pinned execution moment,
-    /// and it is the chain's own record of the migration.
+    /// @notice Every network ST0x deployed to before 0G has a pinned execution
+    /// moment, and it is the chain's own record of the migration. 0G ran none
+    /// of it: its line holds the record record-only, with no moment.
     function testGovernanceTimelockExecutionOnEveryDeploymentNetwork() external {
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 i = 0; i < networks.length; i++) {
             assertExecution(networks[i]);
         }
@@ -236,5 +268,78 @@ contract LibStoxMigrationsTest is Test {
             )
         );
         assertEq(LibStoxMigrations.head(), MIGRATION_HEAD_GENESIS);
+    }
+
+    function genesisNext() internal pure returns (ScriptDeclaration memory) {
+        return
+            ScriptDeclaration({id: LibStoxMigrations.MULTISIG_THRESHOLD, onto: MIGRATION_HEAD_GENESIS, history: false});
+    }
+
+    /// @dev `approved`, `assertNext` and the registry's own write check all
+    /// give `writes` for `delegate`.
+    function assertRootLineWriter(address delegate, bool writes) internal {
+        assertEq(LibStoxMigrations.approved(delegate), writes, "approved");
+        LibStoxMigrationsHarness ext = new LibStoxMigrationsHarness();
+        if (!writes) vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, delegate));
+        ext.assertNext(genesisNext(), delegate);
+        (address to, bytes memory data) = LibStoxMigrations.recordCall(genesisNext());
+        vm.prank(delegate);
+        (bool ok,) = to.call(data);
+        assertEq(ok, writes, "registry write");
+    }
+
+    function testADelegateForTheNamespaceAloneWritesTheRootLine() external {
+        etchRegistry();
+        address delegate = makeAddr("delegate");
+        LibTestRootLine.approveScope(vm, LibStoxMigrations.NAMESPACE, delegate);
+        assertRootLineWriter(delegate, true);
+    }
+
+    function testADelegateForAnotherScopeIsRefused(bytes32 scope) external {
+        vm.assume(scope != LibStoxMigrations.NAMESPACE && scope != bytes32(0));
+        etchRegistry();
+        address delegate = makeAddr("delegate");
+        LibTestRootLine.approveScope(vm, scope, delegate);
+        assertRootLineWriter(delegate, false);
+    }
+
+    function testAnUnscopedDelegateWritesTheRootLine() external {
+        etchRegistry();
+        address delegate = makeAddr("delegate");
+        LibTestRootLine.approve(vm, delegate);
+        assertRootLineWriter(delegate, true);
+    }
+
+    function testTheRootAuthorityWritesTheRootLine() external {
+        etchRegistry();
+        assertRootLineWriter(LibRegistryAuthority.ROOT_AUTHORITY, true);
+    }
+
+    function testARevokedNamespaceDelegateIsRefused() external {
+        etchRegistry();
+        address delegate = makeAddr("delegate");
+        LibTestRootLine.approveScope(vm, LibStoxMigrations.NAMESPACE, delegate);
+        LibTestRootLine.revokeScope(vm, LibStoxMigrations.NAMESPACE, delegate);
+        assertRootLineWriter(delegate, false);
+    }
+
+    function testARevokedUnscopedDelegateIsRefused() external {
+        etchRegistry();
+        address delegate = makeAddr("delegate");
+        LibTestRootLine.approve(vm, delegate);
+        LibTestRootLine.revokeUnscoped(vm, delegate);
+        assertRootLineWriter(delegate, false);
+    }
+
+    function testADelegateOfAnotherAccountIsRefused() external {
+        etchRegistry();
+        address delegate = makeAddr("delegate");
+        IRegistryDelegatesV3 registry =
+            IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS);
+        vm.startPrank(makeAddr("other"));
+        registry.approveV5(LibStoxMigrations.NAMESPACE, delegate);
+        registry.approveUnscopedV5(delegate);
+        vm.stopPrank();
+        assertRootLineWriter(delegate, false);
     }
 }

@@ -3,16 +3,18 @@
 pragma solidity ^0.8.25;
 
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.33/src/lib/LibMigrationRegistryDeploy.sol";
-import {IRegistryDelegatesV3} from "rain-deploy-0.1.33/src/interface/IRegistryDelegatesV3.sol";
-import {Prerequisite} from "rain-deploy-0.1.33/src/interface/IMigrationRegistryV5.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.33/src/lib/LibSafeTx.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.38/src/interface/IRegistryDelegatesV3.sol";
+import {LibRegistryDelegates} from "rain-deploy-0.1.38/src/lib/LibRegistryDelegates.sol";
+import {Prerequisite} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 
 import {ScriptDeclaration} from "../interface/IStoxScript.sol";
+import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 
 /// @notice No execution moment is pinned for the governance-timelock
@@ -25,8 +27,8 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
 
-/// @notice The account that would write the record is not an unscoped
-/// delegate of the root authority, so the record would revert.
+/// @notice The registry would not let the account write the root line, so
+/// the record would revert.
 /// @param safe The account.
 error SafeNotApprovedWriter(address safe);
 
@@ -48,9 +50,9 @@ error LineHeadMismatch(bytes32 head);
 /// those records.
 ///
 /// Every record is on one line: writer `LibRegistryAuthority.ROOT_AUTHORITY`,
-/// namespace `NAMESPACE`. The chain's token-owner Safe, an unscoped delegate
-/// of the root, writes every record, so the line does not depend on which
-/// account performs a migration:
+/// namespace `NAMESPACE`. The chain's token-owner Safe, the root's delegate for
+/// `NAMESPACE` or unscoped, writes every record, so the line does not depend
+/// on which account performs a migration:
 ///
 /// - a migration the Safe performs directly is recorded as the last call of
 ///   the Safe's MultiSend, so the record and the change land atomically;
@@ -61,6 +63,13 @@ error LineHeadMismatch(bytes32 head);
 /// A migration that ran before anything was recorded is recorded later as
 /// history, with the moment it executed. Until that record lands, `applied`
 /// answering zero does NOT mean it has not run.
+///
+/// Every chain's line holds every migration. A migration with nothing to do on
+/// a chain is recorded there alone, record-only: the rehearsals off Base, the
+/// backfilled history on 0G (`withoutHistory`), the 0G token creation off 0G.
+/// On a `withoutHistory` chain a backfilled record proves only that the line
+/// passed it, not that its step ran: a script there asserts the state it
+/// depends on directly.
 ///
 /// The records live in ONE registry instance: the address and code hash
 /// `LibMigrationRegistryDeploy` carries in the imported rain-deploy.
@@ -131,11 +140,58 @@ library LibStoxMigrations {
     bytes32 internal constant EXECUTE_REVOKE_SERVICE_SIGNER =
         keccak256("script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol");
 
+    /// @notice `script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol`.
+    bytes32 internal constant HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK =
+        keccak256("script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol");
+
     /// @notice `script/20261111-qsep-set-fleet-authoriser.s.sol`: the Base
     /// tQSEP vault moved onto the fleet authoriser, and the retired signer's
     /// V3 clone roles revoked, in one Safe MultiSend, recorded by the Safe in
     /// a later bundle.
     bytes32 internal constant QSEP_SET_FLEET_AUTHORISER = keccak256("script/20261111-qsep-set-fleet-authoriser.s.sol");
+
+    /// @notice `script/20261113-bind-orchestrator-config.s.sol`: the
+    /// orchestrator beacon and initial admin bound in the ConfigRegistry.
+    bytes32 internal constant BIND_ORCHESTRATOR_CONFIG = keccak256("script/20261113-bind-orchestrator-config.s.sol");
+
+    /// @notice `script/20261119-create-zerog-tokens.s.sol`: the 0G
+    /// production tokens created through the audited 0.1.1 unified deployer,
+    /// each put on its region's authoriser and handed to the 0G governance
+    /// timelock in the bundle that creates it; the record alone elsewhere.
+    /// Recorded right after the backfill on every chain.
+    bytes32 internal constant CREATE_ZEROG_TOKENS = keccak256("script/20261119-create-zerog-tokens.s.sol");
+
+    /// @notice `script/20261123-schedule-zerog-orchestrator-roles.s.sol`: on
+    /// 0G, the Safe schedules the timelock batch that grants the service
+    /// signer `MINT` and `BURN` and the Safe `EMERGENCY` on the orchestrator,
+    /// and the orchestrator `DEPOSIT` and `WITHDRAW` on the US authoriser; the
+    /// record alone elsewhere. Recorded right after the 0G token creation on
+    /// every chain.
+    bytes32 internal constant SCHEDULE_ZEROG_ORCHESTRATOR_ROLES =
+        keccak256("script/20261123-schedule-zerog-orchestrator-roles.s.sol");
+
+    /// @notice `script/20261123-execute-zerog-orchestrator-roles.s.sol`: the
+    /// record, once the 0G batch has executed; the record alone elsewhere.
+    bytes32 internal constant EXECUTE_ZEROG_ORCHESTRATOR_ROLES =
+        keccak256("script/20261123-execute-zerog-orchestrator-roles.s.sol");
+
+    /// @notice Every chain with a root line: each deployment network, 0G
+    /// included. Every line holds every migration.
+    /// @return The networks, in manifest order.
+    function lineNetworks() internal pure returns (SupportedNetwork[] memory) {
+        return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+    }
+
+    /// @notice Whether `chainId` joined after the migrations the backfill
+    /// records had run on every other chain, so none of them ran there: 0G.
+    /// The backfill records each of them there record-only, as it records the
+    /// rehearsals off Base, so `chainId`'s line holds the same records as
+    /// every other chain's.
+    /// @param chainId The chain id.
+    /// @return True on 0G.
+    function withoutHistory(uint256 chainId) internal pure returns (bool) {
+        return chainId == LibSafeInvariants.ZEROG_CHAIN_ID;
+    }
 
     /// @notice What `declared` is recorded after on the root line.
     /// @param declared The declaration.
@@ -144,9 +200,9 @@ library LibStoxMigrations {
         return LibMigrationRegistry.onto(LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.onto);
     }
 
-    /// @notice The registry call, sent by the Safe as an unscoped delegate of
-    /// the root, that writes `declared`'s record. Verifies the registry's code
-    /// hash first.
+    /// @notice The registry call, sent by the Safe as the root's delegate for
+    /// `NAMESPACE` or unscoped, that writes `declared`'s record. Verifies the
+    /// registry's code hash first.
     /// @param declared The declaration.
     /// @return The registry.
     /// @return The calldata.
@@ -186,14 +242,19 @@ library LibStoxMigrations {
         if (lineHead != declared.id) revert LineHeadMismatch(lineHead);
     }
 
-    /// @notice Whether `delegate` is an unscoped delegate of the root
-    /// authority. Verifies the registry's code hash first.
+    /// @notice Whether the registry lets `delegate` write the root line: it is
+    /// the root authority, or the root's delegate for `NAMESPACE` or unscoped.
+    /// Verifies the registry's code hash first.
     /// @param delegate The account asked about.
-    /// @return The root's unscoped approval of it.
+    /// @return True when `delegate` may write the root line.
     function approved(address delegate) internal view returns (bool) {
         LibMigrationRegistry.checkCodeHash();
-        return IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
-            .approvedUnscopedV5(LibRegistryAuthority.ROOT_AUTHORITY, delegate);
+        return LibRegistryDelegates.approved(
+            IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS),
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            NAMESPACE,
+            delegate
+        );
     }
 
     /// @notice `recordCall` as history, at `appliedAt`.

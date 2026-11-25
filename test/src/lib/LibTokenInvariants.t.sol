@@ -120,6 +120,51 @@ contract LibTokenInvariantsTest is Test {
         }
     }
 
+    /// The 0G token table follows the 0G creation rows row-for-row on the
+    /// `underlying` key: 65 rows in Ethereum's creation order.
+    function testZerogTokenTableFollowsZerogCreationRows() external pure {
+        TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
+        assertEq(zerog.length, 65, "0G token table length");
+        assertEq(rows.length, zerog.length, "0G token table length diverges from its creation rows");
+        for (uint256 i = 0; i < rows.length; i++) {
+            assertEq(zerog[i].underlying, rows[i].underlying, "0G token underlying diverges from its creation row");
+        }
+    }
+
+    /// Each 0G row has the legs of Ethereum's row with the same underlying; a
+    /// row Ethereum's table lacks is an off-Base row.
+    function testZerogRowsAreEthereumsTokens() external pure {
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
+        TokenInstance[] memory ethereum = LibTokenInvariants.productionTokensEthereum();
+        TokenConfig[] memory offBase = LibProdTokenConfig.offBaseTokenConfigs();
+        for (uint256 i = 0; i < zerog.length; i++) {
+            bytes32 key = keccak256(bytes(zerog[i].underlying));
+            bool found = false;
+            for (uint256 j = 0; j < ethereum.length; j++) {
+                if (keccak256(bytes(ethereum[j].underlying)) != key) continue;
+                found = true;
+                assertEq(zerog[i].receipt, ethereum[j].receipt, string.concat(zerog[i].underlying, " receipt"));
+                assertEq(
+                    zerog[i].receiptVault,
+                    ethereum[j].receiptVault,
+                    string.concat(zerog[i].underlying, " receipt vault")
+                );
+                assertEq(
+                    zerog[i].wrappedTokenVault,
+                    ethereum[j].wrappedTokenVault,
+                    string.concat(zerog[i].underlying, " wrapper")
+                );
+            }
+            if (found) continue;
+            bool isOffBase = false;
+            for (uint256 k = 0; k < offBase.length; k++) {
+                if (keccak256(bytes(offBase[k].underlying)) == key) isOffBase = true;
+            }
+            assertTrue(isOffBase, string.concat(zerog[i].underlying, " is on Base but not in Ethereum's table"));
+        }
+    }
+
     function testDiscardedEuBatchIsNotListed() external pure {
         string[6] memory discarded = ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
@@ -162,6 +207,7 @@ contract LibTokenInvariantsTest is Test {
         assertTokenAddresses(LibTokenInvariants.productionTokensHyperEvm());
         assertTokenAddresses(LibTokenInvariants.productionTokensRobinhood());
         assertTokenAddresses(LibTokenInvariants.productionTokensBsc());
+        assertTokenAddresses(LibTokenInvariants.productionTokensZerog());
     }
 
     /// @notice Base's table with every vault on its region's authoriser

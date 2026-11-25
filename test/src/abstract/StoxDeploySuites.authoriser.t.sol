@@ -2,9 +2,13 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.33/src/lib/LibRegistryAuthority.sol";
+import {
+    DeployCandidate,
+    DeployDeclaration,
+    DeploySuite
+} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {
@@ -12,7 +16,6 @@ import {
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibAuthoriserClone} from "../../../src/lib/LibAuthoriserClone.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {StoxAuthorizerInitTest} from "../../lib/StoxAuthorizerInitTest.sol";
@@ -24,9 +27,16 @@ contract StoxDeploySuitesAuthoriserTest is StoxAuthorizerInitTest, StoxDeploySui
         return suite;
     }
 
+    function candidateNetworks() internal pure returns (string[] memory) {
+        DeployDeclaration memory probe;
+        probe.candidates = new DeployCandidate[](1);
+        probe.candidates[0].snapshot.suite = AUTHORISER;
+        setCandidateNetworks(probe);
+        return probe.candidates[0].snapshot.networks;
+    }
+
     function networks() internal pure returns (SupportedNetwork[] memory) {
-        SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        SupportedNetwork[] memory nets = LibRainDeploy.declaredNetworkConfigs(candidateNetworks());
         assertTrue(nets.length > 0, "networks");
         return nets;
     }
@@ -55,10 +65,10 @@ contract StoxDeploySuitesAuthoriserTest is StoxAuthorizerInitTest, StoxDeploySui
         }
     }
 
-    function testAuthoriserSuiteDeclaresTheCloneOnEveryNetwork() external view {
+    function testAuthoriserSuiteDeclaresTheCloneOnEveryCandidateNetwork() external view {
         DeployDeclaration memory declared = declaration();
         DeploySuite memory suite = authoriserSuite();
-        assertEq(suite.networks, LibStoxDeployNetworks.deploymentNetworks(), "networks");
+        assertEq(suite.networks, candidateNetworks(), "networks");
         assertEq(suite.storedDeployedAddress, LibAuthoriserClone.cloneDeployedAddress(), "stored address");
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
@@ -70,7 +80,7 @@ contract StoxDeploySuitesAuthoriserTest is StoxAuthorizerInitTest, StoxDeploySui
         }
     }
 
-    function testAuthoriserSuiteDeploysTheCloneOnEveryNetwork() external {
+    function testAuthoriserSuiteDeploysTheCloneOnEveryCandidateNetwork() external {
         DeploySuite memory suite = authoriserSuite();
         bindAuthoriserInitialAdmin(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
         address[] memory deployed = deployLocally(declaration(), vm, suite);

@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       suite:
-        description: "The `StoxDeploySuites` suite to deploy to every network this repo deploys to"
+        description: "The `StoxDeploySuites` suite to deploy to every network it is declared on"
         required: true
         type: choice
         options:
@@ -25,6 +25,7 @@ on:
           - stox-governance-timelock
           - stox-authoriser
           - stox-eu-assets-authoriser
+          - stox-us-assets-authoriser
           - stox-token-tmstr
           - stox-token-tmstr-wrapper
           - stox-token-ttsla
@@ -192,8 +193,10 @@ jobs:
       RPC_URL_HYPEREVM_FORK: ${{ secrets.RPC_URL_HYPEREVM_FORK }}
       RPC_URL_ROBINHOOD_FORK: ${{ secrets.RPC_URL_ROBINHOOD_FORK }}
       RPC_URL_BSC_FORK: ${{ secrets.RPC_URL_BSC_FORK }}
+      RPC_URL_ZEROG_FORK: ${{ secrets.RPC_URL_ZEROG_FORK }}
       CI_DEPLOY_BASE_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BASE_ETHERSCAN_API_KEY }}
       CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ETHEREUM_ETHERSCAN_API_KEY }}
       CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_HYPEREVM_ETHERSCAN_API_KEY }}
       CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ROBINHOOD_ETHERSCAN_API_KEY }}
       CI_DEPLOY_BSC_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_BSC_ETHERSCAN_API_KEY }}
+      CI_DEPLOY_ZEROG_ETHERSCAN_API_KEY: ${{ secrets.CI_DEPLOY_ZEROG_ETHERSCAN_API_KEY }}

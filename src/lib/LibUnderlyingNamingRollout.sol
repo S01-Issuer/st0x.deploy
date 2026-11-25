@@ -5,15 +5,19 @@ pragma solidity ^0.8.25;
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
+import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
+import {LibSecurity} from "./LibSecurity.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
@@ -45,6 +49,13 @@ error MalformedUnderlying(string underlying, string underlyingName);
 /// @notice The downstream services are not yet confirmed to accept the
 /// renamed wrapper symbols, so the rename may not be scheduled.
 error DownstreamNotReadyForRename();
+
+/// @notice The rollout's batches were cut for the networks before 0G
+/// (`LibStoxDeployNetworks.networksBeforeZerog`), whose tables share Base's row
+/// order. Any other chain's leading `TOKEN_COUNT` rows can be another token
+/// set (0G's follow Ethereum's creation order), so the rollout refuses it.
+/// @param chainId The chain id.
+error UnderlyingNamingNotCutForChain(uint256 chainId);
 
 /// @title LibUnderlyingNamingRollout
 /// @notice The two timelock operations that roll out the underlying ticker
@@ -92,14 +103,16 @@ library LibUnderlyingNamingRollout {
     /// @notice Its runtime codehash.
     bytes32 internal constant WRAPPED_TOKEN_VAULT_CODEHASH = LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_CODEHASH;
 
-    /// @notice Whether the implementation constants above alias a frozen,
-    /// audited release. They alias the current-source candidate pins, so the
-    /// step-1 deploy and both schedule scripts refuse. The PR that sets this
-    /// also: re-points the six implementation constants and the step-1 deploy
-    /// at the release; pins each chain's `beaconOperationId` and
-    /// `renameOperationId` as literals, so a later row edit cannot move a
-    /// scheduled batch. Each schedule script's Safe bundle ends in its root-line
-    /// record; no record rides in a timelock batch.
+    /// @notice The receipt-vault implementation every in-use receipt-vault beacon serves before the beacon batch (the
+    /// 0.1.30 vault); the beacon pre-flight refuses any other.
+    address internal constant RECEIPT_VAULT_FROM_IMPLEMENTATION = LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30;
+
+    /// @notice The wrapped-token-vault implementation every in-use wrapper beacon serves before the beacon batch (the
+    /// 0.1.1 wrapper); the beacon pre-flight refuses any other.
+    address internal constant WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1;
+
+    /// @notice Whether the implementation constants above alias a frozen, audited release; while false both schedule
+    /// scripts refuse. The target implementation constants alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
@@ -115,9 +128,6 @@ library LibUnderlyingNamingRollout {
     /// - The st0x.registry token lists keep `symbol` = `wt<TICKER>` and carry
     ///   the additive `nextSymbol` / `nextName`
     ///   (ST0x-Technology/st0x.registry#117).
-    /// The `wt*` symbol pins in `LibTokenInvariants.addresses.t.sol`
-    /// fork at a pinned pre-rename block; they accept `<TICKER>s` too, so a
-    /// later block bump does not break them on the symbol alone.
     bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = true;
 
     /// @notice How many leading rows of each chain's production token table
@@ -129,11 +139,27 @@ library LibUnderlyingNamingRollout {
 
     /// @notice The production tokens this rollout renames on the chain: the
     /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
-    /// `NoTokenTableForChain` on a chain with no table.
+    /// `NoTokenTableForChain` on a chain with no table and
+    /// `UnderlyingNamingNotCutForChain` on a chain with a table that the
+    /// rollout was not cut for, 0G included.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
-        return leadingRows(chainId, LibTokenInvariants.productionTokensForChainId(chainId));
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+        if (!cutForChain(chainId)) revert UnderlyingNamingNotCutForChain(chainId);
+        return leadingRows(chainId, table);
+    }
+
+    /// @notice Whether the rollout's rename and beacon batches were cut for
+    /// `chainId`: one of the networks before 0G
+    /// (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
+    /// `BuildExpectedState.renameMigration` both read this, so they agree.
+    /// @param chainId The chain id.
+    /// @return Whether the batches were cut for the chain.
+    function cutForChain(uint256 chainId) internal pure returns (bool) {
+        return LibRainDeploy.hasChainId(
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
+        );
     }
 
     /// @notice The leading `TOKEN_COUNT` rows of `table`, so the rename id
@@ -261,47 +287,12 @@ library LibUnderlyingNamingRollout {
     /// underlying name are well formed.
     /// @param config The row.
     function assertUnderlyingWellFormed(TokenConfig memory config) internal pure {
-        if (!tickerWellFormed(bytes(config.underlying)) || !nameWellFormed(bytes(config.underlyingName))) {
+        if (
+            !LibSecurity.tickerWellFormed(bytes(config.underlying))
+                || !LibSecurity.nameWellFormed(bytes(config.underlyingName))
+        ) {
             revert MalformedUnderlying(config.underlying, config.underlyingName);
         }
-    }
-
-    /// @notice Whether `ticker` is 1 to 16 bytes of `A-Z`, `0-9` and `.`.
-    /// @param ticker The ticker.
-    /// @return Whether it is well formed.
-    function tickerWellFormed(bytes memory ticker) internal pure returns (bool) {
-        if (ticker.length == 0 || ticker.length > 16) return false;
-        for (uint256 i = 0; i < ticker.length; i++) {
-            bytes1 c = ticker[i];
-            if (!((c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == ".")) return false;
-        }
-        return true;
-    }
-
-    /// @notice Whether `name` is non-empty, has no `"`, `\` or control byte,
-    /// and does not end in "ST0x" or "(ST0x)".
-    /// @param name The underlying name.
-    /// @return Whether it is well formed.
-    function nameWellFormed(bytes memory name) internal pure returns (bool) {
-        if (name.length == 0) return false;
-        for (uint256 i = 0; i < name.length; i++) {
-            bytes1 c = name[i];
-            if (c < 0x20 || c == 0x7f || c == '"' || c == "\\") return false;
-        }
-        return !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
-    }
-
-    /// @notice Whether `value` ends with `suffix`.
-    /// @param value The value.
-    /// @param suffix The suffix.
-    /// @return Whether it does.
-    function endsWith(bytes memory value, bytes memory suffix) internal pure returns (bool) {
-        if (value.length < suffix.length) return false;
-        uint256 offset = value.length - suffix.length;
-        for (uint256 i = 0; i < suffix.length; i++) {
-            if (value[offset + i] != suffix[i]) return false;
-        }
-        return true;
     }
 
     /// @notice The beacon batch's operation id on `timelock`.

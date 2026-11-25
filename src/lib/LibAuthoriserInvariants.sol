@@ -58,12 +58,13 @@ error EuAuthoriserNotReady(address clone);
 /// and `LibTokenInvariants`; individually callable via `assertAll()` for
 /// the focused authoriser drift detector.
 library LibAuthoriserInvariants {
-    /// @notice A chain's V4 authoriser clone pin, raw: `address(0)` while the
-    /// slot is a placeholder. Reverts for a chain without a slot rather than
-    /// falling back to another chain's clone. The one chain-to-clone table;
-    /// the deploy script and every invariant read it.
+    /// @notice A chain's V4 authoriser clone pin, raw. Every slot holds its
+    /// chain's pinned clone; a future chain may hold `address(0)` as a
+    /// placeholder until its clone lands. Reverts for a chain without a slot
+    /// rather than falling back to another chain's clone. The one
+    /// chain-to-clone table; the deploy script and every invariant read it.
     /// @param chainId The chain id.
-    /// @return The pinned clone, or zero for a placeholder slot.
+    /// @return The chain's pinned clone.
     function authoriserForChainId(uint256 chainId) internal pure returns (address) {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
@@ -79,6 +80,9 @@ library LibAuthoriserInvariants {
         }
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
+        }
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG;
         }
         revert UnsupportedChainForAuthoriser(chainId);
     }
@@ -102,6 +106,12 @@ library LibAuthoriserInvariants {
     /// @notice The EU assets authoriser clone on BNB Smart Chain.
     address internal constant STOX_EU_AUTHORISER_CLONE_BSC = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
 
+    /// @notice The EU assets authoriser clone on 0G. The 0G Safe is the
+    /// Ethereum Safe's address, and the open salt covers only the
+    /// implementation and that Safe, so the clone lands at the Ethereum
+    /// address.
+    address internal constant STOX_EU_AUTHORISER_CLONE_ZEROG = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
     /// @notice A chain's EU assets authoriser clone pin. Reverts for a chain
     /// without a slot rather than falling back to another chain's clone.
     /// @param chainId The chain id.
@@ -121,6 +131,9 @@ library LibAuthoriserInvariants {
         }
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
             return STOX_EU_AUTHORISER_CLONE_BSC;
+        }
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_ZEROG;
         }
         revert UnsupportedChainForAuthoriser(chainId);
     }
@@ -201,9 +214,10 @@ library LibAuthoriserInvariants {
     address internal constant GRANTEE_SERVICE_3D0C = 0x3d0CD66EFA66c05d86c3d4316B03eAE87ab9E8aE;
 
     /// @notice The production orchestrator instance, granted `DEPOSIT` and
-    /// `WITHDRAW` on each chain's authoriser by
-    /// `20260831-enable-orchestrator-roles` so the service signer can mint
-    /// and burn through it. Same address on every chain.
+    /// `WITHDRAW` on each chain's authoriser so the service signer can mint
+    /// and burn through it: by `20260831-enable-orchestrator-roles` on the
+    /// chains before 0G, by the `20261123-schedule-zerog-orchestrator-roles`
+    /// timelock batch on 0G. Same address on every chain.
     address internal constant GRANTEE_ORCHESTRATOR = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
     /// @notice The minter for the EU assets authoriser, holding `DEPOSIT` and
@@ -257,9 +271,31 @@ library LibAuthoriserInvariants {
         grants[9] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
 
         grants[10] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
-        grants[11] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
-        grants[12] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
+        grants[ORCHESTRATOR_GRANT_INDEX] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
+        grants[ORCHESTRATOR_GRANT_INDEX + 1] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
         return grants;
+    }
+
+    /// @notice Where the orchestrator's two pairs start in `expectedGrants`. They are its last two.
+    uint256 internal constant ORCHESTRATOR_GRANT_INDEX = 11;
+
+    /// @notice `expectedGrants(tokenOwnerSafe, adminHolder)` without the orchestrator's two pairs, its last two: the
+    /// map 0G's US authoriser held from its creation (`20261119-create-zerog-tokens`) until the 0G orchestrator roles
+    /// batch (`20261123-schedule-zerog-orchestrator-roles`) grants the orchestrator `DEPOSIT` and `WITHDRAW`.
+    /// @param tokenOwnerSafe The chain's token-owner Safe.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @return The `(role, grantee)` pairs before the orchestrator's.
+    function expectedGrantsWithoutOrchestrator(address tokenOwnerSafe, address adminHolder)
+        internal
+        pure
+        returns (RoleGrant[] memory)
+    {
+        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
+        RoleGrant[] memory withoutOrchestrator = new RoleGrant[](ORCHESTRATOR_GRANT_INDEX);
+        for (uint256 grantIndex = 0; grantIndex < ORCHESTRATOR_GRANT_INDEX; grantIndex++) {
+            withoutOrchestrator[grantIndex] = grants[grantIndex];
+        }
+        return withoutOrchestrator;
     }
 
     /// @notice A region's authoriser map: every `_ADMIN` on the admin holder

@@ -20,7 +20,7 @@ import {LibProdBeacons0_1_1} from "../../../src/lib/LibProdBeacons0_1_1.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibBeaconInvariantsHarness} from "./LibBeaconInvariantsHarness.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
@@ -264,8 +264,8 @@ contract LibBeaconInvariantsTest is Test {
         );
     }
 
-    /// @notice On every chain the four in-use beacons at their pinned
-    /// codehashes, owned by the chain's timelock, pass.
+    /// @notice On every chain the in-use beacons at their pinned codehashes,
+    /// owned by the chain's timelock, pass.
     function testAssertProdBeaconsOwnedByChainTimelockOnEveryChain() external {
         uint256[] memory chainIds = LibLocalProdState.chainIds();
         for (uint256 i = 0; i < chainIds.length; i++) {
@@ -274,6 +274,18 @@ contract LibBeaconInvariantsTest is Test {
             LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(chainIds[i]);
             vm.revertToState(snapshot);
         }
+    }
+
+    /// @notice Every chain runs the orchestrator, 0G included, so every chain
+    /// needs its beacon: a missing one trips `BeaconNotDeployed`.
+    function testInvertedMissingOrchestratorBeacon(uint256 chainIndex) external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        uint256 id = chainIds[bound(chainIndex, 0, chainIds.length - 1)];
+        LibLocalProdState.beacons(vm, id);
+        harness = new LibBeaconInvariantsHarness();
+        vm.etch(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON, "");
+        vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON));
+        harness.callAssertProdBeaconsOwnedByChainTimelock(id);
     }
 
     /// @notice On every chain each token beacon passes the V1-generation

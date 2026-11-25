@@ -3,23 +3,23 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.33/src/lib/LibSafe.sol";
-import {DeploySuite} from "rain-deploy-0.1.33/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.33/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
+import {DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     RUNTIME_CODE as TIMELOCK_RUNTIME_CODE
-} from "rain-deploy-0.1.33/src/generated/0_1_18/TimelockController.sol";
+} from "rain-deploy-0.1.38/src/generated/0_1_18/TimelockController.sol";
 import {
     LibExtrospectRegistryBeaconProxy,
     REGISTRY_BEACON_PROXY_PREFIX,
     REGISTRY_BEACON_PROXY_SUFFIX
-} from "rain-extrospection-0.1.19/src/lib/LibExtrospectRegistryBeaconProxy.sol";
+} from "rain-extrospection-0.1.31/src/lib/LibExtrospectRegistryBeaconProxy.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {
     IOffchainAssetReceiptVaultBeaconSetDeployerV1
-} from "rain-vats-0.2.22/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
+} from "rain-vats-0.2.25/src/interface/deprecated/IOffchainAssetReceiptVaultBeaconSetDeployerV1.sol";
 import {BuildExpectedState} from "../../script/BuildExpectedState.sol";
 import {BuildExpectedStateHarness} from "./BuildExpectedStateHarness.sol";
 import {LibLocalProdState} from "../lib/LibLocalProdState.sol";
@@ -35,7 +35,7 @@ import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV2} from "../../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibProdTokenConfig, Region, TokenConfig, UnknownUnderlying} from "../../src/lib/LibProdTokenConfig.sol";
-import {LibReleasedSuites} from "../../src/lib/LibReleasedSuites.sol";
+import {LibStoxReleasedNetworks} from "../../src/lib/LibStoxReleasedNetworks.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
@@ -107,8 +107,8 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The rows are the beacons the chain's set deployer getters resolve on a local build, so no row is left for the
-    /// dashboard to resolve.
+    /// The rows are the four in-use beacons the chain's set deployer getters resolve on a local build, so no row is
+    /// left for the dashboard to resolve.
     function testBeaconsAreTheInUseSetAtTheirExpectedImplementationsOwnedByTheTimelock() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -117,9 +117,10 @@ contract BuildExpectedStateTest is Test {
             address[4] memory resolved = resolvedBeacons(id);
             address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(id);
             bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(id);
+            uint256 inUse = 4;
             string memory list = string.concat(chain(nets[c]), ".beacons");
-            assertFalse(vm.keyExistsJson(json, index(list, resolved.length)));
-            for (uint256 i = 0; i < resolved.length; i++) {
+            assertFalse(vm.keyExistsJson(json, index(list, inUse)));
+            for (uint256 i = 0; i < inUse; i++) {
                 string memory row = index(list, i);
                 assertNotEq(resolved[i], address(0));
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), resolved[i]);
@@ -178,10 +179,12 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// `renamedImplementation` is what the rename migration's beacon batch upgrades the row's beacon to, and the row's
-    /// `implementation` where the batch leaves the beacon alone.
+    /// `implementation` where the batch leaves the beacon alone. Checked on the networks the rename's beacon batch was
+    /// cut for: every one before 0G.
     function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
         string memory json = build.render();
-        SupportedNetwork[] memory nets = networks();
+        SupportedNetwork[] memory nets =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 snapshot = vm.snapshotState();
             LibLocalProdState.beacons(vm, nets[c].chainId);
@@ -219,8 +222,8 @@ contract BuildExpectedStateTest is Test {
         return upgrades;
     }
 
-    /// Every address is concrete: the zero address appears only as each chain's Safe guard.
-    function testZeroAddressIsOnlyTheSafeGuard() external {
+    /// Every value is concrete: zero appears only as each chain's Safe guard.
+    function testZeroIsOnlyTheSafeGuard() external {
         string memory json = build.render();
         assertEq(vm.split(json, vm.toString(address(0))).length - 1, networks().length);
     }
@@ -325,7 +328,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// The beacon and instance are the set deployer's nonce 1 and nonce 2 CREATEs, the beacon is a 0.1.30
-    /// `UpgradeableBeacon` serving the 0.1.30 orchestrator, and the chain's timelock owns it.
+    /// `UpgradeableBeacon` serving the 0.1.30 orchestrator, and the chain's timelock owns it, on every chain.
     function testOrchestratorIsThe0_1_30BeaconSetOwnedByTheTimelock() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -354,7 +357,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The orchestrator's implementation and set deployer are the released 0.1.30 Zoltu suites on that chain.
+    /// The orchestrator's implementation and set deployer are the released 0.1.30 Zoltu suites on every chain.
     function testOrchestratorCodeIsItsReleasedZoltuSuites() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -407,6 +410,9 @@ contract BuildExpectedStateTest is Test {
                 string memory row = index(list, i);
                 TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".underlying")), tokens[i].underlying);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".assetId")), config.assetId);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".listingTicker")), config.listingTicker);
+                assertEq(vm.parseJsonString(json, string.concat(row, ".listingName")), config.listingName);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".name")), config.name);
                 assertEq(vm.parseJsonString(json, string.concat(row, ".symbol")), config.symbol);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptVault")), tokens[i].receiptVault);
@@ -448,6 +454,27 @@ contract BuildExpectedStateTest is Test {
         assertTrue(sawMc && sawMstr);
     }
 
+    /// Fixed examples on Base: tMC is EU, tMSTR is US.
+    function testBaseMcRegionIsEuAndMstrRegionIsUs() external {
+        string memory json = build.render();
+        string memory list = ".chains.8453.tokens";
+        uint256 n = LibTokenInvariants.productionTokensBase().length;
+        bool sawMc;
+        bool sawMstr;
+        for (uint256 i = 0; i < n; i++) {
+            string memory row = index(list, i);
+            bytes32 underlying = keccak256(bytes(field(json, row, "underlying")));
+            if (underlying == keccak256("MC")) {
+                assertEq(field(json, row, "region"), "EU");
+                sawMc = true;
+            } else if (underlying == keccak256("MSTR")) {
+                assertEq(field(json, row, "region"), "US");
+                sawMstr = true;
+            }
+        }
+        assertTrue(sawMc && sawMstr);
+    }
+
     /// The unprefixed fields are the initialized metadata, the `renamed` fields the metadata once the rename batch has
     /// run, which renames only its leading rows; each set is one consistent state of the vault and wrapper.
     function testTokenMetadataIsTheInitializedAndRenamedStates() external {
@@ -456,12 +483,16 @@ contract BuildExpectedStateTest is Test {
         for (uint256 c = 0; c < nets.length; c++) {
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[c].chainId);
             string memory list = string.concat(chain(nets[c]), ".tokens");
+            // 0G has no rename migration (`testZerogHasNoRenameMigration`).
+            bool chainRenames = LibRainDeploy.hasChainId(
+                LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
+            );
             for (uint256 i = 0; i < tokens.length; i++) {
                 assertTokenMetadata(
                     json,
                     index(list, i),
                     LibProdTokenConfig.configOf(tokens[i].underlying),
-                    LibUnderlyingNamingRollout.renamesRow(i)
+                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i)
                 );
             }
         }
@@ -699,6 +730,29 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
+    /// The underlying naming's batches were cut for the networks before 0G only: on 0G each beacon's
+    /// `renamedImplementation` is its implementation, and a token's renamed metadata is its current metadata.
+    function testZerogRenamesNothing() external {
+        string memory json = build.render();
+        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
+        string memory at = string.concat(".chains.", vm.toString(id));
+        string memory list = string.concat(at, ".beacons");
+        for (uint256 i = 0; i < 4; i++) {
+            assertEq(
+                vm.parseJsonAddress(json, string.concat(index(list, i), ".renamedImplementation")),
+                vm.parseJsonAddress(json, string.concat(index(list, i), ".implementation"))
+            );
+        }
+
+        BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
+        assertTrue(LibUnderlyingNamingRollout.renamesRow(0), "row 0 renames on a full line");
+        TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
+        string memory zerog = harness.tokenMetadata(id, 0, "MSTR");
+        assertTokenMetadata(zerog, "", config, false);
+        string memory base = harness.tokenMetadata(LibSafeInvariants.BASE_CHAIN_ID, 0, "MSTR");
+        assertTokenMetadata(base, "", config, true);
+    }
+
     function testV2IsTheV2NetworksKeyedByChainId() external {
         string memory json = build.render();
         SupportedNetwork[] memory v2 = v2Networks();
@@ -833,7 +887,7 @@ contract BuildExpectedStateTest is Test {
     function testUnknownUnderlyingRevertsTyped() external {
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
-        harness.callTokenMetadataJson("row", 0, "NOPE");
+        harness.callTokenMetadataJson(LibSafeInvariants.BASE_CHAIN_ID, "row", 0, "NOPE");
     }
 
     function testRunWritesTheRender() external {
@@ -843,7 +897,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     function expectedZoltu(SupportedNetwork memory network) internal pure returns (DeploySuite[] memory) {
-        DeploySuite[] memory released = LibReleasedSuites.releasedSuites();
+        DeploySuite[] memory released = LibStoxReleasedNetworks.releasedSuites();
         bool[] memory on = new bool[](released.length);
         uint256 count = 0;
         bytes32 zoltu = keccak256(LibRainDeployZoltuMechanism.mechanismData());
@@ -873,6 +927,10 @@ contract BuildExpectedStateTest is Test {
             }
         }
         return false;
+    }
+
+    function zoltuAddressOf(string memory json, string memory at, string memory key) external view returns (address) {
+        return zoltuAddress(json, at, key);
     }
 
     function zoltuAddress(string memory json, string memory at, string memory key) internal view returns (address) {
@@ -1013,31 +1071,35 @@ contract BuildExpectedStateTest is Test {
     }
 
     function tokenFields() internal pure returns (string[] memory) {
-        string[] memory fields = new string[](24);
+        string[] memory fields = new string[](28);
         fields[0] = "underlying";
-        fields[1] = "name";
-        fields[2] = "renamedName";
-        fields[3] = "symbol";
-        fields[4] = "decimals";
-        fields[5] = "wrappedTokenVaultName";
-        fields[6] = "wrappedTokenVaultRenamedName";
-        fields[7] = "wrappedTokenVaultSymbol";
-        fields[8] = "wrappedTokenVaultRenamedSymbol";
-        fields[9] = "wrappedTokenVaultDecimals";
-        fields[10] = "receiptVault";
-        fields[11] = "receipt";
-        fields[12] = "wrappedTokenVault";
-        fields[13] = "receiptVaultReceipt";
-        fields[14] = "receiptManager";
-        fields[15] = "wrappedTokenVaultAsset";
-        fields[16] = "receiptVaultBeacon";
-        fields[17] = "receiptBeacon";
-        fields[18] = "wrappedTokenVaultBeacon";
-        fields[19] = "receiptVaultCodehash";
-        fields[20] = "receiptCodehash";
-        fields[21] = "wrappedTokenVaultCodehash";
-        fields[22] = "owner";
-        fields[23] = "authoriser";
+        fields[1] = "assetId";
+        fields[2] = "listingTicker";
+        fields[3] = "listingName";
+        fields[4] = "region";
+        fields[5] = "name";
+        fields[6] = "renamedName";
+        fields[7] = "symbol";
+        fields[8] = "decimals";
+        fields[9] = "wrappedTokenVaultName";
+        fields[10] = "wrappedTokenVaultRenamedName";
+        fields[11] = "wrappedTokenVaultSymbol";
+        fields[12] = "wrappedTokenVaultRenamedSymbol";
+        fields[13] = "wrappedTokenVaultDecimals";
+        fields[14] = "receiptVault";
+        fields[15] = "receipt";
+        fields[16] = "wrappedTokenVault";
+        fields[17] = "receiptVaultReceipt";
+        fields[18] = "receiptManager";
+        fields[19] = "wrappedTokenVaultAsset";
+        fields[20] = "receiptVaultBeacon";
+        fields[21] = "receiptBeacon";
+        fields[22] = "wrappedTokenVaultBeacon";
+        fields[23] = "receiptVaultCodehash";
+        fields[24] = "receiptCodehash";
+        fields[25] = "wrappedTokenVaultCodehash";
+        fields[26] = "owner";
+        fields[27] = "authoriser";
         return fields;
     }
 
@@ -1046,7 +1108,7 @@ contract BuildExpectedStateTest is Test {
         string[] memory token = tokenFields();
         string[] memory fields = new string[](14);
         for (uint256 i = 0; i < fields.length; i++) {
-            fields[i] = token[i + 10];
+            fields[i] = token[i + 14];
         }
         return fields;
     }

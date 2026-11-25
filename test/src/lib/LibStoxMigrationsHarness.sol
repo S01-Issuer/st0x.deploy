@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
+import {ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
 
 /// @title LibStoxMigrationsHarness
@@ -10,5 +11,9 @@ import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
 contract LibStoxMigrationsHarness {
     function governanceTimelockExecution(uint256 chainId) external pure returns (uint256, uint256) {
         return LibStoxMigrations.governanceTimelockExecution(chainId);
+    }
+
+    function assertNext(ScriptDeclaration memory declared, address delegate) external view {
+        LibStoxMigrations.assertNext(declared, delegate);
     }
 }

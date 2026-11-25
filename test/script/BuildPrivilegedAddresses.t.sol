@@ -3,7 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.33/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {BuildPrivilegedAddresses} from "../../script/BuildPrivilegedAddresses.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
@@ -51,6 +52,10 @@ contract BuildPrivilegedAddressesTest is Test {
         );
     }
 
+    function testRegistryRootAuthorityIsTheRainDeployRoot() external {
+        assertEq(vm.parseJsonAddress(build.render(), ".registryRootAuthority"), LibRegistryAuthority.ROOT_AUTHORITY);
+    }
+
     function testChainsAreTheDeploymentNetworksKeyedByChainId() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -81,6 +86,7 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
+    /// The rows are the chain's four in-use beacons.
     function testBeaconsAreTheChainsProductionSet() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -94,9 +100,10 @@ contract BuildPrivilegedAddressesTest is Test {
             address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(id);
             address[4] memory implementations = LibBeaconInvariants.prodImplementationsForChainId(id);
             address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(id);
+            uint256 inUse = 4;
             string memory list = string.concat(at, ".beacons");
-            assertFalse(vm.keyExistsJson(json, index(list, pinned.length)));
-            for (uint256 i = 0; i < pinned.length; i++) {
+            assertFalse(vm.keyExistsJson(json, index(list, inUse)));
+            for (uint256 i = 0; i < inUse; i++) {
                 string memory row = index(list, i);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), pinned[i]);
                 assertEq(vm.parseJsonAddress(json, string.concat(row, ".implementation")), implementations[i]);

@@ -21,7 +21,8 @@ struct ContractRoles {
 library LibIdealRoles {
     /// @notice The V4 authoriser, EU authoriser, orchestrator, governance timelock
     /// and mint-caps orchestrator on a chain, in that order. Every timelock
-    /// holder is the chain's prod governance timelock.
+    /// holder is the chain's prod governance timelock. Every chain, 0G
+    /// included, runs the orchestrator.
     /// @param chainId The chain id.
     /// @return The contracts' ideal role state.
     function contractRoles(uint256 chainId) internal pure returns (ContractRoles[] memory) {

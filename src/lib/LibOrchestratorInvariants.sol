@@ -8,7 +8,7 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdOrchestratorParams} from "./LibProdOrchestratorParams.sol";
-import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.14/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.18/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
@@ -146,6 +146,17 @@ library LibOrchestratorInvariants {
         grants[2] = RoleGrant(keccak256("MINT"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
         grants[3] = RoleGrant(keccak256("BURN"), LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
         return grants;
+    }
+
+    /// @notice Assert the orchestrator instance holds every `expectedGrants(chainSafe, timelock)` pair.
+    /// @param chainSafe The chain's token-owner Safe.
+    /// @param timelock The chain's governance timelock.
+    function assertExpectedGrants(address chainSafe, address timelock) internal view {
+        IAccessControl acl = IAccessControl(ST0X_ORCHESTRATOR_INSTANCE);
+        RoleGrant[] memory grants = expectedGrants(chainSafe, timelock);
+        for (uint256 grantIndex = 0; grantIndex < grants.length; grantIndex++) {
+            assertHolds(acl, grants[grantIndex].role, grants[grantIndex].grantee);
+        }
     }
 
     /// @return The mint-caps orchestrator beacon.
