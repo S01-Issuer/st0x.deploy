@@ -29,31 +29,43 @@ library LibUnderlyingSnapshot {
     }
 
     function lookup(address root, address token) internal view returns (Lookup memory) {
-        uint256 asOf;
-        address shard;
-        {
-            uint256 rootLength = dataLength(root);
-            if (rootLength < UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) {
-                revert MalformedUnderlyingSnapshot(root);
-            }
-            bytes memory header = LibDataContract.readSlice(root, 0, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH);
-            if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_ROOT_MAGIC) {
-                revert MalformedUnderlyingSnapshot(root);
-            }
-            asOf = readUint256(header, 4);
-            uint256 shardCount = readUint16(header, 36);
-            if (shardCount == 0 || rootLength != UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shardCount) {
-                revert MalformedUnderlyingSnapshot(root);
-            }
-            shard = readAddress(
-                LibDataContract.readSlice(
-                    root, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * (uint256(uint160(token)) % shardCount), 20
-                ),
-                0
-            );
-        }
+        (uint256 asOf, uint256 shardCount) = rootHeader(root);
+        address shard = readAddress(
+            LibDataContract.readSlice(
+                root, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * (uint256(uint160(token)) % shardCount), 20
+            ),
+            0
+        );
         (bool found, string memory ticker, string memory name, string memory isin) = lookupShard(shard, token);
         return Lookup(asOf, found, ticker, name, isin);
+    }
+
+    /// @notice The shard addresses `root` names, in shard-index order.
+    function shards(address root) internal view returns (address[] memory) {
+        (, uint256 shardCount) = rootHeader(root);
+        bytes memory list = LibDataContract.readSlice(root, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH, 20 * shardCount);
+        address[] memory out = new address[](shardCount);
+        for (uint256 i = 0; i < shardCount; i++) {
+            out[i] = readAddress(list, 20 * i);
+        }
+        return out;
+    }
+
+    /// Returns the root's asOf and shard count.
+    function rootHeader(address root) internal view returns (uint256, uint256) {
+        uint256 rootLength = dataLength(root);
+        if (rootLength < UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) {
+            revert MalformedUnderlyingSnapshot(root);
+        }
+        bytes memory header = LibDataContract.readSlice(root, 0, UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH);
+        if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_ROOT_MAGIC) {
+            revert MalformedUnderlyingSnapshot(root);
+        }
+        uint256 shardCount = readUint16(header, 36);
+        if (shardCount == 0 || rootLength != UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shardCount) {
+            revert MalformedUnderlyingSnapshot(root);
+        }
+        return (readUint256(header, 4), shardCount);
     }
 
     function lookupShard(address shard, address token)

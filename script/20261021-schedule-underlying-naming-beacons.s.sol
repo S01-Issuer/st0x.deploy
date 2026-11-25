@@ -19,6 +19,9 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibUnderlyingNamingRollout, UnderlyingNamingReleaseNotFrozen} from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {LibUnderlyingSnapshot} from "../src/lib/LibUnderlyingSnapshot.sol";
+import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {LibUnderlyingSnapshotCode, UNDERLYING_SNAPSHOT_ROOT} from "../src/generated/LibUnderlyingSnapshotCode.sol";
 
 /// @notice An implementation the beacon batch points a beacon at does not
 /// carry its pinned code on this chain. Deploy it first (rollout step 1).
@@ -26,6 +29,13 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 /// @param expected The pinned codehash.
 /// @param actual The codehash on chain.
 error ImplementationNotDeployed(address implementation, bytes32 expected, bytes32 actual);
+
+/// @notice The underlying snapshot root, or a shard it names, does not carry
+/// its pinned code on this chain.
+/// @param pointer The root or shard.
+/// @param expected The pinned codehash.
+/// @param actual The codehash on chain.
+error UnderlyingSnapshotNotDeployed(address pointer, bytes32 expected, bytes32 actual);
 
 /// @notice A beacon this batch upgrades already points at the target
 /// implementation, so the batch has run on this chain.
@@ -125,9 +135,35 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         }
     }
 
+    /// @notice Reverts unless `pointer` carries the runtime code
+    /// `creationCode` deploys.
+    /// @param pointer The snapshot root or shard.
+    /// @param creationCode Its generated creation code.
+    function assertSnapshotDeployed(address pointer, bytes memory creationCode) internal view {
+        // The runtime keeps the prefix's trailing STOP byte.
+        uint256 runtimeStart = PREFIX_BYTES_LENGTH - 1;
+        bytes32 expected;
+        assembly ("memory-safe") {
+            expected := keccak256(add(add(creationCode, 0x20), runtimeStart), sub(mload(creationCode), runtimeStart))
+        }
+        if (pointer.codehash != expected) revert UnderlyingSnapshotNotDeployed(pointer, expected, pointer.codehash);
+    }
+
+    /// @notice Reverts unless the snapshot root and every shard address read
+    /// from it carry their pinned code.
+    function assertUnderlyingSnapshotDeployed() internal view {
+        assertSnapshotDeployed(UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE);
+        address[] memory shards = LibUnderlyingSnapshot.shards(UNDERLYING_SNAPSHOT_ROOT);
+        bytes[] memory shardCodes = LibUnderlyingSnapshotCode.shardCreationCodes();
+        for (uint256 i = 0; i < shards.length; i++) {
+            assertSnapshotDeployed(shards[i], shardCodes[i]);
+        }
+    }
+
     /// @inheritdoc SafeBundleScript
     /// @dev The release is frozen, the Safe and timelock are the pinned ones,
     /// the timelock owns the in-use beacons, the three implementations carry their pinned code, the
+    /// underlying snapshot root and every shard it names carry their pinned code, the
     /// beacons have not moved and still serve their pinned from-implementations,
     /// the operation is not registered, and the root line is at this
     /// migration's `onto`.
@@ -139,6 +175,7 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
         assertDeployed(LibUnderlyingNamingRollout.FACET, LibUnderlyingNamingRollout.FACET_CODEHASH);
+        assertUnderlyingSnapshotDeployed();
         assertDeployed(
             LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION, LibUnderlyingNamingRollout.RECEIPT_VAULT_CODEHASH
         );
