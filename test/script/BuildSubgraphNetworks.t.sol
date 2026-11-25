@@ -36,6 +36,19 @@ contract BuildSubgraphNetworksTest is Test {
         return vm.parseJsonAddress(json, string.concat(".", network, ".", source, ".address"));
     }
 
+    /// The Graph names chain 1 `mainnet` and 0G `0g` (rainix `subgraph_targets.rs` deploys `0g` to Goldsky); every
+    /// other id is the foundry alias.
+    function testGraphNetworkIsTheGraphsIdForEachChain() external view {
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 i = 0; i < nets.length; i++) {
+            string memory expected = nets[i].name;
+            if (nets[i].chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) expected = "mainnet";
+            if (nets[i].chainId == LibSafeInvariants.ZEROG_CHAIN_ID) expected = "0g";
+            assertEq(build.graphNetwork(nets[i]), expected, nets[i].name);
+        }
+        assertEq(vm.parseJsonKeys(committed(), ".0g").length, 16, "0g in the committed networks");
+    }
+
     function testNetworksAreTheDeploymentNetworksByGraphId() external {
         string memory json = build.render(committed());
         SupportedNetwork[] memory nets = networks();

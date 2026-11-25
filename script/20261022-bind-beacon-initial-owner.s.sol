@@ -12,6 +12,7 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthor
 import {LibRegistryDelegates} from "rain-deploy-0.1.38/src/lib/LibRegistryDelegates.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibRootConfigBinding} from "../src/lib/LibRootConfigBinding.sol";
@@ -52,7 +53,7 @@ function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration mem
 /// current-source suite deploys on 0G (`StoxDeploySuites.setCandidateNetworks`).
 /// The 0G arm requires the name still unbound there, so no such beacon can be
 /// deployed, and the suite timelock the binding names still without code.
-contract BindBeaconInitialOwner is SafeBundleScript, IStoxScript {
+contract BindBeaconInitialOwner is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return bindBeaconInitialOwnerDeclaration();

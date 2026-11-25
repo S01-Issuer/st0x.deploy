@@ -12,6 +12,7 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthor
 import {LibRegistryDelegates} from "rain-deploy-0.1.38/src/lib/LibRegistryDelegates.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibProdOrchestratorParams} from "../src/lib/LibProdOrchestratorParams.sol";
@@ -63,7 +64,7 @@ function bindOrchestratorConfigDeclaration() pure returns (ScriptDeclaration mem
 /// nor the suite timelock with code. The 0.1.30 orchestrator
 /// on 0G reads neither binding: its beacon-set deployer's `deploy(owner)` set
 /// its admin.
-contract BindOrchestratorConfig is SafeBundleScript, IStoxScript {
+contract BindOrchestratorConfig is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return bindOrchestratorConfigDeclaration();

@@ -9,6 +9,7 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
@@ -73,7 +74,7 @@ function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration me
 /// @dev Dispatch `execute()` via `Actions → manual-broadcast` with
 /// `script = 20261021-execute-underlying-naming`, `sig = execute()` per chain,
 /// and `run()` via `Actions → run-script` with the same `script`.
-contract ExecuteUnderlyingNaming is SafeBundleScript, IStoxScript {
+contract ExecuteUnderlyingNaming is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return executeUnderlyingNamingDeclaration();
