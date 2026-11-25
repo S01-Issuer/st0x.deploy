@@ -40,13 +40,13 @@ import {LibSt0xAttestContext, CONTEXT_ATTESTATION_ROWS} from "src/lib/LibSt0xAtt
 import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestTofu} from "test/lib/LibTestTofu.sol";
 import {MockUnderlyingERC20} from "test/concrete/MockUnderlyingERC20.sol";
-import {BuildWeightingBindings} from "script/BuildWeightingBindings.sol";
+import {WeightingFixture} from "test/lib/WeightingFixture.sol";
 
 /// @title St0xAttestSubParserTest
 /// @notice Binds a `St0xAttestSubParser` beside the test Rainlang etched at
 /// its fixed addresses, and signs attestations the way a caller would, so the
 /// tests parse and eval real expressions over a real grid.
-abstract contract St0xAttestSubParserTest is Test, BuildWeightingBindings {
+abstract contract St0xAttestSubParserTest is Test, WeightingFixture {
     using Strings for address;
 
     //solhint-disable-next-line private-vars-leading-underscore

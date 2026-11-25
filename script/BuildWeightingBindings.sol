@@ -4,60 +4,78 @@ pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
+import {WeightingFixture} from "../test/lib/WeightingFixture.sol";
 
-contract BuildWeightingBindings is Script {
+contract BuildWeightingBindings is Script, WeightingFixture {
     string internal constant DIR = "test/composed/";
+    string internal constant RAIN_DIR = "src/rain/";
 
-    uint256 internal constant LEAD_KEY = 0x1EAD;
-    uint256 internal constant OPERATOR_KEY_0 = 0x0A00;
-    uint256 internal constant POOL_SIZE = 6;
-    string internal constant MAX_DEVIATION = "0.01";
-    int256 internal constant MAX_TIME_SPREAD = 600;
-    int256 internal constant MIN_PRICE = 100;
-    int256 internal constant MAX_PRICE = 1000;
-    int256 internal constant MIN_PRICE_VARIANT = 1;
-    string internal constant LEAD_SOURCE = "alpaca";
-    string internal constant POOL_SOURCE_0 = "yahoo";
-    string internal constant POOL_SOURCE_1 = "alpaca";
-
-    function line(string memory k, string memory v) internal pure returns (string memory) {
-        return string.concat(k, "=", v, "\n");
+    function binding(string memory key, string memory value) internal pure returns (string memory) {
+        return string.concat(key, "=", value);
     }
 
     function quoted(string memory s) internal pure returns (string memory) {
         return string.concat("\"", s, "\"");
     }
 
-    function common(address lead, int256 minPrice) internal pure returns (string memory) {
-        return string.concat(
-            line("st0x-attest-subparser", vm.toString(LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE)),
-            line("lead-signer", vm.toString(lead)),
-            line("lead-source", quoted(LEAD_SOURCE)),
-            line("max-time-spread", vm.toString(MAX_TIME_SPREAD)),
-            line("min-price", vm.toString(minPrice)),
-            line("max-price", vm.toString(MAX_PRICE))
-        );
+    function common(address lead, int256 minPrice) internal pure returns (string[] memory) {
+        string[] memory bindings = new string[](6);
+        bindings[0] = binding("st0x-attest-subparser", vm.toString(LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE));
+        bindings[1] = binding("lead-signer", vm.toString(lead));
+        bindings[2] = binding("lead-source", quoted(LEAD_SOURCE));
+        bindings[3] = binding("max-time-spread", vm.toString(MAX_TIME_SPREAD));
+        bindings[4] = binding("min-price", vm.toString(minPrice));
+        bindings[5] = binding("max-price", vm.toString(MAX_PRICE));
+        return bindings;
     }
 
-    function mintWeighting(address sixth, int256 minPrice) internal pure returns (string memory) {
-        string memory out = common(vm.addr(LEAD_KEY), minPrice);
-        for (uint256 i = 0; i < POOL_SIZE; i++) {
-            address op = i == POOL_SIZE - 1 && sixth != address(0) ? sixth : vm.addr(OPERATOR_KEY_0 + i);
-            out = string.concat(out, line(string.concat("operator-", vm.toString(i + 1)), vm.toString(op)));
+    function mintWeighting(address sixth, int256 minPrice) internal pure returns (string[] memory) {
+        string[] memory head = common(vm.addr(LEAD_KEY), minPrice);
+        string[] memory bindings = new string[](head.length + POOL_SIZE + 3);
+        for (uint256 i = 0; i < head.length; i++) {
+            bindings[i] = head[i];
         }
-        return string.concat(
-            out,
-            line("pool-source-0", quoted(POOL_SOURCE_0)),
-            line("pool-source-1", quoted(POOL_SOURCE_1)),
-            line("max-deviation", MAX_DEVIATION)
-        );
+        for (uint256 i = 0; i < POOL_SIZE; i++) {
+            address operator = i == POOL_SIZE - 1 && sixth != address(0) ? sixth : vm.addr(OPERATOR_KEY_0 + i);
+            bindings[head.length + i] = binding(string.concat("operator-", vm.toString(i + 1)), vm.toString(operator));
+        }
+        bindings[head.length + POOL_SIZE] = binding("pool-source-0", quoted(POOL_SOURCE_0));
+        bindings[head.length + POOL_SIZE + 1] = binding("pool-source-1", quoted(POOL_SOURCE_1));
+        bindings[head.length + POOL_SIZE + 2] = binding("max-deviation", MAX_DEVIATION);
+        return bindings;
+    }
+
+    /// @notice Writes `<set>.bind` and composes `rain` with those bindings into
+    /// `<set>.rl`.
+    function build(string memory set, string memory rain, string[] memory bindings) internal {
+        string memory bindFile = "";
+        string[] memory command = new string[](11 + 2 * bindings.length);
+        command[0] = "nix";
+        command[1] = "shell";
+        command[2] = ".#rain-cli";
+        command[3] = "-c";
+        command[4] = "rain";
+        command[5] = "dotrain";
+        command[6] = "compose";
+        command[7] = "-i";
+        command[8] = string.concat(RAIN_DIR, rain, ".rain");
+        command[9] = "-e";
+        command[10] = "weighting";
+        for (uint256 i = 0; i < bindings.length; i++) {
+            bindFile = string.concat(bindFile, bindings[i], "\n");
+            command[11 + 2 * i] = "-b";
+            command[12 + 2 * i] = bindings[i];
+        }
+        vm.writeFile(string.concat(DIR, set, ".bind"), bindFile);
+        // ffi trims stdout, so the final newline is restored.
+        vm.writeFile(string.concat(DIR, set, ".rl"), string.concat(string(vm.ffi(command)), "\n"));
     }
 
     function run() external {
         vm.createDir(DIR, true);
-        vm.writeFile(string.concat(DIR, "mint-weighting.bind"), mintWeighting(address(0), MIN_PRICE));
-        vm.writeFile(string.concat(DIR, "mint-weighting-operator-6.bind"), mintWeighting(vm.addr(LEAD_KEY), MIN_PRICE));
-        vm.writeFile(string.concat(DIR, "mint-weighting-min-price.bind"), mintWeighting(address(0), MIN_PRICE_VARIANT));
-        vm.writeFile(string.concat(DIR, "lead-only-mint-weighting.bind"), common(vm.addr(LEAD_KEY), MIN_PRICE));
+        build("mint-weighting", "mint-weighting", mintWeighting(address(0), MIN_PRICE));
+        build("mint-weighting-operator-6", "mint-weighting", mintWeighting(vm.addr(LEAD_KEY), MIN_PRICE));
+        build("mint-weighting-min-price", "mint-weighting", mintWeighting(address(0), MIN_PRICE_VARIANT));
+        build("lead-only-mint-weighting", "lead-only-mint-weighting", common(vm.addr(LEAD_KEY), MIN_PRICE));
     }
 }
