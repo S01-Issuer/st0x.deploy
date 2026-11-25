@@ -10,9 +10,10 @@ import {
     LibOrchestratorInvariants,
     OrchestratorInstanceMissing,
     OrchestratorRoleAdminUnexpected,
+    OrchestratorRoleMissing,
     OrchestratorVaultLogicUnexpected
 } from "../../../src/lib/LibOrchestratorInvariants.sol";
-import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
+import {RoleGrant} from "../../../src/lib/RoleGrant.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {BeaconOwnerMismatch} from "../../../src/lib/LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
@@ -101,13 +102,45 @@ contract LibOrchestratorInvariantsTest is Test {
         harness.callAssertInstance();
     }
 
-    /// @notice On every chain that runs an orchestrator (all but 0G) the 0.1.30
+    function checkExpectedGrants(address chainSafe, address chainTimelock) external view {
+        LibOrchestratorInvariants.assertExpectedGrants(chainSafe, chainTimelock);
+    }
+
+    /// @notice The full `expectedGrants` map passes, and revoking any one
+    /// pair, the timelock's `DEFAULT_ADMIN_ROLE` included, trips
+    /// `OrchestratorRoleMissing` for exactly that pair.
+    function testExpectedGrantsRejectsEveryMissingPair() external {
+        selectLocalBase();
+        LibLocalProdState.orchestrator(vm, LibSafeInvariants.BASE_CHAIN_ID);
+        RoleGrant[] memory grants = LibOrchestratorInvariants.expectedGrants(safe, timelock);
+        assertEq(grants[0].role, bytes32(0), "first pair is DEFAULT_ADMIN_ROLE");
+        assertEq(grants[0].grantee, timelock, "first pair is held by the timelock");
+        for (uint256 grantIndex = 0; grantIndex < grants.length; grantIndex++) {
+            vm.prank(timelock);
+            orchestrator.grantRole(grants[grantIndex].role, grants[grantIndex].grantee);
+        }
+        this.checkExpectedGrants(safe, timelock);
+        for (uint256 grantIndex = 0; grantIndex < grants.length; grantIndex++) {
+            uint256 snapshot = vm.snapshotState();
+            RoleGrant memory grant = grants[grantIndex];
+            vm.prank(timelock);
+            orchestrator.revokeRole(grant.role, grant.grantee);
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    OrchestratorRoleMissing.selector, address(orchestrator), grant.role, grant.grantee
+                )
+            );
+            this.checkExpectedGrants(safe, timelock);
+            assertTrue(vm.revertToState(snapshot), "snapshot restored");
+        }
+    }
+
+    /// @notice On every chain, 0G included, the 0.1.30
     /// set deployer reporting the pinned beacon, serving the 0.1.30
     /// orchestrator and owned by the chain's timelock, passes.
     function testAssertBeaconSetPassesOnEveryChain() external {
         uint256[] memory chainIds = LibLocalProdState.chainIds();
         for (uint256 i = 0; i < chainIds.length; i++) {
-            if (!LibAuthoriserInvariants.grantsOrchestrator(chainIds[i])) continue;
             uint256 snapshot = vm.snapshotState();
             vm.chainId(chainIds[i]);
             LibLocalProdState.beacons(vm, chainIds[i]);
@@ -116,13 +149,12 @@ contract LibOrchestratorInvariantsTest is Test {
         }
     }
 
-    /// @notice On every chain that runs an orchestrator (all but 0G) the set
+    /// @notice On every chain, 0G included, the set
     /// deployer's first instance, whose vault-logic lock reads the 0.1.30
     /// receipt set, passes.
     function testAssertInstancePassesOnEveryChain() external {
         uint256[] memory chainIds = LibLocalProdState.chainIds();
         for (uint256 i = 0; i < chainIds.length; i++) {
-            if (!LibAuthoriserInvariants.grantsOrchestrator(chainIds[i])) continue;
             uint256 snapshot = vm.snapshotState();
             vm.chainId(chainIds[i]);
             LibLocalProdState.orchestrator(vm, chainIds[i]);

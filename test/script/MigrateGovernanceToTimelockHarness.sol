@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {MigrateGovernanceToTimelock} from "../../script/20260729-migrate-governance-to-timelock.s.sol";
+import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @title MigrateGovernanceToTimelockHarness
 /// @notice Overrides the script's timelock resolution so a test chooses the
@@ -20,5 +21,17 @@ contract MigrateGovernanceToTimelockHarness is MigrateGovernanceToTimelock {
 
     function activeChainTimelock() internal view override returns (address) {
         return I_TIMELOCK;
+    }
+
+    /// @notice Exposes the script's authoriser for the active chain.
+    /// @return The authoriser the script resolves.
+    function callActiveChainAuthoriser() external view returns (address) {
+        return activeChainAuthoriser();
+    }
+
+    /// @notice Exposes the script's token table for the active chain.
+    /// @return The production token table the script resolves.
+    function callTokensForActiveChain() external view returns (TokenInstance[] memory) {
+        return tokensForActiveChain();
     }
 }
