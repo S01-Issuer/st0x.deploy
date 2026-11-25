@@ -4,6 +4,10 @@ pragma solidity ^0.8.25;
 
 import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {
+    INITIAL_ADMIN_VALUE_TYPE_HASH,
+    NonCanonicalInitialAdmin
+} from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 error ZeroOrchestratorInitialAdmin();
 
@@ -64,6 +68,21 @@ library LibStoxConfig {
     /// @notice `abi.encode(address)`: the authoriser clone's initial admin,
     /// read once at its initialize.
     bytes32 internal constant AUTHORISER_INITIAL_ADMIN_NAME = keccak256("st0x.authoriser-initial-admin.v1");
+
+    /// @notice The authoriser clone's initial admin, decoded as the clone's
+    /// `initialize` decodes it. Reverts while unbound, and
+    /// `NonCanonicalInitialAdmin` unless the value is one canonical address word.
+    /// @return The authoriser initial admin.
+    function authoriserInitialAdmin() internal view returns (address) {
+        // slither-disable-next-line unused-return
+        (bytes memory value,) = LibConfigRegistry.resolve(
+            LibRegistryAuthority.ROOT_AUTHORITY, AUTHORISER_INITIAL_ADMIN_NAME, INITIAL_ADMIN_VALUE_TYPE_HASH
+        );
+        if (value.length != 0x20 || abi.decode(value, (uint256)) >> 160 != 0) {
+            revert NonCanonicalInitialAdmin(LibRegistryAuthority.ROOT_AUTHORITY, AUTHORISER_INITIAL_ADMIN_NAME);
+        }
+        return abi.decode(value, (address));
+    }
 
     /// @notice `abi.encode(address)`: the orchestrator's initial admin,
     /// read once in its `initialize`.

@@ -35,6 +35,15 @@ contract DeployPreDeployCheckHarness is Deploy {
         return suiteByName(declaration(), GOVERNANCE_TIMELOCK);
     }
 
+    function authoriserSuite() external view returns (DeploySuite memory) {
+        return suiteByName(declaration(), AUTHORISER);
+    }
+
+    function deployAuthoriserCloneOnChain() external {
+        DeployDeclaration memory declared = declaration();
+        deployLocallyOnChain(declared, vm, suiteByName(declared, AUTHORISER));
+    }
+
     function beaconSuites() external view returns (DeploySuite[] memory) {
         DeployDeclaration memory declared = declaration();
         DeploySuite[] memory suites = new DeploySuite[](4);
@@ -73,15 +82,16 @@ contract DeployPreDeployCheckHarness is Deploy {
     }
 
     function checkedSuiteNames(TokenConfig[] memory configs) external pure returns (string[] memory) {
-        string[] memory names = new string[](5 + 2 * configs.length);
+        string[] memory names = new string[](6 + 2 * configs.length);
         names[0] = GOVERNANCE_TIMELOCK;
         names[1] = RECEIPT_BEACON;
         names[2] = RECEIPT_VAULT_BEACON;
         names[3] = WRAPPED_TOKEN_VAULT_BEACON;
         names[4] = ORCHESTRATOR_BEACON;
+        names[5] = AUTHORISER;
         for (uint256 i = 0; i < configs.length; i++) {
-            names[5 + 2 * i] = tokenSuiteName(configs[i]);
-            names[6 + 2 * i] = string.concat(tokenSuiteName(configs[i]), WRAPPER_SUFFIX);
+            names[6 + 2 * i] = tokenSuiteName(configs[i]);
+            names[7 + 2 * i] = string.concat(tokenSuiteName(configs[i]), WRAPPER_SUFFIX);
         }
         return names;
     }

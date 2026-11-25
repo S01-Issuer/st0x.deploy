@@ -20,6 +20,19 @@ import {
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants, AuthoriserNotReady} from "../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserClone} from "../src/lib/LibAuthoriserClone.sol";
+import {RoleGrant} from "../src/lib/RoleGrant.sol";
+import {
+    CERTIFY_ADMIN,
+    CONFISCATE_RECEIPT_ADMIN,
+    CONFISCATE_SHARES_ADMIN,
+    DEPOSIT_ADMIN,
+    WITHDRAW_ADMIN
+} from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {
+    SCHEDULE_CORPORATE_ACTION_ADMIN,
+    CANCEL_CORPORATE_ACTION_ADMIN
+} from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
@@ -33,14 +46,15 @@ error ReceiptBeaconMismatch(address bound, address expected);
 error WrapperBeaconMismatch(address bound, address expected);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
 error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
+error AuthoriserInitialAdminMismatch(address bound, address expected);
 
 /// @title Deploy
 /// @notice `RainDeployBroadcast` over `StoxDeploySuites`: broadcasts the suite
 /// `DEPLOYMENT_SUITE` names to every network it is declared on. Before each
 /// network it refuses unless every registry binding the suite's construction or
 /// initialisation resolves is bound to this repo's pin for that chain (an
-/// unbound name reverts in the registry), and, for beacon and token suites,
-/// unless the governance timelock that owns them is in its pinned state.
+/// unbound name reverts in the registry), and, for beacon, token and authoriser
+/// suites, unless the governance timelock that owns them is in its pinned state.
 contract Deploy is StoxDeploySuites, RainDeployBroadcast {
     /// @notice `StoxDeploySuites.declaration`, with the run's networks narrowed
     /// to those the suite `requestedSuite` names is declared on. A run
@@ -99,10 +113,34 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
             }
             checkGovernanceTimelock();
+        } else if (name == keccak256(bytes(AUTHORISER))) {
+            address bound = LibStoxConfig.authoriserInitialAdmin();
+            address expected = LibTimelockInvariants.timelockForChainId(block.chainid);
+            if (bound != expected) {
+                revert AuthoriserInitialAdminMismatch(bound, expected);
+            }
+            LibTimelockInvariants.assertTimelockState(expected, LibSafeInvariants.safeForChainId(block.chainid));
+            checkExistingAuthoriserClone(expected);
         } else {
             checkTokenSuites(name, LibProdTokenConfig.productionTokenConfigs());
             checkTokenSuites(name, LibProdTokenConfig.testTokenConfigs());
         }
+    }
+
+    /// @notice The open-salt clone can be deployed by anyone and is then skipped, so where it already has code it
+    /// must hold every `_ADMIN` role on `admin`.
+    function checkExistingAuthoriserClone(address admin) internal view {
+        address clone = LibAuthoriserClone.cloneDeployedAddress();
+        if (clone.code.length == 0) return;
+        RoleGrant[] memory grants = new RoleGrant[](7);
+        grants[0] = RoleGrant(DEPOSIT_ADMIN, admin);
+        grants[1] = RoleGrant(WITHDRAW_ADMIN, admin);
+        grants[2] = RoleGrant(CERTIFY_ADMIN, admin);
+        grants[3] = RoleGrant(CONFISCATE_SHARES_ADMIN, admin);
+        grants[4] = RoleGrant(CONFISCATE_RECEIPT_ADMIN, admin);
+        grants[5] = RoleGrant(SCHEDULE_CORPORATE_ACTION_ADMIN, admin);
+        grants[6] = RoleGrant(CANCEL_CORPORATE_ACTION_ADMIN, admin);
+        LibAuthoriserInvariants.assertHeld(clone, grants);
     }
 
     function checkTokenSuites(bytes32 name, TokenConfig[] memory configs) internal view {
