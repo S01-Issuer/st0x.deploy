@@ -32,6 +32,7 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {
     BeaconCodehashMismatch,
     BeaconImplementationMismatch,
+    BeaconImplNotDeployed,
     BeaconNotDeployed,
     BeaconOwnerMismatch
 } from "../../src/lib/LibBeaconInvariants.sol";
@@ -637,6 +638,22 @@ contract DeployTokenBindingsTest is Test {
         harness.exposedPreDeployCheck(wrappers[0], networks[0]);
     }
 
+    function testWrappersRefuseAWrapperBeaconServingAnImplementationWithNoCode() external {
+        vm.etch(LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT, "");
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconImplNotDeployed.selector,
+                LibProdTokenParams.wrapperBeacon(),
+                LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT
+            )
+        );
+        harness.exposedPreDeployCheck(wrappers[0], networks[0]);
+    }
+
     /// A pinned receipt beacon serving another implementation is refused.
     function testTokensRefuseAReceiptBeaconServingOtherImplementation() external {
         address other = LibProdDeployCurrent.STOX_RECEIPT_VAULT;
@@ -651,6 +668,22 @@ contract DeployTokenBindingsTest is Test {
                 LibProdDeployCurrent.STOX_RECEIPT_BEACON,
                 LibProdDeployCurrent.STOX_RECEIPT,
                 other
+            )
+        );
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
+    }
+
+    function testTokensRefuseAReceiptBeaconServingAnImplementationWithNoCode() external {
+        vm.etch(LibProdDeployCurrent.STOX_RECEIPT, "");
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconImplNotDeployed.selector,
+                LibProdDeployCurrent.STOX_RECEIPT_BEACON,
+                LibProdDeployCurrent.STOX_RECEIPT
             )
         );
         harness.exposedPreDeployCheck(tokens[0], networks[0]);
