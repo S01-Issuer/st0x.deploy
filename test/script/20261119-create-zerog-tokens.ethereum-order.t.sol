@@ -25,7 +25,7 @@ struct EthereumSlot {
 /// must be that token: no address names one underlying on 0G and another anywhere else.
 contract CreateZerogTokensEthereumOrderTest is Test {
     /// @notice Ethereum's slots that no Base row carries.
-    uint256 internal constant FIRST_ETHEREUM_ONLY_SLOT = 42;
+    uint256 internal constant FIRST_OFF_BASE_SLOT = 42;
 
     CreateZerogTokensHarness internal sScript;
 
@@ -132,7 +132,7 @@ contract CreateZerogTokensEthereumOrderTest is Test {
         TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         EthereumSlot[6] memory slots = offBaseSlots();
         for (uint256 k = 0; k < slots.length; k++) {
-            uint256 i = FIRST_ETHEREUM_ONLY_SLOT + k;
+            uint256 i = FIRST_OFF_BASE_SLOT + k;
             EthereumSlot memory slot = slots[k];
             TokenInstance memory created = sScript.callToken(i);
             assertEq(rows[i].underlying, slot.underlying, "underlying");

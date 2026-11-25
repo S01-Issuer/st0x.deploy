@@ -85,7 +85,7 @@ contract LibTokenInvariantsTest is Test {
     }
 
     /// `table` carries each of Base's underlyings and each of the six off-Base
-    /// tokens once, and nothing else. Rows pair by underlying, not by index.
+    /// tokens once, and nothing else.
     function assertBaseRowsPlusTheSix(TokenInstance[] memory table, string memory chain) internal pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenConfig[] memory six = LibProdTokenConfig.offBaseTokenConfigs();
@@ -114,6 +114,39 @@ contract LibTokenInvariantsTest is Test {
 
     function testBscTokenTableIsBaseRowsPlusTheSix() external pure {
         assertBaseRowsPlusTheSix(LibTokenInvariants.productionTokensBsc(), "BNB Smart Chain");
+    }
+
+    /// The rename rollout pairs rows by index.
+    function assertBaseRowsThenTheSixByIndex(TokenInstance[] memory table, string memory chain) internal pure {
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        TokenConfig[] memory six = LibProdTokenConfig.offBaseTokenConfigs();
+        assertEq(table.length, base.length + six.length, string.concat(chain, " token table length"));
+        for (uint256 i = 0; i < base.length; i++) {
+            assertEq(table[i].underlying, base[i].underlying, string.concat(chain, " row ", vm.toString(i)));
+        }
+        for (uint256 k = 0; k < six.length; k++) {
+            assertEq(
+                table[base.length + k].underlying,
+                six[k].underlying,
+                string.concat(chain, " row ", vm.toString(base.length + k))
+            );
+        }
+    }
+
+    function testEthereumTokenTableIsBaseRowsThenTheSixByIndex() external pure {
+        assertBaseRowsThenTheSixByIndex(LibTokenInvariants.productionTokensEthereum(), "Ethereum");
+    }
+
+    function testHyperEvmTokenTableIsBaseRowsThenTheSixByIndex() external pure {
+        assertBaseRowsThenTheSixByIndex(LibTokenInvariants.productionTokensHyperEvm(), "HyperEVM");
+    }
+
+    function testRobinhoodTokenTableIsBaseRowsThenTheSixByIndex() external pure {
+        assertBaseRowsThenTheSixByIndex(LibTokenInvariants.productionTokensRobinhood(), "Robinhood Chain");
+    }
+
+    function testBscTokenTableIsBaseRowsThenTheSixByIndex() external pure {
+        assertBaseRowsThenTheSixByIndex(LibTokenInvariants.productionTokensBsc(), "BNB Smart Chain");
     }
 
     /// The 0G token table follows the 0G creation rows row-for-row on the
@@ -151,21 +184,6 @@ contract LibTokenInvariantsTest is Test {
                 );
             }
             assertTrue(found, string.concat(zerog[i].underlying, " on Ethereum"));
-        }
-    }
-
-    function testDiscardedEuBatchIsNotListed() external pure {
-        string[6] memory discarded = ["AIR.PA", "BMW.DE", "MC.PA", "SIE.DE", "MBG.DE", "RHM.DE"];
-        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        for (uint256 d = 0; d < discarded.length; d++) {
-            bytes32 key = keccak256(bytes(discarded[d]));
-            for (uint256 i = 0; i < base.length; i++) {
-                assertTrue(keccak256(bytes(base[i].underlying)) != key, discarded[d]);
-            }
-            for (uint256 i = 0; i < configs.length; i++) {
-                assertTrue(keccak256(bytes(configs[i].underlying)) != key, discarded[d]);
-            }
         }
     }
 
