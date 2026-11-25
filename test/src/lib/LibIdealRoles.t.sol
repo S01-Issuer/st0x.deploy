@@ -34,10 +34,8 @@ contract LibIdealRolesTest is Test {
             push("WITHDRAW", safe);
             push("CERTIFY", safe);
             push("CERTIFY", LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
-            if (LibAuthoriserInvariants.grantsOrchestrator(nets[c].chainId)) {
-                push("DEPOSIT", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
-                push("WITHDRAW", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
-            }
+            push("DEPOSIT", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+            push("WITHDRAW", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
             assertWant(roles.expected);
         }
     }
@@ -62,7 +60,6 @@ contract LibIdealRolesTest is Test {
         SupportedNetwork[] memory nets = networks();
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         for (uint256 c = 0; c < nets.length; c++) {
-            if (!LibAuthoriserInvariants.grantsOrchestrator(nets[c].chainId)) continue;
             (address safe, address timelock) = principals(nets[c].chainId);
             ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[2];
             assertEq(roles.target, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
@@ -79,8 +76,7 @@ contract LibIdealRolesTest is Test {
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             (address safe, address timelock) = principals(nets[c].chainId);
-            uint256 at = LibAuthoriserInvariants.grantsOrchestrator(nets[c].chainId) ? 3 : 2;
-            ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[at];
+            ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[3];
             assertEq(roles.target, timelock);
 
             push("PROPOSER_ROLE", safe);
@@ -94,7 +90,6 @@ contract LibIdealRolesTest is Test {
     function testMintCapsOrchestratorLists() external {
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
-            if (!LibAuthoriserInvariants.grantsOrchestrator(nets[c].chainId)) continue;
             (, address timelock) = principals(nets[c].chainId);
             ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[4];
             assertEq(roles.target, LibOrchestratorInvariants.mintCapsInstance());
@@ -110,7 +105,6 @@ contract LibIdealRolesTest is Test {
     function testMintCapsGranteesAreTheChainsProdTimelockNotTheCandidate() external pure {
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
-            if (!LibAuthoriserInvariants.grantsOrchestrator(nets[c].chainId)) continue;
             (, address timelock) = principals(nets[c].chainId);
             RoleGrant[] memory grants = LibIdealRoles.contractRoles(nets[c].chainId)[4].expected;
             assertGt(grants.length, 0);
@@ -125,7 +119,6 @@ contract LibIdealRolesTest is Test {
         SupportedNetwork[] memory nets = networks();
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         for (uint256 c = 0; c < nets.length; c++) {
-            if (!LibAuthoriserInvariants.grantsOrchestrator(nets[c].chainId)) continue;
             uint256 snapshot = vm.snapshotState();
             vm.chainId(nets[c].chainId);
             LibLocalProdState.orchestrator(vm, nets[c].chainId);
@@ -139,22 +132,17 @@ contract LibIdealRolesTest is Test {
         }
     }
 
-    /// @notice 0G lists the V4 authoriser, the EU authoriser and the timelock
-    /// only: its authorisers grant no orchestrator, so neither orchestrator is
-    /// expected to hold roles there.
-    function testZerogListsNoOrchestrator() external pure {
+    /// @notice 0G lists the same five contracts as every other chain: it runs
+    /// the orchestrator, so both orchestrators are expected to hold roles there.
+    function testZerogListsTheOrchestrator() external pure {
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
         ContractRoles[] memory roles = LibIdealRoles.contractRoles(id);
-        assertEq(roles.length, 3);
+        assertEq(roles.length, 5);
         assertEq(roles[0].target, LibAuthoriserInvariants.authoriserForChainId(id));
         assertEq(roles[1].target, LibAuthoriserInvariants.euAuthoriserForChainId(id));
-        assertEq(roles[2].target, LibTimelockInvariants.timelockForChainId(id));
-        for (uint256 r = 0; r < roles.length; r++) {
-            assertNotEq(roles[r].target, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
-            for (uint256 i = 0; i < roles[r].expected.length; i++) {
-                assertNotEq(roles[r].expected[i].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
-            }
-        }
+        assertEq(roles[2].target, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+        assertEq(roles[3].target, LibTimelockInvariants.timelockForChainId(id));
+        assertEq(roles[4].target, LibOrchestratorInvariants.mintCapsInstance());
     }
 
     function principals(uint256 chainId) internal pure returns (address, address) {
@@ -217,26 +205,22 @@ contract LibIdealRolesTest is Test {
     }
 
     /// @notice 0G's ideal V4 authoriser list is the per-chain map: the Safe,
-    /// the timelock and the signer, with no orchestrator `DEPOSIT` or
-    /// `WITHDRAW`. On 0G the orchestrator's pinned address goes to whoever
-    /// first calls the permissionless 0.1.30 beacon-set deployer. This pins
-    /// 0G's row directly, whether or not 0G is a deployment network.
-    function testZerogV4AuthoriserListLeavesOutTheOrchestrator() external {
+    /// the timelock, the signer and the orchestrator's `DEPOSIT` and
+    /// `WITHDRAW`. This pins 0G's row directly, whether or not 0G is a
+    /// deployment network.
+    function testZerogV4AuthoriserListGrantsTheOrchestrator() external {
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
-        assertFalse(LibAuthoriserInvariants.grantsOrchestrator(id));
         (address safe, address timelock) = principals(id);
         ContractRoles memory roles = LibIdealRoles.contractRoles(id)[0];
         assertEq(roles.target, LibAuthoriserInvariants.authoriserForChainId(id));
-        assertEq(roles.expected.length, LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX);
-        for (uint256 i = 0; i < roles.expected.length; i++) {
-            assertNotEq(roles.expected[i].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
-        }
 
         pushEach(adminRoles(), timelock);
         push("DEPOSIT", safe);
         push("WITHDRAW", safe);
         push("CERTIFY", safe);
         push("CERTIFY", LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
+        push("DEPOSIT", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        push("WITHDRAW", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
         assertWant(roles.expected);
     }
 }
