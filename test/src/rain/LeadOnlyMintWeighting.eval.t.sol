@@ -6,6 +6,7 @@ import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {Float} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 import {MessageHashUtils} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MessageHashUtils.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {
     CONTEXT_ATTESTATION_ROWS,
@@ -15,6 +16,7 @@ import {
     CONTEXT_ATTESTATION_ROW_SOURCE,
     CONTEXT_ATTESTATION_ROW_CURRENCY
 } from "src/lib/LibSt0xAttestContext.sol";
+import {UnderlyingSymbolEmpty} from "src/error/ErrSt0xAttest.sol";
 import {WeightingEvalTest} from "test/src/rain/WeightingEvalTest.sol";
 
 contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
@@ -73,23 +75,23 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         return signAll(only(attestation));
     }
 
-    function accepted(string memory vaultSymbol, Float amount, SignedContextV2[] memory signed, Float value)
+    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value)
         internal
         view
     {
-        evalAccepted(grid(vaultSymbol, amount, signed), vaultSymbol, value);
+        evalAccepted(grid(mintToken, amount, signed), mintToken, value);
     }
 
     function accepted(Attestation memory attestation, Float value) internal view {
-        accepted(VAULT_SYMBOL, decimal(AMOUNT, 0), signAll(only(attestation)), value);
+        accepted(token, decimal(AMOUNT, 0), signAll(only(attestation)), value);
     }
 
-    function refused(string memory vaultSymbol, Attestation[] memory attestations, bytes memory err) internal {
-        evalReverts(grid(vaultSymbol, decimal(AMOUNT, 0), signAll(attestations)), err);
+    function refused(address mintToken, Attestation[] memory attestations, bytes memory err) internal {
+        evalReverts(grid(mintToken, decimal(AMOUNT, 0), signAll(attestations)), err);
     }
 
     function refused(Attestation memory attestation, string memory reason) internal {
-        refused(VAULT_SYMBOL, only(attestation), ensureError(reason));
+        refused(token, only(attestation), ensureError(reason));
     }
 
     function testLeadAttestationOutputsMintAmountTimesLeadPrice() external view {
@@ -106,7 +108,7 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         Attestation memory attestation = lead();
         attestation.price = decimal(priceCents, -2);
         accepted(
-            VAULT_SYMBOL,
+            token,
             decimal(amount, amountExponent),
             signAll(only(attestation)),
             decimal(amount * priceCents, amountExponent - 2)
@@ -204,16 +206,16 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
             Attestation[] memory pair = new Attestation[](2);
             pair[0] = lead();
             pair[1] = others[i];
-            accepted(VAULT_SYMBOL, decimal(AMOUNT, 0), signAll(pair), decimal(AMOUNT * PRICE, 0));
+            accepted(token, decimal(AMOUNT, 0), signAll(pair), decimal(AMOUNT * PRICE, 0));
             all[1 + i] = others[i];
         }
-        accepted(VAULT_SYMBOL, decimal(AMOUNT, 0), signAll(all), decimal(AMOUNT * PRICE, 0));
+        accepted(token, decimal(AMOUNT, 0), signAll(all), decimal(AMOUNT * PRICE, 0));
 
         SignedContextV2[] memory shortContexts = new SignedContextV2[](3);
         shortContexts[0] = signAll(only(lead()))[0];
         shortContexts[1] = sign(OPERATOR_KEY_0, new bytes32[](1));
         shortContexts[2] = sign(OPERATOR_KEY_0 + 1, new bytes32[](0));
-        accepted(VAULT_SYMBOL, decimal(AMOUNT, 0), shortContexts, decimal(AMOUNT * PRICE, 0));
+        accepted(token, decimal(AMOUNT, 0), shortContexts, decimal(AMOUNT * PRICE, 0));
     }
 
     function testAnySignerButTheLeadSignerIsRefused(uint256 key) external {
@@ -229,11 +231,11 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         attestations[0] = lead();
         attestations[0].key = OPERATOR_KEY_0;
         attestations[1] = lead();
-        refused(VAULT_SYMBOL, attestations, ensureError("Lead attestation missing"));
+        refused(token, attestations, ensureError("Lead attestation missing"));
     }
 
     function testNoAttestationsRevertsReadingTheLead() external {
-        evalReverts(grid(VAULT_SYMBOL, decimal(AMOUNT, 0), new SignedContextV2[](0)), stdError.indexOOBError);
+        evalReverts(grid(token, decimal(AMOUNT, 0), new SignedContextV2[](0)), stdError.indexOOBError);
     }
 
     function testLeadUnderAnyOtherDomainIsRefused(bytes32 other) external {
@@ -271,17 +273,21 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         refused(attestation, "Lead source mismatch");
     }
 
-    function testATickerOfAnyLengthIsAccepted() external view {
-        string[6] memory tickers =
-            [string("MU"), "TSM", TICKER, OTHER_TICKER, "GOOGL", "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123"];
+    function testATickerOfAnyLengthIsAccepted() external {
+        string[7] memory tickers = [
+            string("MU"),
+            "TSM",
+            TICKER,
+            OTHER_TICKER,
+            "GOOGL",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ01234"
+        ];
         for (uint256 i = 0; i < tickers.length; i++) {
             Attestation memory attestation = lead();
             attestation.attestedSymbol = symbol(tickers[i]);
             accepted(
-                string.concat("t", tickers[i]),
-                decimal(AMOUNT, 0),
-                signAll(only(attestation)),
-                decimal(AMOUNT * PRICE, 0)
+                underlyingToken(tickers[i]), decimal(AMOUNT, 0), signAll(only(attestation)), decimal(AMOUNT * PRICE, 0)
             );
         }
     }
@@ -289,14 +295,17 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
     function testAnotherTokensTickerIsRefused() external {
         Attestation memory attestation = lead();
         attestation.attestedSymbol = symbol(OTHER_TICKER);
-        refused(VAULT_SYMBOL, only(attestation), ensureError("Attestation for another token"));
-        refused(OTHER_VAULT_SYMBOL, only(lead()), ensureError("Attestation for another token"));
+        refused(token, only(attestation), ensureError("Attestation for another token"));
+        refused(otherToken, only(lead()), ensureError("Attestation for another token"));
     }
 
-    function testAttestingTheVaultSymbolIsRefused() external {
+    function testAttestingTheTokenSymbolIsRefusedAndItsUnderlyingTickerAccepted() external {
+        assertEq(IERC20Metadata(token).symbol(), VAULT_SYMBOL, "premise: the token's symbol");
         Attestation memory attestation = lead();
         attestation.attestedSymbol = symbol(VAULT_SYMBOL);
         refused(attestation, "Attestation for another token");
+        attestation.attestedSymbol = symbol(TICKER);
+        accepted(attestation, decimal(AMOUNT * PRICE, 0));
     }
 
     function testAnyLeadSymbolButTheTickerIsRefused(bytes32 attestedSymbol) external {
@@ -304,21 +313,6 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         Attestation memory attestation = lead();
         attestation.attestedSymbol = attestedSymbol;
         refused(attestation, "Attestation for another token");
-    }
-
-    function testAVaultSymbolWithoutTheTPrefixIsRefused() external {
-        string[4] memory vaultSymbols = ["MSTR", "xMSTR", "TMSTR", ""];
-        string[4] memory tickers = ["STR", "MSTR", "MSTR", ""];
-        for (uint256 i = 0; i < vaultSymbols.length; i++) {
-            Attestation memory attestation = lead();
-            attestation.attestedSymbol = symbol(tickers[i]);
-            refused(vaultSymbols[i], only(attestation), ensureError("Vault symbol has no t prefix"));
-        }
-    }
-
-    function testAnyFirstCharacterButTIsRefused(bytes1 first) external {
-        vm.assume(first != "t");
-        refused(string(bytes.concat(first, bytes(TICKER))), only(lead()), ensureError("Vault symbol has no t prefix"));
     }
 
     function testANonUsdCurrencyIsRefused() external {
@@ -347,23 +341,23 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         attestation.currency = symbol("EUR");
         attestation.time = at(-MAX_TIME_SPREAD - 1);
         attestation.price = decimal(MAX_PRICE + 1, 0);
-        string memory vaultSymbol = TICKER;
+        address mintToken = underlyingToken("");
 
-        refused(vaultSymbol, only(attestation), ensureError("Lead attestation missing"));
+        refused(mintToken, only(attestation), ensureError("Lead attestation missing"));
         attestation.key = LEAD_KEY;
-        refused(vaultSymbol, only(attestation), ensureError("Lead domain mismatch"));
+        refused(mintToken, only(attestation), abi.encodeWithSelector(UnderlyingSymbolEmpty.selector, mintToken));
+        mintToken = token;
+        refused(mintToken, only(attestation), ensureError("Lead domain mismatch"));
         attestation.domain = priceDomain();
-        refused(vaultSymbol, only(attestation), ensureError("Lead source mismatch"));
+        refused(mintToken, only(attestation), ensureError("Lead source mismatch"));
         attestation.priceSource = symbol(LEAD_SOURCE);
-        refused(vaultSymbol, only(attestation), ensureError("Vault symbol has no t prefix"));
-        vaultSymbol = VAULT_SYMBOL;
-        refused(vaultSymbol, only(attestation), ensureError("Attestation for another token"));
+        refused(mintToken, only(attestation), ensureError("Attestation for another token"));
         attestation.attestedSymbol = symbol(TICKER);
-        refused(vaultSymbol, only(attestation), ensureError("Price not in USD"));
+        refused(mintToken, only(attestation), ensureError("Price not in USD"));
         attestation.currency = symbol("USD");
-        refused(vaultSymbol, only(attestation), ensureError("Times disagree"));
+        refused(mintToken, only(attestation), ensureError("Times disagree"));
         attestation.time = at(0);
-        refused(vaultSymbol, only(attestation), ensureError("Price outside bounds"));
+        refused(mintToken, only(attestation), ensureError("Price outside bounds"));
         attestation.price = decimal(PRICE, 0);
         accepted(attestation, decimal(AMOUNT * PRICE, 0));
     }

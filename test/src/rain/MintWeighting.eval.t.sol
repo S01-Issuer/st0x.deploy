@@ -5,6 +5,7 @@ pragma solidity =0.8.25;
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {Float} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
 import {
     CONTEXT_ATTESTATION_ROWS,
@@ -14,6 +15,7 @@ import {
     CONTEXT_ATTESTATION_ROW_SOURCE,
     CONTEXT_ATTESTATION_ROW_CURRENCY
 } from "src/lib/LibSt0xAttestContext.sol";
+import {UnderlyingSymbolEmpty} from "src/error/ErrSt0xAttest.sol";
 import {WeightingEvalTest} from "test/src/rain/WeightingEvalTest.sol";
 
 contract MintWeightingEvalTest is WeightingEvalTest {
@@ -90,23 +92,23 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         return signAll(attestations);
     }
 
-    function accepted(string memory vaultSymbol, Float amount, SignedContextV2[] memory signed, Float value)
+    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value)
         internal
         view
     {
-        evalAccepted(grid(vaultSymbol, amount, signed), vaultSymbol, value);
+        evalAccepted(grid(mintToken, amount, signed), mintToken, value);
     }
 
     function accepted(Attestation[] memory attestations, Float value) internal view {
-        accepted(VAULT_SYMBOL, decimal(AMOUNT, 0), signAll(attestations), value);
+        accepted(token, decimal(AMOUNT, 0), signAll(attestations), value);
     }
 
-    function refused(string memory vaultSymbol, SignedContextV2[] memory signed, bytes memory err) internal {
-        evalReverts(grid(vaultSymbol, decimal(AMOUNT, 0), signed), err);
+    function refused(address mintToken, SignedContextV2[] memory signed, bytes memory err) internal {
+        evalReverts(grid(mintToken, decimal(AMOUNT, 0), signed), err);
     }
 
     function refused(Attestation[] memory attestations, string memory reason) internal {
-        refused(VAULT_SYMBOL, signAll(attestations), ensureError(reason));
+        refused(token, signAll(attestations), ensureError(reason));
     }
 
     function testQuorumOutputsMintAmountTimesLeadPrice() external view {
@@ -132,7 +134,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         amountExponent = bound(amountExponent, -18, 0);
         priceCents = bound(priceCents, MIN_PRICE * 100, MAX_PRICE * 100);
         accepted(
-            VAULT_SYMBOL,
+            token,
             decimal(amount, amountExponent),
             signAll(quorumAt(decimal(priceCents, -2))),
             decimal(amount * priceCents, amountExponent - 2)
@@ -188,7 +190,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         }
         shortContexts[3] = sign(OPERATOR_KEY_0 + 2, new bytes32[](1));
         shortContexts[4] = sign(OPERATOR_KEY_0 + 3, new bytes32[](0));
-        accepted(VAULT_SYMBOL, decimal(AMOUNT, 0), shortContexts, decimal(AMOUNT * PRICE, 0));
+        accepted(token, decimal(AMOUNT, 0), shortContexts, decimal(AMOUNT * PRICE, 0));
     }
 
     function testNoLeadIsRefused() external {
@@ -213,7 +215,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
     }
 
     function testNoAttestationsRevertsReadingTheLead() external {
-        refused(VAULT_SYMBOL, new SignedContextV2[](0), stdError.indexOOBError);
+        refused(token, new SignedContextV2[](0), stdError.indexOOBError);
     }
 
     function testFewerThanTwoPoolAttestationsRevertReadingTheSeat() external {
@@ -223,7 +225,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
             for (uint256 i = 0; i < length; i++) {
                 fewer[i] = attestations[i];
             }
-            refused(VAULT_SYMBOL, signAll(fewer), stdError.indexOOBError);
+            refused(token, signAll(fewer), stdError.indexOOBError);
         }
     }
 
@@ -351,16 +353,23 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         }
     }
 
-    function testATickerOfAnyLengthIsAccepted() external view {
-        string[6] memory tickers =
-            [string("MU"), "TSM", TICKER, OTHER_TICKER, "GOOGL", "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123"];
+    function testATickerOfAnyLengthIsAccepted() external {
+        string[7] memory tickers = [
+            string("MU"),
+            "TSM",
+            TICKER,
+            OTHER_TICKER,
+            "GOOGL",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123",
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZ01234"
+        ];
         for (uint256 i = 0; i < tickers.length; i++) {
             Attestation[] memory attestations = quorum();
             for (uint256 j = 0; j < attestations.length; j++) {
                 attestations[j].attestedSymbol = symbol(tickers[i]);
             }
             accepted(
-                string.concat("t", tickers[i]), decimal(AMOUNT, 0), signAll(attestations), decimal(AMOUNT * PRICE, 0)
+                underlyingToken(tickers[i]), decimal(AMOUNT, 0), signAll(attestations), decimal(AMOUNT * PRICE, 0)
             );
         }
     }
@@ -371,34 +380,17 @@ contract MintWeightingEvalTest is WeightingEvalTest {
             attestations[i].attestedSymbol = symbol(OTHER_TICKER);
             refused(attestations, "Attestation for another token");
         }
-        refused(OTHER_VAULT_SYMBOL, signAll(quorum()), ensureError("Attestation for another token"));
+        refused(otherToken, signAll(quorum()), ensureError("Attestation for another token"));
     }
 
-    function testAttestingTheVaultSymbolIsRefused() external {
+    function testAttestingTheTokenSymbolIsRefusedAndItsUnderlyingTickerAccepted() external {
+        assertEq(IERC20Metadata(token).symbol(), VAULT_SYMBOL, "premise: the token's symbol");
         Attestation[] memory attestations = quorum();
         for (uint256 i = 0; i < attestations.length; i++) {
             attestations[i].attestedSymbol = symbol(VAULT_SYMBOL);
         }
         refused(attestations, "Attestation for another token");
-    }
-
-    function testAVaultSymbolWithoutTheTPrefixIsRefused() external {
-        string[4] memory vaultSymbols = ["MSTR", "xMSTR", "TMSTR", ""];
-        string[4] memory tickers = ["STR", "MSTR", "MSTR", ""];
-        for (uint256 i = 0; i < vaultSymbols.length; i++) {
-            Attestation[] memory attestations = quorum();
-            for (uint256 j = 0; j < attestations.length; j++) {
-                attestations[j].attestedSymbol = symbol(tickers[i]);
-            }
-            refused(vaultSymbols[i], signAll(attestations), ensureError("Vault symbol has no t prefix"));
-        }
-    }
-
-    function testAnyFirstCharacterButTIsRefused(bytes1 first) external {
-        vm.assume(first != "t");
-        refused(
-            string(bytes.concat(first, bytes(TICKER))), signAll(quorum()), ensureError("Vault symbol has no t prefix")
-        );
+        accepted(quorum(), decimal(AMOUNT * PRICE, 0));
     }
 
     function testTimesWithinTheSpreadOfEachOtherAndTheClockAreAccepted() external view {
@@ -571,40 +563,40 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         }
         attestations[1].price = decimal(2 * MAX_PRICE, 0);
         attestations[2].time = at(MAX_TIME_SPREAD + 1);
-        string memory vaultSymbol = TICKER;
+        address mintToken = underlyingToken("");
 
-        refused(vaultSymbol, signAll(attestations), ensureError("Lead attestation missing"));
+        refused(mintToken, signAll(attestations), ensureError("Lead attestation missing"));
         attestations[0].key = LEAD_KEY;
-        refused(vaultSymbol, signAll(attestations), ensureError("Attestor not allowlisted"));
+        refused(mintToken, signAll(attestations), ensureError("Attestor not allowlisted"));
         attestations[1].key = OPERATOR_KEY_0;
         attestations[2].key = OPERATOR_KEY_0;
-        refused(vaultSymbol, signAll(attestations), ensureError("Lead domain mismatch"));
+        refused(mintToken, signAll(attestations), abi.encodeWithSelector(UnderlyingSymbolEmpty.selector, mintToken));
+        mintToken = token;
+        refused(mintToken, signAll(attestations), ensureError("Lead domain mismatch"));
         attestations[0].domain = priceDomain();
-        refused(vaultSymbol, signAll(attestations), ensureError("Attestor domain mismatch"));
+        refused(mintToken, signAll(attestations), ensureError("Attestor domain mismatch"));
         attestations[1].domain = priceDomain();
         attestations[2].domain = priceDomain();
-        refused(vaultSymbol, signAll(attestations), ensureError("Lead source mismatch"));
+        refused(mintToken, signAll(attestations), ensureError("Lead source mismatch"));
         attestations[0].priceSource = symbol(LEAD_SOURCE);
-        refused(vaultSymbol, signAll(attestations), ensureError("Pool source not allowlisted"));
+        refused(mintToken, signAll(attestations), ensureError("Pool source not allowlisted"));
         attestations[1].priceSource = symbol(POOL_SOURCE_0);
         attestations[2].priceSource = symbol(POOL_SOURCE_1);
-        refused(vaultSymbol, signAll(attestations), ensureError("Same operator twice"));
+        refused(mintToken, signAll(attestations), ensureError("Same operator twice"));
         attestations[2].key = OPERATOR_KEY_0 + 1;
-        refused(vaultSymbol, signAll(attestations), ensureError("Vault symbol has no t prefix"));
-        vaultSymbol = VAULT_SYMBOL;
-        refused(vaultSymbol, signAll(attestations), ensureError("Attestation for another token"));
+        refused(mintToken, signAll(attestations), ensureError("Attestation for another token"));
         for (uint256 i = 0; i < attestations.length; i++) {
             attestations[i].attestedSymbol = symbol(TICKER);
         }
-        refused(vaultSymbol, signAll(attestations), ensureError("Price not in USD"));
+        refused(mintToken, signAll(attestations), ensureError("Price not in USD"));
         for (uint256 i = 0; i < attestations.length; i++) {
             attestations[i].currency = symbol("USD");
         }
-        refused(vaultSymbol, signAll(attestations), ensureError("Times disagree"));
+        refused(mintToken, signAll(attestations), ensureError("Times disagree"));
         attestations[2].time = at(0);
-        refused(vaultSymbol, signAll(attestations), ensureError("Attestors disagree"));
+        refused(mintToken, signAll(attestations), ensureError("Attestors disagree"));
         attestations[1].price = decimal(MAX_PRICE + 1, 0);
-        refused(vaultSymbol, signAll(attestations), ensureError("Price outside bounds"));
+        refused(mintToken, signAll(attestations), ensureError("Price outside bounds"));
         for (uint256 i = 0; i < attestations.length; i++) {
             attestations[i].price = decimal(PRICE, 0);
         }

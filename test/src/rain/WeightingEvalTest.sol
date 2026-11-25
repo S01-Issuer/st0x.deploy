@@ -13,6 +13,7 @@ import {
     CONTEXT_LEAD_COLUMN,
     CONTEXT_ATTESTATION_ROW_TIME
 } from "src/lib/LibSt0xAttestContext.sol";
+import {IStoxUnderlyingV1} from "src/interface/IStoxUnderlyingV1.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 
 abstract contract WeightingEvalTest is St0xAttestSubParserTest {
@@ -20,7 +21,6 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
 
     string internal constant VAULT_SYMBOL = "tMSTR";
     string internal constant TICKER = "MSTR";
-    string internal constant OTHER_VAULT_SYMBOL = "tAAPL";
     string internal constant OTHER_TICKER = "AAPL";
 
     int256 internal constant PRICE = 150;
@@ -28,6 +28,8 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
     int256 internal constant NOW = 1_760_000_000;
 
     bytes internal bytecode;
+    address internal token;
+    address internal otherToken;
 
     function bindingSet() internal pure virtual returns (string memory);
 
@@ -35,6 +37,8 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         // forge-lint: disable-next-line(unsafe-typecast)
         vm.warp(uint256(NOW));
         install(bindingSet());
+        token = underlyingToken(TICKER);
+        otherToken = underlyingToken(OTHER_TICKER);
     }
 
     function install(string memory set) internal {
@@ -49,12 +53,12 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         return decimal(NOW + offset, 0);
     }
 
-    function grid(string memory vaultSymbol, Float amount, SignedContextV2[] memory signed)
+    function grid(address mintToken, Float amount, SignedContextV2[] memory signed)
         internal
         view
         returns (bytes32[][] memory)
     {
-        return LibSt0xAttestContext.build(symbol(vaultSymbol), Float.unwrap(amount), signed);
+        return LibSt0xAttestContext.build(tokenWord(mintToken), Float.unwrap(amount), signed);
     }
 
     function eval(bytes32[][] memory context) internal view returns (StackItem[] memory, bytes32[] memory) {
@@ -80,50 +84,46 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         return abi.encodeWithSignature("Error(string)", reason);
     }
 
-    function tickerOf(string memory vaultSymbol) internal pure returns (string memory) {
-        bytes memory vault = bytes(vaultSymbol);
-        bytes memory ticker = new bytes(vault.length - 1);
-        for (uint256 i = 1; i < vault.length; i++) {
-            ticker[i - 1] = vault[i];
-        }
-        return string(ticker);
+    function tickerOf(address mintToken) internal view returns (string memory) {
+        return IStoxUnderlyingV1(mintToken).underlyingSymbol();
     }
 
     function leadTimeKey(string memory ticker) internal pure returns (bytes32) {
         return keccak256(abi.encode(symbol("lead-time"), symbol(ticker)));
     }
 
-    function evalAccepted(bytes32[][] memory context, string memory vaultSymbol, Float value)
+    function evalAccepted(bytes32[][] memory context, address mintToken, Float value)
         internal
         view
         returns (StackItem[] memory, bytes32[] memory)
     {
         (StackItem[] memory stack, bytes32[] memory writes) = eval(context);
-        bytes32 key = leadTimeKey(tickerOf(vaultSymbol));
+        string memory ticker = tickerOf(mintToken);
+        bytes32 key = leadTimeKey(ticker);
         assertEq(writes.length, 2, "writes");
         assertEq(writes[0], key, "lead-time-key write");
         assertEq(writes[1], context[CONTEXT_LEAD_COLUMN][CONTEXT_ATTESTATION_ROW_TIME], "lead-time write");
         assertEq(stack.length, 4, "stack length");
         assertTrue(Float.wrap(StackItem.unwrap(stack[0])).eq(value), "value");
         assertEq(StackItem.unwrap(stack[1]), key, "lead-time-key");
-        assertEq(StackItem.unwrap(stack[2]), symbol(tickerOf(vaultSymbol)), "ticker");
-        assertEq(StackItem.unwrap(stack[3]), priceDomain(), "price-domain");
+        assertEq(StackItem.unwrap(stack[2]), priceDomain(), "price-domain");
+        assertEq(StackItem.unwrap(stack[3]), symbol(ticker), "symbol");
         return (stack, writes);
     }
 
     function signedAt(string memory ticker, Float time) internal view virtual returns (SignedContextV2[] memory);
 
-    function mintGrid(string memory vaultSymbol, Float time) internal view returns (bytes32[][] memory) {
-        return grid(vaultSymbol, decimal(AMOUNT, 0), signedAt(tickerOf(vaultSymbol), time));
+    function mintGrid(address mintToken, Float time) internal view returns (bytes32[][] memory) {
+        return grid(mintToken, decimal(AMOUNT, 0), signedAt(tickerOf(mintToken), time));
     }
 
-    function mintAt(string memory vaultSymbol, Float time) internal {
-        (, bytes32[] memory writes) = evalAccepted(mintGrid(vaultSymbol, time), vaultSymbol, decimal(AMOUNT * PRICE, 0));
+    function mintAt(address mintToken, Float time) internal {
+        (, bytes32[] memory writes) = evalAccepted(mintGrid(mintToken, time), mintToken, decimal(AMOUNT * PRICE, 0));
         I_STORE.set(StateNamespace.wrap(0), writes);
     }
 
-    function mintRefusedAt(string memory vaultSymbol, Float time) internal {
-        evalReverts(mintGrid(vaultSymbol, time), ensureError("Lead time went backwards"));
+    function mintRefusedAt(address mintToken, Float time) internal {
+        evalReverts(mintGrid(mintToken, time), ensureError("Lead time went backwards"));
     }
 
     function storedLeadTime(string memory ticker) internal view returns (bytes32) {
@@ -132,51 +132,51 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
 
     function testTheFirstMintOfATickerIsAcceptedAndStoresItsLeadTime() external {
         assertEq(storedLeadTime(TICKER), bytes32(0), "unset");
-        mintAt(VAULT_SYMBOL, at(-MAX_TIME_SPREAD));
+        mintAt(token, at(-MAX_TIME_SPREAD));
         assertEq(storedLeadTime(TICKER), Float.unwrap(at(-MAX_TIME_SPREAD)), "stored");
     }
 
     function testAMintBeforeTheStoredLeadTimeIsRefused() external {
-        mintAt(VAULT_SYMBOL, at(0));
-        mintRefusedAt(VAULT_SYMBOL, at(-1));
-        mintRefusedAt(VAULT_SYMBOL, decimal(NOW * 10 - 1, -1));
-        mintRefusedAt(VAULT_SYMBOL, at(-MAX_TIME_SPREAD));
+        mintAt(token, at(0));
+        mintRefusedAt(token, at(-1));
+        mintRefusedAt(token, decimal(NOW * 10 - 1, -1));
+        mintRefusedAt(token, at(-MAX_TIME_SPREAD));
         assertEq(storedLeadTime(TICKER), Float.unwrap(at(0)), "unchanged");
     }
 
     function testAMintAtTheStoredLeadTimeIsAccepted() external {
-        mintAt(VAULT_SYMBOL, at(0));
-        mintAt(VAULT_SYMBOL, at(0));
-        mintAt(VAULT_SYMBOL, decimal(NOW * 10, -1));
+        mintAt(token, at(0));
+        mintAt(token, at(0));
+        mintAt(token, decimal(NOW * 10, -1));
         assertTrue(Float.wrap(storedLeadTime(TICKER)).eq(at(0)), "stored");
     }
 
     function testAMintAfterTheStoredLeadTimeMovesItForward() external {
-        mintAt(VAULT_SYMBOL, at(-1));
-        mintAt(VAULT_SYMBOL, at(0));
+        mintAt(token, at(-1));
+        mintAt(token, at(0));
         assertEq(storedLeadTime(TICKER), Float.unwrap(at(0)), "moved");
-        mintRefusedAt(VAULT_SYMBOL, at(-1));
+        mintRefusedAt(token, at(-1));
     }
 
     function testEachTickerHasItsOwnLeadTime() external {
-        mintAt(VAULT_SYMBOL, at(0));
-        mintAt(OTHER_VAULT_SYMBOL, at(-1));
+        mintAt(token, at(0));
+        mintAt(otherToken, at(-1));
         assertEq(storedLeadTime(TICKER), Float.unwrap(at(0)), "ticker");
         assertEq(storedLeadTime(OTHER_TICKER), Float.unwrap(at(-1)), "other ticker");
-        mintRefusedAt(VAULT_SYMBOL, at(-1));
-        mintAt(OTHER_VAULT_SYMBOL, at(-1));
-        mintRefusedAt(OTHER_VAULT_SYMBOL, at(-2));
+        mintRefusedAt(token, at(-1));
+        mintAt(otherToken, at(-1));
+        mintRefusedAt(otherToken, at(-2));
     }
 
     function testASecondMintIsAcceptedIffItsLeadTimeIsNotBeforeTheFirst(int256 first, int256 second) external {
         first = bound(first, -MAX_TIME_SPREAD, MAX_TIME_SPREAD);
         second = bound(second, -MAX_TIME_SPREAD, MAX_TIME_SPREAD);
-        mintAt(VAULT_SYMBOL, at(first));
+        mintAt(token, at(first));
         if (second >= first) {
-            mintAt(VAULT_SYMBOL, at(second));
+            mintAt(token, at(second));
             assertEq(storedLeadTime(TICKER), Float.unwrap(at(second)), "stored");
         } else {
-            mintRefusedAt(VAULT_SYMBOL, at(second));
+            mintRefusedAt(token, at(second));
         }
     }
 }
