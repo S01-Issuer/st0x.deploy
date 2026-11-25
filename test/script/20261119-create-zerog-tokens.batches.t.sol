@@ -190,7 +190,7 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
         LibTokenInvariants.assertUniformAuthoriser(table, LibAuthoriserInvariants.authoriserForChainId(block.chainid));
         address us = LibAuthoriserInvariants.authoriserForChainId(block.chainid);
         LibAuthoriserInvariants.assertHeld(
-            us, LibAuthoriserInvariants.expectedGrantsOn(block.chainid, safe(), timelock())
+            us, LibAuthoriserInvariants.expectedGrantsWithoutOrchestrator(safe(), timelock())
         );
         assertFalse(
             IAccessControl(us).hasRole(DEPOSIT, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR), "no orchestrator deposit"
@@ -210,7 +210,7 @@ contract CreateZerogTokensBatchesTest is ZerogTokenCreationFixture {
     }
 
     /// @notice Once the bundles land, the Safe can mint and redeem a US token: its `DEPOSIT`, `WITHDRAW` and
-    /// `CERTIFY` on the V4 clone pass the vault's authoriser. The orchestrator's pinned address, which 0G's clone does
+    /// `CERTIFY` on the V4 clone pass the vault's authoriser. The orchestrator, which 0G's clone does
     /// not grant, is refused, as is anyone else.
     function testSafeCanMintAUsTokenAfterTheBundles() external {
         executeAllBatches();

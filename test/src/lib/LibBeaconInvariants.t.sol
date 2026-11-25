@@ -276,21 +276,11 @@ contract LibBeaconInvariantsTest is Test {
         }
     }
 
-    /// @notice 0G runs no orchestrator, so its in-use beacons are the three
-    /// token beacons: with no orchestrator beacon there, as on chain, they pass.
-    function testZerogsInUseBeaconsAreTheThreeTokenBeacons() external {
-        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
-        assertEq(LibBeaconInvariants.prodBeaconsInUse(id), 3);
-        LibLocalProdState.beacons(vm, id);
-        assertEq(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON.code.length, 0, "no orchestrator beacon");
-        LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(id);
-    }
-
-    /// @notice A chain that runs the orchestrator still needs its beacon: a
-    /// missing one trips `BeaconNotDeployed`.
-    function testInvertedMissingOrchestratorBeaconWhereTheChainRunsOne() external {
-        uint256 id = LibSafeInvariants.ETHEREUM_CHAIN_ID;
-        assertEq(LibBeaconInvariants.prodBeaconsInUse(id), 4);
+    /// @notice Every chain runs the orchestrator, 0G included, so every chain
+    /// needs its beacon: a missing one trips `BeaconNotDeployed`.
+    function testInvertedMissingOrchestratorBeacon(uint256 chainIndex) external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        uint256 id = chainIds[bound(chainIndex, 0, chainIds.length - 1)];
         LibLocalProdState.beacons(vm, id);
         harness = new LibBeaconInvariantsHarness();
         vm.etch(LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON, "");

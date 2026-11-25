@@ -50,17 +50,9 @@ library LibStoxReleasedNetworks {
     /// @notice The frozen releases 0G does not run.
     /// @return The release suite keys.
     function releasesNotOnZerog() internal pure returns (string[] memory) {
-        string[] memory suites = new string[](2);
+        string[] memory suites = new string[](1);
         // No 0G token mints through a payment-mint authoriser.
         suites[0] = "stox-offchain-asset-receipt-vault-payment-mint-authorizer@0_1_1";
-        // Its `deploy(owner)` is permissionless, and its first call creates the
-        // orchestrator at its pinned address on every chain. Deployed on 0G, it
-        // would let anyone take that address and its admin. A reviewed 0G
-        // orchestrator migration deploys it and claims the instance for the 0G
-        // timelock in one step. Without it, 0G has no orchestrator beacon
-        // (`LibBeaconInvariants.prodBeaconsInUse`). Its 0.1.30 implementation
-        // is harmless alone and stays required on 0G.
-        suites[1] = "stox-orchestrator-beacon-set-deployer@0_1_30";
         return suites;
     }
 }
