@@ -69,17 +69,17 @@
 
 - **`IStoxUnderlyingV2`: each receipt vault stores its underlying ticker, name
   and ISIN.** `StoxCorporateActionsFacet` implements `underlyingSymbol()`,
-  `underlyingName()`, `underlyingIsin()` and `setUnderlying(symbol, name, isin)`,
-  with the values and the `block.timestamp` of the set in a new ERC-7201
-  namespace `rain.storage.underlying.1` (`LibSecurity`). The setter is
-  `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains it
-  goes through the governance timelock), refuses values that fail init's listing
-  rules (`LibSecurity.tickerWellFormed` / `nameWellFormed` / `isinWellFormed`)
-  with `MalformedUnderlyingSymbol` / `MalformedUnderlyingName` /
-  `MalformedUnderlyingIsin`, emits `UnderlyingSet` with the getters' old values
-  and the new ones, and can be called again when a listing is renamed.
-  `IStoxUnderlyingV1` and its two-argument `setUnderlying` are deprecated and
-  not implemented.
+  `underlyingName()`, `underlyingIsin()` and
+  `setUnderlying(symbol, name, isin)`, with the values and the `block.timestamp`
+  of the set in a new ERC-7201 namespace `rain.storage.underlying.1`
+  (`LibSecurity`). The setter is `onlyOwner`-equivalent (it checks the vault's
+  `owner()`, so on live chains it goes through the governance timelock), refuses
+  values that fail init's listing rules (`LibSecurity.tickerWellFormed` /
+  `nameWellFormed` / `isinWellFormed`) with `MalformedUnderlyingSymbol` /
+  `MalformedUnderlyingName` / `MalformedUnderlyingIsin`, emits `UnderlyingSet`
+  with the getters' old values and the new ones, and can be called again when a
+  listing is renamed. `IStoxUnderlyingV1` and its two-argument `setUnderlying`
+  are deprecated and not implemented.
 - **Token metadata is built from those values.** Once set, `StoxReceiptVault`
   reports `symbol() = "t" + ticker` and `name() = name + " (ST0x)"`, and
   `StoxWrappedTokenVault` reports `symbol() = ticker + "s"` and the vault's
