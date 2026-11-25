@@ -22,7 +22,7 @@ import {
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {ST0X_NAME_SUFFIX} from "../src/lib/LibSecurity.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations, SafeNotApprovedWriter} from "../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, RootLineWriterNotApproved, UnexpectedMigrationLine} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice The beacon batch is not registered on this chain's timelock, so
 /// the rename batch, which names it as predecessor, could never execute.
@@ -115,7 +115,8 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The timelock may write the batch's record. The release is frozen, the downstream services accept the new
+    /// @dev The timelock may write the batch's record, and the root line is at the beacon batch's onto, or at its record
+    /// once it has executed. The release is frozen, the downstream services accept the new
     /// symbols, every row is well formed, the Safe and timelock are the pinned ones,
     /// the beacon batch is registered, the rename batch is not, every ticker
     /// is bound to its vault, and the timelock owns every vault.
@@ -125,11 +126,16 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
         LibUnderlyingNamingRollout.assertUnderlyingsWellFormed(block.chainid);
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        if (!LibStoxMigrations.approved(timelock())) revert SafeNotApprovedWriter(timelock());
+        if (!LibStoxMigrations.approved(timelock())) revert RootLineWriterNotApproved(timelock());
         TimelockController controller = TimelockController(payable(timelock()));
 
         bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
         if (!controller.isOperation(beaconId)) revert BeaconBatchNotScheduled(beaconId);
+        bytes32 lineHead = LibStoxMigrations.head();
+        bytes32 expectedHead = controller.isOperationDone(beaconId)
+            ? LibUnderlyingNamingRollout.renameDeclaration().onto
+            : LibUnderlyingNamingRollout.beaconDeclaration().onto;
+        if (lineHead != expectedHead) revert UnexpectedMigrationLine(lineHead);
         bytes32 id = LibUnderlyingNamingRollout.renameOperationId(timelock(), block.chainid);
         if (controller.isOperation(id)) revert RenameAlreadyScheduled(id);
 

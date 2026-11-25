@@ -29,8 +29,8 @@ error UnexpectedMigrationLine(bytes32 head);
 
 /// @notice The registry would not let the account write the root line, so
 /// the record would revert.
-/// @param safe The account.
-error SafeNotApprovedWriter(address safe);
+/// @param delegate The account.
+error RootLineWriterNotApproved(address delegate);
 
 /// @notice After the bundle, the migration's record is not the one the
 /// bundle wrote.
@@ -231,7 +231,7 @@ library LibStoxMigrations {
     function assertNext(ScriptDeclaration memory declared, address delegate) internal view {
         bytes32 lineHead = head();
         if (lineHead != declared.onto) revert UnexpectedMigrationLine(lineHead);
-        if (!approved(delegate)) revert SafeNotApprovedWriter(delegate);
+        if (!approved(delegate)) revert RootLineWriterNotApproved(delegate);
     }
 
     /// @notice Reverts unless `declared` was recorded in this block and heads

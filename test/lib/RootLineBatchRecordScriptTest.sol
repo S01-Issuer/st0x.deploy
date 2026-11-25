@@ -16,7 +16,7 @@ import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibStoxMigrations, SafeNotApprovedWriter} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, RootLineWriterNotApproved} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {IRecordScriptHooks} from "./RootLineRecordScriptTest.sol";
 import {LibTestRootLine} from "./LibTestRootLine.sol";
@@ -127,7 +127,7 @@ abstract contract RootLineBatchRecordScriptTest is Test {
     function testPreflightRefusesATimelockTheRootDoesNotApprove() external {
         sScript.callPreflight();
         LibTestRootLine.revoke(vm, timelock());
-        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, timelock()));
+        vm.expectRevert(abi.encodeWithSelector(RootLineWriterNotApproved.selector, timelock()));
         sScript.callPreflight();
     }
 

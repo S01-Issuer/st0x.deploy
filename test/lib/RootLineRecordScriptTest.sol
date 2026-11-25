@@ -15,7 +15,7 @@ import {
     LibStoxMigrations,
     LineHeadMismatch,
     RecordMismatch,
-    SafeNotApprovedWriter,
+    RootLineWriterNotApproved,
     UnexpectedMigrationLine
 } from "../../src/lib/LibStoxMigrations.sol";
 import {LibTestRootLine} from "./LibTestRootLine.sol";
@@ -144,7 +144,7 @@ abstract contract RootLineRecordScriptTest is Test {
     function testPreflightRefusesASafeTheRootDoesNotApprove() external {
         sScript.callPreflight();
         LibTestRootLine.revoke(vm, safeAddress());
-        vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, safeAddress()));
+        vm.expectRevert(abi.encodeWithSelector(RootLineWriterNotApproved.selector, safeAddress()));
         sScript.callPreflight();
     }
 
