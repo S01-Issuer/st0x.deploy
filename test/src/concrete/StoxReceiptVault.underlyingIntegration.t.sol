@@ -68,7 +68,7 @@ contract StoxUnderlyingIntegrationTest is Test {
     /// through the real proxy, fallback and facet path, so the probe of its
     /// asset is not starved of gas.
     function testLongUnderlyingDerivesThroughWrapper() external {
-        string memory ticker = repeated("A", 16);
+        string memory ticker = repeated("A", 4096);
         string memory longName = repeated("N", 4096);
         IStoxUnderlyingV1(address(sVault)).setUnderlying(ticker, longName);
         vm.cool(address(sVault));

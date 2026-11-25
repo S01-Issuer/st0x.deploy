@@ -25,7 +25,7 @@ import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
 import {LibSecurity} from "../lib/LibSecurity.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
-import {MalformedUnderlyingSymbol, MalformedUnderlyingName} from "../error/ErrUnderlying.sol";
+import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../error/ErrUnderlying.sol";
 import {IStoxTokenConfigV1, StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../interface/IStoxTokenConfigV1.sol";
 import {
     InvalidStoxTokenConfigTag,
@@ -256,8 +256,8 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
         if (msg.sender != IOwnable(address(this)).owner()) {
             revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
         }
-        if (!LibSecurity.tickerWellFormed(bytes(newSymbol))) revert MalformedUnderlyingSymbol(newSymbol);
-        if (!LibSecurity.nameWellFormed(bytes(newName))) revert MalformedUnderlyingName(newName);
+        if (bytes(newSymbol).length == 0) revert EmptyUnderlyingSymbol();
+        if (bytes(newName).length == 0) revert EmptyUnderlyingName();
 
         emit UnderlyingSet(msg.sender, underlyingSymbol(), underlyingName(), newSymbol, newName);
         LibSecurity.UnderlyingStorage storage underlyingStorage = LibSecurity.getStorage();

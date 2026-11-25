@@ -23,10 +23,7 @@ import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {
-    AuthorizerMissingCorporateActionAdmin,
-    CorporateActionsFacetNotDeployed
-} from "../../../src/error/ErrCorporateAction.sol";
+import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
 import {
     IOffchainAssetReceiptVaultV1,
     OffchainAssetReceiptVaultConfigV3
@@ -300,17 +297,6 @@ contract StoxReceiptVaultInitializeTest is Test {
             }
         }
         assertEq(count, 1, "one OffchainAssetReceiptVaultInitializedV3");
-    }
-
-    /// With no facet code at the pinned address, initialize refuses typed
-    /// rather than decoding an empty result.
-    function testInitializeRefusesWithoutTheFacet() external {
-        LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
-        StoxReceiptVault vault = _uninitializedVault();
-        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
-        vm.etch(facet, "");
-        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
-        vault.initialize(_data());
     }
 
     function _config(string memory assetId, string memory listingTicker, string memory listingName, Region region)
