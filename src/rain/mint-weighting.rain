@@ -14,10 +14,10 @@
 #operator-5 !Pool operator.
 #operator-6 !Pool operator.
 
-#max-deviation !Max proportional price deviation.
+#max-deviation !Max spread between the highest and lowest price, as a fraction of the highest (0.01 = 1%).
 #max-time-spread !Max time spread in seconds.
-#min-price !Min lead price.
-#max-price !Max lead price.
+#min-price !Min lead price in USD, inclusive.
+#max-price !Max lead price in USD, inclusive.
 
 #weighting
 using-words-from st0x-attest-subparser

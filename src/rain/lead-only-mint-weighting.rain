@@ -7,8 +7,8 @@
 #lead-source !Lead price source.
 
 #max-time-spread !Max time spread in seconds.
-#min-price !Min lead price.
-#max-price !Max lead price.
+#min-price !Min lead price in USD, inclusive.
+#max-price !Max lead price in USD, inclusive.
 
 #weighting
 using-words-from st0x-attest-subparser
