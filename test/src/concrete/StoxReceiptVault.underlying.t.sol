@@ -7,9 +7,9 @@ import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/acce
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
-import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../../../src/error/ErrUnderlying.sol";
+import {MalformedUnderlyingSymbol, MalformedUnderlyingName} from "../../../src/error/ErrUnderlying.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
-import {UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
+import {LibSecurity, UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {ERC20_STORAGE_LOCATION} from "../../../src/lib/LibERC20Storage.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
@@ -132,13 +132,25 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
     }
 
-    /// The derivation holds for any non-empty values.
-    function testSymbolAndNameDerivedFromUnderlyingFuzz(string memory newSymbol, string memory newName) external {
-        vm.assume(bytes(newSymbol).length > 0 && bytes(newName).length > 0);
+    /// The derivation holds for any well-formed values.
+    function testSymbolAndNameDerivedFromUnderlyingFuzz(bytes32 symbolSeed, uint256 symbolLength, bytes memory nameSeed)
+        external
+    {
+        bytes memory tickerAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
+        bytes memory newSymbol = new bytes(bound(symbolLength, 1, 16));
+        for (uint256 byteIndex = 0; byteIndex < newSymbol.length; byteIndex++) {
+            newSymbol[byteIndex] = tickerAlphabet[uint8(symbolSeed[byteIndex]) % tickerAlphabet.length];
+        }
+        bytes memory newName = new bytes(nameSeed.length);
+        for (uint256 byteIndex = 0; byteIndex < newName.length; byteIndex++) {
+            bytes1 printable = bytes1(0x20 + uint8(nameSeed[byteIndex]) % 0x5f);
+            newName[byteIndex] = printable == "\"" || printable == "\\" ? bytes1(0x20) : printable;
+        }
+        vm.assume(LibSecurity.nameWellFormed(newName));
         vm.prank(OWNER);
-        underlying().setUnderlying(newSymbol, newName);
-        assertEq(sVault.symbol(), string.concat("t", newSymbol));
-        assertEq(sVault.name(), string.concat(newName, ST0X_NAME_SUFFIX));
+        underlying().setUnderlying(string(newSymbol), string(newName));
+        assertEq(sVault.symbol(), string.concat("t", string(newSymbol)));
+        assertEq(sVault.name(), string.concat(string(newName), ST0X_NAME_SUFFIX));
     }
 
     /// The first set emits the empty old values alongside the new ones.
@@ -215,21 +227,32 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         assertEq(underlying().underlyingName(), "");
     }
 
-    /// An empty symbol is rejected.
-    function testSetUnderlyingEmptySymbolReverts() external {
-        vm.expectRevert(EmptyUnderlyingSymbol.selector);
-        vm.prank(OWNER);
-        underlying().setUnderlying("", "NVIDIA Corporation");
+    /// A ticker init would refuse as a listing is rejected, the empty one
+    /// included.
+    function testSetUnderlyingMalformedSymbolReverts() external {
+        string[4] memory symbols = ["", "nvda", "NV DA", "AAAAAAAAAAAAAAAAA"];
+        for (uint256 i = 0; i < symbols.length; i++) {
+            vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSymbol.selector, symbols[i]));
+            vm.prank(OWNER);
+            underlying().setUnderlying(symbols[i], "NVIDIA Corporation");
+        }
+        assertEq(underlying().underlyingSymbol(), "");
     }
 
-    /// An empty name is rejected.
-    function testSetUnderlyingEmptyNameReverts() external {
-        vm.expectRevert(EmptyUnderlyingName.selector);
-        vm.prank(OWNER);
-        underlying().setUnderlying("NVDA", "");
+    /// A name init would refuse as a listing is rejected, the empty one
+    /// included.
+    function testSetUnderlyingMalformedNameReverts() external {
+        string[5] memory names =
+            ["", "NVIDIA \"Corporation\"", "NVIDIA\\Corporation", "NVIDIA\nCorporation", "NVIDIA (ST0x)"];
+        for (uint256 i = 0; i < names.length; i++) {
+            vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, names[i]));
+            vm.prank(OWNER);
+            underlying().setUnderlying("NVDA", names[i]);
+        }
+        assertEq(underlying().underlyingName(), "");
     }
 
-    /// The ownership check runs before the emptiness checks, so a non-owner
+    /// The ownership check runs before the shape checks, so a non-owner
     /// learns nothing from the revert about which input was bad.
     function testSetUnderlyingNonOwnerEmptyRevertsUnauthorized() external {
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, address(this)));
@@ -240,7 +263,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
     function testRejectedSetLeavesValuesUntouched() external {
         vm.prank(OWNER);
         underlying().setUnderlying("NVDA", "NVIDIA Corporation");
-        vm.expectRevert(EmptyUnderlyingName.selector);
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, ""));
         vm.prank(OWNER);
         underlying().setUnderlying("AAPL", "");
         assertEq(sVault.symbol(), "tNVDA");

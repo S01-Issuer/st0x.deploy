@@ -2,18 +2,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {Region} from "./LibProdTokenConfig.sol";
-import {AssetIdKind} from "../interface/IStoxTokenConfigV1.sol";
+import {AssetIdKind, Region} from "../interface/IStoxTokenConfigV1.sol";
 
 bytes32 constant STOX_TOKEN_CONFIG_STORAGE_LOCATION =
     keccak256(abi.encode(uint256(keccak256("rain.storage.stox-token-config.1")) - 1)) & ~bytes32(uint256(0xff));
 
-bytes32 constant INITIALIZABLE_STORAGE_LOCATION =
-    keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1)) & ~bytes32(uint256(0xff));
-
+/// @title LibStoxTokenConfig
+/// @notice The listing facts a vault was initialized with, read by later
+/// implementations.
 library LibStoxTokenConfig {
     /// @custom:storage-location erc7201:rain.storage.stox-token-config.1
-    /// @dev Append only.
+    /// @dev Append only: live vaults hold this layout.
     struct StoxTokenConfigStorage {
         string assetId;
         string listingTicker;
@@ -22,19 +21,12 @@ library LibStoxTokenConfig {
         AssetIdKind assetIdKind;
     }
 
-    function getStorage() internal pure returns (StoxTokenConfigStorage storage s) {
+    function getStorage() internal pure returns (StoxTokenConfigStorage storage) {
         bytes32 position = STOX_TOKEN_CONFIG_STORAGE_LOCATION;
+        StoxTokenConfigStorage storage tokenConfigStorage;
         assembly ("memory-safe") {
-            s.slot := position
+            tokenConfigStorage.slot := position
         }
-    }
-
-    function isUninitialized() internal view returns (bool) {
-        bytes32 position = INITIALIZABLE_STORAGE_LOCATION;
-        uint256 value;
-        assembly ("memory-safe") {
-            value := sload(position)
-        }
-        return value == 0;
+        return tokenConfigStorage;
     }
 }

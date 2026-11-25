@@ -12,6 +12,7 @@ import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthor
 import {LibRegistryDelegates} from "rain-deploy-0.1.38/src/lib/LibRegistryDelegates.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibProdOrchestratorParams} from "../src/lib/LibProdOrchestratorParams.sol";
@@ -57,7 +58,7 @@ function bindOrchestratorConfigDeclaration() pure returns (ScriptDeclaration mem
 /// and `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME` to
 /// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` under the root authority, as
 /// the root's approved delegate, and records it.
-contract BindOrchestratorConfig is SafeBundleScript, IStoxScript {
+contract BindOrchestratorConfig is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return bindOrchestratorConfigDeclaration();
