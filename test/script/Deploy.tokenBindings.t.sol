@@ -287,14 +287,10 @@ contract DeployTokenBindingsTest is Test {
         }
     }
 
-    /// A plain UpgradeableBeacon with the pinned owner and implementation is refused for its code.
-    function testTokensRefuseAVaultBeaconWithOtherCode(uint256 usSeed, uint256 euSeed) external {
-        LibTestDeploy.placeBeacon(
-            vm,
-            LibProdTokenParams.vaultBeacon(),
-            LibProdDeployCurrent.STOX_RECEIPT_VAULT,
-            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
-        );
+    /// Other code over the pinned owner and implementation storage is refused with its hash.
+    function testTokensRefuseAVaultBeaconWithOtherCode(bytes memory code, uint256 usSeed, uint256 euSeed) external {
+        vm.assume(code.length > 0 && keccak256(code) != LibProdDeployCurrent.STOX_RECEIPT_VAULT_BEACON_CODEHASH);
+        vm.etch(LibProdTokenParams.vaultBeacon(), code);
         DeploySuite[] memory tokens = harness.declaredTokenSuites(oneRowPerRegion(usSeed, euSeed));
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         for (uint256 i = 0; i < networks.length; i++) {
@@ -306,7 +302,7 @@ contract DeployTokenBindingsTest is Test {
                         BeaconCodehashMismatch.selector,
                         LibProdTokenParams.vaultBeacon(),
                         LibProdDeployCurrent.STOX_RECEIPT_VAULT_BEACON_CODEHASH,
-                        keccak256(type(UpgradeableBeacon).runtimeCode)
+                        keccak256(code)
                     )
                 );
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
