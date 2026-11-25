@@ -10,18 +10,20 @@ pragma solidity ^0.8.25;
 interface IStoxUnderlyingV1 {
     /// @notice Emitted when the underlying ticker and name are set.
     /// @param sender The caller that set the values.
-    /// @param oldSymbol The ticker before the update. Empty if unset.
-    /// @param oldName The name before the update. Empty if unset.
+    /// @param oldSymbol `underlyingSymbol()` before the update.
+    /// @param oldName `underlyingName()` before the update.
     /// @param newSymbol The ticker after the update.
     /// @param newName The name after the update.
     event UnderlyingSet(address indexed sender, string oldSymbol, string oldName, string newSymbol, string newName);
 
     /// @notice The underlying ticker, e.g. "NVDA".
-    /// @return The ticker, else the listing ticker, else the empty string.
+    /// @return The ticker last set, else the `StoxTokenConfigV1` listing ticker
+    /// the vault was initialized with, else the empty string.
     function underlyingSymbol() external view returns (string memory);
 
     /// @notice The underlying asset's name, e.g. "NVIDIA Corporation".
-    /// @return The name, else the listing name, else the empty string.
+    /// @return The name last set, else the `StoxTokenConfigV1` listing name the
+    /// vault was initialized with, else the empty string.
     function underlyingName() external view returns (string memory);
 
     /// @notice Sets the underlying ticker and name, and sets the vault's own

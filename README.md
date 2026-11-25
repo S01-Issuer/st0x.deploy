@@ -66,6 +66,8 @@ Fork tests require `RPC_URL_BASE_FORK` in `.env`.
 │    LibERC20Storage        — OZ ERC20 slot access        │
 │    LibERC1155Storage      — OZ ERC1155 slot access      │
 │    LibCorporateActionReceipt — receipt cursor storage   │
+│    LibStoxTokenConfig     — listing facts from init     │
+│    LibInitializableStorage — OZ Initializable slot      │
 │                                                         │
 │  Production deploy constants                            │
 │    LibProdDeployV1 / V2 / V2BaseOverrides / V3          │

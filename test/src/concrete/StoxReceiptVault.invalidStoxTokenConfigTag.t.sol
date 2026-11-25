@@ -2,32 +2,19 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
 } from "rain-vats-0.2.25/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
+import {StoxReceiptVaultUninitializedTest} from "../../abstract/StoxReceiptVaultUninitializedTest.sol";
 import {STOX_TOKEN_CONFIG_V1_TAG} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {InvalidStoxTokenConfigTag} from "../../../src/error/ErrStoxTokenConfig.sol";
-import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
-contract StoxReceiptVaultInvalidStoxTokenConfigTagTest is Test {
-    UpgradeableBeacon internal beacon;
-
-    function setUp() external {
-        deployCodeTo(
-            "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE
-        );
-        beacon = new UpgradeableBeacon(address(new StoxReceiptVault()), address(this));
-    }
-
+contract StoxReceiptVaultInvalidStoxTokenConfigTagTest is StoxReceiptVaultUninitializedTest {
     function assertInitializeRefuses(bytes memory data, bytes32 tag) internal {
-        StoxReceiptVault vault = StoxReceiptVault(payable(address(new BeaconProxy(address(beacon), ""))));
+        StoxReceiptVault vault = uninitializedVault();
         vm.expectRevert(abi.encodeWithSelector(InvalidStoxTokenConfigTag.selector, tag));
         vault.initialize(data);
     }
@@ -36,18 +23,20 @@ contract StoxReceiptVaultInvalidStoxTokenConfigTagTest is Test {
         return LibTestDeploy.vaultData("US0378331005", "AAPL", "Apple Inc.", address(0), bytes32(0));
     }
 
-    function retagged(bytes32 tag) internal pure returns (bytes memory data) {
-        data = validData();
+    function retagged(bytes32 tag) internal pure returns (bytes memory) {
+        bytes memory data = validData();
         assembly ("memory-safe") {
             mstore(add(data, 0x20), tag)
         }
+        return data;
     }
 
-    function truncated(bytes32 seed, uint256 length) internal pure returns (bytes memory data) {
-        data = abi.encodePacked(seed);
+    function truncated(bytes32 seed, uint256 length) internal pure returns (bytes memory) {
+        bytes memory data = abi.encodePacked(seed);
         assembly ("memory-safe") {
             mstore(data, length)
         }
+        return data;
     }
 
     function testInitializeRefusesDataShorterThanATagCarryingTheZeroTag() external {

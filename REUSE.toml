@@ -11,6 +11,7 @@ path = [
   "soldeer.lock",
   "CHANGELOG.md",
   "CLAUDE.md",
+  ".claude/rules/**/",
   "README.md",
   "audit/**/",
   "docs/**/",
