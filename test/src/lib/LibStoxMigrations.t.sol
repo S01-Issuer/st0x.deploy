@@ -4,6 +4,8 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
+import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistry.sol";
 import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
 import {IRegistryDelegatesV3} from "rain-deploy-0.1.38/src/interface/IRegistryDelegatesV3.sol";
@@ -147,6 +149,31 @@ contract LibStoxMigrationsTest is Test {
                     ""
                 )
             )
+        );
+    }
+
+    function testRecordOnlyBundleIsTheRecordCallAlone(bytes32 id, bytes32 head, bool history) external {
+        etchRegistry();
+        SafeTx[] memory txs =
+            LibStoxMigrations.recordOnlyBundle(ScriptDeclaration({id: id, onto: head, history: history}));
+
+        assertEq(txs.length, 1, "one transaction");
+        assertEq(txs[0].to, LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, "registry");
+        assertEq(txs[0].value, 0, "value");
+        assertEq(uint8(txs[0].operation), uint8(Enum.Operation.Call), "operation");
+        assertEq(
+            txs[0].data,
+            abi.encodeCall(
+                IMigrationRegistryV5.applyMigrationV5,
+                (
+                    LibRegistryAuthority.ROOT_AUTHORITY,
+                    LibStoxMigrations.NAMESPACE,
+                    id,
+                    LibMigrationRegistry.onto(LibRegistryAuthority.ROOT_AUTHORITY, LibStoxMigrations.NAMESPACE, head),
+                    ""
+                )
+            ),
+            "record calldata"
         );
     }
 

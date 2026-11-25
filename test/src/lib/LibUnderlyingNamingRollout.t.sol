@@ -14,6 +14,7 @@ import {
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {ZerogArmPendingDecision} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
@@ -274,5 +275,26 @@ contract LibUnderlyingNamingRolloutTest is Test {
                 assertEq(LibUnderlyingNamingRollout.renamesRow(rowIndex), targeted, table[rowIndex].underlying);
             }
         }
+    }
+
+    function externalRefuseZerog(bytes32 migration) external view {
+        LibUnderlyingNamingRollout.refuseZerog(migration);
+    }
+
+    function testFuzzRefuseZerogRefusesOnZerog(bytes32 migration) external {
+        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                ZerogArmPendingDecision.selector, migration, "whether the underlying naming applies on 0G"
+            )
+        );
+        this.externalRefuseZerog(migration);
+    }
+
+    function testFuzzRefuseZerogPassesOffZerog(uint256 chainId, bytes32 migration) external {
+        chainId = bound(chainId, 1, type(uint64).max - 1);
+        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
+        vm.chainId(chainId);
+        this.externalRefuseZerog(migration);
     }
 }

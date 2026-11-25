@@ -8,7 +8,8 @@ import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {RoleHeld, RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {ORCHESTRATOR_EMERGENCY_ROLE} from "../../src/concrete/ST0xOrchestrator.sol";
-import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
+import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
+import {LibOrchestratorInvariants, OrchestratorVaultLogicUnexpected} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibZerogOrchestratorRoles} from "../../src/lib/LibZerogOrchestratorRoles.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
@@ -141,6 +142,35 @@ contract OrchestratorAdminToTimelockZerogRootLineTest is ZerogRootLineScriptTest
         landTheOntoBeforeTheRolesBatchExecutes();
         executeBundle();
         expectSafeWithoutEmergencyRefused();
+        sScript.callAssertPostState();
+    }
+
+    function mockVaultLogicUnexpected() internal {
+        vm.mockCall(
+            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
+            abi.encodeCall(IST0xOrchestratorV1.vaultLogicIsExpected, ()),
+            abi.encode(false)
+        );
+    }
+
+    function expectInstanceRefused() internal {
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                OrchestratorVaultLogicUnexpected.selector, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE
+            )
+        );
+    }
+
+    function testZerogPreflightRefusesAnInstanceOffItsVaultLogic() external {
+        mockVaultLogicUnexpected();
+        expectInstanceRefused();
+        sScript.callPreflight();
+    }
+
+    function testZerogPostStateRefusesAnInstanceOffItsVaultLogic() external {
+        executeBundle();
+        mockVaultLogicUnexpected();
+        expectInstanceRefused();
         sScript.callAssertPostState();
     }
 }
