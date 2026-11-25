@@ -45,8 +45,9 @@ contract DeployAuthoriserInitialAdminTest is StoxAuthorizerInitTest {
     /// Deploys the chain's per-Safe governance timelock through the Zoltu factory, as its deploy does.
     function deployProdTimelock(uint256 chainId) internal returns (address) {
         LibRainDeploy.etchZoltuFactory(vm);
-        address timelock =
-            LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(LibSafeInvariants.safeForChainId(chainId)));
+        address timelock = LibRainDeploy.deployZoltu(
+            LibTimelockInvariants.timelockInitCode(LibSafeInvariants.safeForChainId(chainId))
+        );
         assertEq(timelock, LibTimelockInvariants.timelockForChainId(chainId), "timelock pin");
         return timelock;
     }

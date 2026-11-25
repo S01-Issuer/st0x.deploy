@@ -118,9 +118,7 @@ contract LibStoxConfigTest is Test {
         harness.authoriserInitialAdmin();
     }
 
-    function testFuzzAuthoriserInitialAdminRefusesNonAddressValueType(string memory valueType, address admin)
-        external
-    {
+    function testFuzzAuthoriserInitialAdminRefusesNonAddressValueType(string memory valueType, address admin) external {
         vm.assume(bytes(valueType).length > 0 && keccak256(bytes(valueType)) != INITIAL_ADMIN_VALUE_TYPE_HASH);
         bindAuthoriserInitialAdmin(valueType, abi.encode(admin));
         vm.expectRevert(
