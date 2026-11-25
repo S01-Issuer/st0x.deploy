@@ -192,8 +192,8 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     /// other vault and wrapper behind the two beacons, the rows the rename
     /// skips and tQSEP on Base, must keep the name and symbol it had before.
     function proveExecution() internal {
-        TokenInstance[] memory unrenamed = unrenamedTokens();
-        string[] memory before = metadata(unrenamed);
+        TokenInstance[] memory unrenamed = LibUnderlyingNamingRollout.unrenamedTokens(block.chainid);
+        string[] memory before = LibUnderlyingNamingRollout.metadata(unrenamed);
         TimelockController controller = TimelockController(payable(timelock()));
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
@@ -214,12 +214,11 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
         controller.executeBatch(targets, values, payloads, beaconId, LibUnderlyingNamingRollout.RENAME_SALT);
 
         assertRenamed(block.chainid);
-        string[] memory afterRename = metadata(unrenamed);
+        string[] memory afterRename = LibUnderlyingNamingRollout.metadata(unrenamed);
         for (uint256 valueIndex = 0; valueIndex < before.length; valueIndex++) {
             if (keccak256(bytes(before[valueIndex])) != keccak256(bytes(afterRename[valueIndex]))) {
-                TokenInstance memory token = unrenamed[valueIndex / 4];
                 revert RenameMovedUnrenamedMetadata(
-                    valueIndex % 4 < 2 ? token.receiptVault : token.wrappedTokenVault,
+                    LibUnderlyingNamingRollout.metadataToken(unrenamed, valueIndex),
                     before[valueIndex],
                     afterRename[valueIndex]
                 );
@@ -228,48 +227,6 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
         console2.log(
             "Execution proven: every production vault and wrapper renamed by a roleless executor, the rest unmoved"
         );
-    }
-
-    /// @notice Every vault and wrapper behind the two beacons on this chain
-    /// that the rename does not set: the table rows past the renamed ones,
-    /// then tQSEP on Base.
-    /// @return The tokens.
-    function unrenamedTokens() internal view returns (TokenInstance[] memory) {
-        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(block.chainid);
-        bool onBase = block.chainid == LibSafeInvariants.BASE_CHAIN_ID;
-        uint256 count = onBase ? 1 : 0;
-        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
-            if (!LibUnderlyingNamingRollout.renamesRow(tokenIndex)) count++;
-        }
-        TokenInstance[] memory chainTokens = new TokenInstance[](count);
-        uint256 next = 0;
-        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
-            if (!LibUnderlyingNamingRollout.renamesRow(tokenIndex)) chainTokens[next++] = table[tokenIndex];
-        }
-        if (onBase) {
-            chainTokens[next] = TokenInstance({
-                underlying: "QSEP",
-                receipt: LibTokenInvariants.QSEP_RECEIPT,
-                receiptVault: LibTokenInvariants.QSEP_RECEIPT_VAULT,
-                wrappedTokenVault: LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT
-            });
-        }
-        return chainTokens;
-    }
-
-    /// @notice Every vault's and wrapper's name and symbol, in a fixed order:
-    /// vault name, vault symbol, wrapper name, wrapper symbol, per token.
-    /// @param chainTokens The tokens.
-    /// @return The values read.
-    function metadata(TokenInstance[] memory chainTokens) internal view returns (string[] memory) {
-        string[] memory values = new string[](chainTokens.length * 4);
-        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            values[tokenIndex * 4] = IERC20Metadata(chainTokens[tokenIndex].receiptVault).name();
-            values[tokenIndex * 4 + 1] = IERC20Metadata(chainTokens[tokenIndex].receiptVault).symbol();
-            values[tokenIndex * 4 + 2] = IERC20Metadata(chainTokens[tokenIndex].wrappedTokenVault).name();
-            values[tokenIndex * 4 + 3] = IERC20Metadata(chainTokens[tokenIndex].wrappedTokenVault).symbol();
-        }
-        return values;
     }
 
     /// @notice Reverts unless every production token of `chainId` reports the
