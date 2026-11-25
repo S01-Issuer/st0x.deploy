@@ -25,19 +25,29 @@ import {Region, TokenConfig} from "./LibProdTokenConfig.sol";
 library LibProdTokenParams {
     function tokenParams(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyParams[] memory) {
         RegistryBeaconProxyParams[] memory params = new RegistryBeaconProxyParams[](configs.length);
-        address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
-            params[i] = RegistryBeaconProxyParams({
-                factory: CLONE_FACTORY_V8_ADDRESS,
-                registry: CONFIG_REGISTRY_ADDRESS,
-                authority: LibRegistryAuthority.ROOT_AUTHORITY,
-                beaconName: LibStoxConfig.VAULT_BEACON_NAME,
-                beacon: beacon,
-                data: tokenData(configs[i]),
-                salt: bytes32(0)
-            });
+            params[i] = tokenParam(configs[i]);
         }
         return params;
+    }
+
+    function tokenParam(TokenConfig memory config) internal pure returns (RegistryBeaconProxyParams memory) {
+        return RegistryBeaconProxyParams({
+            factory: CLONE_FACTORY_V8_ADDRESS,
+            registry: CONFIG_REGISTRY_ADDRESS,
+            authority: LibRegistryAuthority.ROOT_AUTHORITY,
+            beaconName: LibStoxConfig.VAULT_BEACON_NAME,
+            beacon: vaultBeacon(),
+            data: tokenData(config),
+            salt: bytes32(0)
+        });
+    }
+
+    /// @notice The address the token suite deploys `config`'s receipt vault
+    /// to. It commits to the `StoxTokenConfigV1` init data, so a vault at it
+    /// was initialized from the row's listing facts.
+    function tokenAddress(TokenConfig memory config) internal pure returns (address) {
+        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(tokenParam(config));
     }
 
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {

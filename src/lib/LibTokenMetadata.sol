@@ -5,19 +5,26 @@ pragma solidity ^0.8.25;
 import {TokenConfig} from "./LibProdTokenConfig.sol";
 import {ST0X_NAME_SUFFIX} from "./LibSecurity.sol";
 
-/// @title LibTokenMetadata
-/// @notice The ERC-20 metadata a production token's receipt vault and
-/// wrapper carry, in either of its two states.
-///
-/// - **Initialized**: the receipt vault holds the `TokenConfig.name` /
+/// @notice The state a production token's ERC-20 metadata is in.
+/// - `Initialized`: the receipt vault holds the `TokenConfig.name` /
 ///   `TokenConfig.symbol` it was initialized with, and the wrapper derives
 ///   `"Wrapped " + name` / `"w" + symbol` (e.g. `wtNVDA`).
-/// - **Renamed**: after `setUnderlying(underlying, underlyingName)`, the
+/// - `Listed`: the receipt vault was initialized with `StoxTokenConfigV1`, so
+///   it reads `listingName + " (ST0x)"` / `"t" + listingTicker`, and the
+///   wrapper reads the receipt vault's name / `listingTicker + "s"`.
+/// - `Renamed`: after `setUnderlying(underlying, underlyingName)`, the
 ///   receipt vault reads `underlyingName + " (ST0x)"` / `"t" + underlying`,
 ///   and the wrapper reads `underlyingName + " (ST0x)"` /
 ///   `underlying + "s"` (e.g. `NVDAs`).
-///
-/// The receipt vault's symbol is `"t" + underlying` in both states.
+enum TokenMetadataState {
+    Initialized,
+    Listed,
+    Renamed
+}
+
+/// @title LibTokenMetadata
+/// @notice The ERC-20 metadata a production token's receipt vault and
+/// wrapper carry, in each `TokenMetadataState`.
 library LibTokenMetadata {
     /// @notice The receipt vault's decimals: its asset is offchain
     /// (`address(0)`), so `ReceiptVault.decimals()` falls back to the ERC-20
@@ -44,25 +51,40 @@ library LibTokenMetadata {
 
     /// @notice The receipt vault's name in the given state.
     /// @param config The token's row.
-    /// @param renamed Whether the token is renamed.
+    /// @param state The token's metadata state.
     /// @return The vault name.
-    function vaultName(TokenConfig memory config, bool renamed) internal pure returns (string memory) {
-        return renamed ? renamedName(config) : config.name;
+    function vaultName(TokenConfig memory config, TokenMetadataState state) internal pure returns (string memory) {
+        if (state == TokenMetadataState.Renamed) return renamedName(config);
+        if (state == TokenMetadataState.Listed) return string.concat(config.listingName, ST0X_NAME_SUFFIX);
+        return config.name;
+    }
+
+    /// @notice The receipt vault's symbol in the given state.
+    /// @param config The token's row.
+    /// @param state The token's metadata state.
+    /// @return The vault symbol.
+    function vaultSymbol(TokenConfig memory config, TokenMetadataState state) internal pure returns (string memory) {
+        if (state == TokenMetadataState.Renamed) return string.concat("t", config.underlying);
+        if (state == TokenMetadataState.Listed) return string.concat("t", config.listingTicker);
+        return config.symbol;
     }
 
     /// @notice The wrapper's name in the given state.
     /// @param config The token's row.
-    /// @param renamed Whether the token is renamed.
+    /// @param state The token's metadata state.
     /// @return The wrapper name.
-    function wrappedName(TokenConfig memory config, bool renamed) internal pure returns (string memory) {
-        return renamed ? renamedName(config) : string.concat("Wrapped ", config.name);
+    function wrappedName(TokenConfig memory config, TokenMetadataState state) internal pure returns (string memory) {
+        if (state == TokenMetadataState.Initialized) return string.concat("Wrapped ", config.name);
+        return vaultName(config, state);
     }
 
     /// @notice The wrapper's symbol in the given state.
     /// @param config The token's row.
-    /// @param renamed Whether the token is renamed.
+    /// @param state The token's metadata state.
     /// @return The wrapper symbol.
-    function wrappedSymbol(TokenConfig memory config, bool renamed) internal pure returns (string memory) {
-        return renamed ? renamedWrappedSymbol(config) : string.concat("w", config.symbol);
+    function wrappedSymbol(TokenConfig memory config, TokenMetadataState state) internal pure returns (string memory) {
+        if (state == TokenMetadataState.Renamed) return renamedWrappedSymbol(config);
+        if (state == TokenMetadataState.Listed) return string.concat(config.listingTicker, "s");
+        return string.concat("w", config.symbol);
     }
 }

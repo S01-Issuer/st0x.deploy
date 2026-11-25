@@ -22,7 +22,8 @@ import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
-import {LibTokenMetadata} from "../src/lib/LibTokenMetadata.sol";
+import {LibTokenMetadata, TokenMetadataState} from "../src/lib/LibTokenMetadata.sol";
+import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
@@ -144,22 +145,28 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(at, "instance", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
     }
 
-    function tokenMetadataJson(uint256 chainId, string memory row, uint256 i, string memory underlying) internal {
-        TokenConfig memory config = LibProdTokenConfig.configOf(underlying);
-        vm.serializeString(row, "underlying", underlying);
+    function tokenMetadataJson(uint256 chainId, string memory row, uint256 i, TokenInstance memory token) internal {
+        TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
+        vm.serializeString(row, "underlying", token.underlying);
         vm.serializeString(row, "assetId", config.assetId);
         vm.serializeString(row, "listingTicker", config.listingTicker);
         vm.serializeString(row, "listingName", config.listingName);
         vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
-        bool renames = LibUnderlyingNamingRollout.cutForChain(chainId) && LibUnderlyingNamingRollout.renamesRow(i);
-        vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
-        vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
-        vm.serializeString(row, "symbol", config.symbol);
+        TokenMetadataState state = token.receiptVault == LibProdTokenParams.tokenAddress(config)
+            ? TokenMetadataState.Listed
+            : TokenMetadataState.Initialized;
+        TokenMetadataState renamed =
+            LibUnderlyingNamingRollout.cutForChain(chainId) && LibUnderlyingNamingRollout.renamesRow(i)
+                ? TokenMetadataState.Renamed
+                : state;
+        vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, state));
+        vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renamed));
+        vm.serializeString(row, "symbol", LibTokenMetadata.vaultSymbol(config, state));
         vm.serializeUint(row, "decimals", LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
-        vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, false));
-        vm.serializeString(row, "wrappedTokenVaultRenamedName", LibTokenMetadata.wrappedName(config, renames));
-        vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, false));
-        vm.serializeString(row, "wrappedTokenVaultRenamedSymbol", LibTokenMetadata.wrappedSymbol(config, renames));
+        vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, state));
+        vm.serializeString(row, "wrappedTokenVaultRenamedName", LibTokenMetadata.wrappedName(config, renamed));
+        vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, state));
+        vm.serializeString(row, "wrappedTokenVaultRenamedSymbol", LibTokenMetadata.wrappedSymbol(config, renamed));
         vm.serializeUint(row, "wrappedTokenVaultDecimals", LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
     }
 
@@ -197,7 +204,7 @@ contract BuildExpectedState is Script {
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
-            tokenMetadataJson(chainId, row, i, tokens[i].underlying);
+            tokenMetadataJson(chainId, row, i, tokens[i]);
             tokenLegsJson(row, tokens[i], beacons, proxyCodehashes);
             vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
             rows[i] = vm.serializeAddress(
