@@ -20,7 +20,7 @@ import {
     UnderlyingNamingReleaseNotFrozen,
     DownstreamNotReadyForRename
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
-import {ST0X_NAME_SUFFIX} from "../src/lib/LibSecurity.sol";
+import {LibSecurity} from "../src/lib/LibSecurity.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -215,9 +215,9 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenInstance memory token = chainTokens[tokenIndex];
             TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
-            string memory vaultName = string.concat(config.underlyingName, ST0X_NAME_SUFFIX);
+            string memory vaultName = LibSecurity.vaultName(config.underlyingName);
             assertMetadata(
-                token.receiptVault, string.concat("t", config.ticker), IERC20Metadata(token.receiptVault).symbol()
+                token.receiptVault, LibSecurity.vaultSymbol(config.ticker), IERC20Metadata(token.receiptVault).symbol()
             );
             assertMetadata(token.receiptVault, vaultName, IERC20Metadata(token.receiptVault).name());
             assertMetadata(
