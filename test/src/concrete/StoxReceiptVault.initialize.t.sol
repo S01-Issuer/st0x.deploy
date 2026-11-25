@@ -217,7 +217,7 @@ contract StoxReceiptVaultInitializeTest is Test {
                 logs[i].emitter == address(vault)
                     && logs[i].topics[0] == IStoxTokenConfigV1.StoxTokenInitialized.selector
             ) {
-                (, StoxTokenConfigV1 memory config) = abi.decode(logs[i].data, (address, StoxTokenConfigV1));
+                StoxTokenConfigV1 memory config = abi.decode(logs[i].data, (StoxTokenConfigV1));
                 assertEq(uint8(config.assetIdKind), uint8(AssetIdKind.ISIN), "emitted kind");
                 count++;
             }
@@ -368,9 +368,8 @@ contract StoxReceiptVaultInitializeTest is Test {
                 logs[i].emitter == address(vault)
                     && logs[i].topics[0] == IStoxTokenConfigV1.StoxTokenInitialized.selector
             ) {
-                (address sender, StoxTokenConfigV1 memory emitted) =
-                    abi.decode(logs[i].data, (address, StoxTokenConfigV1));
-                assertEq(sender, address(this), "emitted sender");
+                StoxTokenConfigV1 memory emitted = abi.decode(logs[i].data, (StoxTokenConfigV1));
+                assertEq(logs[i].topics[1], bytes32(uint256(uint160(address(this)))), "emitted sender");
                 assertEq(abi.encode(emitted), abi.encode(config), "emitted config");
                 count++;
             }

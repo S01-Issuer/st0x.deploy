@@ -49,7 +49,7 @@
   `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and passes
   rain-vats the V3 config named `listingName + " (ST0x)"` /
   `"t" + listingTicker`. `initialize` refuses `CorporateActionsFacetNotDeployed`
-  when the pinned facet has no code, and the facet is a token deploy dependency.
+  when the pinned facet has no code.
 - **rain-vats V3 init data is refused** (`InvalidStoxTokenConfigTag`).
 - **The token salt is zero.** The clone factory's effective salt already hashes
   the init data, so each token's address is unique to its config.

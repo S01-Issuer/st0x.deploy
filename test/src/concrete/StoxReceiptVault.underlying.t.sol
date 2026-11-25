@@ -144,7 +144,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         bytes memory newName = new bytes(nameSeed.length);
         for (uint256 byteIndex = 0; byteIndex < newName.length; byteIndex++) {
             bytes1 printable = bytes1(0x20 + uint8(nameSeed[byteIndex]) % 0x5f);
-            newName[byteIndex] = printable == "\"" || printable == "\\" ? bytes1(" ") : printable;
+            newName[byteIndex] = printable == "\"" || printable == "\\" ? bytes1(0x20) : printable;
         }
         vm.assume(LibSecurity.nameWellFormed(newName));
         vm.prank(OWNER);
