@@ -50,9 +50,9 @@ error LineHeadMismatch(bytes32 head);
 /// those records.
 ///
 /// Every record is on one line: writer `LibRegistryAuthority.ROOT_AUTHORITY`,
-/// namespace `NAMESPACE`. The chain's token-owner Safe, the root's delegate for
-/// `NAMESPACE` or unscoped, writes every record, so the line does not depend
-/// on which account performs a migration:
+/// namespace `NAMESPACE`, written by the root's delegates for `NAMESPACE` or
+/// unscoped: the chain's token-owner Safe and its governance timelock. So the
+/// line does not depend on which account performs a migration:
 ///
 /// - a migration the Safe performs directly is recorded as the last call of
 ///   the Safe's MultiSend, so the record and the change land atomically;
