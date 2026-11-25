@@ -675,7 +675,9 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         assertTrue(controller.isOperationReady(renameId), "rename ready");
         assertFalse(controller.isOperationPending(beaconId), "beacon cancelled");
         ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
-        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingRenameWaitsForBeacon.selector, beaconId, false, renameId));
+        vm.expectRevert(
+            abi.encodeWithSelector(UnderlyingNamingRenameWaitsForBeacon.selector, beaconId, false, renameId)
+        );
         executor.execute();
     }
 

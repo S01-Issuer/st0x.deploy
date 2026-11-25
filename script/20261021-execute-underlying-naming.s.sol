@@ -111,9 +111,7 @@ contract ExecuteUnderlyingNaming is StoxSafeBundleScript, IStoxScript {
         }
         if (controller.isOperationReady(renameId)) {
             if (!controller.isOperationDone(beaconId)) {
-                revert UnderlyingNamingRenameWaitsForBeacon(
-                    beaconId, controller.isOperationPending(beaconId), renameId
-                );
+                revert UnderlyingNamingRenameWaitsForBeacon(beaconId, controller.isOperationPending(beaconId), renameId);
             }
             (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
                 LibUnderlyingNamingRollout.renameBatch(block.chainid);
