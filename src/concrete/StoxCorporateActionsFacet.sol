@@ -22,8 +22,9 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.2.25/src/abstract/OffchainA
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
-import {LibSecurity, ST0X_NAME_SUFFIX} from "../lib/LibSecurity.sol";
-import {MalformedUnderlyingTicker, MalformedUnderlyingName, MalformedUnderlyingIsin} from "../error/ErrUnderlying.sol";
+import {LibSecurity} from "../lib/LibSecurity.sol";
+import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
+import {MalformedUnderlyingSymbol, MalformedUnderlyingName, MalformedUnderlyingIsin} from "../error/ErrUnderlying.sol";
 import {IStoxTokenConfigV1, StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG} from "../interface/IStoxTokenConfigV1.sol";
 import {
     InvalidStoxTokenConfigTag,
@@ -36,14 +37,15 @@ import {
 import {LibStoxTokenConfig} from "../lib/LibStoxTokenConfig.sol";
 import {LibUnderlyingSnapshot} from "../lib/LibUnderlyingSnapshot.sol";
 import {UNDERLYING_SNAPSHOT_ROOT} from "../generated/LibUnderlyingSnapshotCode.sol";
-import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
+import {LibInitializableStorage} from "../lib/LibInitializableStorage.sol";
 import {
     OffchainAssetReceiptVaultConfigV3,
     OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
 } from "rain-vats-0.2.25/src/interface/IOffchainAssetReceiptVaultV1.sol";
 
 /// @title StoxCorporateActionsFacet
-/// @notice Diamond facet implementing the corporate action linked list.
+/// @notice Diamond facet implementing the corporate action linked list, the
+/// underlying ticker and name, and the vault's `StoxTokenConfigV1` init.
 /// @dev MUST be delegatecalled by an `OffchainAssetReceiptVault`-derived
 /// contract. Every external entry point carries the `onlyDelegatecalled`
 /// modifier, which reads the immutable `_SELF` (set to `address(this)` at
@@ -57,7 +59,9 @@ import {
 /// Corporate-action storage lives at the ERC-7201 namespace
 /// `rain.storage.corporate-action.1` (see `LibCorporateAction`). The facet
 /// also implements `IStoxUnderlyingV2`, whose override lives at
-/// `rain.storage.underlying.1` (see `LibSecurity`). Any future external
+/// `rain.storage.underlying.1` (see `LibSecurity`). `initializeStoxToken` writes
+/// `rain.storage.stox-token-config.1` (see `LibStoxTokenConfig`) and reads the
+/// vault's OZ `Initializable` slot (see `LibInitializableStorage`). Any future external
 /// entry points added here (e.g. list traversal) must also carry
 /// `onlyDelegatecalled`.
 contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IStoxTokenConfigV1 {
@@ -247,7 +251,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
     function name() external view onlyDelegatecalled returns (string memory) {
         (, string memory underlying,) = resolveUnderlying();
         if (bytes(underlying).length == 0) return LibERC20Storage.getStorage()._name;
-        return string.concat(underlying, ST0X_NAME_SUFFIX);
+        return LibSecurity.vaultName(underlying);
     }
 
     /// @notice The vault's ERC-20 symbol, forwarded here by `StoxReceiptVault`.
@@ -255,7 +259,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
     function symbol() external view onlyDelegatecalled returns (string memory) {
         (string memory ticker,,) = resolveUnderlying();
         if (bytes(ticker).length == 0) return LibERC20Storage.getStorage()._symbol;
-        return string.concat("t", ticker);
+        return LibSecurity.vaultSymbol(ticker);
     }
 
     /// @inheritdoc IStoxUnderlyingV2
@@ -271,20 +275,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (msg.sender != IOwnable(address(this)).owner()) {
             revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
         }
-        if (!LibSecurity.tickerWellFormed(bytes(newSymbol))) revert MalformedUnderlyingTicker(newSymbol);
+        if (!LibSecurity.tickerWellFormed(bytes(newSymbol))) revert MalformedUnderlyingSymbol(newSymbol);
         if (!LibSecurity.nameWellFormed(bytes(newName))) revert MalformedUnderlyingName(newName);
         if (!LibSecurity.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
 
+        (string memory oldSymbol, string memory oldName, string memory oldIsin) = resolveUnderlying();
+        emit UnderlyingSet(msg.sender, oldSymbol, oldName, oldIsin, newSymbol, newName, newIsin);
         LibSecurity.UnderlyingStorage storage underlyingStorage = LibSecurity.getStorage();
-        emit UnderlyingSet(
-            msg.sender,
-            underlyingStorage.symbol,
-            underlyingStorage.name,
-            underlyingStorage.isin,
-            newSymbol,
-            newName,
-            newIsin
-        );
         underlyingStorage.symbol = newSymbol;
         underlyingStorage.name = newName;
         underlyingStorage.isin = newIsin;
@@ -293,7 +290,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
 
     /// @inheritdoc IStoxTokenConfigV1
     function initializeStoxToken(bytes calldata data) external override onlyDelegatecalled returns (bytes memory) {
-        if (!LibStoxTokenConfig.isUninitialized()) revert StoxTokenAlreadyInitialized();
+        if (LibInitializableStorage.isInitialized()) revert StoxTokenAlreadyInitialized();
         if (data.length < 0x20) revert InvalidStoxTokenConfigTag(bytes32(0));
         bytes32 tag = abi.decode(data, (bytes32));
         if (tag != STOX_TOKEN_CONFIG_V1_TAG) revert InvalidStoxTokenConfigTag(tag);
@@ -305,20 +302,20 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         }
         if (!LibSecurity.nameWellFormed(bytes(config.listingName))) revert MalformedListingName(config.listingName);
 
-        LibStoxTokenConfig.StoxTokenConfigStorage storage s = LibStoxTokenConfig.getStorage();
-        s.assetId = config.assetId;
-        s.listingTicker = config.listingTicker;
-        s.listingName = config.listingName;
-        s.region = config.region;
-        s.assetIdKind = config.assetIdKind;
+        LibStoxTokenConfig.StoxTokenConfigStorage storage tokenConfigStorage = LibStoxTokenConfig.getStorage();
+        tokenConfigStorage.assetId = config.assetId;
+        tokenConfigStorage.listingTicker = config.listingTicker;
+        tokenConfigStorage.listingName = config.listingName;
+        tokenConfigStorage.region = config.region;
+        tokenConfigStorage.assetIdKind = config.assetIdKind;
 
         emit StoxTokenInitialized(msg.sender, config);
 
         return abi.encode(
             OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
             OffchainAssetReceiptVaultConfigV3({
-                name: string.concat(config.listingName, ST0X_NAME_SUFFIX),
-                symbol: string.concat("t", config.listingTicker),
+                name: LibSecurity.vaultName(config.listingName),
+                symbol: LibSecurity.vaultSymbol(config.listingTicker),
                 authority: config.authority,
                 rbacName: config.rbacName,
                 receiptBeaconName: config.receiptBeaconName,

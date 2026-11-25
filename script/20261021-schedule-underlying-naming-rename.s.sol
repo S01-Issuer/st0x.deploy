@@ -10,6 +10,7 @@ import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -19,7 +20,8 @@ import {
     UnderlyingNamingReleaseNotFrozen,
     DownstreamNotReadyForRename
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
-import {ST0X_NAME_SUFFIX} from "../src/lib/LibSecurity.sol";
+import {LibSecurity, UNDERLYING_STORAGE_LOCATION} from "../src/lib/LibSecurity.sol";
+import {IStoxUnderlyingV2} from "../src/interface/IStoxUnderlyingV2.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -43,6 +45,13 @@ error RenameNotPendingInsideDelay(bytes32 id);
 /// @param actual The value read.
 error RenamedMetadataMismatch(address token, string expected, string actual);
 
+/// @notice After execution a vault's override timestamp is not the execution
+/// block's.
+/// @param token The vault.
+/// @param expected The execution block's timestamp.
+/// @param actual The stored timestamp.
+error RenamedTimestampMismatch(address token, uint256 expected, uint256 actual);
+
 /// @notice This script's declaration: the Safe's record, after the beacon schedule.
 /// @return The declaration.
 function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclaration memory) {
@@ -54,14 +63,13 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 }
 
 /// @title ScheduleUnderlyingNamingRename
-/// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch
-/// (rollout step 3 in `docs/TIMELOCK.md`): `setUnderlying(ticker,
-/// underlyingName, isin)` on every production vault of the chain, ticker from
-/// `TokenConfig.ticker`, name from `TokenConfig.underlyingName` and ISIN
-/// from `TokenConfig.isin`. Two
-/// Safe calls: `timelock.scheduleBatch(...)`, with the beacon batch as
-/// predecessor so the timelock refuses to execute the rename first, then the
-/// Safe's root-line record.
+/// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch:
+/// `setUnderlying(ticker, underlyingName, isin)` on every production vault of
+/// the chain, ticker from `TokenConfig.ticker`, name from
+/// `TokenConfig.underlyingName` and ISIN from `TokenConfig.isin`. Two Safe
+/// calls: `timelock.scheduleBatch(...)`, with the beacon batch as predecessor
+/// so the timelock refuses to execute the rename first, then the Safe's
+/// root-line record.
 ///
 /// **The pre-flight refuses until
 /// `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set**, which
@@ -70,7 +78,7 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// nothing on chain restores the initialized metadata. While the delay runs,
 /// the Safe can still `cancel` the operation.
 ///
-/// Pre-flight binds each ticker to its vault: every production vault must
+/// Pre-flight binds each row to its vault: every production vault must
 /// report `"t" + underlying` as its live symbol, so a shifted or mistyped row
 /// refuses here rather than renaming the wrong token. It also requires the
 /// timelock to own every production vault of the chain, because the batch
@@ -79,7 +87,7 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261021-schedule-underlying-naming-rename` per chain, after the
 /// beacon batch is scheduled there.
-contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
+contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleUnderlyingNamingRenameDeclaration();
@@ -140,6 +148,7 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
 
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
         LibUnderlyingNamingRollout.assertTickersBound(block.chainid);
+        LibUnderlyingNamingRollout.assertIsinsBound(block.chainid);
         // `setUnderlying` checks the vault owner, so a vault the timelock
         // does not own would revert the whole batch at execution.
         LibTokenInvariants.assertUniformOwnership(chainTokens, timelock());
@@ -207,18 +216,25 @@ contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
     }
 
     /// @notice Reverts unless every production token of `chainId` reports the
-    /// metadata the rename sets.
+    /// metadata and ISIN the rename sets, stamped with this block's timestamp.
     /// @param chainId The chain id.
     function assertRenamed(uint256 chainId) internal view {
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenInstance memory token = chainTokens[tokenIndex];
             TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
-            string memory vaultName = string.concat(config.underlyingName, ST0X_NAME_SUFFIX);
+            string memory vaultName = LibSecurity.vaultName(config.underlyingName);
             assertMetadata(
-                token.receiptVault, string.concat("t", config.ticker), IERC20Metadata(token.receiptVault).symbol()
+                token.receiptVault, LibSecurity.vaultSymbol(config.ticker), IERC20Metadata(token.receiptVault).symbol()
             );
             assertMetadata(token.receiptVault, vaultName, IERC20Metadata(token.receiptVault).name());
+            assertMetadata(token.receiptVault, config.isin, IStoxUnderlyingV2(token.receiptVault).underlyingIsin());
+            // `UnderlyingStorage.timestamp` is the struct's fourth slot.
+            uint256 timestamp = uint256(vm.load(token.receiptVault, bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)));
+            // forge-lint: disable-next-line(block-timestamp)
+            if (timestamp != block.timestamp) {
+                revert RenamedTimestampMismatch(token.receiptVault, block.timestamp, timestamp);
+            }
             assertMetadata(
                 token.wrappedTokenVault,
                 string.concat(config.ticker, "s"),

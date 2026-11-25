@@ -129,15 +129,15 @@ library LibUnderlyingSnapshot {
         pure
         returns (bool, string memory, string memory, string memory)
     {
-        uint256 tickerEnd = 21 + uint8(rowData[20]);
+        uint256 tickerEnd = 21 + uint256(uint8(rowData[20]));
         if (tickerEnd + 1 > rowData.length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 nameEnd = tickerEnd + 1 + uint8(rowData[tickerEnd]);
+        uint256 nameEnd = tickerEnd + 1 + uint256(uint8(rowData[tickerEnd]));
         if (nameEnd + 1 > rowData.length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 isinEnd = nameEnd + 1 + uint8(rowData[nameEnd]);
+        uint256 isinEnd = nameEnd + 1 + uint256(uint8(rowData[nameEnd]));
         if (isinEnd > rowData.length) {
             revert MalformedUnderlyingSnapshot(shard);
         }

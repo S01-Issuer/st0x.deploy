@@ -27,7 +27,8 @@ import {
 import {
     ScheduleUnderlyingNamingRename,
     RenameAlreadyScheduled,
-    RenamedMetadataMismatch
+    RenamedMetadataMismatch,
+    RenamedTimestampMismatch
 } from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
@@ -194,6 +195,39 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         for (uint256 i = 0; i < networks.length; i++) {
             assertRenameBatchExact(networks[i].chainId, networks[i].name);
         }
+    }
+
+    function externalAssertIsinsBound(uint256 chainId) external pure {
+        LibUnderlyingNamingRollout.assertIsinsBound(chainId);
+    }
+
+    /// @notice On every network the rename was cut for, each ISIN the rename
+    /// batch writes is its row's listing-time asset id, and `assertIsinsBound`
+    /// accepts the chain.
+    function testEveryWrittenIsinIsItsRowsAssetId() external view {
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        for (uint256 i = 0; i < networks.length; i++) {
+            TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(networks[i].chainId);
+            (,, bytes[] memory payloads) = LibUnderlyingNamingRollout.renameBatch(networks[i].chainId);
+            for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
+                (,, string memory setIsin) = decodeSetUnderlying(payloads[tokenIndex]);
+                assertEq(
+                    setIsin,
+                    LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying).assetId,
+                    string.concat(networks[i].name, ": ", chainTokens[tokenIndex].underlying)
+                );
+            }
+            this.externalAssertIsinsBound(networks[i].chainId);
+        }
+    }
+
+    /// @notice The ticker the rename batch writes to the vault at
+    /// `tokenIndex` of the chain's rollout.
+    function writtenTicker(uint256 chainId, uint256 tokenIndex) internal pure returns (string memory) {
+        (,, bytes[] memory payloads) = LibUnderlyingNamingRollout.renameBatch(chainId);
+        (string memory setTicker,,) = decodeSetUnderlying(payloads[tokenIndex]);
+        return setTicker;
     }
 
     /// @dev For the issuers renamed since launch, the name the live `name`
@@ -618,14 +652,22 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         executor.execute();
     }
 
-    /// @notice A ticker that does not match its vault's live symbol refuses.
+    /// @notice A vault whose live symbol is not `"t"` + the ticker the rename
+    /// writes to it refuses, naming that ticker; `"t"` + it passes.
     function testTickerBindingRefusesAMismatchedVault() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         TokenInstance memory first = LibUnderlyingNamingRollout.tokens(block.chainid)[0];
-        vm.mockCall(first.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode("tWRONG"));
-        vm.expectRevert(
-            abi.encodeWithSelector(TickerNotBoundToVault.selector, first.underlying, first.receiptVault, "tWRONG")
+        string memory ticker = writtenTicker(block.chainid, 0);
+        vm.mockCall(
+            first.receiptVault,
+            abi.encodeWithSelector(IERC20Metadata.symbol.selector),
+            abi.encode(string.concat("t", ticker))
         );
+        this.externalAssertTickersBound(block.chainid);
+
+        string memory wrong = string.concat("t", ticker, "X");
+        vm.mockCall(first.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(wrong));
+        vm.expectRevert(abi.encodeWithSelector(TickerNotBoundToVault.selector, ticker, first.receiptVault, wrong));
         this.externalAssertTickersBound(block.chainid);
     }
 
@@ -673,18 +715,20 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("ticker");
         prepareRename();
         rename.callPreflight();
-        TokenInstance memory last =
-            LibUnderlyingNamingRollout.tokens(block.chainid)[LibUnderlyingNamingRollout.TOKEN_COUNT - 1];
+        uint256 lastIndex = LibUnderlyingNamingRollout.TOKEN_COUNT - 1;
+        TokenInstance memory last = LibUnderlyingNamingRollout.tokens(block.chainid)[lastIndex];
         vm.mockCall(last.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode("tWRONG"));
         vm.expectRevert(
-            abi.encodeWithSelector(TickerNotBoundToVault.selector, last.underlying, last.receiptVault, "tWRONG")
+            abi.encodeWithSelector(
+                TickerNotBoundToVault.selector, writtenTicker(block.chainid, lastIndex), last.receiptVault, "tWRONG"
+            )
         );
         rename.callPreflight();
     }
 
     /// @notice After the rollout executes, `assertRenamed` refuses a token
-    /// whose vault symbol, vault name, wrapper symbol or wrapper name is not
-    /// the renamed value.
+    /// whose vault symbol, vault name, ISIN, wrapper symbol or wrapper name is
+    /// not the renamed value.
     function testAssertRenamedRefusesEachWrongField() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         uint256 chainId = block.chainid;
@@ -693,19 +737,21 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         rename.callAssertRenamed(chainId);
 
         TokenInstance memory token = LibUnderlyingNamingRollout.tokens(chainId)[0];
-        string memory vaultName =
-            string.concat(LibProdTokenConfig.configOf(token.underlying).underlyingName, ST0X_NAME_SUFFIX);
-        address[4] memory targets =
-            [token.receiptVault, token.receiptVault, token.wrappedTokenVault, token.wrappedTokenVault];
-        bytes4[4] memory selectors = [
+        TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
+        string memory vaultName = string.concat(config.underlyingName, ST0X_NAME_SUFFIX);
+        address[5] memory targets = [
+            token.receiptVault, token.receiptVault, token.receiptVault, token.wrappedTokenVault, token.wrappedTokenVault
+        ];
+        bytes4[5] memory selectors = [
             IERC20Metadata.symbol.selector,
             IERC20Metadata.name.selector,
+            IStoxUnderlyingV2.underlyingIsin.selector,
             IERC20Metadata.symbol.selector,
             IERC20Metadata.name.selector
         ];
-        string[4] memory expected =
-            [string.concat("t", token.underlying), vaultName, string.concat(token.underlying, "s"), vaultName];
-        for (uint256 field = 0; field < 4; field++) {
+        string[5] memory expected =
+            [string.concat("t", config.ticker), vaultName, config.isin, string.concat(config.ticker, "s"), vaultName];
+        for (uint256 field = 0; field < 5; field++) {
             uint256 snapshot = vm.snapshotState();
             vm.mockCall(targets[field], abi.encodeWithSelector(selectors[field]), abi.encode("WRONG"));
             vm.expectRevert(
@@ -715,5 +761,28 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             vm.clearMockedCalls();
             vm.revertToState(snapshot);
         }
+    }
+
+    /// @notice `assertRenamed` refuses a vault whose override was not stamped
+    /// in the block it checks.
+    function testAssertRenamedRefusesAnotherBlocksTimestamp() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        uint256 chainId = block.chainid;
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("stamped");
+        executeRollout(rename);
+        // forge-lint: disable-next-line(block-timestamp)
+        uint256 executed = block.timestamp;
+        rename.callAssertRenamed(chainId);
+
+        vm.warp(executed + 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RenamedTimestampMismatch.selector,
+                LibUnderlyingNamingRollout.tokens(chainId)[0].receiptVault,
+                executed + 1,
+                executed
+            )
+        );
+        rename.callAssertRenamed(chainId);
     }
 }

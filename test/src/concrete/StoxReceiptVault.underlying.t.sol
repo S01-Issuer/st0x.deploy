@@ -8,12 +8,12 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
 import {
-    MalformedUnderlyingTicker,
+    MalformedUnderlyingSymbol,
     MalformedUnderlyingName,
     MalformedUnderlyingIsin
 } from "../../../src/error/ErrUnderlying.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
-import {UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
+import {LibSecurity, UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {ERC20_STORAGE_LOCATION} from "../../../src/lib/LibERC20Storage.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
@@ -41,31 +41,6 @@ contract StoxReceiptVaultUnderlyingTest is Test {
 
     function underlying() internal view returns (IStoxUnderlyingV2) {
         return IStoxUnderlyingV2(address(sVault));
-    }
-
-    function wellFormedTicker(bytes memory seed) internal pure returns (string memory) {
-        bytes memory charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
-        uint256 length = seed.length == 0 ? 1 : (seed.length - 1) % 16 + 1;
-        bytes memory out = new bytes(length);
-        for (uint256 i = 0; i < length; i++) {
-            out[i] = charset[(i < seed.length ? uint8(seed[i]) : 0) % charset.length];
-        }
-        return string(out);
-    }
-
-    function wellFormedName(bytes memory seed) internal pure returns (string memory) {
-        uint256 length = seed.length == 0 ? 1 : seed.length;
-        bytes memory out = new bytes(length);
-        for (uint256 i = 0; i < length; i++) {
-            bytes1 c = bytes1(uint8(0x20 + (i < seed.length ? uint8(seed[i]) : 0) % 0x5f));
-            if (c == '"' || c == "\\") {
-                c = "A";
-            }
-            out[i] = c;
-        }
-        // Breaks any "ST0x" / "(ST0x)" ending.
-        out[length - 1] = "A";
-        return string(out);
     }
 
     function testStorageLocation() external pure {
@@ -169,13 +144,24 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
     }
 
-    function testSymbolAndNameDerivedFromUnderlyingFuzz(bytes memory tickerSeed, bytes memory nameSeed) external {
-        string memory newSymbol = wellFormedTicker(tickerSeed);
-        string memory newName = wellFormedName(nameSeed);
+    function testSymbolAndNameDerivedFromUnderlyingFuzz(bytes32 symbolSeed, uint256 symbolLength, bytes memory nameSeed)
+        external
+    {
+        bytes memory tickerAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.";
+        bytes memory newSymbol = new bytes(bound(symbolLength, 1, 16));
+        for (uint256 byteIndex = 0; byteIndex < newSymbol.length; byteIndex++) {
+            newSymbol[byteIndex] = tickerAlphabet[uint8(symbolSeed[byteIndex]) % tickerAlphabet.length];
+        }
+        bytes memory newName = new bytes(nameSeed.length);
+        for (uint256 byteIndex = 0; byteIndex < newName.length; byteIndex++) {
+            bytes1 printable = bytes1(0x20 + uint8(nameSeed[byteIndex]) % 0x5f);
+            newName[byteIndex] = printable == "\"" || printable == "\\" ? bytes1(0x20) : printable;
+        }
+        vm.assume(LibSecurity.nameWellFormed(newName));
         vm.prank(OWNER);
-        underlying().setUnderlying(newSymbol, newName, NVDA_ISIN);
-        assertEq(sVault.symbol(), string.concat("t", newSymbol));
-        assertEq(sVault.name(), string.concat(newName, ST0X_NAME_SUFFIX));
+        underlying().setUnderlying(string(newSymbol), string(newName), NVDA_ISIN);
+        assertEq(sVault.symbol(), string.concat("t", string(newSymbol)));
+        assertEq(sVault.name(), string.concat(string(newName), ST0X_NAME_SUFFIX));
     }
 
     function testSetUnderlyingEmitsEvent() external {
@@ -245,18 +231,19 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         vm.prank(caller, OWNER);
         underlying().setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
         assertEq(underlying().underlyingSymbol(), "");
+        assertEq(underlying().underlyingName(), "");
+        assertEq(underlying().underlyingIsin(), "");
     }
 
-    function testSetUnderlyingEmptyTickerReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingTicker.selector, ""));
-        vm.prank(OWNER);
-        underlying().setUnderlying("", "NVIDIA Corporation", NVDA_ISIN);
-    }
-
-    function testSetUnderlyingLowercaseTickerReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingTicker.selector, "nvda"));
-        vm.prank(OWNER);
-        underlying().setUnderlying("nvda", "NVIDIA Corporation", NVDA_ISIN);
+    /// A ticker init would refuse as a listing is rejected, the empty one included.
+    function testSetUnderlyingMalformedSymbolReverts() external {
+        string[4] memory symbols = ["", "nvda", "NV DA", "AAAAAAAAAAAAAAAAA"];
+        for (uint256 i = 0; i < symbols.length; i++) {
+            vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSymbol.selector, symbols[i]));
+            vm.prank(OWNER);
+            underlying().setUnderlying(symbols[i], "NVIDIA Corporation", NVDA_ISIN);
+        }
+        assertEq(underlying().underlyingSymbol(), "");
     }
 
     /// "t" + a 16-byte ticker is the longest symbol; mints cap it at 31 bytes.
@@ -266,50 +253,43 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         assertEq(sVault.symbol(), "tABCDEFGHIJKLMNOP");
         assertLe(bytes(sVault.symbol()).length, 31);
 
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingTicker.selector, "ABCDEFGHIJKLMNOPQ"));
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSymbol.selector, "ABCDEFGHIJKLMNOPQ"));
         vm.prank(OWNER);
         underlying().setUnderlying("ABCDEFGHIJKLMNOPQ", "NVIDIA Corporation", NVDA_ISIN);
     }
 
-    function testSetUnderlyingEmptyNameReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, ""));
-        vm.prank(OWNER);
-        underlying().setUnderlying("NVDA", "", NVDA_ISIN);
+    /// A name init would refuse as a listing is rejected, the empty one included.
+    function testSetUnderlyingMalformedNameReverts() external {
+        string[6] memory names = [
+            "",
+            "NVIDIA \"Corporation\"",
+            "NVIDIA\\Corporation",
+            "NVIDIA\nCorporation",
+            "NVIDIA (ST0x)",
+            "NVIDIA Corporation (ST0x)"
+        ];
+        for (uint256 i = 0; i < names.length; i++) {
+            vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, names[i]));
+            vm.prank(OWNER);
+            underlying().setUnderlying("NVDA", names[i], NVDA_ISIN);
+        }
+        assertEq(underlying().underlyingName(), "");
     }
 
-    function testSetUnderlyingSuffixedNameReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, "NVIDIA Corporation (ST0x)"));
-        vm.prank(OWNER);
-        underlying().setUnderlying("NVDA", "NVIDIA Corporation (ST0x)", NVDA_ISIN);
-    }
-
-    function testSetUnderlyingQuotedNameReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, "NVIDIA \"Corp\""));
-        vm.prank(OWNER);
-        underlying().setUnderlying("NVDA", "NVIDIA \"Corp\"", NVDA_ISIN);
-    }
-
-    function testSetUnderlyingEmptyIsinReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, ""));
-        vm.prank(OWNER);
-        underlying().setUnderlying("NVDA", "NVIDIA Corporation", "");
-    }
-
-    function testSetUnderlyingWrongCheckDigitIsinReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "US67066G1041"));
-        vm.prank(OWNER);
-        underlying().setUnderlying("NVDA", "NVIDIA Corporation", "US67066G1041");
-    }
-
-    function testSetUnderlyingLowercaseIsinReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "us67066g1040"));
-        vm.prank(OWNER);
-        underlying().setUnderlying("NVDA", "NVIDIA Corporation", "us67066g1040");
+    /// An ISIN init would refuse as an asset id is rejected, the empty one included.
+    function testSetUnderlyingMalformedIsinReverts() external {
+        string[3] memory isins = ["", "US67066G1041", "us67066g1040"];
+        for (uint256 i = 0; i < isins.length; i++) {
+            vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, isins[i]));
+            vm.prank(OWNER);
+            underlying().setUnderlying("NVDA", "NVIDIA Corporation", isins[i]);
+        }
+        assertEq(underlying().underlyingIsin(), "");
     }
 
     /// The checks run ticker, then name, then ISIN.
     function testSetUnderlyingChecksInOrder() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingTicker.selector, ""));
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSymbol.selector, ""));
         vm.prank(OWNER);
         underlying().setUnderlying("", "", "");
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, ""));
@@ -345,6 +325,8 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         underlying().setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         underlying().underlyingSymbol();
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        underlying().underlyingName();
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         underlying().underlyingIsin();
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));

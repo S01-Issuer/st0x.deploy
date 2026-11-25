@@ -35,6 +35,30 @@
   at 195 runs, larger than the inline form. As with every optimizer change, this
   moves every candidate Zoltu address; the candidate pins are regenerated.
 
+### Token init data (`StoxTokenConfigV1`)
+
+- **Tokens initialize from the listing facts.** Init data is
+  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the listing-time
+  ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC and
+  receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
+  delegatecalls the facet's `initializeStoxToken`, which refuses
+  `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,
+  `MalformedAssetId`, `MalformedListingTicker`, `MalformedListingName` and
+  `StoxTokenAlreadyInitialized`, stores the listing facts at
+  `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and passes
+  rain-vats the V3 config named `listingName + " (ST0x)"` /
+  `"t" + listingTicker`.
+- **rain-vats V3 init data is refused** (`InvalidStoxTokenConfigTag`).
+- **The token salt is zero.** The clone factory's effective salt already hashes
+  the init data, so each token's address is unique to its config.
+- **`underlyingSymbol()` / `underlyingName()` / `underlyingIsin()` fall back to
+  the listing ticker, name and asset id** until `setUnderlying` runs, so the
+  wrapper reports `listingTicker + "s"` and the vault's name from init. Vaults
+  initialized before this read empty until set.
+- **Expected state marks a token at its suite address `Listed`**
+  (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
+  deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
+
 ### StoxReceipt
 
 - **`uri` names "the underlying off-chain asset".** The vault's `asset()` is
@@ -43,14 +67,19 @@
 
 ### Underlying ticker and name
 
-- **`IStoxUnderlyingV1`: each receipt vault stores its underlying ticker and
-  name.** `StoxCorporateActionsFacet` implements `underlyingSymbol()`,
-  `underlyingName()` and `setUnderlying(symbol, name)`, with the values in a new
-  ERC-7201 namespace `rain.storage.underlying.1` (`LibSecurity`). The setter is
+- **`IStoxUnderlyingV2`: each receipt vault stores its underlying ticker, name
+  and ISIN.** `StoxCorporateActionsFacet` implements `underlyingSymbol()`,
+  `underlyingName()`, `underlyingIsin()` and `setUnderlying(symbol, name, isin)`,
+  with the values and the `block.timestamp` of the set in a new ERC-7201
+  namespace `rain.storage.underlying.1` (`LibSecurity`). The setter is
   `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains it
-  goes through the governance timelock), rejects empty values with
-  `EmptyUnderlyingSymbol` / `EmptyUnderlyingName`, emits `UnderlyingSet` with
-  the old and new values, and can be called again when a listing is renamed.
+  goes through the governance timelock), refuses values that fail init's listing
+  rules (`LibSecurity.tickerWellFormed` / `nameWellFormed` / `isinWellFormed`)
+  with `MalformedUnderlyingSymbol` / `MalformedUnderlyingName` /
+  `MalformedUnderlyingIsin`, emits `UnderlyingSet` with the getters' old values
+  and the new ones, and can be called again when a listing is renamed.
+  `IStoxUnderlyingV1` and its two-argument `setUnderlying` are deprecated and
+  not implemented.
 - **Token metadata is built from those values.** Once set, `StoxReceiptVault`
   reports `symbol() = "t" + ticker` and `name() = name + " (ST0x)"`, and
   `StoxWrappedTokenVault` reports `symbol() = ticker + "s"` and the vault's
@@ -58,7 +87,8 @@
   suffix is the single constant `ST0X_NAME_SUFFIX`. While unset, the vault
   reports the name and symbol it was initialized with and the wrapper
   `"Wrapped " + name` / `"w" + symbol`, so nothing changes on chain until the
-  values are set.
+  values are set. A vault initialized with `StoxTokenConfigV1` (below) is named
+  from its listing at init instead.
 - **The wrapper does not revert because of its asset's underlying getters.** It
   reads the underlying values with a `staticcall` and falls back to the asset's
   ERC-20 metadata if the call fails, returns data that is not a well-formed
@@ -83,7 +113,8 @@
   underlying name**, so the name format lives only in the facet and a format
   change needs no wrapper upgrade.
 - **Rollout order:** deploy the facet, upgrade the wrapper beacon, upgrade the
-  receipt-vault beacon, then call `setUnderlying` (`docs/TIMELOCK.md`).
+  receipt-vault beacon, then call `setUnderlying(ticker, underlyingName, isin)`
+  (`LibUnderlyingNamingRollout`).
 - As with every vault/facet change, the vault, facet, wrapper and the contracts
   that pin them move to new Zoltu addresses; the `candidate/` pins are
   regenerated.
@@ -232,9 +263,12 @@
   ST0x suffix.
 - **The rename script refuses until downstream is ready.** It requires
   `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` (false until the
-  services and token lists accept `<TICKER>s`), and every row's ticker and
-  underlying name to be well formed, so a quote or backslash never reaches the
-  receipt's `uri()` JSON and a row cannot carry the ST0x suffix twice.
+  services and token lists accept `<TICKER>s`), and every row's ticker,
+  underlying name and ISIN to be well formed, so a quote or backslash never
+  reaches the receipt's `uri()` JSON and a row cannot carry the ST0x suffix
+  twice. Each vault's live symbol must be `"t" + ticker` for the ticker the
+  batch writes to it (`TickerNotBoundToVault`), and each written ISIN must be
+  its row's `assetId` (`IsinNotBoundToAssetId`).
 - **Downstream is ready: `DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set.**
   st0x.liquidity accepts both `wt<TICKER>` and `<TICKER>s` from release v1.29.0,
   st0x.pricing and st0x-oracle-server never read an on-chain `symbol()`, and the

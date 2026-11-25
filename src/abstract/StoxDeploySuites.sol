@@ -345,9 +345,9 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     function underlyingSnapshotSuites() internal pure returns (DeployCandidate[] memory) {
         DeploySuite[] memory shards = underlyingSnapshotShardSuites();
         DeployCandidate[] memory candidates = new DeployCandidate[](shards.length + 1);
-        candidates[0] = unanchored(underlyingSnapshotRootSuite());
+        candidates[0] = unanchored(underlyingSnapshotRootSuite(), UNDERLYING_SNAPSHOT_UNANCHORABLE_REASON);
         for (uint256 i = 0; i < shards.length; i++) {
-            candidates[i + 1] = unanchored(shards[i]);
+            candidates[i + 1] = unanchored(shards[i], UNDERLYING_SNAPSHOT_UNANCHORABLE_REASON);
         }
         return candidates;
     }
@@ -552,8 +552,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return DeployCandidate({snapshot: snapshot, unanchorableReason: ""});
     }
 
-    function unanchored(DeploySuite memory snapshot) internal pure returns (DeployCandidate memory) {
-        return DeployCandidate({snapshot: snapshot, unanchorableReason: UNDERLYING_SNAPSHOT_UNANCHORABLE_REASON});
+    function unanchored(DeploySuite memory snapshot, string memory reason)
+        internal
+        pure
+        returns (DeployCandidate memory)
+    {
+        return DeployCandidate({snapshot: snapshot, unanchorableReason: reason});
     }
 
     function one(address deployedAddress, bytes memory runtimeCode) internal pure returns (DeployDependency[] memory) {

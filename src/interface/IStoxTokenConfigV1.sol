@@ -2,19 +2,25 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {Region} from "../lib/LibProdTokenConfig.sol";
-
 bytes32 constant STOX_TOKEN_CONFIG_V1_TAG = keccak256("StoxTokenConfigV1");
 
+/// @dev Append only: init data and storage hold the ordinal.
 enum AssetIdKind {
     ISIN
+}
+
+/// @dev Append only: init data and storage hold the ordinal.
+enum Region {
+    US,
+    EU
 }
 
 /// @param assetId The listing-time ISIN of the exact share line. Never
 /// follows later changes.
 /// @param listingTicker The ticker at listing, e.g. "MSTR".
 /// @param listingName The issuer name at listing, without any ST0x suffix.
-/// @param metadata Empty, or `abi.encode(bytes32 tag, payload)`.
+/// @param metadata Opaque: committed to by the address and emitted, never
+/// stored or decoded.
 struct StoxTokenConfigV1 {
     string assetId;
     AssetIdKind assetIdKind;
@@ -28,7 +34,10 @@ struct StoxTokenConfigV1 {
 }
 
 interface IStoxTokenConfigV1 {
-    event StoxTokenInitialized(address sender, StoxTokenConfigV1 config);
+    event StoxTokenInitialized(address indexed sender, StoxTokenConfigV1 config);
 
+    /// @notice Reachable on every vault through its `fallback`; refuses once
+    /// the vault is initialized.
+    /// @return The rain-vats V3 init data derived from `data`.
     function initializeStoxToken(bytes calldata data) external returns (bytes memory);
 }

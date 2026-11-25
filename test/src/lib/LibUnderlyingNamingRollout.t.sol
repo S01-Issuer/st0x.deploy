@@ -3,13 +3,16 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {
     LibUnderlyingNamingRollout,
     MalformedUnderlying,
     DownstreamNotReadyForRename,
     UnderlyingNamingNotCutForChain,
-    UnderlyingNamingTokenTableShort
+    UnderlyingNamingTokenTableShort,
+    TickerNotBoundToVault,
+    IsinNotBoundToAssetId
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
@@ -313,5 +316,52 @@ contract LibUnderlyingNamingRolloutTest is Test {
                 assertEq(LibUnderlyingNamingRollout.renamesRow(rowIndex), targeted, table[rowIndex].underlying);
             }
         }
+    }
+
+    function externalAssertIsinBound(TokenConfig memory config) external pure {
+        LibUnderlyingNamingRollout.assertIsinBound(config);
+    }
+
+    function externalAssertTickerBound(TokenInstance memory token, TokenConfig memory config) external view {
+        LibUnderlyingNamingRollout.assertTickerBound(token, config);
+    }
+
+    /// A row keyed by its listing-time ticker `FB` whose rename writes `META`.
+    function tickerChangedRow() internal pure returns (TokenConfig memory) {
+        TokenConfig memory config = row("US30303M1027", "META", "Meta Platforms Inc");
+        config.underlying = "FB";
+        config.listingTicker = "FB";
+        config.symbol = "tFB";
+        return config;
+    }
+
+    /// The ISIN check passes a row whose ISIN is its asset id and refuses
+    /// another, naming the row's underlying, ISIN and asset id.
+    function testIsinBindingRefusesAnIsinThatIsNotTheAssetId() external {
+        TokenConfig memory config = tickerChangedRow();
+        this.externalAssertIsinBound(config);
+
+        config.isin = "US0378331005";
+        vm.expectRevert(abi.encodeWithSelector(IsinNotBoundToAssetId.selector, "FB", "US0378331005", "US30303M1027"));
+        this.externalAssertIsinBound(config);
+    }
+
+    /// The ticker check binds the vault's live symbol to `"t"` + the ticker
+    /// the rename writes, not the underlying key or listing symbol.
+    function testTickerBindingReadsTheWrittenTickerNotTheUnderlying() external {
+        TokenConfig memory config = tickerChangedRow();
+        TokenInstance memory token = TokenInstance({
+            underlying: "FB",
+            receipt: makeAddr("receipt"),
+            receiptVault: makeAddr("receiptVault"),
+            wrappedTokenVault: makeAddr("wrappedTokenVault")
+        });
+
+        vm.mockCall(token.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode("tMETA"));
+        this.externalAssertTickerBound(token, config);
+
+        vm.mockCall(token.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode("tFB"));
+        vm.expectRevert(abi.encodeWithSelector(TickerNotBoundToVault.selector, "META", token.receiptVault, "tFB"));
+        this.externalAssertTickerBound(token, config);
     }
 }

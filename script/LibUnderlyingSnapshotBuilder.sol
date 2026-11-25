@@ -1,9 +1,14 @@
 // SPDX-License-Identifier: LicenseRef-DCL-1.0
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
-pragma solidity =0.8.25;
+pragma solidity ^0.8.25;
 
 import {AuthoringMetaV2} from "rainlang-0.2.40/src/interface/IParserV2.sol";
-import {LibGenParseMeta} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
+import {
+    LibGenParseMeta,
+    DuplicateFingerprint,
+    AuthoringMetaTooLarge,
+    MaxDepthExceeded
+} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibDataContract} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {
@@ -12,6 +17,7 @@ import {
     UNDERLYING_SNAPSHOT_SHARD_MAGIC,
     UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH
 } from "../src/lib/LibUnderlyingSnapshot.sol";
+import {UnderlyingSnapshotShardEncoder} from "./UnderlyingSnapshotShardEncoder.sol";
 
 uint8 constant UNDERLYING_SNAPSHOT_META_DEPTH = 3;
 uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARD_ROWS = 256;
@@ -19,6 +25,9 @@ uint256 constant EIP170_MAX_RUNTIME = 24576;
 
 /// @notice No shard count whose root fits EIP-170 fits every shard.
 error UnderlyingSnapshotDoesNotShard(uint256 rows);
+
+/// @notice A row field is longer than its one-byte length prefix can encode.
+error UnderlyingSnapshotFieldTooLong(address token, uint256 length);
 
 struct UnderlyingSnapshotRow {
     address token;
@@ -44,17 +53,26 @@ library LibUnderlyingSnapshotBuilder {
             body = abi.encodePacked(
                 body,
                 rows[i].token,
-                uint8(bytes(rows[i].ticker).length),
+                fieldLength(rows[i].token, rows[i].ticker),
                 rows[i].ticker,
-                uint8(bytes(rows[i].name).length),
+                fieldLength(rows[i].token, rows[i].name),
                 rows[i].name,
-                uint8(bytes(rows[i].isin).length),
+                fieldLength(rows[i].token, rows[i].isin),
                 rows[i].isin
             );
         }
         return abi.encodePacked(
             UNDERLYING_SNAPSHOT_SHARD_MAGIC, uint16(rows.length), uint16(meta.length), meta, offsets, body
         );
+    }
+
+    function fieldLength(address token, string memory field) internal pure returns (uint8) {
+        uint256 length = bytes(field).length;
+        if (length > type(uint8).max) {
+            revert UnderlyingSnapshotFieldTooLong(token, length);
+        }
+        // forge-lint: disable-next-line(unsafe-typecast)
+        return uint8(length);
     }
 
     function rootData(uint256 asOf, address[] memory shards) internal pure returns (bytes memory) {
@@ -79,11 +97,21 @@ library LibUnderlyingSnapshotBuilder {
                     fits = false;
                     break;
                 }
-                // A meta build revert (depth, duplicate fingerprint) means try the next K.
+                // A meta build revert (depth, duplicate fingerprint, size) means try the next K.
                 bytes memory data;
                 try encoder.shardData(member) returns (bytes memory encoded) {
                     data = encoded;
-                } catch {
+                } catch (bytes memory err) {
+                    // forge-lint: disable-next-line(unsafe-typecast)
+                    bytes4 selector = bytes4(err);
+                    if (
+                        selector != DuplicateFingerprint.selector && selector != MaxDepthExceeded.selector
+                            && selector != AuthoringMetaTooLarge.selector
+                    ) {
+                        assembly ("memory-safe") {
+                            revert(add(err, 0x20), mload(err))
+                        }
+                    }
                     fits = false;
                     break;
                 }
@@ -117,12 +145,5 @@ library LibUnderlyingSnapshotBuilder {
             mstore(member, n)
         }
         return member;
-    }
-}
-
-/// External entry so the builder can catch a shard's meta build revert.
-contract UnderlyingSnapshotShardEncoder {
-    function shardData(UnderlyingSnapshotRow[] memory rows) external pure returns (bytes memory) {
-        return LibUnderlyingSnapshotBuilder.shardData(rows);
     }
 }

@@ -2,22 +2,20 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// Thrown when `setUnderlying` is given a ticker `LibSecurity.tickerWellFormed`
-/// refuses.
-/// @param ticker The refused ticker.
-error MalformedUnderlyingTicker(string ticker);
+/// Thrown when `setUnderlying` is called with a symbol that fails
+/// `LibSecurity.tickerWellFormed`, the rule init applies to the listing ticker.
+error MalformedUnderlyingSymbol(string symbol);
 
-/// Thrown when `setUnderlying` is given a name `LibSecurity.nameWellFormed`
-/// refuses.
-/// @param name The refused name.
+/// Thrown when `setUnderlying` is called with a name that fails
+/// `LibSecurity.nameWellFormed`, the rule init applies to the listing name.
 error MalformedUnderlyingName(string name);
 
-/// Thrown when `setUnderlying` is given an ISIN `LibSecurity.isinWellFormed`
-/// refuses.
-/// @param isin The refused ISIN.
+/// Thrown when `setUnderlying` is called with an ISIN that fails
+/// `LibSecurity.isinWellFormed`, the rule init applies to the asset id.
 error MalformedUnderlyingIsin(string isin);
 
-/// Thrown when an underlying snapshot root or shard has no code or its bytes
-/// do not match the snapshot format.
+/// Thrown when an underlying snapshot root or shard has no code, or its header
+/// or row bytes do not match the snapshot format. A malformed shard parse meta
+/// reverts `InvalidParseMeta` instead.
 /// @param account The snapshot contract whose code was refused.
 error MalformedUnderlyingSnapshot(address account);

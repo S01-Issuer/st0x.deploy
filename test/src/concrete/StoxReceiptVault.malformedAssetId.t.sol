@@ -2,48 +2,17 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
-import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
-import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
+import {StoxReceiptVaultUninitializedTest} from "../../abstract/StoxReceiptVaultUninitializedTest.sol";
 import {MalformedAssetId} from "../../../src/error/ErrStoxTokenConfig.sol";
-import {Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSecurity} from "../../../src/lib/LibSecurity.sol";
-import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
+import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
-contract StoxReceiptVaultMalformedAssetIdTest is Test {
-    UpgradeableBeacon internal beacon;
-
-    function setUp() external {
-        deployCodeTo(
-            "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet",
-            LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE
-        );
-        beacon = new UpgradeableBeacon(address(new StoxReceiptVault()), address(this));
-    }
-
-    function initData(string memory assetId) internal pure returns (bytes memory) {
-        return abi.encode(
-            STOX_TOKEN_CONFIG_V1_TAG,
-            StoxTokenConfigV1({
-                assetId: assetId,
-                assetIdKind: AssetIdKind.ISIN,
-                listingTicker: "AAPL",
-                listingName: "Apple Inc.",
-                region: Region.US,
-                authority: address(0),
-                rbacName: bytes32(0),
-                receiptBeaconName: bytes32(0),
-                metadata: ""
-            })
-        );
-    }
-
+contract StoxReceiptVaultMalformedAssetIdTest is StoxReceiptVaultUninitializedTest {
     function assertInitializeRefuses(string memory assetId) internal {
-        StoxReceiptVault vault = StoxReceiptVault(payable(address(new BeaconProxy(address(beacon), ""))));
+        StoxReceiptVault vault = uninitializedVault();
         vm.expectRevert(abi.encodeWithSelector(MalformedAssetId.selector, assetId));
-        vault.initialize(initData(assetId));
+        vault.initialize(LibTestDeploy.vaultData(assetId, "AAPL", "Apple Inc.", address(0), bytes32(0)));
     }
 
     function testInitializeRefusesAMalformedAssetIdCarryingIt() external {

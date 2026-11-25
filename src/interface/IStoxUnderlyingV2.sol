@@ -8,9 +8,9 @@ pragma solidity ^0.8.25;
 interface IStoxUnderlyingV2 {
     /// @notice Emitted when the underlying override is set.
     /// @param sender The caller that set the values.
-    /// @param oldSymbol The override ticker before the update. Empty if unset.
-    /// @param oldName The override name before the update. Empty if unset.
-    /// @param oldIsin The override ISIN before the update. Empty if unset.
+    /// @param oldSymbol `underlyingSymbol()` before the update.
+    /// @param oldName `underlyingName()` before the update.
+    /// @param oldIsin `underlyingIsin()` before the update.
     /// @param newSymbol The override ticker after the update.
     /// @param newName The override name after the update.
     /// @param newIsin The override ISIN after the update.
@@ -38,7 +38,7 @@ interface IStoxUnderlyingV2 {
 
     /// @notice Sets this token's underlying ticker, name and ISIN override,
     /// stamped with `block.timestamp`. Callable by the vault owner only.
-    /// Reverts with `MalformedUnderlyingTicker`, `MalformedUnderlyingName` or
+    /// Reverts with `MalformedUnderlyingSymbol`, `MalformedUnderlyingName` or
     /// `MalformedUnderlyingIsin` on a refused value.
     /// @param newSymbol The underlying ticker, e.g. "NVDA".
     /// @param newName The underlying asset's name, e.g. "NVIDIA Corporation".

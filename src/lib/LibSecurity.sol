@@ -25,6 +25,10 @@ bytes32 constant UNDERLYING_STORAGE_LOCATION =
 /// ST0x token built from it, e.g. "NVIDIA Corporation" + " (ST0x)".
 string constant ST0X_NAME_SUFFIX = " (ST0x)";
 
+/// @dev Prepended to the underlying ticker to form the receipt vault's
+/// `symbol()`, e.g. "t" + "NVDA".
+string constant ST0X_SYMBOL_PREFIX = "t";
+
 /// @title LibSecurity
 /// @notice Storage for the ticker and name of the off-chain asset a
 /// `StoxReceiptVault` tokenizes. The vault's own ERC-20 `symbol()` / `name()`
@@ -57,6 +61,16 @@ library LibSecurity {
         assembly ("memory-safe") {
             s.slot := position
         }
+    }
+
+    /// @notice The receipt vault's `symbol()` for `ticker`.
+    function vaultSymbol(string memory ticker) internal pure returns (string memory) {
+        return string.concat(ST0X_SYMBOL_PREFIX, ticker);
+    }
+
+    /// @notice The receipt vault's `name()` for `name`.
+    function vaultName(string memory name) internal pure returns (string memory) {
+        return string.concat(name, ST0X_NAME_SUFFIX);
     }
 
     /// @notice Whether `ticker` is 1 to 16 bytes of `A-Z`, `0-9` and `.`.

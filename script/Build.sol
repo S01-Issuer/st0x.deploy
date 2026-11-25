@@ -177,11 +177,10 @@ contract Build is Script, StoxDeploySuites {
 
     function genUnderlyingSnapshot() internal {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](configs.length);
         for (uint256 i = 0; i < configs.length; i++) {
             rows[i] = UnderlyingSnapshotRow(
-                LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]),
+                LibProdTokenParams.tokenAddress(configs[i]),
                 configs[i].ticker,
                 configs[i].underlyingName,
                 configs[i].isin
