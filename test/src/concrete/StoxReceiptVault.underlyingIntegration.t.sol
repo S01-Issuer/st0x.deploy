@@ -79,16 +79,26 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sWrapper.name(), string.concat(longName, ST0X_NAME_SUFFIX));
     }
 
-    /// A set ticker and name win over the listing, and the first set reports
-    /// the listing the getters returned as the old values.
+    /// A set ticker, name and ISIN win over the listing and asset id, and the
+    /// first set reports what the getters returned, the listing and asset id,
+    /// as the old values.
     function testSetUnderlyingOverridesTheListing() external {
         vm.expectEmit(address(sVault));
-        emit IStoxUnderlyingV1.UnderlyingSet(address(this), "NVDA", "NVIDIA Corporation", "NVDX", "NVIDIA Holdings");
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDX");
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Holdings");
+        emit IStoxUnderlyingV2.UnderlyingSet(
+            address(this), "NVDA", "NVIDIA Corporation", NVDA_ISIN, "NVDX", "NVIDIA Holdings", NEW_ISIN
+        );
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings", NEW_ISIN);
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingSymbol(), "NVDX");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingName(), "NVIDIA Holdings");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingIsin(), NEW_ISIN);
         assertEq(sWrapper.symbol(), "NVDXs");
         assertEq(sWrapper.name(), "NVIDIA Holdings (ST0x)");
+
+        vm.expectEmit(address(sVault));
+        emit IStoxUnderlyingV2.UnderlyingSet(
+            address(this), "NVDX", "NVIDIA Holdings", NEW_ISIN, "META", "Meta Platforms, Inc.", META_ISIN
+        );
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("META", "Meta Platforms, Inc.", META_ISIN);
     }
 
     /// Unset: the underlying getters fall back to the listing ticker and
@@ -100,6 +110,10 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
         assertEq(sWrapper.symbol(), "NVDAs");
         assertEq(sWrapper.name(), "NVIDIA Corporation (ST0x)");
+    }
+
+    function testUnsetIsinFallsBackToTheAssetId() external view {
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingIsin(), NVDA_ISIN);
     }
 
     /// Set: both tokens carry the names built from the underlying ticker and
@@ -158,18 +172,20 @@ contract StoxUnderlyingIntegrationTest is Test {
         UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).upgradeTo(implementation);
     }
 
-    /// The underlying ticker and name and the ERC-20 name and symbol survive a beacon upgrade to an implementation
-    /// whose fallback delegatecalls a facet at another address, with the pinned facet gone, and the upgrade back.
+    /// The underlying ticker, name and ISIN and the ERC-20 name and symbol survive a beacon upgrade to an
+    /// implementation whose fallback delegatecalls a facet at another address, with the pinned facet gone, and the
+    /// upgrade back.
     function testUnderlyingAndMetadataSurviveABeaconUpgradeToAMovedFacet() external {
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation", NEW_ISIN);
         address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
         bytes memory facetCode = facet.code;
         address moved = address(new MovedFacetStoxReceiptVault(address(new StoxCorporateActionsFacet())));
         upgradeVaultBeacon(moved);
         assertEq(UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(), moved, "upgraded");
         vm.etch(facet, "");
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDA", "underlying symbol moved");
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Corporation", "underlying name moved");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingSymbol(), "NVDA", "underlying symbol moved");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingName(), "NVIDIA Corporation", "underlying name moved");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingIsin(), NEW_ISIN, "underlying isin moved");
         assertEq(sVault.symbol(), "tNVDA", "symbol moved");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)", "name moved");
 
@@ -180,8 +196,9 @@ contract StoxUnderlyingIntegrationTest is Test {
             LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE,
             "upgraded back"
         );
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDA", "underlying symbol back");
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Corporation", "underlying name back");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingSymbol(), "NVDA", "underlying symbol back");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingName(), "NVIDIA Corporation", "underlying name back");
+        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingIsin(), NEW_ISIN, "underlying isin back");
         assertEq(sVault.symbol(), "tNVDA", "symbol back");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)", "name back");
     }
