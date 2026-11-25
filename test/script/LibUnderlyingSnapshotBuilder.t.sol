@@ -106,9 +106,11 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
 
     function testRowCapBoundsTheShardCount() external {
         bytes32 seed = keccak256("row cap");
-        (, bytes[] memory atCap) = LibUnderlyingSnapshotBuilder.build(0, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 256));
+        (, bytes[] memory atCap) =
+            LibUnderlyingSnapshotBuilder.build(0, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 256));
         assertEq(atCap.length, 1, "256 rows");
-        (, bytes[] memory pastCap) = LibUnderlyingSnapshotBuilder.build(0, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 257));
+        (, bytes[] memory pastCap) =
+            LibUnderlyingSnapshotBuilder.build(0, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 257));
         assertEq(pastCap.length, 2, "257 rows");
     }
 

@@ -13,7 +13,9 @@ contract LibProdTokenConfigSnapshotWellFormedTest is Test {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
         assertGt(configs.length, 0, "rows");
         for (uint256 i = 0; i < configs.length; i++) {
-            assertTrue(LibSecurity.tickerWellFormed(bytes(configs[i].ticker)), string.concat(configs[i].ticker, " ticker"));
+            assertTrue(
+                LibSecurity.tickerWellFormed(bytes(configs[i].ticker)), string.concat(configs[i].ticker, " ticker")
+            );
             assertTrue(
                 LibSecurity.nameWellFormed(bytes(configs[i].underlyingName)),
                 string.concat(configs[i].ticker, " underlyingName")
