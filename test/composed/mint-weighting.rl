@@ -1,5 +1,5 @@
 /* 0. weighting */ 
-using-words-from 0x89832bFf73E9daD09C90CceC4b46Ac511A10F015
+using-words-from 0xA4e2D9A941d97AeEdb61669b3d895E90Eb98828f
 
 :ensure(
   binary-equal-to(lead() 0xB05Da3f2e145C6b156D97872386Bc8645B34b668)
