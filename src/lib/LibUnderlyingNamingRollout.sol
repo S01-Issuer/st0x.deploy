@@ -32,8 +32,8 @@ error UnderlyingNamingReleaseNotFrozen();
 error UnderlyingNamingTokenTableShort(uint256 chainId, uint256 expected, uint256 actual);
 
 /// @notice A token's live receipt-vault symbol is not `"t" + underlying`, so
-/// the ticker this rollout would set does not belong to that vault.
-/// @param underlying The token's ticker key.
+/// the row this rollout would set does not belong to that vault.
+/// @param underlying The token's join key.
 /// @param vault The token's receipt vault.
 /// @param symbol The vault's live symbol.
 error TickerNotBoundToVault(string underlying, address vault, string symbol);
@@ -249,7 +249,7 @@ library LibUnderlyingNamingRollout {
     }
 
     /// @notice Reverts unless every production vault of the chain reports
-    /// `"t" + underlying` as its live symbol, binding each ticker the rename
+    /// `"t" + underlying` as its live symbol, binding each row the rename
     /// batch sets to the vault it lands on.
     /// @param chainId The chain id.
     function assertTickersBound(uint256 chainId) internal view {

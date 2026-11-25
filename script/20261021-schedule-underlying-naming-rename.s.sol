@@ -63,14 +63,13 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 }
 
 /// @title ScheduleUnderlyingNamingRename
-/// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch
-/// (rollout step 3 in `docs/TIMELOCK.md`): `setUnderlying(ticker,
-/// underlyingName, isin)` on every production vault of the chain, ticker from
-/// `TokenConfig.ticker`, name from `TokenConfig.underlyingName` and ISIN
-/// from `TokenConfig.isin`. Two
-/// Safe calls: `timelock.scheduleBatch(...)`, with the beacon batch as
-/// predecessor so the timelock refuses to execute the rename first, then the
-/// Safe's root-line record.
+/// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch:
+/// `setUnderlying(ticker, underlyingName, isin)` on every production vault of
+/// the chain, ticker from `TokenConfig.ticker`, name from
+/// `TokenConfig.underlyingName` and ISIN from `TokenConfig.isin`. Two Safe
+/// calls: `timelock.scheduleBatch(...)`, with the beacon batch as predecessor
+/// so the timelock refuses to execute the rename first, then the Safe's
+/// root-line record.
 ///
 /// **The pre-flight refuses until
 /// `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set**, which
@@ -79,7 +78,7 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// nothing on chain restores the initialized metadata. While the delay runs,
 /// the Safe can still `cancel` the operation.
 ///
-/// Pre-flight binds each ticker to its vault: every production vault must
+/// Pre-flight binds each row to its vault: every production vault must
 /// report `"t" + underlying` as its live symbol, so a shifted or mistyped row
 /// refuses here rather than renaming the wrong token. It also requires the
 /// timelock to own every production vault of the chain, because the batch

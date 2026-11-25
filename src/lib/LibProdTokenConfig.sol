@@ -17,7 +17,7 @@ import {Region} from "../interface/IStoxTokenConfigV1.sol";
 /// `name` + `symbol` were their only free initialization inputs.
 ///
 /// The underlying ticker and name are not deploy inputs: the vault owner sets
-/// them after deployment with `IStoxUnderlyingV1.setUnderlying`. The ticker
+/// them after deployment with `IStoxUnderlyingV2.setUnderlying`. The ticker
 /// is the row's `ticker` and the name is `underlyingName`. Once both are set,
 /// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
 /// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
