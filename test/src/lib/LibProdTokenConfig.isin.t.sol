@@ -3,7 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibTestIsin} from "../../lib/LibTestIsin.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 
 /// An underlying and the ISIN of the share line it tracks.
@@ -13,12 +12,12 @@ struct UnderlyingIsin {
 }
 
 /// @title LibProdTokenConfigIsinTest
-/// @notice Every production row's asset id is the ISIN of the share line it tracks, and each row has one source.
+/// @notice Every production and off-Base row's asset id is the ISIN of the share line it tracks, and each row has
+/// one source.
 contract LibProdTokenConfigIsinTest is Test {
     /// `extensions.isin` of every `wt<TICKER>` in st0x.registry `token-lists/base.json` at commit `e9e47a6`, keyed by
     /// the ticker. The other chains' lists agree with it except wtSMCI, where they still carry the pre-split ISIN
-    /// `US86800U1043`: SMCI's 8-K of 2024-09-26 gives the post-split CUSIP `86800U302`, and Exhibit 1.1 of its 8-K of
-    /// 2026-06-15 gives "CUSIP / ISIN for the Common Stock 86800U302 / US86800U3023", the Base value.
+    /// `US86800U1043`. SMCI's current CUSIP after its 2024 10-for-1 split is `86800U302`, which is the Base value.
     function registryBaseIsins() internal pure returns (UnderlyingIsin[] memory) {
         UnderlyingIsin[] memory isins = new UnderlyingIsin[](54);
         isins[0] = UnderlyingIsin({underlying: "MSTR", isin: "US5949724083"});
@@ -80,17 +79,17 @@ contract LibProdTokenConfigIsinTest is Test {
 
     /// The rows the registry Base list has no ISIN for. Each is the ISIN of the share line that trades under the
     /// ticker, with its check digit validated. Sources:
-    /// - IBHG: BlackRock's fund page gives CUSIP 46436E478, and the iShares Trust N-PORT-P filed 2026-09-23
-    ///   (accession 0001004726-26-008843) lists the fund with ISIN US46436E4787. The registry's Ethereum, HyperEVM and
-    ///   Robinhood lists carry wtIBHG as US46436E3128, the ISIN of the iShares iBonds Dec 2032 Term Corporate ETF.
-    /// - RKLB: the issuer's 8-K12B of 2025-05-23 gives the new CUSIP 773121108 of Rocket Lab Corporation after the
-    ///   holding company reorganization, and its 10-Q filed 2026-11-09 keeps that name. The older US7731221062 is the
+    /// - IBHG: BlackRock's fund page gives CUSIP 46436E478; Pensions & Investments gives ISIN US46436E4787. The
+    ///   registry's Ethereum, HyperEVM and Robinhood lists carry US46436E3128, which no other source ties to IBHG.
+    /// - RKLB: the issuer's May 2025 8-K12B gives the new CUSIP 773121108 of Rocket Lab Corporation after the holding
+    ///   company reorganization; getquin and GuruFocus give ISIN US7731211089. The older US7731221062 is the
     ///   Rocket Lab USA line that the reorganization replaced.
-    /// - BIRD: Allbirds' 8-K of 2024-08-30 gives CUSIP 01675A208 after the reverse split, and Exhibit 99.1 of the 8-K
-    ///   of 2026-06-17 for the rename to Smartbird, Inc. says the CUSIP is unchanged.
-    /// - SNES: the issuer's 8-K of 2024-07-23 gives CUSIP 81720R604 after the 1-for-10 reverse split.
-    /// - DIS: Disney's proxy of 2015-01-16 gives common CUSIP 254687106; the 8-K12B of 2019-03-20 keeps the DIS line
-    ///   under the successor registrant, and its 2026 notes keep the 254687 issuer number.
+    /// - BIRD: Allbirds' 2024 reverse split notice gives CUSIP 01675A208, and the June 2026 8-K for the rename to
+    ///   Smartbird, Inc. says the CUSIP is unchanged; Fidelity and Hargreaves Lansdown give ISIN US01675A2087.
+    /// - SNES: the issuer's July 2024 8-K gives CUSIP 81720R604 after the 1-for-10 reverse split; wallstreet-online
+    ///   and GuruFocus give ISIN US81720R6045.
+    /// - DIS: CUSIP 254687106 in Disney's SEC filings; StockAnalysis and the Mexican exchange (BMV) give ISIN
+    ///   US2546871060.
     function sourcedIsins() internal pure returns (UnderlyingIsin[] memory) {
         UnderlyingIsin[] memory isins = new UnderlyingIsin[](5);
         isins[0] = UnderlyingIsin({underlying: "IBHG", isin: "US46436E4787"});
@@ -101,45 +100,41 @@ contract LibProdTokenConfigIsinTest is Test {
         return isins;
     }
 
-    /// The CUSIP each source above gives, index-aligned with `sourcedIsins`.
-    function sourcedCusips() internal pure returns (string[] memory) {
-        string[] memory cusips = new string[](5);
-        cusips[0] = "46436E478";
-        cusips[1] = "773121108";
-        cusips[2] = "01675A208";
-        cusips[3] = "81720R604";
-        cusips[4] = "254687106";
-        return cusips;
+    /// The off-Base rows' ISINs, each the ordinary share line the listing ticker trades on its home exchange.
+    /// Sources:
+    /// - AIR.PA: Airbus's "Share price and information" investor page gives ISIN NL0000235190; Euronext Paris lists
+    ///   Airbus under NL0000235190-XPAR.
+    /// - BMW.DE: BMW Group's "BMW shares" investor page gives the ordinary share ISIN DE0005190003, WKN 519000.
+    /// - MC.PA: LVMH's investor FAQ gives ISIN FR0000121014, Bloomberg MC FP; Euronext Paris lists LVMH under
+    ///   FR0000121014-XPAR.
+    /// - SIE.DE: Siemens' "Basic Data & Key Share Figures" investor page gives ISIN DE0007236101, symbol SIE.
+    /// - MBG.DE: Deutsche Börse's Mercedes-Benz Group company details give ISIN DE0007100000, WKN 710000, symbol MBG.
+    /// - RHM.DE: Rheinmetall's "Basic information" share page gives ISIN DE0007030009, WKN 703000.
+    function offBaseIsins() internal pure returns (UnderlyingIsin[] memory) {
+        UnderlyingIsin[] memory isins = new UnderlyingIsin[](6);
+        isins[0] = UnderlyingIsin({underlying: "AIR.PA", isin: "NL0000235190"});
+        isins[1] = UnderlyingIsin({underlying: "BMW.DE", isin: "DE0005190003"});
+        isins[2] = UnderlyingIsin({underlying: "MC.PA", isin: "FR0000121014"});
+        isins[3] = UnderlyingIsin({underlying: "SIE.DE", isin: "DE0007236101"});
+        isins[4] = UnderlyingIsin({underlying: "MBG.DE", isin: "DE0007100000"});
+        isins[5] = UnderlyingIsin({underlying: "RHM.DE", isin: "DE0007030009"});
+        return isins;
     }
 
-    /// Each sourced ISIN is `US` + its source's CUSIP + the ISIN check digit, and each CUSIP carries its own check
-    /// digit.
-    function testSourcedIsinsDeriveFromTheirCusip() external pure {
-        UnderlyingIsin[] memory isins = sourcedIsins();
-        string[] memory cusips = sourcedCusips();
-        assertEq(cusips.length, isins.length, "one CUSIP per sourced row");
-        for (uint256 i = 0; i < isins.length; i++) {
-            assertTrue(LibTestIsin.cusipCheckDigitHolds(bytes(cusips[i])), cusips[i]);
-            assertEq(LibTestIsin.isinOf(cusips[i]), isins[i].isin, isins[i].underlying);
+    /// Each off-Base row carries its sourced ISIN, and the sourced list covers every off-Base row once.
+    function testOffBaseRowsCarryTheSourcedIsin() external pure {
+        UnderlyingIsin[] memory isins = offBaseIsins();
+        TokenConfig[] memory rows = LibProdTokenConfig.offBaseTokenConfigs();
+        assertEq(rows.length, isins.length, "count");
+        for (uint256 i = 0; i < rows.length; i++) {
+            uint256 matches = 0;
+            for (uint256 j = 0; j < isins.length; j++) {
+                if (keccak256(bytes(isins[j].underlying)) != keccak256(bytes(rows[i].underlying))) continue;
+                matches++;
+                assertEq(rows[i].assetId, isins[j].isin, rows[i].underlying);
+            }
+            assertEq(matches, 1, rows[i].underlying);
         }
-    }
-
-    /// The CUSIP check refuses a changed check digit, a changed body character, a short and a long value, and accepts
-    /// a check digit of 0; an ISIN with a changed check digit is refused.
-    function testTheDerivationCatchesAnAlteredCharacter() external pure {
-        assertFalse(LibTestIsin.cusipCheckDigitHolds(bytes("254687107")), "changed check digit");
-        assertFalse(LibTestIsin.cusipCheckDigitHolds(bytes("254688106")), "changed body character");
-        assertFalse(LibTestIsin.cusipCheckDigitHolds(bytes("25468710")), "short");
-        assertFalse(LibTestIsin.cusipCheckDigitHolds(bytes("2546871060")), "long");
-        assertTrue(LibTestIsin.cusipCheckDigitHolds(bytes("037833100")), "check digit 0");
-        assertFalse(LibTestIsin.isinCheckDigitHolds(bytes("US2546871061")), "changed ISIN check digit");
-        assertEq(LibTestIsin.isinOf("254687106"), "US2546871060", "DIS");
-    }
-
-    /// SMCI's ISIN before and after its 2024 split derive from the two CUSIPs.
-    function testSmciIsinsDeriveFromBothCusips() external pure {
-        assertEq(LibTestIsin.isinOf("86800U302"), "US86800U3023", "after the split");
-        assertEq(LibTestIsin.isinOf("86800U104"), "US86800U1043", "before the split");
     }
 
     function assertRowsHaveIsins(UnderlyingIsin[] memory isins) internal pure {

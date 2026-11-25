@@ -3,7 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
@@ -15,9 +16,9 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 
 /// @title BuildPrivilegedAddresses
-/// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, and
-/// per deployment network the Safe, timelock, authoriser, EU authoriser, production beacons and receipt vaults.
-/// `address(0)` is none.
+/// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, the
+/// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, the four
+/// production beacons, and its receipt vaults. `address(0)` is none.
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 
@@ -26,11 +27,11 @@ contract BuildPrivilegedAddresses is Script {
         address[4] memory implementations = LibBeaconInvariants.prodImplementationsForChainId(chainId);
         address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(chainId);
         string[] memory rows = new string[](pinned.length);
-        for (uint256 i = 0; i < pinned.length; i++) {
-            string memory row = string.concat(key, ".beacon.", vm.toString(i));
-            vm.serializeAddress(row, "beacon", pinned[i]);
-            vm.serializeAddress(row, "implementation", implementations[i]);
-            rows[i] = vm.serializeAddress(row, "v1Implementation", v1[i]);
+        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            string memory row = string.concat(key, ".beacon.", vm.toString(rowIndex));
+            vm.serializeAddress(row, "beacon", pinned[rowIndex]);
+            vm.serializeAddress(row, "implementation", implementations[rowIndex]);
+            rows[rowIndex] = vm.serializeAddress(row, "v1Implementation", v1[rowIndex]);
         }
         return rows;
     }
@@ -67,6 +68,7 @@ contract BuildPrivilegedAddresses is Script {
             "root", "authoriserImplementation", LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_0_1_1
         );
         vm.serializeString("root", "beaconOwners", beaconOwners);
+        vm.serializeAddress("root", "registryRootAuthority", LibRegistryAuthority.ROOT_AUTHORITY);
         return vm.serializeString("root", "chains", chains);
     }
 

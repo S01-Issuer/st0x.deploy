@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {ST0xOrchestrator} from "../../../src/concrete/ST0xOrchestrator.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
@@ -13,6 +13,7 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {RoleGrant} from "../../../src/lib/RoleGrant.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 
 contract LibIdealRolesTest is Test {
     RoleGrant[] internal want;
@@ -88,8 +89,8 @@ contract LibIdealRolesTest is Test {
 
     function testMintCapsOrchestratorLists() external {
         SupportedNetwork[] memory nets = networks();
-        address timelock = LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK;
         for (uint256 c = 0; c < nets.length; c++) {
+            (, address timelock) = principals(nets[c].chainId);
             ContractRoles memory roles = LibIdealRoles.contractRoles(nets[c].chainId)[4];
             assertEq(roles.target, LibOrchestratorInvariants.mintCapsInstance());
 
@@ -101,18 +102,47 @@ contract LibIdealRolesTest is Test {
         }
     }
 
+    function testMintCapsGranteesAreTheChainsProdTimelockNotTheCandidate() external pure {
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            (, address timelock) = principals(nets[c].chainId);
+            RoleGrant[] memory grants = LibIdealRoles.contractRoles(nets[c].chainId)[4].expected;
+            assertGt(grants.length, 0);
+            for (uint256 i = 0; i < grants.length; i++) {
+                assertEq(grants[i].grantee, timelock);
+                assertNotEq(grants[i].grantee, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+            }
+        }
+    }
+
     function testOrchestratorRoleIdsAreTheInstanceGetters() external {
         SupportedNetwork[] memory nets = networks();
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         for (uint256 c = 0; c < nets.length; c++) {
-            vm.createSelectFork(nets[c].name);
+            uint256 snapshot = vm.snapshotState();
+            vm.chainId(nets[c].chainId);
+            LibLocalProdState.orchestrator(vm, nets[c].chainId);
             ST0xOrchestrator instance = ST0xOrchestrator(payable(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE));
             (address safe,) = principals(nets[c].chainId);
             RoleGrant[] memory expected = LibIdealRoles.contractRoles(nets[c].chainId)[2].expected;
             assertTrue(contains(expected, RoleGrant(instance.MINT_ROLE(), signer)));
             assertTrue(contains(expected, RoleGrant(instance.BURN_ROLE(), signer)));
             assertTrue(contains(expected, RoleGrant(instance.EMERGENCY_ROLE(), safe)));
+            vm.revertToState(snapshot);
         }
+    }
+
+    /// @notice 0G lists the same five contracts as every other chain: it runs
+    /// the orchestrator, so both orchestrators are expected to hold roles there.
+    function testZerogListsTheOrchestrator() external pure {
+        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
+        ContractRoles[] memory roles = LibIdealRoles.contractRoles(id);
+        assertEq(roles.length, 5);
+        assertEq(roles[0].target, LibAuthoriserInvariants.authoriserForChainId(id));
+        assertEq(roles[1].target, LibAuthoriserInvariants.euAuthoriserForChainId(id));
+        assertEq(roles[2].target, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+        assertEq(roles[3].target, LibTimelockInvariants.timelockForChainId(id));
+        assertEq(roles[4].target, LibOrchestratorInvariants.mintCapsInstance());
     }
 
     function principals(uint256 chainId) internal pure returns (address, address) {
@@ -172,5 +202,25 @@ contract LibIdealRolesTest is Test {
             assertTrue(contains(wanted, actual[i]), "unwanted pair present");
         }
         delete want;
+    }
+
+    /// @notice 0G's ideal V4 authoriser list is the per-chain map: the Safe,
+    /// the timelock, the signer and the orchestrator's `DEPOSIT` and
+    /// `WITHDRAW`. This pins 0G's row directly, whether or not 0G is a
+    /// deployment network.
+    function testZerogV4AuthoriserListGrantsTheOrchestrator() external {
+        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
+        (address safe, address timelock) = principals(id);
+        ContractRoles memory roles = LibIdealRoles.contractRoles(id)[0];
+        assertEq(roles.target, LibAuthoriserInvariants.authoriserForChainId(id));
+
+        pushEach(adminRoles(), timelock);
+        push("DEPOSIT", safe);
+        push("WITHDRAW", safe);
+        push("CERTIFY", safe);
+        push("CERTIFY", LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C);
+        push("DEPOSIT", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        push("WITHDRAW", LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        assertWant(roles.expected);
     }
 }

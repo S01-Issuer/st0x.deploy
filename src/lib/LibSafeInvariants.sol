@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibSafe} from "rain-deploy-0.1.30/src/lib/LibSafe.sol";
+import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 
 /// @notice No ST0x token-owner Safe address is pinned for the active chain.
 /// Deliberately a typed revert rather than a silent fallback to another
@@ -39,6 +39,9 @@ library LibSafeInvariants {
     /// @notice BNB Smart Chain mainnet chain id.
     uint256 internal constant BSC_CHAIN_ID = 56;
 
+    /// @notice 0G mainnet chain id.
+    uint256 internal constant ZEROG_CHAIN_ID = 16661;
+
     /// @notice The ST0x token-owner Safe on **Base** (the reference chain).
     address internal constant STOX_TOKEN_OWNER_SAFE = 0xe70d821f3462a074e63b42d0AaC6523faAe1d611;
 
@@ -72,16 +75,22 @@ library LibSafeInvariants {
     /// (`0x4e1DCf7A…`, live on 4663 with the canonical codehash) with the
     /// identical initializer and salt nonce, so the CREATE2 address matches.
     /// A per-chain deployment with its own state, asserted against the shared
-    /// policy by `assertTokenOwnerSafePolicy` like every other chain's Safe
-    /// (`RobinhoodTokenOwnerSafeParityTest`).
+    /// policy by `assertTokenOwnerSafePolicy` like every other chain's Safe.
     address internal constant STOX_TOKEN_OWNER_SAFE_ROBINHOOD = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
 
     /// @notice The ST0x token-owner Safe on **BNB Smart Chain** (chain id
     /// 56). The same CREATE2 address again, for the same reason as Robinhood
     /// Chain's: canonical proxy factory, identical initializer and salt
     /// nonce (all of which are live on 56 with the canonical codehashes).
-    /// Asserted against the shared policy by `BscTokenOwnerSafeParityTest`.
+    /// Asserted against the shared policy by `assertTokenOwnerSafePolicy`.
     address internal constant STOX_TOKEN_OWNER_SAFE_BSC = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
+
+    /// @notice The ST0x token-owner Safe on **0G** (chain id 16661). The same
+    /// CREATE2 address again: the canonical v1.4.1 proxy factory is live on
+    /// 16661, and the address commits to the identical initializer and salt
+    /// nonce, so only this owner set can be created there. Asserted against
+    /// the shared policy by `assertTokenOwnerSafePolicy`.
+    address internal constant STOX_TOKEN_OWNER_SAFE_ZEROG = 0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329;
 
     /// @notice The current expected threshold for `STOX_TOKEN_OWNER_SAFE`:
     /// 3-of-6 against the post-rotation owner roster. Scripts and the
@@ -182,7 +191,7 @@ library LibSafeInvariants {
     /// by chain id. The Safe address is a per-chain deploy artifact (the
     /// matched-address approach was abandoned), so consumers that must resolve
     /// "this chain's Safe" — the multichain production-state bundle, the
-    /// cross-chain parity pin, the Ethereum token-authorise script — read it
+    /// Ethereum token-authorise script — read it
     /// here. Reverts `UnsupportedChainForTokenOwnerSafe` for any chain without
     /// a pinned Safe rather than falling back to another chain's address.
     /// @param chainId The active chain id (`block.chainid`).
@@ -202,6 +211,9 @@ library LibSafeInvariants {
         }
         if (chainId == BSC_CHAIN_ID) {
             return STOX_TOKEN_OWNER_SAFE_BSC;
+        }
+        if (chainId == ZEROG_CHAIN_ID) {
+            return STOX_TOKEN_OWNER_SAFE_ZEROG;
         }
         revert UnsupportedChainForTokenOwnerSafe(chainId);
     }

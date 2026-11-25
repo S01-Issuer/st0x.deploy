@@ -3,11 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
-import {IReceiptVaultV3} from "rain-vats-0.2.20/src/interface/IReceiptVaultV3.sol";
-import {IReceiptV3} from "rain-vats-0.2.20/src/interface/IReceiptV3.sol";
-import {CloneFactory} from "rain-factory-deploy-0.2.8/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
+import {IReceiptVaultV3} from "rain-vats-0.2.25/src/interface/IReceiptVaultV3.sol";
+import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
+import {CloneFactory} from "rain-factory-deploy-0.2.14/src/concrete/CloneFactory.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
@@ -17,14 +17,14 @@ import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActi
 import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
-import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibUnderlying.sol";
+import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
+import {LibTokenMetadata} from "../../../src/lib/LibTokenMetadata.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 
 /// End-to-end naming for a token pair built as in production (registry beacon
-/// proxies over the candidate implementations): the tStock is initialized
-/// nameless, so it and its wrapper report empty or prefix-only metadata until
-/// the owner sets the underlying ticker and name, then both carry the names
-/// built from it.
+/// proxies over the candidate implementations): the tStock and its wrapper
+/// keep the initialized metadata until the owner sets the underlying ticker
+/// and name, then both carry the names built from it.
 contract StoxUnderlyingIntegrationTest is Test {
     address internal constant AUTHORITY = address(uint160(uint256(keccak256("AUTHORITY"))));
     bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
@@ -47,7 +47,9 @@ contract StoxUnderlyingIntegrationTest is Test {
                 )
         );
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, address(this), authorizer);
-        sVault = LibTestDeploy.newVault(AUTHORITY, LibTestDeploy.vaultData("US67066G1040", AUTHORITY, RBAC_NAME));
+        sVault = LibTestDeploy.newVault(
+            AUTHORITY, LibTestDeploy.vaultData("NVIDIA Corporation ST0x", "tNVDA", AUTHORITY, RBAC_NAME)
+        );
         sWrapper = LibTestDeploy.newWrapper(AUTHORITY, address(sVault));
     }
 
@@ -72,15 +74,15 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sWrapper.name(), string.concat(longName, ST0X_NAME_SUFFIX));
     }
 
-    /// Unset: the tStock reports its empty initialized metadata and the
-    /// wrapper derives "Wrapped " / "w" from it.
+    /// Unset: the tStock reports its initialized metadata and the wrapper
+    /// derives "Wrapped " / "w" from it.
     function testUnsetFallbacks() external view {
         assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "");
         assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "");
-        assertEq(sVault.symbol(), "");
-        assertEq(sVault.name(), "");
-        assertEq(sWrapper.symbol(), "w");
-        assertEq(sWrapper.name(), "Wrapped ");
+        assertEq(sVault.symbol(), "tNVDA");
+        assertEq(sVault.name(), "NVIDIA Corporation ST0x");
+        assertEq(sWrapper.symbol(), "wtNVDA");
+        assertEq(sWrapper.name(), "Wrapped NVIDIA Corporation ST0x");
     }
 
     /// Set: both tokens carry the names built from the underlying ticker and
@@ -100,8 +102,8 @@ contract StoxUnderlyingIntegrationTest is Test {
         vm.etch(facet, "");
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
-        assertEq(sVault.symbol(), "");
-        assertEq(sVault.name(), "");
+        assertEq(sVault.symbol(), "tNVDA");
+        assertEq(sVault.name(), "NVIDIA Corporation ST0x");
     }
 
     /// Once set, the tStock's metadata is plain ERC-20 storage: reading it
@@ -114,14 +116,14 @@ contract StoxUnderlyingIntegrationTest is Test {
     }
 
     /// The ERC-1155 receipt builds its name and symbol from the vault's
-    /// live `symbol()`: empty at deploy, "t" + ticker once set.
+    /// `symbol()`, which reads "t" + ticker either way.
     function testReceiptFollowsVaultSymbol() external {
         IReceiptV3 receipt = IReceiptV3(address(IReceiptVaultV3(payable(address(sVault))).receipt()));
-        assertEq(receipt.symbol(), " RCPT");
-        assertEq(receipt.name(), " Receipt");
+        string memory receiptSymbolBefore = receipt.symbol();
+        string memory receiptNameBefore = receipt.name();
         IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
-        assertEq(receipt.symbol(), "tNVDA RCPT");
-        assertEq(receipt.name(), "tNVDA Receipt");
+        assertEq(receipt.symbol(), receiptSymbolBefore);
+        assertEq(receipt.name(), receiptNameBefore);
     }
 
     /// A ticker change moves both tokens' metadata with it.
@@ -132,5 +134,10 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sVault.symbol(), "tMETA");
         assertEq(sWrapper.symbol(), "METAs");
         assertEq(sWrapper.name(), "Meta Platforms, Inc. (ST0x)");
+    }
+
+    function testVaultAndWrapperHaveTheTokenMetadataDecimals() external view {
+        assertEq(sVault.decimals(), LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
+        assertEq(sWrapper.decimals(), LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
     }
 }

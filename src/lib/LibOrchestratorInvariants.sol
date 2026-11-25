@@ -8,7 +8,7 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdOrchestratorParams} from "./LibProdOrchestratorParams.sol";
-import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.11/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {LibRainDeployRegistryBeaconProxy} from "rain-factory-0.2.18/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {RoleGrant} from "./RoleGrant.sol";
@@ -148,6 +148,17 @@ library LibOrchestratorInvariants {
         return grants;
     }
 
+    /// @notice Assert the orchestrator instance holds every `expectedGrants(chainSafe, timelock)` pair.
+    /// @param chainSafe The chain's token-owner Safe.
+    /// @param timelock The chain's governance timelock.
+    function assertExpectedGrants(address chainSafe, address timelock) internal view {
+        IAccessControl acl = IAccessControl(ST0X_ORCHESTRATOR_INSTANCE);
+        RoleGrant[] memory grants = expectedGrants(chainSafe, timelock);
+        for (uint256 grantIndex = 0; grantIndex < grants.length; grantIndex++) {
+            assertHolds(acl, grants[grantIndex].role, grants[grantIndex].grantee);
+        }
+    }
+
     /// @return The mint-caps orchestrator beacon.
     function mintCapsBeacon() internal pure returns (address) {
         return LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON;
@@ -164,12 +175,12 @@ library LibOrchestratorInvariants {
 
     /// @notice Assert the mint-caps orchestrator beacon on the active chain:
     /// it has the `ST0xOrchestratorBeacon` codehash, points at the
-    /// current-release orchestrator and is owned by the governance
-    /// timelock.
+    /// current-release orchestrator and is owned by the chain's prod
+    /// governance timelock.
     function assertMintCapsBeaconSet() internal view {
         LibBeaconInvariants.assertBeaconInvariants(
             mintCapsBeacon(),
-            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibTimelockInvariants.timelockForChainId(block.chainid),
             LibProdDeployCurrent.ST0X_ORCHESTRATOR,
             LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON_CODEHASH
         );
@@ -189,9 +200,9 @@ library LibOrchestratorInvariants {
     }
 
     /// @notice Assert the mint-caps orchestrator instance on the active
-    /// chain has code, carries `mintCapsExpectedGrants`, and administers each
-    /// operating role by its admin role, each admin role by itself and
-    /// `DEFAULT_ADMIN_ROLE` by itself.
+    /// chain has code, carries `mintCapsExpectedGrants` for the chain's prod
+    /// governance timelock, and administers each operating role by its admin
+    /// role, each admin role by itself and `DEFAULT_ADMIN_ROLE` by itself.
     function assertMintCapsInstance() internal view {
         address instance = mintCapsInstance();
         if (instance.code.length == 0) {
@@ -199,7 +210,7 @@ library LibOrchestratorInvariants {
         }
 
         IAccessControl acl = IAccessControl(instance);
-        RoleGrant[] memory grants = mintCapsExpectedGrants(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+        RoleGrant[] memory grants = mintCapsExpectedGrants(LibTimelockInvariants.timelockForChainId(block.chainid));
         for (uint256 i = 0; i < grants.length; i++) {
             assertHolds(acl, grants[i].role, grants[i].grantee);
         }
