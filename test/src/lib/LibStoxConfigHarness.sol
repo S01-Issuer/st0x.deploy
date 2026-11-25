@@ -10,4 +10,8 @@ contract LibStoxConfigHarness {
     function beaconInitialOwner() external view returns (address) {
         return LibStoxConfig.beaconInitialOwner();
     }
+
+    function authoriserInitialAdmin() external view returns (address) {
+        return LibStoxConfig.authoriserInitialAdmin();
+    }
 }

@@ -39,6 +39,11 @@ contract DeployPreDeployCheckHarness is Deploy {
         return suiteByName(declaration(), AUTHORISER);
     }
 
+    function deployAuthoriserCloneOnChain() external {
+        DeployDeclaration memory declared = declaration();
+        deployLocallyOnChain(declared, vm, suiteByName(declared, AUTHORISER));
+    }
+
     function beaconSuites() external view returns (DeploySuite[] memory) {
         DeployDeclaration memory declared = declaration();
         DeploySuite[] memory suites = new DeploySuite[](4);
