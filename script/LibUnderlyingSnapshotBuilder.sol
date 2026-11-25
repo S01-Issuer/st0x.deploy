@@ -102,6 +102,7 @@ library LibUnderlyingSnapshotBuilder {
                 try encoder.shardData(member) returns (bytes memory encoded) {
                     data = encoded;
                 } catch (bytes memory err) {
+                    // forge-lint: disable-next-line(unsafe-typecast)
                     bytes4 selector = bytes4(err);
                     if (
                         selector != DuplicateFingerprint.selector && selector != MaxDepthExceeded.selector
