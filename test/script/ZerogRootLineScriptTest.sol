@@ -24,18 +24,12 @@ interface IRunnableRecordScript {
 /// migration before it; the onto landed as the fixture lands it.
 abstract contract ZerogRootLineScriptTest is ZerogRootLineFixture, RootLineRecordScriptTest {
     function landBeforeOnto() internal virtual override {
-        landZerogTokensBeforeRecord();
-        if (declaredOnto() == LibStoxMigrations.CREATE_ZEROG_TOKENS) return;
-        landZerogTokenRecord();
+        forkZerogAtTheTokenRecord();
         landZerogLineBefore(declaredOnto());
     }
 
     function landOnto() internal virtual override {
-        if (declaredOnto() == LibStoxMigrations.CREATE_ZEROG_TOKENS) {
-            landZerogTokenRecord();
-        } else {
-            landZerogLineThrough(declaredOnto());
-        }
+        landZerogLineThrough(declaredOnto());
     }
 
     function testZerogBundleIsTheRecordAlone() external view {
@@ -56,7 +50,7 @@ abstract contract ZerogRootLineScriptTest is ZerogRootLineFixture, RootLineRecor
         assertEq(txs[0].data, record.data, "record calldata");
     }
 
-    /// The 0G Safe is at threshold 1 until #620's rollout raises it: the arm refuses it until then.
+    /// The arm refuses a 0G Safe off the policy threshold.
     function testZerogPreflightRefusesASafeOffPolicy() external {
         vm.mockCall(safeAddress(), abi.encodeCall(OwnerManager.getThreshold, ()), abi.encode(uint256(1)));
         vm.expectRevert(

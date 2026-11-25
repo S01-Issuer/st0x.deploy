@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
+import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 
 import {bindBeaconInitialOwnerDeclaration} from "../../script/20261022-bind-beacon-initial-owner.s.sol";
@@ -25,14 +26,21 @@ import {
 } from "../../script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol";
 import {qsepSetFleetAuthoriserDeclaration} from "../../script/20261111-qsep-set-fleet-authoriser.s.sol";
 import {bindOrchestratorConfigDeclaration} from "../../script/20261113-bind-orchestrator-config.s.sol";
+import {
+    scheduleZerogOrchestratorRolesDeclaration
+} from "../../script/20261123-schedule-zerog-orchestrator-roles.s.sol";
+import {executeZerogOrchestratorRolesDeclaration} from "../../script/20261123-execute-zerog-orchestrator-roles.s.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
+import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibServiceSignerRevoke} from "../../src/lib/LibServiceSignerRevoke.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibStoxMigrations, ZerogArmPendingDecision} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
+import {LibZerogOrchestratorRoles} from "../../src/lib/LibZerogOrchestratorRoles.sol";
 import {ExecuteUnderlyingNamingHarness} from "./ExecuteUnderlyingNamingHarness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
@@ -41,18 +49,20 @@ import {ZerogRootLineFixture} from "./ZerogRootLineFixture.sol";
 
 /// @title ZerogRootLineTest
 /// @notice 0G's root line past the token creation: the fixture's line is the declared one, the migrations whose 0G arm
-/// waits on a decision refuse 0G loudly at their onto, and the whole line walks through every other 0G arm as the
-/// record alone, changing nothing else.
+/// waits on a decision refuse 0G loudly at their onto, and the whole line walks through the orchestrator roles and every
+/// other 0G arm as the record alone, changing nothing the roles batch does not.
 contract ZerogRootLineTest is ZerogRootLineFixture {
     string internal constant EMERGENCY_DECISION = "whether the 0G Safe holds EMERGENCY_ROLE on the orchestrator";
     string internal constant NAMING_DECISION = "whether the underlying naming applies on 0G";
 
     function setUp() public {
-        landZerogTokens();
+        forkZerogAtTheTokenRecord();
     }
 
-    function declarations() internal pure returns (ScriptDeclaration[10] memory) {
+    function declarations() internal pure returns (ScriptDeclaration[12] memory) {
         return [
+            scheduleZerogOrchestratorRolesDeclaration(),
+            executeZerogOrchestratorRolesDeclaration(),
             bindBeaconInitialOwnerDeclaration(),
             orchestratorAdminToTimelockDeclaration(),
             handSafeOwnedBaseVaultsToTimelockDeclaration(),
@@ -73,7 +83,7 @@ contract ZerogRootLineTest is ZerogRootLineFixture {
         string memory chain = string.concat(".chains.", vm.toString(LibSafeInvariants.ZEROG_CHAIN_ID), ".onto");
         uint256 rows = 0;
         while (vm.keyExistsJson(json, string.concat(".migrations[", vm.toString(rows), "]"))) rows++;
-        bytes32[10] memory line = zerogLine();
+        bytes32[12] memory line = zerogLine();
         bytes32 onto = LibStoxMigrations.CREATE_ZEROG_TOKENS;
         for (uint256 i = 0; i <= line.length; i++) {
             bytes32 next = bytes32(0);
@@ -94,8 +104,8 @@ contract ZerogRootLineTest is ZerogRootLineFixture {
     }
 
     function testZerogLineIsTheDeclaredLine() external pure {
-        bytes32[10] memory line = zerogLine();
-        ScriptDeclaration[10] memory declared = declarations();
+        bytes32[12] memory line = zerogLine();
+        ScriptDeclaration[12] memory declared = declarations();
         bytes32 onto = LibStoxMigrations.CREATE_ZEROG_TOKENS;
         for (uint256 i = 0; i < line.length; i++) {
             assertEq(declared[i].id, line[i], "id");
@@ -143,17 +153,22 @@ contract ZerogRootLineTest is ZerogRootLineFixture {
         execution.execute();
     }
 
-    /// Every 0G arm lands as the record alone, one Safe transaction each, and the state #620 left stays as it was:
-    /// the authoriser grants, the beacons, the vault owners, the unbound config names, and the 0.1.30 orchestrator.
+    /// The orchestrator roles land as the signers and a stranger land them, every later 0G arm as the record alone,
+    /// one Safe transaction each, and nothing else changes: the authoriser grants and the orchestrator roles as the
+    /// batch leaves them, the beacons, the vault owners and the unbound config names.
     function testZerogLineWalksPastTheTokenCreation() external {
-        Safe safe = Safe(payable(zerogSafe()));
+        Safe safe = zerogSafe();
         uint256 nonce = safe.nonce();
         landZerogLineThrough(LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG);
 
-        bytes32[10] memory line = zerogLine();
+        bytes32[12] memory line = zerogLine();
         uint256 bundles = 0;
         for (uint256 i = 0; i < line.length; i++) {
-            assertEq(LibStoxMigrations.applied(line[i]), block.timestamp, "recorded");
+            // The schedule is recorded before the delay the execution waits out.
+            uint256 recordedAt = line[i] == LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES
+                ? block.timestamp - LibTimelockInvariants.TIMELOCK_MIN_DELAY
+                : block.timestamp;
+            assertEq(LibStoxMigrations.applied(line[i]), recordedAt, "recorded");
             if (!zerogPendingDecision(line[i])) bundles++;
         }
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG, "line at its end");
@@ -161,9 +176,7 @@ contract ZerogRootLineTest is ZerogRootLineFixture {
         assertEq(safe.nonce(), nonce + bundles, "one Safe transaction per 0G arm");
 
         address us = LibAuthoriserInvariants.authoriserForChainId(block.chainid);
-        LibAuthoriserInvariants.assertHeld(
-            us, LibAuthoriserInvariants.expectedGrantsOn(block.chainid, zerogSafe(), zerogTimelock())
-        );
+        LibAuthoriserInvariants.assertExpectedGrants(us, address(safe), zerogTimelock());
         LibServiceSignerRevoke.assertRevoked(us);
         LibAuthoriserInvariants.assertExpectedEuGrants(
             LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid),
@@ -171,11 +184,18 @@ contract ZerogRootLineTest is ZerogRootLineFixture {
             LibAuthoriserInvariants.GRANTEE_EU_MINTER
         );
         LibBeaconInvariants.assertProdBeaconsOwnedBy(block.chainid, zerogTimelock());
-        LibTokenInvariants.assertUniformOwnership(zerogTokens(), zerogTimelock());
+        LibTokenInvariants.assertUniformOwnership(LibTokenInvariants.productionTokensZerog(), zerogTimelock());
         assertFalse(rootBound(LibStoxConfig.BEACON_INITIAL_OWNER_NAME), "beacon initial owner unbound");
         assertFalse(rootBound(LibStoxConfig.ORCHESTRATOR_BEACON_NAME), "orchestrator beacon unbound");
         assertFalse(rootBound(LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME), "orchestrator initial admin unbound");
-        assertZerogOrchestratorAsLive();
+        LibOrchestratorInvariants.assertBeaconSet();
+        LibOrchestratorInvariants.assertInstance();
+        LibOrchestratorInvariants.assertExpectedGrants(address(safe), zerogTimelock());
+        LibZerogOrchestratorRoles.assertGranted();
+        assertFalse(
+            IAccessControl(LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE).hasRole(bytes32(0), address(safe)),
+            "the Safe is not the orchestrator's admin"
+        );
         LibSafeInvariants.assertTokenOwnerSafePolicy(safe);
     }
 }

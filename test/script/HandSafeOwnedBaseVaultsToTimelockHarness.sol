@@ -5,30 +5,13 @@ pragma solidity =0.8.25;
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {HandSafeOwnedBaseVaultsToTimelock} from "../../script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol";
-import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 
 /// @dev Per-instance artifact path because tests run in parallel.
 contract HandSafeOwnedBaseVaultsToTimelockHarness is HandSafeOwnedBaseVaultsToTimelock {
     string internal sArtifactTag;
-    TokenInstance[] internal sRows;
-    bool internal sRowsSet;
 
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
-    }
-
-    /// @dev Stands `rows` in for the chain's token table, as 0G's will hold the tokens its creation made.
-    function setOwnershipRows(TokenInstance[] memory rows) external {
-        delete sRows;
-        for (uint256 i = 0; i < rows.length; i++) {
-            sRows.push(rows[i]);
-        }
-        sRowsSet = true;
-    }
-
-    /// @inheritdoc HandSafeOwnedBaseVaultsToTimelock
-    function ownershipRows() internal view override returns (TokenInstance[] memory) {
-        return sRowsSet ? sRows : super.ownershipRows();
     }
 
     /// @inheritdoc HandSafeOwnedBaseVaultsToTimelock

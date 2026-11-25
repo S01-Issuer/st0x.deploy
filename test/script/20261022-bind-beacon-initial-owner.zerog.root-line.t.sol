@@ -11,8 +11,8 @@ import {BindBeaconInitialOwnerHarness} from "./BindBeaconInitialOwnerHarness.sol
 import {ZerogRootLineScriptTest} from "./ZerogRootLineScriptTest.sol";
 
 /// @title BindBeaconInitialOwnerZerogRootLineTest
-/// @notice The bind on 0G, onto the token creation's record: the record alone, since no current-source suite deploys
-/// on 0G. The arm refuses once the name is bound or the suite timelock it names has code there.
+/// @notice The bind on 0G, onto the 0G orchestrator roles' execution record: the record alone, since no current-source
+/// suite deploys on 0G. The arm refuses once the name is bound or the suite timelock it names has code there.
 contract BindBeaconInitialOwnerZerogRootLineTest is ZerogRootLineScriptTest {
     function newScript() internal override returns (IRecordScriptHooks) {
         return IRecordScriptHooks(address(new BindBeaconInitialOwnerHarness("zerog-root-line")));
@@ -23,7 +23,7 @@ contract BindBeaconInitialOwnerZerogRootLineTest is ZerogRootLineScriptTest {
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.CREATE_ZEROG_TOKENS;
+        return LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES;
     }
 
     function testZerogSuiteTimelockHasNoCode() external view {

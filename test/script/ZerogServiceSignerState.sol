@@ -34,7 +34,7 @@ abstract contract ZerogServiceSignerState is ZerogRootLineScriptTest {
 
     /// As the Safe, the timelock's proposer.
     function scheduleRevoke() internal {
-        vm.prank(zerogSafe());
+        vm.prank(address(zerogSafe()));
         (bool ok,) = zerogTimelock().call(LibServiceSignerRevoke.scheduleCalldata(LibSafeInvariants.ZEROG_CHAIN_ID));
         assertTrue(ok, "the Safe schedules the revoke");
     }
