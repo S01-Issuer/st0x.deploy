@@ -23,7 +23,12 @@ import {LibStoxTokenProxy} from "../../../src/generated/LibStoxTokenProxy.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
-import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind, Region} from "../../../src/interface/IStoxTokenConfigV1.sol";
+import {
+    StoxTokenConfigV1,
+    STOX_TOKEN_CONFIG_V1_TAG,
+    AssetIdKind,
+    Region
+} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTestTokenEnvironment} from "../../lib/LibTestTokenEnvironment.sol";
