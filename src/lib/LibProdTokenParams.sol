@@ -62,13 +62,17 @@ library LibProdTokenParams {
     }
 
     function tokenDependencies() internal pure returns (DeployDependency[] memory) {
-        DeployDependency[] memory dependencies = new DeployDependency[](3);
+        DeployDependency[] memory dependencies = new DeployDependency[](4);
         dependencies[0] =
             DeployDependency({deployedAddress: CLONE_FACTORY_V8_ADDRESS, runtimeCode: CLONE_FACTORY_V8_RUNTIME_CODE});
         dependencies[1] =
             DeployDependency({deployedAddress: CONFIG_REGISTRY_ADDRESS, runtimeCode: CONFIG_REGISTRY_RUNTIME_CODE});
         dependencies[2] = DeployDependency({
             deployedAddress: vaultBeacon(), runtimeCode: V4.STOX_RECEIPT_VAULT_BEACON_RUNTIME_CODE_CANDIDATE
+        });
+        dependencies[3] = DeployDependency({
+            deployedAddress: V4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE,
+            runtimeCode: V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE
         });
         return dependencies;
     }
