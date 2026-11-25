@@ -13,6 +13,8 @@ import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     using Strings for uint256;
 
+    address internal constant MINT_TOKEN = address(0xA11E);
+
     /// An attestation of `[symbol, price, time, source, currency]` signed by
     /// `key` under `domain`.
     function attestRows(uint256 key, bytes32 domain, bytes32[5] memory rows)
@@ -45,7 +47,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
             otherPoolDomain,
             [symbol("AAPL-1"), float(152), float(1002), symbol("euronext"), symbol("GBP")]
         );
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("MINT"), float(10), attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(MINT_TOKEN), float(10), attestations);
 
         checkWord("lead()", context, signer(vm.addr(LEAD_KEY)));
         checkWord("attestor<0>()", context, signer(vm.addr(OPERATOR_KEY_0)));
@@ -73,7 +75,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord("attested-source<1>()", context, symbol("euronext"));
         checkWord("attested-currency<1>()", context, symbol("GBP"));
 
-        checkWord("mint-symbol()", context, symbol("MINT"));
+        checkWord("mint-token()", context, tokenWord(MINT_TOKEN));
         checkWord("mint-amount()", context, float(10));
     }
 
@@ -81,7 +83,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     /// domain they were signed under, come back untouched, for any pool size
     /// the operand can address in a test.
     function testWordsFuzz(
-        bytes32 mintSymbol,
+        bytes32 mintToken,
         bytes32 mintAmount,
         bytes32 leadDomain,
         bytes32 poolDomain,
@@ -105,7 +107,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
             }
             attestations[i + 1] = attestRows(OPERATOR_KEY_0 + i, poolDomain ^ bytes32(i), values);
         }
-        bytes32[][] memory context = LibSt0xAttestContext.build(mintSymbol, mintAmount, attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(mintToken, mintAmount, attestations);
 
         checkWord("lead()", context, signer(vm.addr(LEAD_KEY)));
         checkWord("lead-domain()", context, leadDomain);
@@ -114,7 +116,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord("lead-time()", context, leadValues[2]);
         checkWord("lead-source()", context, leadValues[3]);
         checkWord("lead-currency()", context, leadValues[4]);
-        checkWord("mint-symbol()", context, mintSymbol);
+        checkWord("mint-token()", context, mintToken);
         checkWord("mint-amount()", context, mintAmount);
 
         string memory operand = string.concat("<", uint256(n).toString(), ">()");
@@ -132,7 +134,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     function testMissingPoolAttestorReverts(uint8 poolSize) external {
         poolSize = uint8(bound(poolSize, 0, 4));
         bytes32[][] memory context =
-            uniformGrid(symbol("AAPL"), float(1), symbol("AAPL"), float(150), float(1000), poolSize);
+            uniformGrid(tokenWord(MINT_TOKEN), float(1), symbol("AAPL"), float(150), float(1000), poolSize);
         string memory operand = string.concat("<", uint256(poolSize).toString(), ">()");
 
         checkWordReverts(string.concat("attestor", operand), context, stdError.indexOOBError);
@@ -148,9 +150,10 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     /// separators column and no lead column, so every attestation word
     /// reverts, the lead's included.
     function testNoAttestationsReverts() external {
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("AAPL"), float(1), new SignedContextV2[](0));
+        bytes32[][] memory context =
+            LibSt0xAttestContext.build(tokenWord(MINT_TOKEN), float(1), new SignedContextV2[](0));
 
-        checkWord("mint-symbol()", context, symbol("AAPL"));
+        checkWord("mint-token()", context, tokenWord(MINT_TOKEN));
         checkWord("mint-amount()", context, float(1));
 
         checkWordReverts("lead()", context, stdError.indexOOBError);
@@ -179,7 +182,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         twoValues[1] = float(150);
         attestations[0] = sign(LEAD_KEY, twoValues);
         attestations[1] = sign(OPERATOR_KEY_0, new bytes32[](0));
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("AAPL"), float(1), attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(MINT_TOKEN), float(1), attestations);
 
         checkWord("lead()", context, signer(vm.addr(LEAD_KEY)));
         checkWord("lead-domain()", context, priceDomain());
@@ -215,7 +218,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         SignedContextV2[] memory attestations = new SignedContextV2[](2);
         attestations[0] = sign(LEAD_KEY, threeValues);
         attestations[1] = sign(OPERATOR_KEY_0, fourValues);
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("AAPL"), float(1), attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(MINT_TOKEN), float(1), attestations);
 
         checkWord("lead-time()", context, float(1000));
         checkWordReverts("lead-source()", context, stdError.indexOOBError);

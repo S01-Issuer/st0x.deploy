@@ -10,7 +10,8 @@ import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";
 import {
     LibSt0xAttestSubParser,
     PARSE_META_BUILD_DEPTH,
-    SUB_PARSER_WORD_PARSERS_LENGTH
+    SUB_PARSER_WORD_PARSERS_LENGTH,
+    EXTERN_OPCODES_LENGTH
 } from "src/lib/LibSt0xAttestSubParser.sol";
 import {
     BYTECODE_HASH,
@@ -18,7 +19,9 @@ import {
     PARSE_META_BUILD_DEPTH as GENERATED_PARSE_META_BUILD_DEPTH,
     SUB_PARSER_WORD_PARSERS,
     OPERAND_HANDLER_FUNCTION_POINTERS,
-    LITERAL_PARSER_FUNCTION_POINTERS
+    LITERAL_PARSER_FUNCTION_POINTERS,
+    OPCODE_FUNCTION_POINTERS,
+    INTEGRITY_FUNCTION_POINTERS
 } from "src/generated/St0xAttestSubParserPointers.sol";
 
 /// Every table the subparser dispatches on is a committed constant. These
@@ -56,11 +59,23 @@ contract St0xAttestSubParserPointersTest is Test {
         assertEq(LITERAL_PARSER_FUNCTION_POINTERS.length, 0);
     }
 
+    function testOpcodeFunctionPointers() external {
+        St0xAttestSubParser subParser = new St0xAttestSubParser();
+        assertEq(OPCODE_FUNCTION_POINTERS, subParser.buildOpcodeFunctionPointers());
+        assertEq(OPCODE_FUNCTION_POINTERS.length, EXTERN_OPCODES_LENGTH * 2);
+    }
+
+    function testIntegrityFunctionPointers() external {
+        St0xAttestSubParser subParser = new St0xAttestSubParser();
+        assertEq(INTEGRITY_FUNCTION_POINTERS, subParser.buildIntegrityFunctionPointers());
+        assertEq(INTEGRITY_FUNCTION_POINTERS.length, EXTERN_OPCODES_LENGTH * 2);
+    }
+
     /// The word list, in the index order the tables are built in.
     function testWordList() external pure {
         AuthoringMetaV2[] memory authoringMeta =
             abi.decode(LibSt0xAttestSubParser.authoringMetaV2(), (AuthoringMetaV2[]));
-        string[16] memory expected = [
+        string[17] memory expected = [
             "lead",
             "attestor",
             "lead-symbol",
@@ -69,14 +84,15 @@ contract St0xAttestSubParserPointersTest is Test {
             "attested-symbol",
             "attested-price",
             "attested-time",
-            "mint-symbol",
+            "mint-token",
             "mint-amount",
             "lead-domain",
             "attestor-domain",
             "lead-source",
             "lead-currency",
             "attested-source",
-            "attested-currency"
+            "attested-currency",
+            "underlying-symbol"
         ];
         assertEq(authoringMeta.length, expected.length);
         for (uint256 i = 0; i < expected.length; i++) {
