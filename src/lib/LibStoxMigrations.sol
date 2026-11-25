@@ -161,6 +161,20 @@ library LibStoxMigrations {
     /// Recorded right after the backfill on every chain.
     bytes32 internal constant CREATE_ZEROG_TOKENS = keccak256("script/20261119-create-zerog-tokens.s.sol");
 
+    /// @notice `script/20261123-schedule-zerog-orchestrator-roles.s.sol`: on
+    /// 0G, the Safe schedules the timelock batch that grants the service
+    /// signer `MINT` and `BURN` and the Safe `EMERGENCY` on the orchestrator,
+    /// and the orchestrator `DEPOSIT` and `WITHDRAW` on the US authoriser; the
+    /// record alone elsewhere. Recorded right after the 0G token creation on
+    /// every chain.
+    bytes32 internal constant SCHEDULE_ZEROG_ORCHESTRATOR_ROLES =
+        keccak256("script/20261123-schedule-zerog-orchestrator-roles.s.sol");
+
+    /// @notice `script/20261123-execute-zerog-orchestrator-roles.s.sol`: the
+    /// record, once the 0G batch has executed; the record alone elsewhere.
+    bytes32 internal constant EXECUTE_ZEROG_ORCHESTRATOR_ROLES =
+        keccak256("script/20261123-execute-zerog-orchestrator-roles.s.sol");
+
     /// @notice Every chain with a root line: each deployment network, 0G
     /// included. Every line holds every migration.
     /// @return The networks, in manifest order.
