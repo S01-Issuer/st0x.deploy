@@ -19,8 +19,14 @@ import {
     RbacAuthorizerMismatch,
     WrapperBeaconMismatch
 } from "../../script/Deploy.sol";
-import {BeaconImplementationMismatch} from "../../src/lib/LibBeaconInvariants.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {
+    BeaconCodehashMismatch,
+    BeaconImplementationMismatch,
+    BeaconOwnerMismatch
+} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
+import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {LibTimelockController} from "rain-deploy-0.1.38/src/lib/LibTimelockController.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
@@ -48,7 +54,10 @@ contract DeployTokenBindingsTest is Test {
         if (implementation.code.length == 0) {
             vm.etch(implementation, hex"00");
         }
-        LibTestDeploy.placeBeacon(vm, LibProdTokenParams.vaultBeacon(), implementation, address(this));
+        LibTestDeploy.placeBeacon(
+            vm, LibProdTokenParams.vaultBeacon(), implementation, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+        );
+        vm.etch(LibProdTokenParams.vaultBeacon(), LibProdDeployV4.STOX_RECEIPT_VAULT_BEACON_RUNTIME_CODE_CANDIDATE);
     }
 
     /// Deploys the governance timelock with `proposer` as its proposer.
@@ -243,6 +252,61 @@ contract DeployTokenBindingsTest is Test {
                         LibProdTokenParams.vaultBeacon(),
                         LibProdDeployCurrent.STOX_RECEIPT_VAULT,
                         implementation
+                    )
+                );
+                harness.exposedPreDeployCheck(tokens[j], networks[i]);
+            }
+        }
+    }
+
+    function testTokensRefuseAVaultBeaconOwnedByAnother(address owner, uint256 usSeed, uint256 euSeed) external {
+        vm.assume(owner != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+        UpgradeableBeacon beacon = UpgradeableBeacon(LibProdTokenParams.vaultBeacon());
+        vm.prank(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+        if (owner == address(0)) {
+            beacon.renounceOwnership();
+        } else {
+            beacon.transferOwnership(owner);
+        }
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(oneRowPerRegion(usSeed, euSeed));
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            bindPinned(networks[i].chainId);
+            for (uint256 j = 0; j < tokens.length; j++) {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        BeaconOwnerMismatch.selector,
+                        LibProdTokenParams.vaultBeacon(),
+                        LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+                        owner
+                    )
+                );
+                harness.exposedPreDeployCheck(tokens[j], networks[i]);
+            }
+        }
+    }
+
+    /// A plain UpgradeableBeacon with the pinned owner and implementation is refused for its code.
+    function testTokensRefuseAVaultBeaconWithOtherCode(uint256 usSeed, uint256 euSeed) external {
+        LibTestDeploy.placeBeacon(
+            vm,
+            LibProdTokenParams.vaultBeacon(),
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+        );
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(oneRowPerRegion(usSeed, euSeed));
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            bindPinned(networks[i].chainId);
+            for (uint256 j = 0; j < tokens.length; j++) {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        BeaconCodehashMismatch.selector,
+                        LibProdTokenParams.vaultBeacon(),
+                        LibProdDeployCurrent.STOX_RECEIPT_VAULT_BEACON_CODEHASH,
+                        keccak256(type(UpgradeableBeacon).runtimeCode)
                     )
                 );
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
