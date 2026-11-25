@@ -99,7 +99,7 @@ jobs:
   run:
     permissions:
       contents: read
-    uses: rainlanguage/rainix/.github/workflows/rainix-run-script.yaml@562325439e0d8bb61427047998e6ad4982987261
+    uses: rainlanguage/rainix/.github/workflows/rainix-run-script.yaml@main
     with:
       script: ${{ inputs.script }}
       network: ${{ inputs.network }}
