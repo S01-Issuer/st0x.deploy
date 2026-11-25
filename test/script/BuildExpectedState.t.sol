@@ -224,15 +224,10 @@ contract BuildExpectedStateTest is Test {
         return upgrades;
     }
 
-    /// Every value is concrete: zero appears only as each chain's Safe guard, and on 0G as its `renameMigration` (no
-    /// 0G bundle for the naming exists).
-    function testZeroIsOnlyTheSafeGuardAndNoRename() external {
+    /// Every value is concrete: zero appears only as each chain's Safe guard.
+    function testZeroIsOnlyTheSafeGuard() external {
         string memory json = build.render();
-        SupportedNetwork[] memory nets = networks();
-        uint256 unrenamed = nets.length - LibStoxDeployNetworks.networksBeforeZerog().length;
-        assertEq(unrenamed, 1, "only 0G expects no rename");
-        // A zero `bytes32` also contains the zero address's text.
-        assertEq(vm.split(json, vm.toString(address(0))).length - 1, nets.length + unrenamed);
+        assertEq(vm.split(json, vm.toString(address(0))).length - 1, networks().length);
     }
 
     function testSafeIsTheChainsSafeWithThePinnedPolicy() external {
@@ -490,7 +485,7 @@ contract BuildExpectedStateTest is Test {
         for (uint256 c = 0; c < nets.length; c++) {
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[c].chainId);
             string memory list = string.concat(chain(nets[c]), ".tokens");
-            // 0G has no rename migration (`testZerogHasNoRenameMigration`).
+            // The batches were not cut for 0G (`testZerogRenamesNothing`).
             bool chainRenames = LibRainDeploy.hasChainId(
                 LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
             );
@@ -729,8 +724,7 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         string memory script = "script/20261021-schedule-underlying-naming-rename.s.sol";
         assertTrue(vm.exists(script));
-        SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             bytes32 id = vm.parseJsonBytes32(json, string.concat(chain(nets[c]), ".renameMigration"));
             assertEq(id, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
@@ -738,14 +732,12 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The underlying naming's batches were cut for the networks before 0G, and no 0G bundle for it exists: 0G has no
-    /// `renameMigration`, each beacon's `renamedImplementation` is its implementation, and a token's renamed metadata
-    /// is its current metadata.
-    function testZerogHasNoRenameMigration() external {
+    /// The underlying naming's batches were cut for the networks before 0G only: on 0G each beacon's
+    /// `renamedImplementation` is its implementation, and a token's renamed metadata is its current metadata.
+    function testZerogRenamesNothing() external {
         string memory json = build.render();
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
         string memory at = string.concat(".chains.", vm.toString(id));
-        assertEq(vm.parseJsonBytes32(json, string.concat(at, ".renameMigration")), bytes32(0));
         string memory list = string.concat(at, ".beacons");
         for (uint256 i = 0; i < 4; i++) {
             assertEq(

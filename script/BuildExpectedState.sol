@@ -32,10 +32,11 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// codehash, implementation, renamedImplementation once `renameMigration` is recorded, owner), the token-owner `safe`
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
-/// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
-/// token's renamed metadata; zero on a network its rename and beacon batches were not cut for, 0G, so the renamed
-/// fields repeat the current ones), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
-/// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`, `decimals`, `wrappedTokenVaultName`,
+/// under `zoltu` (key, address, codehash), `renameMigration` (the rename batch's record,
+/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME`, on every network: its record on the chain selects the
+/// renamed fields, which repeat the current ones on a network the rename and beacon batches were not cut for, 0G),
+/// and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`, `listingName`, `region` (`US`
+/// or `EU`), `name`, `renamedName`, `symbol`, `decimals`, `wrappedTokenVaultName`,
 /// `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
 /// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
 /// `receiptVaultReceipt` (`receiptVault.receipt()`), `receiptManager` (`receipt.manager()`), `wrappedTokenVaultAsset`
@@ -49,21 +50,11 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
-    /// The migration whose record on the chain selects each token's renamed metadata: the rename batch on the
-    /// networks its rename and beacon batches were cut for (`LibUnderlyingNamingRollout.cutForChain`), or zero.
-    /// 0G's root line records the naming too, after the 0G token creation, but no reviewed 0G bundle for it exists, so
-    /// 0G expects no renamed state.
-    function renameMigration(uint256 chainId) internal pure returns (bytes32) {
-        return LibUnderlyingNamingRollout.cutForChain(chainId)
-            ? LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME
-            : bytes32(0);
-    }
-
-    /// The implementations `renameMigration`'s beacon batch moves the beacons to; the current ones where there is no
-    /// `renameMigration`.
+    /// The implementations `renameMigration`'s beacon batch moves the beacons to; the current ones where the batch was
+    /// not cut (`LibUnderlyingNamingRollout.cutForChain`).
     function renamedImplementations(uint256 chainId) internal pure returns (address[4] memory) {
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
-        if (renameMigration(chainId) == bytes32(0)) return impls;
+        if (!LibUnderlyingNamingRollout.cutForChain(chainId)) return impls;
         impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION;
         impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX] =
         LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
@@ -156,7 +147,7 @@ contract BuildExpectedState is Script {
         vm.serializeString(row, "listingTicker", config.listingTicker);
         vm.serializeString(row, "listingName", config.listingName);
         vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
-        bool renames = renameMigration(chainId) != bytes32(0) && LibUnderlyingNamingRollout.renamesRow(i);
+        bool renames = LibUnderlyingNamingRollout.cutForChain(chainId) && LibUnderlyingNamingRollout.renamesRow(i);
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
         vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
         vm.serializeString(row, "symbol", config.symbol);
@@ -300,7 +291,7 @@ contract BuildExpectedState is Script {
             )
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
-        vm.serializeBytes32(key, "renameMigration", renameMigration(chainId));
+        vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
         }
