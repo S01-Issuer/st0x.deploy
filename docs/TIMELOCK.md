@@ -61,7 +61,12 @@ An admin action is two calls separated by at least the min delay:
 A proposer or canceller can `cancel(id)` any pending operation.
 
 The Safe cannot call a timelock-held surface directly. Scripts resolve the
-timelock only via `LibTimelockInvariants.timelockForChainId(block.chainid)`.
+timelock via `LibTimelockInvariants.timelockForChainId(block.chainid)`, except
+for the surfaces owned by `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, the
+same address on every chain: V6 tokens, the V6 receipt, receipt-vault,
+wrapped-token-vault and orchestrator beacons (owned through
+`beaconInitialOwner()`), and the mint-caps orchestrator's beacon and admin
+roles.
 
 ## Addresses
 
