@@ -40,8 +40,9 @@ contract StoxReceiptVaultAssetIdTest is Test {
         internal
         returns (IStoxAssetIdV1)
     {
-        StoxReceiptVault vault =
-            StoxReceiptVault(payable(address(new BeaconProxy(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1, ""))));
+        StoxReceiptVault vault = StoxReceiptVault(
+            payable(address(new BeaconProxy(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1, "")))
+        );
         vault.initialize(LibTestDeploy.vaultData(assetId, listingTicker, listingName, AUTHORITY, RBAC_NAME));
         return IStoxAssetIdV1(address(vault));
     }
