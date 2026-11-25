@@ -60,6 +60,9 @@
 - **Expected state marks a token at its suite address `Listed`**
   (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
   deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
+- **`IStoxAssetIdV1.assetId()` reads the stored listing asset id** through the
+  vault's fallback (`StoxCorporateActionsFacet`); a vault initialized before
+  `StoxTokenConfigV1` returns `""`.
 
 ### StoxReceipt
 

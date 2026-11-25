@@ -242,6 +242,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV1, IS
         return name;
     }
 
+    /// @inheritdoc IStoxAssetIdV1
     function assetId() external view override onlyDelegatecalled returns (string memory) {
         return LibStoxTokenConfig.getStorage().assetId;
     }
