@@ -3,14 +3,17 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {
     LibUnderlyingNamingRollout,
     MalformedUnderlying,
     DownstreamNotReadyForRename,
+    UnderlyingNamingNotCutForChain,
     UnderlyingNamingTokenTableShort
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
@@ -165,6 +168,75 @@ contract LibUnderlyingNamingRolloutTest is Test {
         this.externalAssertRowsWellFormed(rows);
 
         this.externalAssertRowsWellFormed(new TokenConfig[](0));
+    }
+
+    function externalTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
+        return LibUnderlyingNamingRollout.tokens(chainId);
+    }
+
+    /// 0G's leading `TOKEN_COUNT` rows hold a token Base's leading rows do
+    /// not, so the rollout refuses 0G.
+    function testTokensRefusesZerog() external {
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        uint256 count = LibUnderlyingNamingRollout.TOKEN_COUNT;
+        bool foundForeign = false;
+        for (uint256 zerogRowIndex = 0; zerogRowIndex < count; zerogRowIndex++) {
+            bool inBase = false;
+            for (uint256 baseRowIndex = 0; baseRowIndex < count; baseRowIndex++) {
+                if (
+                    keccak256(bytes(zerog[zerogRowIndex].underlying)) == keccak256(bytes(base[baseRowIndex].underlying))
+                ) inBase = true;
+            }
+            if (!inBase) foundForeign = true;
+        }
+        assertTrue(foundForeign, "0G's leading rows hold a token Base's do not");
+        vm.expectRevert(
+            abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, LibSafeInvariants.ZEROG_CHAIN_ID)
+        );
+        this.externalTokens(LibSafeInvariants.ZEROG_CHAIN_ID);
+    }
+
+    /// `cutForChain` holds for exactly the five networks before 0G, on any
+    /// chain id: not for 0G, a chain with no deployment, or an id no chain has.
+    function testCutForChainIsExactlyTheNetworksBeforeZerog(uint256 chainId) external pure {
+        bool historical = chainId == LibSafeInvariants.BASE_CHAIN_ID || chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID
+            || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID
+            || chainId == LibSafeInvariants.BSC_CHAIN_ID;
+        assertEq(LibUnderlyingNamingRollout.cutForChain(chainId), historical);
+        assertFalse(LibUnderlyingNamingRollout.cutForChain(LibSafeInvariants.ZEROG_CHAIN_ID), "0G");
+        assertFalse(LibUnderlyingNamingRollout.cutForChain(0), "no chain");
+        assertFalse(LibUnderlyingNamingRollout.cutForChain(137), "Polygon");
+        assertFalse(LibUnderlyingNamingRollout.cutForChain(type(uint256).max), "max id");
+        assertEq(LibStoxDeployNetworks.networksBeforeZerog().length, 5, "five networks before 0G");
+    }
+
+    /// The rollout serves exactly the networks its batches were cut for: each
+    /// one before 0G resolves its rows, and every other deployment network
+    /// with a table refuses.
+    function testTokensServesOnlyTheNetworksBeforeZerog() external view {
+        SupportedNetwork[] memory before =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        for (uint256 networkIndex = 0; networkIndex < before.length; networkIndex++) {
+            assertEq(this.externalTokens(before[networkIndex].chainId).length, LibUnderlyingNamingRollout.TOKEN_COUNT);
+        }
+        SupportedNetwork[] memory all = LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        uint256 refused = 0;
+        for (uint256 networkIndex = 0; networkIndex < all.length; networkIndex++) {
+            if (LibRainDeploy.hasChainId(before, all[networkIndex].chainId)) continue;
+            try this.externalTokens(all[networkIndex].chainId) {
+                revert(string.concat(all[networkIndex].name, " resolved"));
+            } catch (bytes memory reason) {
+                assertEq(
+                    reason,
+                    abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, all[networkIndex].chainId),
+                    all[networkIndex].name
+                );
+            }
+            refused++;
+        }
+        assertEq(refused, all.length - before.length, "every later network refuses");
+        assertGt(refused, 0, "0G is a later network");
     }
 
     /// A table longer than `TOKEN_COUNT` is cut to its leading rows, so a
