@@ -126,12 +126,10 @@ contract LibTokenInvariantsTest is Test {
         }
     }
 
-    /// Each 0G row has the legs of Ethereum's row with the same underlying; a
-    /// row Ethereum's table lacks is an off-Base row.
+    /// Each 0G row has the legs of Ethereum's row with the same underlying.
     function testZerogRowsAreEthereumsTokens() external pure {
         TokenInstance[] memory zerog = LibTokenInvariants.productionTokensZerog();
         TokenInstance[] memory ethereum = LibTokenInvariants.productionTokensEthereum();
-        TokenConfig[] memory offBase = LibProdTokenConfig.offBaseTokenConfigs();
         for (uint256 i = 0; i < zerog.length; i++) {
             bytes32 key = keccak256(bytes(zerog[i].underlying));
             bool found = false;
@@ -150,12 +148,7 @@ contract LibTokenInvariantsTest is Test {
                     string.concat(zerog[i].underlying, " wrapper")
                 );
             }
-            if (found) continue;
-            bool isOffBase = false;
-            for (uint256 k = 0; k < offBase.length; k++) {
-                if (keccak256(bytes(offBase[k].underlying)) == key) isOffBase = true;
-            }
-            assertTrue(isOffBase, string.concat(zerog[i].underlying, " is on Base but not in Ethereum's table"));
+            assertTrue(found, string.concat(zerog[i].underlying, " on Ethereum"));
         }
     }
 
