@@ -11,6 +11,7 @@ import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -121,8 +122,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// the vault logic it was built against (`vaultLogicIsExpected`, which reads
 /// that beacon set, not the in-use token beacons), so after any such upgrade
 /// this script refuses there; for the per-role-admin orchestrator upgrade the
-/// Safe, still `DEFAULT_ADMIN_ROLE`, can then call `migrate(safe)` directly
-/// (see `docs/TIMELOCK.md`).
+/// Safe, still `DEFAULT_ADMIN_ROLE`, can then call `migrate(safe)` directly.
 ///
 /// `run()` and `verify()` are `SafeBundleScript`'s: `run()` executes the
 /// bundle through the Safe on the fork, requires the post-state, proves the
@@ -134,7 +134,7 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// `script = 20261006-orchestrator-admin-to-timelock` per chain, only after
 /// `20261022-bind-beacon-initial-owner` has landed there: the pre-flight
 /// refuses unless that record heads the root line.
-contract OrchestratorAdminToTimelock is SafeBundleScript, IStoxScript {
+contract OrchestratorAdminToTimelock is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return orchestratorAdminToTimelockDeclaration();
