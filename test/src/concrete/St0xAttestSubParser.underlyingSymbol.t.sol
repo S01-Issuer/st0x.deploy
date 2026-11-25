@@ -21,7 +21,11 @@ import {MockERC20} from "test/concrete/MockERC20.sol";
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 import {EXTERN_OPCODES_LENGTH} from "src/lib/LibSt0xAttestSubParser.sol";
 import {EXTERN_OP_UNDERLYING_SYMBOL} from "src/lib/LibSt0xAttestExternUnderlyingSymbol.sol";
-import {UnderlyingSymbolEmpty, UnderlyingSymbolTooLong, UnderlyingSymbolNotAnAddress} from "src/error/ErrSt0xAttest.sol";
+import {
+    UnderlyingSymbolEmpty,
+    UnderlyingSymbolTooLong,
+    UnderlyingSymbolNotAnAddress
+} from "src/error/ErrSt0xAttest.sol";
 import {IStoxUnderlyingV1} from "src/interface/IStoxUnderlyingV1.sol";
 
 /// `underlying-symbol(token)` reads `token`'s `underlyingSymbol()` at eval, as
@@ -53,7 +57,9 @@ contract St0xAttestSubParserUnderlyingSymbolTest is St0xAttestSubParserTest {
         view
         returns (StackItem[] memory)
     {
-        return I_SUB_PARSER.extern(LibExtern.encodeExternDispatch(opcode, OperandV2.wrap(bytes32(uint256(operand)))), inputs);
+        return I_SUB_PARSER.extern(
+            LibExtern.encodeExternDispatch(opcode, OperandV2.wrap(bytes32(uint256(operand)))), inputs
+        );
     }
 
     function repeated(bytes1 fill, uint256 length) internal pure returns (string memory) {
@@ -205,7 +211,9 @@ contract St0xAttestSubParserUnderlyingSymbolTest is St0xAttestSubParserTest {
         uint256[2] memory highs = [uint256(1), uint256(1) << 95];
         for (uint256 i = 0; i < highs.length; i++) {
             bytes32 input = dirty(token, highs[i]);
-            checkWordReverts(WORD, mintGrid(input), abi.encodeWithSelector(UnderlyingSymbolNotAnAddress.selector, input));
+            checkWordReverts(
+                WORD, mintGrid(input), abi.encodeWithSelector(UnderlyingSymbolNotAnAddress.selector, input)
+            );
         }
     }
 
