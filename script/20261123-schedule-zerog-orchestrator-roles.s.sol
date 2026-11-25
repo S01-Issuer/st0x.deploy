@@ -12,6 +12,7 @@ import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 import {LibSafeTx, SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
@@ -70,7 +71,7 @@ function scheduleZerogOrchestratorRolesDeclaration() pure returns (ScriptDeclara
 /// @dev Dispatch via `Actions → run-script` with `script = 20261123-schedule-zerog-orchestrator-roles` per chain.
 /// After the delay anyone executes the batch: `20261123-execute-zerog-orchestrator-roles` `execute()`. The recovery
 /// is the same dispatch on `zerog` with `sig = reschedule()`.
-contract ScheduleZerogOrchestratorRoles is SafeBundleScript, IStoxScript {
+contract ScheduleZerogOrchestratorRoles is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleZerogOrchestratorRolesDeclaration();
