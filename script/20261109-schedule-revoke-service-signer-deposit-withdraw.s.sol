@@ -50,9 +50,9 @@ function scheduleRevokeServiceSignerDeclaration() pure returns (ScriptDeclaratio
 /// revoking `DEPOSIT` and `WITHDRAW` from the service signer on the chain's
 /// authoriser, then writes the Safe's root-line record. The timelock holds
 /// `DEPOSIT_ADMIN` and `WITHDRAW_ADMIN`, so it is the only route. On 0G the
-/// bundle is the record alone: the 0G token creation requires 0G's US
-/// authoriser to hold exactly `LibAuthoriserInvariants.expectedGrantsOn`, the
-/// map after the revoke, so the service signer never held `DEPOSIT` or
+/// bundle is the record alone: 0G's US authoriser was created with
+/// `LibAuthoriserInvariants.expectedGrantsWithoutOrchestrator`, which follows
+/// the map after the revoke, so the service signer never held `DEPOSIT` or
 /// `WITHDRAW` there. The pre-flight and the post-state check that state
 /// directly.
 ///

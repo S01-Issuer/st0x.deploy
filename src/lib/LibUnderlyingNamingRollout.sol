@@ -117,14 +117,9 @@ library LibUnderlyingNamingRollout {
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice Reverts `ZerogArmPendingDecision` for `migration` on 0G, so each
-    /// of the three naming scripts refuses there before any other check.
-    /// @dev TODO(RAI-4871): a 0G arm for each of the three naming migrations,
-    /// once David decides whether the underlying naming applies on 0G. 0G's
-    /// tokens are created with the current names, and the beacon batch moves
-    /// the beacons onto current-source implementations, which no 0G dispatch
-    /// deploys (`StoxDeploySuites.setCandidateNetworks`). If the naming
-    /// applies, 0G needs those implementations and its own two batches; if
-    /// not, each of the three is the record alone.
+    /// of the three naming scripts refuses there before any other check. The
+    /// rollout's batches are cut only for the networks before 0G
+    /// (`cutForChain`), and none of the three has a 0G arm.
     /// @param migration The naming migration.
     function refuseZerog(bytes32 migration) internal view {
         if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {

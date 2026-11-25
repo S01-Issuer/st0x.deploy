@@ -152,12 +152,9 @@ contract HandSafeOwnedBaseVaultsToTimelock is StoxSafeBundleScript, IStoxScript 
         return vaults;
     }
 
-    /// @notice The vaults whose owner this migration checks: every production vault on the chain. On 0G that is its
-    /// token table, so the pre-flight fails closed with `TokenTableNotHydrated` until the table holds the created
-    /// tokens.
-    /// @dev Virtual so a 0G test can stand in the tokens a fork created for the table.
+    /// @notice The vaults whose owner this migration checks: every production vault on the chain.
     /// @return The tokens.
-    function ownershipRows() internal view virtual returns (TokenInstance[] memory) {
+    function ownershipRows() internal view returns (TokenInstance[] memory) {
         return LibTokenInvariants.productionTokensForChainId(block.chainid);
     }
 
