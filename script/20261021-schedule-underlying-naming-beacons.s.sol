@@ -211,13 +211,13 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         vm.revertToState(postBundle);
     }
 
-    /// @notice The execution proof `assertReversible` runs. It records every
-    /// vault's and wrapper's `name()` and `symbol()` in the chain's token table,
-    /// the rows the rename skips included, before the batch and requires them
-    /// unchanged after it: the beacon batch must not rename anything, that is
-    /// the rename batch's job.
+    /// @notice The execution proof `assertReversible` runs. It records the
+    /// `name()` and `symbol()` of every vault and wrapper behind the two
+    /// beacons, the token table and tQSEP on Base, the rows the rename skips
+    /// included, before the batch and requires them unchanged after it: the
+    /// beacon batch must not rename anything, that is the rename batch's job.
     function proveExecution() internal {
-        TokenInstance[] memory chainTokens = LibTokenInvariants.productionTokensForChainId(block.chainid);
+        TokenInstance[] memory chainTokens = beaconTokens();
         string[] memory before = metadata(chainTokens);
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
             LibUnderlyingNamingRollout.beaconBatch(block.chainid);
@@ -244,6 +244,25 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         console2.log(
             "Execution proven: both beacons upgraded by a roleless executor after 48h, no name or symbol moved"
         );
+    }
+
+    /// @notice Every vault and wrapper behind the two beacons on this chain:
+    /// the chain's token table, then tQSEP on Base.
+    /// @return The tokens.
+    function beaconTokens() internal view returns (TokenInstance[] memory) {
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(block.chainid);
+        if (block.chainid != LibSafeInvariants.BASE_CHAIN_ID) return table;
+        TokenInstance[] memory chainTokens = new TokenInstance[](table.length + 1);
+        for (uint256 i = 0; i < table.length; i++) {
+            chainTokens[i] = table[i];
+        }
+        chainTokens[table.length] = TokenInstance({
+            underlying: "QSEP",
+            receipt: LibTokenInvariants.QSEP_RECEIPT,
+            receiptVault: LibTokenInvariants.QSEP_RECEIPT_VAULT,
+            wrappedTokenVault: LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT
+        });
+        return chainTokens;
     }
 
     /// @notice Every vault's and wrapper's name and symbol, in a fixed order:
