@@ -20,7 +20,8 @@ import {
     UnderlyingNamingReleaseNotFrozen,
     DownstreamNotReadyForRename
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
-import {LibSecurity} from "../src/lib/LibSecurity.sol";
+import {LibSecurity, UNDERLYING_STORAGE_LOCATION} from "../src/lib/LibSecurity.sol";
+import {IStoxUnderlyingV2} from "../src/interface/IStoxUnderlyingV2.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -43,6 +44,13 @@ error RenameNotPendingInsideDelay(bytes32 id);
 /// @param expected The expected value.
 /// @param actual The value read.
 error RenamedMetadataMismatch(address token, string expected, string actual);
+
+/// @notice After execution a vault's override timestamp is not the execution
+/// block's.
+/// @param token The vault.
+/// @param expected The execution block's timestamp.
+/// @param actual The stored timestamp.
+error RenamedTimestampMismatch(address token, uint256 expected, uint256 actual);
 
 /// @notice This script's declaration: the Safe's record, after the beacon schedule.
 /// @return The declaration.
@@ -208,7 +216,7 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     }
 
     /// @notice Reverts unless every production token of `chainId` reports the
-    /// metadata the rename sets.
+    /// metadata and ISIN the rename sets, stamped with this block's timestamp.
     /// @param chainId The chain id.
     function assertRenamed(uint256 chainId) internal view {
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
@@ -220,6 +228,12 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
                 token.receiptVault, LibSecurity.vaultSymbol(config.ticker), IERC20Metadata(token.receiptVault).symbol()
             );
             assertMetadata(token.receiptVault, vaultName, IERC20Metadata(token.receiptVault).name());
+            assertMetadata(token.receiptVault, config.isin, IStoxUnderlyingV2(token.receiptVault).underlyingIsin());
+            // `UnderlyingStorage.timestamp` is the struct's fourth slot.
+            uint256 timestamp = uint256(vm.load(token.receiptVault, bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)));
+            if (timestamp != block.timestamp) {
+                revert RenamedTimestampMismatch(token.receiptVault, block.timestamp, timestamp);
+            }
             assertMetadata(
                 token.wrappedTokenVault,
                 string.concat(config.ticker, "s"),

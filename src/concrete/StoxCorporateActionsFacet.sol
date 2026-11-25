@@ -242,6 +242,13 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
     }
 
     /// @inheritdoc IStoxUnderlyingV2
+    function underlyingIsin() public view override onlyDelegatecalled returns (string memory) {
+        string memory isin = LibSecurity.getStorage().isin;
+        if (bytes(isin).length == 0) isin = LibStoxTokenConfig.getStorage().assetId;
+        return isin;
+    }
+
+    /// @inheritdoc IStoxUnderlyingV2
     /// @dev Gated on the vault's `owner()` rather than the authorizer: the
     /// values set the vault's ERC-20 metadata, which is an owner surface
     /// like `setAuthorizer`. `owner()` is a call back into the vault, which
@@ -265,7 +272,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (!LibSecurity.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
 
         emit UnderlyingSet(
-            msg.sender, underlyingSymbol(), underlyingName(), LibSecurity.getStorage().isin, newSymbol, newName, newIsin
+            msg.sender, underlyingSymbol(), underlyingName(), underlyingIsin(), newSymbol, newName, newIsin
         );
         LibSecurity.UnderlyingStorage storage underlyingStorage = LibSecurity.getStorage();
         underlyingStorage.symbol = newSymbol;
