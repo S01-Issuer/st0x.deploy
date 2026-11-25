@@ -33,7 +33,6 @@ error BeaconInitialOwnerMismatch(address bound, address expected);
 error VaultBeaconMismatch(address bound, address expected);
 error ReceiptBeaconMismatch(address bound, address expected);
 error WrapperBeaconMismatch(address bound, address expected);
-error VaultBeaconNotDeployed(address beacon);
 error RbacOwnerMismatch(bytes32 name, address bound, address expected);
 error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 
@@ -134,8 +133,7 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         if (vaultBeacon != LibProdTokenParams.vaultBeacon()) {
             revert VaultBeaconMismatch(vaultBeacon, LibProdTokenParams.vaultBeacon());
         }
-        // A token's address commits to the beacon name, so the beacon must serve the hook-carrying implementation.
-        if (vaultBeacon.code.length == 0) revert VaultBeaconNotDeployed(vaultBeacon);
+        // A token's address commits to the beacon name, not the implementation the beacon serves.
         address implementation = IBeacon(vaultBeacon).implementation();
         if (implementation != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
             revert BeaconImplementationMismatch(vaultBeacon, LibProdDeployCurrent.STOX_RECEIPT_VAULT, implementation);
