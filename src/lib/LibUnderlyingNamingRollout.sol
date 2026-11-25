@@ -270,8 +270,7 @@ library LibUnderlyingNamingRollout {
             payloads[tokenIndex] =
                 abi.encodeCall(IStoxUnderlyingV1.setUnderlying, (config.underlying, config.underlyingName));
         }
-        (targets[chainTokens.length], payloads[chainTokens.length]) =
-            LibStoxMigrations.recordCall(renameDeclaration());
+        (targets[chainTokens.length], payloads[chainTokens.length]) = LibStoxMigrations.recordCall(renameDeclaration());
     }
 
     /// @notice Reverts unless every production vault of the chain reports
