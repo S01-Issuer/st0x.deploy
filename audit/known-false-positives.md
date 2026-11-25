@@ -16,8 +16,8 @@ the same address.
 ## `src/lib/LibUnderlyingNamingRollout.sol`: row check
 
 Mutant: `assertUnderlyingsWellFormed` drops its `assertRowsWellFormed(rows)`
-call. It is equivalent while every production row is well formed, so no test
-can tell them apart. The behavior is pinned around it:
+call. It is equivalent while every production row is well formed, so no test can
+tell them apart. The behavior is pinned around it:
 `testEveryChainsRowsAreWellFormed` checks the production rows through
 `assertRowsWellFormed` directly, and the row loop's refusals are tested on built
 rows. The call stays: the rename pre-flight must check the rows it sets.
