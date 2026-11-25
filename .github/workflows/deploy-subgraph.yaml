@@ -9,7 +9,9 @@ jobs:
     with:
       subgraph-name: st0x-rbac
       ormi-query-base: https://subgraph.api.ormilabs.com/api/public/9f4fc2fa-4a15-44f7-a7c1-66fdaa518a71
+      goldsky-query-base: https://api.goldsky.com/api/public/project_cmjr2df7svg6t01tl2ic706ao
     secrets:
       CACHIX_AUTH_TOKEN: ${{ secrets.CACHIX_AUTH_TOKEN }}
       # GitHub secret ORMI_DEPLOY_KEY, from Vault secret/infra/rain/ormi (deploy_key).
       ORMI_DEPLOY_KEY: ${{ secrets.ORMI_DEPLOY_KEY }}
+      CI_GOLDSKY_TOKEN: ${{ secrets.CI_GOLDSKY_TOKEN }}
