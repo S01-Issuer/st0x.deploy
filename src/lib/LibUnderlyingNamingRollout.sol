@@ -211,11 +211,7 @@ library LibUnderlyingNamingRollout {
     /// @return The call targets.
     /// @return The call values, all zero.
     /// @return The calldata.
-    function beaconBatch(uint256 chainId)
-        internal
-        view
-        returns (address[] memory, uint256[] memory, bytes[] memory)
-    {
+    function beaconBatch(uint256 chainId) internal view returns (address[] memory, uint256[] memory, bytes[] memory) {
         address[] memory targets = new address[](4);
         uint256[] memory values = new uint256[](4);
         bytes[] memory payloads = new bytes[](4);
@@ -258,11 +254,7 @@ library LibUnderlyingNamingRollout {
     /// @return The call targets.
     /// @return The call values, all zero.
     /// @return The calldata.
-    function renameBatch(uint256 chainId)
-        internal
-        view
-        returns (address[] memory, uint256[] memory, bytes[] memory)
-    {
+    function renameBatch(uint256 chainId) internal view returns (address[] memory, uint256[] memory, bytes[] memory) {
         TokenInstance[] memory chainTokens = tokens(chainId);
         address[] memory targets = new address[](chainTokens.length + 1);
         uint256[] memory values = new uint256[](chainTokens.length + 1);
