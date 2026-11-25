@@ -10,12 +10,15 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 
 import {
     ExecuteUnderlyingNaming,
     NoUnderlyingNamingOperationReady,
     UnderlyingNamingExecutorHoldsRole,
-    UnderlyingNamingNotExecuted
+    UnderlyingNamingNotExecuted,
+    UnderlyingNamingRenameWaitsForBeacon
 } from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
     ScheduleUnderlyingNamingBeacons,
@@ -627,33 +630,23 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("reschedule");
         prepareRename();
-        executePrefix(rename.callAuthorBundle(), 2);
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
 
         vm.prank(safe);
         controller.cancel(beaconId);
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + 1);
-        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
-            LibUnderlyingNamingRollout.beaconBatch(block.chainid);
+        bytes memory scheduleBeacon = LibUnderlyingNamingRollout.scheduleBeaconCalldata(block.chainid);
         vm.prank(safe);
-        controller.scheduleBatch(
-            targets,
-            values,
-            payloads,
-            bytes32(0),
-            LibUnderlyingNamingRollout.BEACON_SALT,
-            LibTimelockInvariants.TIMELOCK_MIN_DELAY
-        );
+        (bool ok,) = timelock.call(scheduleBeacon);
+        assertTrue(ok, "rescheduled");
 
         vm.warp(controller.getTimestamp(renameId));
         assertTrue(controller.isOperationReady(renameId), "rename ready");
         assertFalse(controller.isOperationReady(beaconId), "beacon in its delay");
         ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
-        vm.expectRevert(
-            abi.encodeWithSelector(NoUnderlyingNamingOperationReady.selector, beaconId, false, renameId, false)
-        );
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingRenameWaitsForBeacon.selector, beaconId, true, renameId));
         executor.execute();
-        assertFalse(controller.isOperationDone(renameId), "rename not executed while the beacon waits");
 
         vm.warp(controller.getTimestamp(beaconId));
         executor.execute();
@@ -661,6 +654,52 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         assertFalse(controller.isOperationDone(renameId), "rename waits for the next dispatch");
         executor.execute();
         assertTrue(controller.isOperationDone(renameId), "rename executed");
+    }
+
+    /// @notice A rename that is ready while its beacon batch is cancelled and
+    /// not rescheduled is refused, naming the beacon batch as not pending.
+    function testExecutorRefusesARenameWhoseBeaconBatchIsCancelled() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("cancelled");
+        prepareRename();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
+
+        vm.prank(safe);
+        controller.cancel(beaconId);
+        vm.warp(controller.getTimestamp(renameId));
+        assertTrue(controller.isOperationReady(renameId), "rename ready");
+        assertFalse(controller.isOperationPending(beaconId), "beacon cancelled");
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingRenameWaitsForBeacon.selector, beaconId, false, renameId));
+        executor.execute();
+    }
+
+    /// @notice While both batches are inside their delay the executor refuses,
+    /// naming neither as done.
+    function testExecutorRefusesWhileBothBatchesWait() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("both-wait");
+        prepareRename();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
+
+        vm.warp(controller.getTimestamp(renameId) - 1);
+        assertFalse(controller.isOperationReady(beaconId), "beacon in its delay");
+        assertFalse(controller.isOperationReady(renameId), "rename in its delay");
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
+        vm.expectRevert(
+            abi.encodeWithSelector(NoUnderlyingNamingOperationReady.selector, beaconId, false, renameId, false)
+        );
+        executor.execute();
     }
 
     /// @notice A ticker that does not match its vault's live symbol refuses.
