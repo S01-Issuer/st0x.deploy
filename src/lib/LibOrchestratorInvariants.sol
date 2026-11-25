@@ -148,6 +148,17 @@ library LibOrchestratorInvariants {
         return grants;
     }
 
+    /// @notice Assert the orchestrator instance holds every `expectedGrants(chainSafe, timelock)` pair.
+    /// @param chainSafe The chain's token-owner Safe.
+    /// @param timelock The chain's governance timelock.
+    function assertExpectedGrants(address chainSafe, address timelock) internal view {
+        IAccessControl acl = IAccessControl(ST0X_ORCHESTRATOR_INSTANCE);
+        RoleGrant[] memory grants = expectedGrants(chainSafe, timelock);
+        for (uint256 grantIndex = 0; grantIndex < grants.length; grantIndex++) {
+            assertHolds(acl, grants[grantIndex].role, grants[grantIndex].grantee);
+        }
+    }
+
     /// @return The mint-caps orchestrator beacon.
     function mintCapsBeacon() internal pure returns (address) {
         return LibProdDeployCurrent.ST0X_ORCHESTRATOR_BEACON;

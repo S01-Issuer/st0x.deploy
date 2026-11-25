@@ -175,6 +175,36 @@
 
 ### Deploy scripts
 
+- **0G runs the orchestrator.** The 0.1.30 orchestrator beacon-set deployer is
+  on 0G, and its first `deploy` claimed the instance for the 0G timelock in the
+  same transaction, so `LibAuthoriserInvariants.grantsOrchestrator` and
+  `expectedGrantsOn` are removed: every chain's ideal and expected state, 0G
+  included, carries the orchestrator, its beacon and the US authoriser's
+  orchestrator pairs. `releasesNotOnZerog` no longer names the set deployer.
+  `expectedGrantsWithoutOrchestrator` keeps the map 0G's US authoriser held
+  until the grants below execute, for the token creation's checks.
+- **The 0G orchestrator roles.** `LibZerogOrchestratorRoles` builds the 0G
+  timelock batch of the five grants 0G lacks: `MINT` and `BURN` to the service
+  signer and `EMERGENCY` to the Safe on the orchestrator, `DEPOSIT` and
+  `WITHDRAW` to the orchestrator on the US authoriser.
+  `20261123-schedule-zerog-orchestrator-roles` authors the Safe bundle that
+  schedules it, and `20261123-execute-zerog-orchestrator-roles` executes it from
+  the CI deploy key and authors the record. Both are recorded right after the 0G
+  token creation on every chain, record-only off 0G, and
+  `20261022-bind-beacon-initial-owner` now follows them.
+- **The 0G token table holds the live tokens.** `20261119-create-zerog-tokens`
+  created the 65 0G tokens on 2026-11-23 in Safe nonces 2-5, and
+  `productionTokensZerog()` now pins each row's receipt, vault and wrapper. Each
+  row that Ethereum's table also carries has the same addresses there.
+  `productionTokensForChainId` returns 0G's table as it does every other
+  chain's, and `BuildExpectedState` and `BuildPrivilegedAddresses` write every
+  chain's tokens and receipt vaults, with no `tokenTableHydrated` key. The
+  creation script still refuses a table that is not all placeholders, so it
+  cannot create the tokens again; its rehearsal tests stand in the placeholder
+  table the bundles were authored against. `LibUnderlyingNamingRollout.tokens`
+  refuses every chain outside the networks its batches were cut for, 0G
+  included: 0G's rows follow Ethereum's creation order, not the table order Base
+  and Ethereum share, so the rollout's cut would pick another token set.
 - **The underlying-naming rollout.** `LibUnderlyingNamingRollout` reconstructs
   two timelock operations per chain:
   - a beacon batch that upgrades the in-use wrapped-token-vault and

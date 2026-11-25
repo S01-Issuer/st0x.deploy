@@ -15,8 +15,9 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
 /// @title OrchestratorAdminToTimelockLocalTest
 /// @notice The move on a local Base whose root line is at the beacon-initial-owner
-/// bind, after the V5 backfill and the 0G token creation record, so it runs
-/// whatever the live chains have recorded.
+/// bind, after the V5 backfill, the 0G token creation record and the 0G
+/// orchestrator roles schedule and execute records, so it runs whatever the
+/// live chains have recorded.
 contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, RootLineRecordScriptTest {
     function newScript() internal override returns (IRecordScriptHooks) {
         return IRecordScriptHooks(address(new OrchestratorAdminToTimelockHarness("local")));
@@ -42,11 +43,26 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, R
         LibTestRootLine.write(
             vm, address(safe), LibStoxMigrations.CREATE_ZEROG_TOKENS, LibStoxMigrations.BACKFILL_MIGRATION_REGISTRY_V5
         );
+        LibTestRootLine.write(
+            vm,
+            address(safe),
+            LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES,
+            LibStoxMigrations.CREATE_ZEROG_TOKENS
+        );
+        LibTestRootLine.write(
+            vm,
+            address(safe),
+            LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES,
+            LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES
+        );
     }
 
     function landOnto() internal override {
         LibTestRootLine.write(
-            vm, address(safe), LibStoxMigrations.BIND_BEACON_INITIAL_OWNER, LibStoxMigrations.CREATE_ZEROG_TOKENS
+            vm,
+            address(safe),
+            LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
+            LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES
         );
     }
 
