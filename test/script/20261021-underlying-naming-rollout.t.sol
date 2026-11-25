@@ -20,6 +20,7 @@ import {
 import {
     ScheduleUnderlyingNamingBeacons,
     ImplementationNotDeployed,
+    UnderlyingSnapshotNotDeployed,
     BeaconAlreadyUpgraded,
     OperationAlreadyScheduled,
     BeaconUpgradeMovedMetadata
@@ -56,6 +57,9 @@ import {
 } from "../../src/lib/LibTokenInvariants.sol";
 import {BeaconImplementationMismatch, BeaconOwnerMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {ST0X_NAME_SUFFIX} from "../../src/lib/LibSecurity.sol";
+import {LibUnderlyingSnapshot} from "../../src/lib/LibUnderlyingSnapshot.sol";
+import {LibUnderlyingSnapshotCode, UNDERLYING_SNAPSHOT_ROOT} from "../../src/generated/LibUnderlyingSnapshotCode.sol";
+import {MalformedUnderlyingSnapshot} from "../../src/error/ErrUnderlying.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {
     LibUnderlyingNamingRollout,
@@ -508,6 +512,72 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             beacons.callPreflight();
             vm.revertToState(snapshot);
         }
+    }
+
+    /// @notice The runtime codehash `creationCode` deploys.
+    function runtimeCodehash(bytes memory creationCode) internal returns (bytes32) {
+        address deployed;
+        assembly ("memory-safe") {
+            deployed := create(0, add(creationCode, 0x20), mload(creationCode))
+        }
+        assertTrue(deployed != address(0), "deployed");
+        return deployed.codehash;
+    }
+
+    /// @notice The fixture plants the snapshot root and every shard at their
+    /// Zoltu addresses with exactly the runtime their creation code deploys,
+    /// and the beacon pre-flight refuses the root or any shard without it.
+    function testBeaconPreflightRefusesAMissingUnderlyingSnapshot() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("snapshot-refusals");
+        plantImplementations();
+
+        bytes[] memory shardCodes = LibUnderlyingSnapshotCode.shardCreationCodes();
+        address[] memory pointers = new address[](shardCodes.length + 1);
+        bytes32[] memory codehashes = new bytes32[](shardCodes.length + 1);
+        pointers[0] = UNDERLYING_SNAPSHOT_ROOT;
+        codehashes[0] = runtimeCodehash(LibUnderlyingSnapshotCode.ROOT_CREATION_CODE);
+        assertEq(LibRainDeploy.zoltuAddress(LibUnderlyingSnapshotCode.ROOT_CREATION_CODE), pointers[0], "root address");
+        address[] memory named = LibUnderlyingSnapshot.shards(UNDERLYING_SNAPSHOT_ROOT);
+        assertEq(named.length, shardCodes.length, "shard count");
+        for (uint256 i = 0; i < shardCodes.length; i++) {
+            pointers[i + 1] = LibRainDeploy.zoltuAddress(shardCodes[i]);
+            codehashes[i + 1] = runtimeCodehash(shardCodes[i]);
+            assertEq(named[i], pointers[i + 1], "shard address");
+        }
+        for (uint256 i = 0; i < pointers.length; i++) {
+            assertEq(pointers[i].codehash, codehashes[i], "planted runtime");
+        }
+
+        beacons.callPreflight();
+        bytes[2] memory wrongCodes = [bytes(""), bytes(hex"00")];
+        for (uint256 i = 0; i < pointers.length; i++) {
+            for (uint256 wrong = 0; wrong < wrongCodes.length; wrong++) {
+                uint256 snapshot = vm.snapshotState();
+                vm.etch(pointers[i], wrongCodes[wrong]);
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        UnderlyingSnapshotNotDeployed.selector, pointers[i], codehashes[i], keccak256(wrongCodes[wrong])
+                    )
+                );
+                beacons.callPreflight();
+                vm.revertToState(snapshot);
+            }
+        }
+    }
+
+    /// @notice The execution proof refuses a batch whose vault reads would
+    /// lose their shard.
+    function testBeaconProofRefusesAMissingShard() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        landBeaconSchedule();
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("proof-shard");
+        address shard = LibUnderlyingSnapshot.shards(UNDERLYING_SNAPSHOT_ROOT)[0];
+        vm.etch(shard, "");
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, shard));
+        beacons.callProveExecution();
     }
 
     /// @notice The beacon pre-flight refuses once either beacon has moved, and

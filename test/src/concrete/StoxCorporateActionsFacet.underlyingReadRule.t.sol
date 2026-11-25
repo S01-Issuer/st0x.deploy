@@ -24,9 +24,10 @@ import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
 import {UNDERLYING_SNAPSHOT_ROOT} from "../../../src/generated/LibUnderlyingSnapshotCode.sol";
+import {UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH} from "../../../src/lib/LibUnderlyingSnapshot.sol";
 import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../../script/LibUnderlyingSnapshotBuilder.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
-import {LegacyInitStoxReceiptVault} from "./LegacyInitStoxReceiptVault.sol";
+import {LegacyInitStoxReceiptVault} from "../../concrete/LegacyInitStoxReceiptVault.sol";
 
 /// Which of the override, the snapshot row and the listing values every name,
 /// ticker and ISIN read resolves to, for vaults behind the real beacon proxy.
@@ -151,7 +152,12 @@ contract StoxCorporateActionsFacetUnderlyingReadRuleTest is Test {
     }
 
     function assertEveryReadReverts(StoxReceiptVault vault) internal {
-        bytes memory err = abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, UNDERLYING_SNAPSHOT_ROOT);
+        assertEveryReadRevertsWith(
+            vault, abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, UNDERLYING_SNAPSHOT_ROOT)
+        );
+    }
+
+    function assertEveryReadRevertsWith(StoxReceiptVault vault, bytes memory err) internal {
         vm.expectRevert(err);
         IStoxUnderlyingV2(address(vault)).underlyingSymbol();
         vm.expectRevert(err);
@@ -180,6 +186,47 @@ contract StoxCorporateActionsFacetUnderlyingReadRuleTest is Test {
         StoxReceiptVault legacy = newLegacyVault();
         vm.etch(UNDERLYING_SNAPSHOT_ROOT, "");
         assertEveryReadReverts(legacy);
+    }
+
+    /// A root whose shard has no code refuses every read, the wrapper's included.
+    function testEveryReadRevertsWithoutItsShard() external {
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](1);
+        rows[0] = UnderlyingSnapshotRow(address(sVault), ROW_TICKER, ROW_NAME, ROW_ISIN);
+        plantSnapshot(AS_OF, rows);
+        (, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(AS_OF, rows);
+        assertEq(shardCodes.length, 1);
+        address shard = LibRainDeploy.zoltuAddress(shardCodes[0]);
+        assertResolvesToRow(sVault);
+        vm.etch(shard, "");
+        bytes memory err = abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, shard);
+        assertEveryReadRevertsWith(sVault, err);
+        vm.expectRevert(err);
+        sWrapper.symbol();
+        vm.expectRevert(err);
+        sWrapper.name();
+    }
+
+    /// A root whose magic is wrong refuses every read, though its length and
+    /// shard list are intact.
+    function testEveryReadRevertsOnAWrongMagicRoot() external {
+        bytes memory root = UNDERLYING_SNAPSHOT_ROOT.code;
+        assertEq(root.length, 1 + UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20);
+        // Byte 0 is the data contract's STOP prefix; the magic follows.
+        root[1] = ~root[1];
+        vm.etch(UNDERLYING_SNAPSHOT_ROOT, root);
+        assertEveryReadReverts(sVault);
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, UNDERLYING_SNAPSHOT_ROOT));
+        sWrapper.symbol();
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, UNDERLYING_SNAPSHOT_ROOT));
+        sWrapper.name();
+    }
+
+    /// The old values `setUnderlying` reports are a read, so it refuses
+    /// without the snapshot root and stores nothing.
+    function testSetUnderlyingRevertsWithoutSnapshotRoot() external {
+        vm.etch(UNDERLYING_SNAPSHOT_ROOT, "");
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, UNDERLYING_SNAPSHOT_ROOT));
+        IStoxUnderlyingV2(address(sVault)).setUnderlying(OVERRIDE_TICKER, OVERRIDE_NAME, OVERRIDE_ISIN);
     }
 
     function testNoOverrideNoRowReadsListingValues() external {

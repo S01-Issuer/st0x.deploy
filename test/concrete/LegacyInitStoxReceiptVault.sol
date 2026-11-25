@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.25/src/abstract/OffchainAssetReceiptVault.sol";
-import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
+import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 
 /// Initializes from `OffchainAssetReceiptVaultConfigV3` as vaults did before
 /// `StoxTokenConfigV1`, leaving the token config storage empty.

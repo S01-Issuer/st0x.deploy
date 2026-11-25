@@ -14,6 +14,7 @@ import {
 } from "../../../src/generated/LibUnderlyingSnapshotCode.sol";
 import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../../script/LibUnderlyingSnapshotBuilder.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
+import {LibUnderlyingNamingRollout} from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 
 contract LibUnderlyingSnapshotTest is Test {
     function productionTokens() internal pure returns (address[] memory, TokenConfig[] memory) {
@@ -108,5 +109,25 @@ contract LibUnderlyingSnapshotTest is Test {
             3,
             "shard count"
         );
+    }
+
+    /// `shards` names every shard the builder made, in shard-index order.
+    function testShardsListsEveryShardInOrder() external {
+        bytes32 seed = keccak256("many rows");
+        (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(
+            UNDERLYING_SNAPSHOT_AS_OF, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 600)
+        );
+        assertEq(shardCodes.length, 3, "shard count");
+        address[] memory shards =
+            LibUnderlyingSnapshot.shards(LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes));
+        assertEq(shards.length, shardCodes.length, "shards");
+        for (uint256 i = 0; i < shardCodes.length; i++) {
+            assertEq(shards[i], LibRainDeploy.zoltuAddress(shardCodes[i]), "shard");
+        }
+    }
+
+    /// Every snapshot row is a shape setUnderlying would accept.
+    function testEveryProductionRowIsWellFormed() external pure {
+        LibUnderlyingNamingRollout.assertRowsWellFormed(LibProdTokenConfig.productionTokenConfigs());
     }
 }
