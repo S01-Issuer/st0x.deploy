@@ -98,7 +98,9 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
         LibTestRegistryBeaconProxy.etch(vm, token, VAULT_BEACON);
         LibTestRegistryBeaconProxy.etch(vm, RECEIPT_ADDR, RECEIPT_BEACON);
         vm.mockCall(token, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(RECEIPT_ADDR));
-        vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(string.concat("t", ticker)));
+        vm.mockCall(
+            token, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(string.concat("t", ticker))
+        );
         vm.mockCall(token, abi.encodeWithSelector(IStoxUnderlyingV1.underlyingSymbol.selector), abi.encode(ticker));
         vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(TOKEN_DECIMALS));
         vm.mockCall(token, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));

@@ -175,7 +175,8 @@ contract ST0xOrchestratorMintWeightingTest is ST0xOrchestratorMintWeightingFixtu
         _setLimits(CAPACITY, CAPACITY);
         _setWeighting(
             string.concat(
-                ":ensure(binary-equal-to(lead-symbol() underlying-symbol(mint-token())) \"attested another symbol\"),\n", PRICED
+                ":ensure(binary-equal-to(lead-symbol() underlying-symbol(mint-token())) \"attested another symbol\"),\n",
+                PRICED
             )
         );
         SignedContextV2[] memory otherSymbol = _lead("MSFT", PRICE);

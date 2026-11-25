@@ -75,10 +75,7 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         return signAll(only(attestation));
     }
 
-    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value)
-        internal
-        view
-    {
+    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value) internal view {
         evalAccepted(grid(mintToken, amount, signed), mintToken, value);
     }
 

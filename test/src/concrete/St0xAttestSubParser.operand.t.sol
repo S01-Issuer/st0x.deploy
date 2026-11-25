@@ -57,9 +57,7 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
     /// `underlying-symbol` takes exactly one input, the token, and leaves
     /// exactly one output, its ticker.
     function testUnderlyingSymbolInputsAndOutputs() external {
-        checkParseReverts(
-            "underlying-symbol()", abi.encodeWithSelector(ExternIntegrityInputsMismatch.selector, 0, 1)
-        );
+        checkParseReverts("underlying-symbol()", abi.encodeWithSelector(ExternIntegrityInputsMismatch.selector, 0, 1));
         checkParseReverts(
             "underlying-symbol(mint-token() mint-token())",
             abi.encodeWithSelector(ExternIntegrityInputsMismatch.selector, 2, 1)

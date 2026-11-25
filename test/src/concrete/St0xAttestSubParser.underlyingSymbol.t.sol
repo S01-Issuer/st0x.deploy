@@ -106,9 +106,7 @@ contract St0xAttestSubParserUnderlyingSymbolTest is St0xAttestSubParserTest {
     function testATickerOver31BytesReverts(uint256 length) external {
         length = bound(length, 32, 4096);
         address token = underlyingToken(repeated("A", length));
-        checkWordReverts(
-            WORD, mintGrid(token), abi.encodeWithSelector(UnderlyingSymbolTooLong.selector, token, length)
-        );
+        checkWordReverts(WORD, mintGrid(token), abi.encodeWithSelector(UnderlyingSymbolTooLong.selector, token, length));
     }
 
     function testATokenWithoutAnUnderlyingSymbolRevertsWithNoReason() external {

@@ -92,10 +92,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         return signAll(attestations);
     }
 
-    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value)
-        internal
-        view
-    {
+    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value) internal view {
         evalAccepted(grid(mintToken, amount, signed), mintToken, value);
     }
 
@@ -368,9 +365,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
             for (uint256 j = 0; j < attestations.length; j++) {
                 attestations[j].attestedSymbol = symbol(tickers[i]);
             }
-            accepted(
-                underlyingToken(tickers[i]), decimal(AMOUNT, 0), signAll(attestations), decimal(AMOUNT * PRICE, 0)
-            );
+            accepted(underlyingToken(tickers[i]), decimal(AMOUNT, 0), signAll(attestations), decimal(AMOUNT * PRICE, 0));
         }
     }
 
