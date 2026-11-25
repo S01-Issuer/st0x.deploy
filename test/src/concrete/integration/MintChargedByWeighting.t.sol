@@ -6,6 +6,7 @@ import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalF
 import {EvaluableV4, SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 
 import {MintAuthV1, MintCapKind} from "../../../../src/interface/IST0xOrchestratorV2.sol";
+import {IStoxUnderlyingV1} from "../../../../src/interface/IStoxUnderlyingV1.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 
 /// @title MintChargedByWeightingTest
@@ -16,7 +17,8 @@ import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
 /// the vault itself) with an attestation at 150, and the recipient's bucket
 /// is charged 300 — not `2e18` — while the vault delivers the `2e18` shares.
 /// A second workflow has the weighting refuse an attestation for another
-/// symbol, so the symbol the expression compares against is the vault's own.
+/// ticker, so the ticker the expression compares against is the vault's own
+/// `underlyingSymbol()`.
 contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
     using LibDecimalFloat for Float;
 
@@ -66,7 +68,7 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
     function testMintRefusedByTheWeightingAgainstTheRealVault() external {
         (address eoa, uint256 pk) = makeAddrAndKey("refused-recipient");
         EvaluableV4 memory guarded = _weighting(
-            ":ensure(binary-equal-to(lead-symbol() mint-symbol()) \"attested another symbol\"),\n"
+            ":ensure(binary-equal-to(lead-symbol() underlying-symbol(mint-token())) \"attested another symbol\"),\n"
             "_: mul(mint-amount() lead-price());"
         );
         vm.startPrank(OWNER);
@@ -74,10 +76,14 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
         orchestrator.setMintWeighting(guarded);
         vm.stopPrank();
 
+        address vaultOwner = vault.owner();
+        vm.prank(vaultOwner);
+        IStoxUnderlyingV1(address(vault)).setUnderlying("TEST", "Test");
+
         uint256 amount = 2e18;
         bytes32 nonce = keccak256("refused");
         MintAuthV1 memory auth = _signedMintAuth(address(vault), eoa, amount, nonce, pk);
-        SignedContextV2[] memory otherSymbol = _lead("tOTHER", 150);
+        SignedContextV2[] memory otherSymbol = _lead("OTHER", 150);
         vm.expectRevert("attested another symbol");
         vm.prank(MM);
         orchestrator.mint(address(vault), eoa, amount, auth, "", otherSymbol);
@@ -85,8 +91,8 @@ contract MintChargedByWeightingTest is OrchestratorIntegrationTest {
         assertFalse(orchestrator.nonceUsed(eoa, nonce), "the authorisation was not consumed");
 
         // The same authorisation with an attestation for the vault's own
-        // symbol goes through.
-        SignedContextV2[] memory ownSymbol = _lead("tTEST", 150);
+        // ticker goes through.
+        SignedContextV2[] memory ownSymbol = _lead("TEST", 150);
         vm.prank(MM);
         orchestrator.mint(address(vault), eoa, amount, auth, "", ownSymbol);
         assertEq(vault.balanceOf(eoa), amount, "the vault delivered the amount");

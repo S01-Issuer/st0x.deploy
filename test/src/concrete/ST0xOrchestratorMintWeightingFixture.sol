@@ -12,6 +12,7 @@ import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalF
 import {EvaluableV4, SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 
 import {ST0xOrchestrator} from "src/concrete/ST0xOrchestrator.sol";
+import {IStoxUnderlyingV1} from "src/interface/IStoxUnderlyingV1.sol";
 import {LibTestDeploy} from "test/lib/LibTestDeploy.sol";
 import {LibTimelockInvariants} from "src/lib/LibTimelockInvariants.sol";
 import {IST0xOrchestratorV2, MintAuthV1, MintCapKind} from "src/interface/IST0xOrchestratorV2.sol";
@@ -23,10 +24,10 @@ import {MockMintRecipient} from "test/src/concrete/MockMintRecipient.sol";
 /// @title ST0xOrchestratorMintWeightingFixture
 /// @notice A real orchestrator proxy with the vault side mocked, as in
 /// `ST0xOrchestrator.t.sol`, for the tests that mint through a Rainlang
-/// weighting. The token is mocked with 18 decimals and the symbol
-/// `tokenSymbol()` answers, so `mint-amount()` is the amount in WHOLE tokens
-/// and a mint of `2e18` units at a lead price of `150` is worth `300`, not
-/// `2e18`.
+/// weighting. The token is mocked with 18 decimals, the underlying ticker
+/// `tokenSymbol()` answers and the symbol "t" + that ticker, so
+/// `mint-amount()` is the amount in WHOLE tokens and a mint of `2e18` units
+/// at a lead price of `150` is worth `300`, not `2e18`.
 abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTest {
     using LibDecimalFloat for Float;
 
@@ -66,7 +67,7 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     ST0xOrchestrator internal orchestrator;
     MockMintRecipient internal recipient;
 
-    /// What the token answers `symbol()` with.
+    /// What the token answers `underlyingSymbol()` with.
     function tokenSymbol() internal pure virtual returns (string memory);
 
     function setUp() public virtual {
@@ -90,13 +91,15 @@ abstract contract ST0xOrchestratorMintWeightingFixture is St0xAttestSubParserTes
     // ------------------------------------------------------------------ //
 
     /// Etch `token` and its receipt as registry beacon proxies and mock
-    /// `token` as a vault whose ERC20 `symbol()` is `symbol_`, with
-    /// `TOKEN_DECIMALS` decimals, a receipt, and transfers that succeed.
-    function _mockToken(address token, string memory symbol_) internal {
+    /// `token` as a vault whose `underlyingSymbol()` is `ticker` and ERC20
+    /// `symbol()` is "t" + `ticker`, with `TOKEN_DECIMALS` decimals, a
+    /// receipt, and transfers that succeed.
+    function _mockToken(address token, string memory ticker) internal {
         LibTestRegistryBeaconProxy.etch(vm, token, VAULT_BEACON);
         LibTestRegistryBeaconProxy.etch(vm, RECEIPT_ADDR, RECEIPT_BEACON);
         vm.mockCall(token, abi.encodeWithSelector(ReceiptVault.receipt.selector), abi.encode(RECEIPT_ADDR));
-        vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(symbol_));
+        vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(string.concat("t", ticker)));
+        vm.mockCall(token, abi.encodeWithSelector(IStoxUnderlyingV1.underlyingSymbol.selector), abi.encode(ticker));
         vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.decimals.selector), abi.encode(TOKEN_DECIMALS));
         vm.mockCall(token, abi.encodeWithSelector(IERC20.transfer.selector), abi.encode(true));
     }

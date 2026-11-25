@@ -63,7 +63,8 @@ uint256 constant BASE_FORK_TIMESTAMP = 1793630337;
 /// orchestrator, deployed as the registry beacon proxy of its beacon, with
 /// weightings parsed and evaluated by the Rainlang deployed on base (nothing
 /// etched) using the words of the candidate `St0xAttestSubParser`. The vault
-/// side is mocked as in `ST0xOrchestratorMintWeightingFixture`, as `tAAPL`.
+/// side is mocked as in `ST0xOrchestratorMintWeightingFixture`, as `tAAPL`
+/// over the underlying ticker `AAPL`.
 /// The attestations are the price API's signed AAPL observations byte for
 /// byte, from `St0xAttestSubParser.signedPriceObservation.t.sol`.
 abstract contract ST0xOrchestratorBaseForkFixture is ST0xOrchestratorMintWeightingFixture {
@@ -71,7 +72,7 @@ abstract contract ST0xOrchestratorBaseForkFixture is ST0xOrchestratorMintWeighti
 
     /// @inheritdoc ST0xOrchestratorMintWeightingFixture
     function tokenSymbol() internal pure override returns (string memory) {
-        return "tAAPL";
+        return "AAPL";
     }
 
     function setUp() public virtual override {

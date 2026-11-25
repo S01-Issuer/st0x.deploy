@@ -19,11 +19,11 @@ import {ST0xOrchestratorMintWeightingFixture} from "test/src/concrete/ST0xOrches
 contract ST0xOrchestratorMintCapStorageTest is ST0xOrchestratorMintWeightingFixture {
     using LibDecimalFloat for Float;
 
-    string internal constant TOKEN_SYMBOL = "tAAPL";
+    string internal constant TICKER = "AAPL";
 
     /// @inheritdoc ST0xOrchestratorMintWeightingFixture
     function tokenSymbol() internal pure override returns (string memory) {
-        return TOKEN_SYMBOL;
+        return TICKER;
     }
 
     function _kind(uint256 kindSeed) internal pure returns (MintCapKind) {
