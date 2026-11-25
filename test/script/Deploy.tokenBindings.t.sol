@@ -330,7 +330,9 @@ contract DeployTokenBindingsTest is Test {
         bindPinned(networks[0].chainId);
         vm.expectRevert(
             abi.encodeWithSelector(
-                BeaconImplNotDeployed.selector, LibProdTokenParams.vaultBeacon(), LibProdDeployCurrent.STOX_RECEIPT_VAULT
+                BeaconImplNotDeployed.selector,
+                LibProdTokenParams.vaultBeacon(),
+                LibProdDeployCurrent.STOX_RECEIPT_VAULT
             )
         );
         harness.exposedPreDeployCheck(tokens[0], networks[0]);
