@@ -4,10 +4,6 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {
-    LibRainDeployRegistryBeaconProxy,
-    RegistryBeaconProxyParams
-} from "rain-factory-0.2.18/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {LibUnderlyingSnapshot} from "../../../src/lib/LibUnderlyingSnapshot.sol";
 import {LibProdTokenConfig, TokenConfig, UNDERLYING_SNAPSHOT_AS_OF} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
@@ -21,10 +17,9 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 contract LibUnderlyingSnapshotTest is Test {
     function productionTokens() internal pure returns (address[] memory, TokenConfig[] memory) {
         TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
-        RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         address[] memory tokens = new address[](configs.length);
         for (uint256 i = 0; i < configs.length; i++) {
-            tokens[i] = LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(params[i]);
+            tokens[i] = LibProdTokenParams.tokenAddress(configs[i]);
         }
         return (tokens, configs);
     }
