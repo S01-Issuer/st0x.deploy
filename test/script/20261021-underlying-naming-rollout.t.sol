@@ -197,6 +197,39 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         }
     }
 
+    function externalAssertIsinsBound(uint256 chainId) external pure {
+        LibUnderlyingNamingRollout.assertIsinsBound(chainId);
+    }
+
+    /// @notice On every network the rename was cut for, each ISIN the rename
+    /// batch writes is its row's listing-time asset id, and `assertIsinsBound`
+    /// accepts the chain.
+    function testEveryWrittenIsinIsItsRowsAssetId() external view {
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        for (uint256 i = 0; i < networks.length; i++) {
+            TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(networks[i].chainId);
+            (,, bytes[] memory payloads) = LibUnderlyingNamingRollout.renameBatch(networks[i].chainId);
+            for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
+                (,, string memory setIsin) = decodeSetUnderlying(payloads[tokenIndex]);
+                assertEq(
+                    setIsin,
+                    LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying).assetId,
+                    string.concat(networks[i].name, ": ", chainTokens[tokenIndex].underlying)
+                );
+            }
+            this.externalAssertIsinsBound(networks[i].chainId);
+        }
+    }
+
+    /// @notice The ticker the rename batch writes to the vault at
+    /// `tokenIndex` of the chain's rollout.
+    function writtenTicker(uint256 chainId, uint256 tokenIndex) internal pure returns (string memory) {
+        (,, bytes[] memory payloads) = LibUnderlyingNamingRollout.renameBatch(chainId);
+        (string memory setTicker,,) = decodeSetUnderlying(payloads[tokenIndex]);
+        return setTicker;
+    }
+
     /// @dev For the issuers renamed since launch, the name the live `name`
     /// carries and the issuer's current legal name: MicroStrategy Incorporated
     /// became Strategy Inc (August 2025), and Rocket Lab USA, Inc. was replaced
@@ -619,14 +652,22 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         executor.execute();
     }
 
-    /// @notice A ticker that does not match its vault's live symbol refuses.
+    /// @notice A vault whose live symbol is not `"t"` + the ticker the rename
+    /// writes to it refuses, naming that ticker; `"t"` + it passes.
     function testTickerBindingRefusesAMismatchedVault() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         TokenInstance memory first = LibUnderlyingNamingRollout.tokens(block.chainid)[0];
-        vm.mockCall(first.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode("tWRONG"));
-        vm.expectRevert(
-            abi.encodeWithSelector(TickerNotBoundToVault.selector, first.underlying, first.receiptVault, "tWRONG")
+        string memory ticker = writtenTicker(block.chainid, 0);
+        vm.mockCall(
+            first.receiptVault,
+            abi.encodeWithSelector(IERC20Metadata.symbol.selector),
+            abi.encode(string.concat("t", ticker))
         );
+        this.externalAssertTickersBound(block.chainid);
+
+        string memory wrong = string.concat("t", ticker, "X");
+        vm.mockCall(first.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(wrong));
+        vm.expectRevert(abi.encodeWithSelector(TickerNotBoundToVault.selector, ticker, first.receiptVault, wrong));
         this.externalAssertTickersBound(block.chainid);
     }
 
@@ -674,11 +715,13 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("ticker");
         prepareRename();
         rename.callPreflight();
-        TokenInstance memory last =
-            LibUnderlyingNamingRollout.tokens(block.chainid)[LibUnderlyingNamingRollout.TOKEN_COUNT - 1];
+        uint256 lastIndex = LibUnderlyingNamingRollout.TOKEN_COUNT - 1;
+        TokenInstance memory last = LibUnderlyingNamingRollout.tokens(block.chainid)[lastIndex];
         vm.mockCall(last.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode("tWRONG"));
         vm.expectRevert(
-            abi.encodeWithSelector(TickerNotBoundToVault.selector, last.underlying, last.receiptVault, "tWRONG")
+            abi.encodeWithSelector(
+                TickerNotBoundToVault.selector, writtenTicker(block.chainid, lastIndex), last.receiptVault, "tWRONG"
+            )
         );
         rename.callPreflight();
     }
