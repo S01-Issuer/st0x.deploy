@@ -214,9 +214,10 @@ library LibAuthoriserInvariants {
     address internal constant GRANTEE_SERVICE_3D0C = 0x3d0CD66EFA66c05d86c3d4316B03eAE87ab9E8aE;
 
     /// @notice The production orchestrator instance, granted `DEPOSIT` and
-    /// `WITHDRAW` on each chain's authoriser by
-    /// `20260831-enable-orchestrator-roles` so the service signer can mint
-    /// and burn through it. Same address on every chain.
+    /// `WITHDRAW` on each chain's authoriser so the service signer can mint
+    /// and burn through it: by `20260831-enable-orchestrator-roles` on the
+    /// chains before 0G, by the `20261123-schedule-zerog-orchestrator-roles`
+    /// timelock batch on 0G. Same address on every chain.
     address internal constant GRANTEE_ORCHESTRATOR = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
     /// @notice The minter for the EU assets authoriser, holding `DEPOSIT` and
@@ -278,32 +279,21 @@ library LibAuthoriserInvariants {
     /// @notice Where the orchestrator's two pairs start in `expectedGrants`. They are its last two.
     uint256 internal constant ORCHESTRATOR_GRANT_INDEX = 11;
 
-    /// @notice Whether the US authoriser on `chainId` grants the orchestrator, which is whether the chain runs
-    /// one. Not on 0G: there the orchestrator's pinned address is the first `deploy(owner)` of the permissionless
-    /// 0.1.30 beacon-set deployer, so whoever calls it first chooses the admin, and a grant to that address would
-    /// let them mint. That set deployer is not deployed on 0G (`LibStoxReleasedNetworks.releasesNotOnZerog`).
-    /// @param chainId The chain id.
-    /// @return Whether the chain's US authoriser grants the orchestrator.
-    function grantsOrchestrator(uint256 chainId) internal pure returns (bool) {
-        return chainId != LibSafeInvariants.ZEROG_CHAIN_ID;
-    }
-
-    /// @notice `expectedGrants(tokenOwnerSafe, adminHolder)` on `chainId`: without the orchestrator's two
-    /// pairs where `grantsOrchestrator` is false.
-    /// @param chainId The chain id.
+    /// @notice `expectedGrants(tokenOwnerSafe, adminHolder)` without the orchestrator's two pairs, its last two: the
+    /// map 0G's US authoriser held from its creation (`20261119-create-zerog-tokens`) until the 0G orchestrator roles
+    /// batch (`20261123-schedule-zerog-orchestrator-roles`) grants the orchestrator `DEPOSIT` and `WITHDRAW`.
     /// @param tokenOwnerSafe The chain's token-owner Safe.
     /// @param adminHolder The holder of the seven `_ADMIN` roles.
-    /// @return The `(role, grantee)` pairs for that chain.
-    function expectedGrantsOn(uint256 chainId, address tokenOwnerSafe, address adminHolder)
+    /// @return The `(role, grantee)` pairs before the orchestrator's.
+    function expectedGrantsWithoutOrchestrator(address tokenOwnerSafe, address adminHolder)
         internal
         pure
         returns (RoleGrant[] memory)
     {
         RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
-        if (grantsOrchestrator(chainId)) return grants;
         RoleGrant[] memory withoutOrchestrator = new RoleGrant[](ORCHESTRATOR_GRANT_INDEX);
-        for (uint256 i = 0; i < ORCHESTRATOR_GRANT_INDEX; i++) {
-            withoutOrchestrator[i] = grants[i];
+        for (uint256 grantIndex = 0; grantIndex < ORCHESTRATOR_GRANT_INDEX; grantIndex++) {
+            withoutOrchestrator[grantIndex] = grants[grantIndex];
         }
         return withoutOrchestrator;
     }
