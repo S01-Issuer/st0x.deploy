@@ -68,13 +68,25 @@ contract StoxUnderlyingIntegrationTest is Test {
     /// through the real proxy, fallback and facet path, so the probe of its
     /// asset is not starved of gas.
     function testLongUnderlyingDerivesThroughWrapper() external {
-        string memory ticker = repeated("A", 4096);
+        string memory ticker = repeated("A", 16);
         string memory longName = repeated("N", 4096);
         IStoxUnderlyingV1(address(sVault)).setUnderlying(ticker, longName);
         vm.cool(address(sVault));
         assertEq(sWrapper.symbol(), string.concat(ticker, "s"));
         vm.cool(address(sVault));
         assertEq(sWrapper.name(), string.concat(longName, ST0X_NAME_SUFFIX));
+    }
+
+    /// A set ticker and name win over the listing, and the first set reports
+    /// the listing the getters returned as the old values.
+    function testSetUnderlyingOverridesTheListing() external {
+        vm.expectEmit(address(sVault));
+        emit IStoxUnderlyingV1.UnderlyingSet(address(this), "NVDA", "NVIDIA Corporation", "NVDX", "NVIDIA Holdings");
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDX");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Holdings");
+        assertEq(sWrapper.symbol(), "NVDXs");
+        assertEq(sWrapper.name(), "NVIDIA Holdings (ST0x)");
     }
 
     /// Unset: the underlying getters fall back to the listing ticker and

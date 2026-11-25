@@ -18,6 +18,7 @@ import {
 import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
+import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxTokenProxy} from "../../../src/generated/LibStoxTokenProxy.sol";
 import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
@@ -102,16 +103,20 @@ contract LibProdTokenParamsTest is Test {
         }
     }
 
-    function testDependenciesAreTheV8FactoryRegistryAndVaultBeaconAsDeployed() external {
+    function testDependenciesAreTheV8FactoryRegistryVaultBeaconAndFacetAsDeployed() external {
         (, address beacon) = LibTestTokenEnvironment.deployBeacons(vm, TIMELOCK);
+        address facet = LibRainDeploy.deployZoltu(type(StoxCorporateActionsFacet).creationCode);
         DeployDependency[] memory deps = LibProdTokenParams.tokenDependencies();
-        assertEq(deps.length, 3, "dependencies");
+        assertEq(deps.length, 4, "dependencies");
         assertEq(deps[0].deployedAddress, CLONE_FACTORY_V8_ADDRESS, "factory address");
         assertEq(deps[0].runtimeCode, CLONE_FACTORY_V8_ADDRESS.code, "factory code");
         assertEq(deps[1].deployedAddress, CONFIG_REGISTRY_ADDRESS, "registry address");
         assertEq(deps[1].runtimeCode, CONFIG_REGISTRY_ADDRESS.code, "registry code");
         assertEq(deps[2].deployedAddress, beacon, "beacon address");
         assertEq(deps[2].runtimeCode, beacon.code, "beacon code");
+        assertEq(deps[3].deployedAddress, facet, "facet address");
+        assertEq(deps[3].deployedAddress, LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET, "current facet");
+        assertEq(deps[3].runtimeCode, facet.code, "facet code");
     }
 
     function testEachRowsDeployStepLandsItsTokenAtItsAddress() external {
