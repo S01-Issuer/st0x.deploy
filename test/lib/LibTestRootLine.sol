@@ -27,7 +27,17 @@ library LibTestRootLine {
         IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS).approveUnscopedV5(delegate);
     }
 
-    function revoke(Vm vm, address delegate) internal {
+    function approveScope(Vm vm, bytes32 scope, address delegate) internal {
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
+        IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS).approveV5(scope, delegate);
+    }
+
+    function revokeScope(Vm vm, bytes32 scope, address delegate) internal {
+        vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
+        IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS).revokeV5(scope, delegate);
+    }
+
+    function revokeUnscoped(Vm vm, address delegate) internal {
         vm.prank(LibRegistryAuthority.ROOT_AUTHORITY);
         IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS).revokeUnscopedV5(delegate);
     }
@@ -42,6 +52,12 @@ library LibTestRootLine {
             IMigrationRegistryV5.applyMigrationV5,
             (LibRegistryAuthority.ROOT_AUTHORITY, LibStoxMigrations.NAMESPACE, id, prerequisites, "")
         );
+    }
+
+    /// @notice Revokes both approvals that let `delegate` write the root line.
+    function revoke(Vm vm, address delegate) internal {
+        revokeUnscoped(vm, delegate);
+        revokeScope(vm, LibStoxMigrations.NAMESPACE, delegate);
     }
 
     function write(Vm vm, address safe, bytes32 id, bytes32 onto) internal {
