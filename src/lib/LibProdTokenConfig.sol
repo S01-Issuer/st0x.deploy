@@ -18,8 +18,7 @@ import {Region} from "../interface/IStoxTokenConfigV1.sol";
 ///
 /// The underlying ticker and name are not deploy inputs: the vault owner sets
 /// them after deployment with `IStoxUnderlyingV1.setUnderlying`. The ticker
-/// is this table's `underlying` key (every row's `symbol` is
-/// `"t" + underlying`) and the name is `underlyingName`. Once both are set,
+/// is the row's `ticker` and the name is `underlyingName`. Once both are set,
 /// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
 /// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
 /// Until then a token deployed before `StoxTokenConfigV1` reports the
