@@ -9,6 +9,7 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
@@ -61,7 +62,7 @@ function executeZerogOrchestratorRolesDeclaration() pure returns (ScriptDeclarat
 /// @dev Dispatch `execute()` via `Actions → manual-broadcast` with
 /// `script = 20261123-execute-zerog-orchestrator-roles`, `sig = execute()`, `network = zerog`, and `run()` via
 /// `Actions → run-script` with the same `script` per chain.
-contract ExecuteZerogOrchestratorRoles is SafeBundleScript, IStoxScript {
+contract ExecuteZerogOrchestratorRoles is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return executeZerogOrchestratorRolesDeclaration();
