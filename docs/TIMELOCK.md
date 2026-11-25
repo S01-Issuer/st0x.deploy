@@ -356,8 +356,8 @@ sequence on a fork of each chain.
    beacon and rename operation ids as literals. Each schedule script's Safe
    bundle is the `scheduleBatch` alone; the batch's last call writes its
    root-line record, as the timelock, at execution. The line is not held during
-   the 48h delay: a migration recorded onto the head meanwhile makes the
-   batch's record revert at execution, and the fix is cancel and reschedule.
+   the 48h delay: a migration recorded onto the head meanwhile makes the batch's
+   record revert at execution, and the fix is cancel and reschedule.
 2. Schedule the beacon batch (`20261021-schedule-underlying-naming-beacons`):
    one `scheduleBatch` that upgrades the chain's in-use wrapped-token-vault
    beacon, then its in-use receipt-vault beacon
@@ -370,15 +370,14 @@ sequence on a fork of each chain.
    the operation is cancelled or its arguments change. A schedule bundle is one
    call, which the Safe UI proposes as a direct call rather than the `MultiSend`
    that `verify` hashes: compare the call's target and data with the artifact
-   instead of the `SafeTxHash`. The wrapper keeps its
-   current name and symbol while the vault has no underlying set. The
-   orchestrator's vault-logic lock reads the 0.1.30 beacon-set deployer's
-   beacons, not the in-use ones, so it does not cover this upgrade: minting and
-   burning keep running across it (the Base fork test mints and burns through
-   the live orchestrator after the batch); the orchestrator admin move still
-   comes first on the root line (step 0). It also means the lock does not watch
-   the logic production tokens run; pointing it at the in-use beacons is a
-   separate orchestrator change.
+   instead of the `SafeTxHash`. The wrapper keeps its current name and symbol
+   while the vault has no underlying set. The orchestrator's vault-logic lock
+   reads the 0.1.30 beacon-set deployer's beacons, not the in-use ones, so it
+   does not cover this upgrade: minting and burning keep running across it (the
+   Base fork test mints and burns through the live orchestrator after the
+   batch); the orchestrator admin move still comes first on the root line (step
+   0). It also means the lock does not watch the logic production tokens run;
+   pointing it at the in-use beacons is a separate orchestrator change.
 
    The pre-flight also requires each beacon to still serve the implementation
    the batch moves it from (`RECEIPT_VAULT_FROM_IMPLEMENTATION`,
