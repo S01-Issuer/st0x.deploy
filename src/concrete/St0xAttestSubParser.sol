@@ -215,10 +215,8 @@ contract St0xAttestSubParser is BaseRainlangSubParser, BaseRainlangExtern {
             assembly ("memory-safe") {
                 lengthPointer := length
             }
-            function(OperandV2, uint256, uint256)
-                internal
-                pure returns (uint256, uint256)[EXTERN_OPCODES_LENGTH + 1] memory
-                pointersFixed = [lengthPointer, LibSt0xAttestExternUnderlyingSymbol.integrity];
+            function(OperandV2, uint256, uint256) internal pure returns (uint256, uint256)[EXTERN_OPCODES_LENGTH + 1]
+                memory pointersFixed = [lengthPointer, LibSt0xAttestExternUnderlyingSymbol.integrity];
             uint256[] memory pointersDynamic;
             assembly ("memory-safe") {
                 pointersDynamic := pointersFixed

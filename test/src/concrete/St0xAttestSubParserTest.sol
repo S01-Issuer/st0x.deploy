@@ -136,7 +136,9 @@ abstract contract St0xAttestSubParserTest is Test, BuildWeightingBindings {
         MockUnderlyingERC20 token = new MockUnderlyingERC20();
         token.setUnderlyingValues(ticker, "");
         vm.mockCall(
-            address(token), abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(string.concat("t", ticker))
+            address(token),
+            abi.encodeWithSelector(IERC20Metadata.symbol.selector),
+            abi.encode(string.concat("t", ticker))
         );
         return address(token);
     }
