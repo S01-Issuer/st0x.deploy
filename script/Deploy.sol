@@ -20,6 +20,19 @@ import {
 import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants, AuthoriserNotReady} from "../src/lib/LibAuthoriserInvariants.sol";
+import {LibAuthoriserClone} from "../src/lib/LibAuthoriserClone.sol";
+import {RoleGrant} from "../src/lib/RoleGrant.sol";
+import {
+    CERTIFY_ADMIN,
+    CONFISCATE_RECEIPT_ADMIN,
+    CONFISCATE_SHARES_ADMIN,
+    DEPOSIT_ADMIN,
+    WITHDRAW_ADMIN
+} from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
+import {
+    SCHEDULE_CORPORATE_ACTION_ADMIN,
+    CANCEL_CORPORATE_ACTION_ADMIN
+} from "../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
@@ -101,15 +114,33 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             }
             checkGovernanceTimelock();
         } else if (name == keccak256(bytes(AUTHORISER))) {
-            address bound = boundAddress(LibStoxConfig.AUTHORISER_INITIAL_ADMIN_NAME);
+            address bound = LibStoxConfig.authoriserInitialAdmin();
             address expected = LibTimelockInvariants.timelockForChainId(block.chainid);
             if (bound != expected) {
                 revert AuthoriserInitialAdminMismatch(bound, expected);
             }
+            LibTimelockInvariants.assertTimelockState(expected, LibSafeInvariants.safeForChainId(block.chainid));
+            checkExistingAuthoriserClone(expected);
         } else {
             checkTokenSuites(name, LibProdTokenConfig.productionTokenConfigs());
             checkTokenSuites(name, LibProdTokenConfig.testTokenConfigs());
         }
+    }
+
+    /// @notice The open-salt clone can be deployed by anyone and is then skipped, so where it already has code it
+    /// must hold every `_ADMIN` role on `admin`.
+    function checkExistingAuthoriserClone(address admin) internal view {
+        address clone = LibAuthoriserClone.cloneDeployedAddress();
+        if (clone.code.length == 0) return;
+        RoleGrant[] memory grants = new RoleGrant[](7);
+        grants[0] = RoleGrant(DEPOSIT_ADMIN, admin);
+        grants[1] = RoleGrant(WITHDRAW_ADMIN, admin);
+        grants[2] = RoleGrant(CERTIFY_ADMIN, admin);
+        grants[3] = RoleGrant(CONFISCATE_SHARES_ADMIN, admin);
+        grants[4] = RoleGrant(CONFISCATE_RECEIPT_ADMIN, admin);
+        grants[5] = RoleGrant(SCHEDULE_CORPORATE_ACTION_ADMIN, admin);
+        grants[6] = RoleGrant(CANCEL_CORPORATE_ACTION_ADMIN, admin);
+        LibAuthoriserInvariants.assertHeld(clone, grants);
     }
 
     function checkTokenSuites(bytes32 name, TokenConfig[] memory configs) internal view {
