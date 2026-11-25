@@ -167,18 +167,19 @@ abstract contract RootLineBatchRecordScriptTest is Test {
     function testACancelledBatchReschedulesAndWritesItsRecord(uint256 elapsed) external {
         elapsed = bound(elapsed, 0, 2 * LibTimelockInvariants.TIMELOCK_MIN_DELAY);
         bytes32 headBefore = LibStoxMigrations.head();
+        bytes32 id = operationId();
         schedule();
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + elapsed);
         vm.prank(safeAddress());
-        controller().cancel(operationId());
-        assertFalse(controller().isOperation(operationId()), "cancelled");
+        controller().cancel(id);
+        assertFalse(controller().isOperation(id), "cancelled");
         assertEq(LibStoxMigrations.applied(declaredId()), 0, "no record");
         assertEq(LibStoxMigrations.head(), headBefore, "line unmoved");
         sScript.callPreflight();
         scheduleThenExecutePredecessors();
         executeBatch();
-        assertTrue(controller().isOperationDone(operationId()), "rescheduled operation done");
+        assertTrue(controller().isOperationDone(id), "rescheduled operation done");
         assertEq(LibStoxMigrations.applied(declaredId()), block.timestamp, "record stamped at the block");
         assertEq(LibStoxMigrations.head(), declaredId(), "record heads the line");
         assertEq(

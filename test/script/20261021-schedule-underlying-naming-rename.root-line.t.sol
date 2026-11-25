@@ -92,8 +92,9 @@ contract ScheduleUnderlyingNamingRenameRootLineTest is UnderlyingNamingRolloutFi
     /// write their records in order.
     function testABeaconBatchCancelledUnderAPendingRenameReschedules() external {
         schedule();
+        bytes32 beaconId = beaconOperationId();
         vm.prank(safeAddress());
-        controller().cancel(beaconOperationId());
+        controller().cancel(beaconId);
         ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("reschedule");
         beacons.callPreflight();
         LibSafeFork.executeBundle(vm, Safe(payable(safeAddress())), beacons.callAuthorBundle());
