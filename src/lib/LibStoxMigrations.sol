@@ -44,17 +44,10 @@ error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 /// @param head The line's head.
 error LineHeadMismatch(bytes32 head);
 
-/// @notice On 0G, `migration`'s arm waits on a decision that is not made yet,
-/// so its script refuses there instead of guessing. 0G's line stops before it
-/// until a reviewed 0G arm replaces this refusal.
+/// @notice On 0G, `migration`'s arm waits on `decision`, so its script refuses there.
 /// @param migration The migration.
 /// @param decision The decision it waits on.
 error ZerogArmPendingDecision(bytes32 migration, string decision);
-
-/// @notice A current-source contract has code on 0G. A 0G arm that records a
-/// bind alone relies on 0G running no current-source suite, so it refuses.
-/// @param deployed The contract.
-error ZerogCurrentSourceDeployed(address deployed);
 
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's scripts record what they applied
@@ -207,16 +200,6 @@ library LibStoxMigrations {
         return chainId == LibSafeInvariants.ZEROG_CHAIN_ID;
     }
 
-    /// @notice Reverts `ZerogCurrentSourceDeployed` if `deployed` has code. A
-    /// 0G arm that records a ConfigRegistry bind alone checks what the bind
-    /// names with this. No current-source suite deploys on 0G
-    /// (`StoxDeploySuites.setCandidateNetworks`), so no constructor there reads
-    /// the binding, and the contracts the binding names have no code there.
-    /// @param deployed The contract the bind names.
-    function assertNoCurrentSourceOnZerog(address deployed) internal view {
-        if (deployed.code.length != 0) revert ZerogCurrentSourceDeployed(deployed);
-    }
-
     /// @notice What `declared` is recorded after on the root line.
     /// @param declared The declaration.
     /// @return The prerequisites.
@@ -243,6 +226,15 @@ library LibStoxMigrations {
     function recordTx(ScriptDeclaration memory declared) internal view returns (SafeTx memory) {
         (address registry, bytes memory data) = recordCall(declared);
         return SafeTx({to: registry, value: 0, data: data, operation: Enum.Operation.Call});
+    }
+
+    /// @notice The bundle of `declared`'s record alone.
+    /// @param declared The declaration.
+    /// @return The one transaction.
+    function recordOnlyBundle(ScriptDeclaration memory declared) internal view returns (SafeTx[] memory) {
+        SafeTx[] memory txs = new SafeTx[](1);
+        txs[0] = recordTx(declared);
+        return txs;
     }
 
     /// @notice Reverts unless `declared` is the root line's next record and

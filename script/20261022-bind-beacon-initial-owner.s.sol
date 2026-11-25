@@ -18,6 +18,7 @@ import {LibProdDeployCurrent} from "../src/generated/LibProdDeployCurrent.sol";
 import {LibRootConfigBinding} from "../src/lib/LibRootConfigBinding.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
+import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
@@ -48,11 +49,8 @@ function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration mem
 /// @notice Authors the per-chain Safe bundle that binds
 /// `LibStoxConfig.BEACON_INITIAL_OWNER_NAME` under the root authority to
 /// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, as the root's approved
-/// delegate, and records it. On 0G the bundle is the record alone: the
-/// binding is read only by the constructor of a current-source beacon, and no
-/// current-source suite deploys on 0G (`StoxDeploySuites.setCandidateNetworks`).
-/// The 0G arm requires the name still unbound there, so no such beacon can be
-/// deployed, and the suite timelock the binding names still without code.
+/// delegate, and records it.
+/// On 0G the bundle is the record alone: no current-source beacon deploys there to read the binding.
 contract BindBeaconInitialOwner is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
@@ -106,7 +104,7 @@ contract BindBeaconInitialOwner is StoxSafeBundleScript, IStoxScript {
     /// timelock it would name has no code on this chain.
     function assertNothingToBindOnZerog() internal view {
         LibRootConfigBinding.assertUnbound(LibStoxConfig.BEACON_INITIAL_OWNER_NAME);
-        LibStoxMigrations.assertNoCurrentSourceOnZerog(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+        LibStoxDeployNetworks.assertUndeployed(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
     }
 
     /// @notice `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` as an `address`.
@@ -117,9 +115,7 @@ contract BindBeaconInitialOwner is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
         if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
-            SafeTx[] memory record = new SafeTx[](1);
-            record[0] = LibStoxMigrations.recordTx(bindBeaconInitialOwnerDeclaration());
-            return record;
+            return LibStoxMigrations.recordOnlyBundle(bindBeaconInitialOwnerDeclaration());
         }
         SafeTx[] memory txs = new SafeTx[](2);
         txs[0] = LibRootConfigBinding.registerTx(LibStoxConfig.BEACON_INITIAL_OWNER_NAME, timelockBinding());
