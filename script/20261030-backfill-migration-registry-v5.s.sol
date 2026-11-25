@@ -14,6 +14,7 @@ import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegis
 import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -139,7 +140,7 @@ struct BackfillRecord {
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261030-backfill-migration-registry-v5` per chain.
-contract BackfillMigrationRegistryV5 is SafeBundleScript, IStoxScript {
+contract BackfillMigrationRegistryV5 is StoxSafeBundleScript, IStoxScript {
     address internal immutable MULTISIG_THRESHOLD_SCRIPT =
         vm.deployCode("20260619-migrate-multisig-threshold.s.sol:MigrateMultisigThreshold");
     address internal immutable REHEARSAL_SCHEDULE_SCRIPT =

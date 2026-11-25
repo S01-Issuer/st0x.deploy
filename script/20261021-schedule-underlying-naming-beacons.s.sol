@@ -11,6 +11,7 @@ import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -65,10 +66,10 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 
 /// @title ScheduleUnderlyingNamingBeacons
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the
-/// underlying-naming beacon batch on the chain's governance timelock (rollout
-/// step 2 in `docs/TIMELOCK.md`; see `LibUnderlyingNamingRollout` for
-/// the calls). Two Safe calls: `timelock.scheduleBatch(...)`, with the pinned
-/// 48h delay, then the Safe's root-line record.
+/// underlying-naming beacon batch on the chain's governance timelock (see
+/// `LibUnderlyingNamingRollout` for the calls). Two Safe calls:
+/// `timelock.scheduleBatch(...)`, with the pinned 48h delay, then the Safe's
+/// root-line record.
 ///
 /// Execution is not a Safe action: the timelock lets anyone execute a ready
 /// operation (`20261021-execute-underlying-naming` does it from the CI deploy
@@ -82,7 +83,7 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261021-schedule-underlying-naming-beacons` per chain, after the
 /// implementations are deployed there.
-contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
+contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleUnderlyingNamingBeaconsDeclaration();
