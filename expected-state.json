@@ -49,6 +49,27 @@
         "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
         "setDeployer": "0x945D0Faf6f268e805246907507ef1044e70E75D7"
       },
+      "registryDelegates": [
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "unscoped": true
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "scope": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+          "unscoped": false
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0x82b7e6FDfD25EF64b013F98e8F2c1fC1D1872eC9",
+          "unscoped": true
+        }
+      ],
       "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
@@ -1988,6 +2009,27 @@
         "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
         "setDeployer": "0x945D0Faf6f268e805246907507ef1044e70E75D7"
       },
+      "registryDelegates": [
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "unscoped": true
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "scope": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+          "unscoped": false
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0x82b7e6FDfD25EF64b013F98e8F2c1fC1D1872eC9",
+          "unscoped": true
+        }
+      ],
       "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
@@ -4102,6 +4144,27 @@
         "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
         "setDeployer": "0x945D0Faf6f268e805246907507ef1044e70E75D7"
       },
+      "registryDelegates": [
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "unscoped": true
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "scope": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+          "unscoped": false
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0x82b7e6FDfD25EF64b013F98e8F2c1fC1D1872eC9",
+          "unscoped": true
+        }
+      ],
       "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
@@ -6041,6 +6104,27 @@
         "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
         "setDeployer": "0x945D0Faf6f268e805246907507ef1044e70E75D7"
       },
+      "registryDelegates": [
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "unscoped": true
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "scope": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+          "unscoped": false
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0x82b7e6FDfD25EF64b013F98e8F2c1fC1D1872eC9",
+          "unscoped": true
+        }
+      ],
       "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
@@ -7996,6 +8080,27 @@
         "wrappedTokenVaultBeacon": "0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8",
         "wrappedTokenVaultCodehash": "0x8227665ab0d770ac6d47cc6b17924f8e64c93ca12f3b4281e8949b67d36f3e44"
       },
+      "registryDelegates": [
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "unscoped": true
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "scope": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+          "unscoped": false
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
+          "registry": "0x82b7e6FDfD25EF64b013F98e8F2c1fC1D1872eC9",
+          "unscoped": true
+        }
+      ],
       "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
       "safe": {
         "address": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
@@ -9935,6 +10040,27 @@
         "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
         "setDeployer": "0x945D0Faf6f268e805246907507ef1044e70E75D7"
       },
+      "registryDelegates": [
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "unscoped": true
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
+          "registry": "0xd708186f68D527B64c001398550627508205EE31",
+          "scope": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
+          "unscoped": false
+        },
+        {
+          "account": "0x0b300013CD54a8F1aC40981f80FaaA18b8Cc1E4c",
+          "delegate": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
+          "registry": "0x82b7e6FDfD25EF64b013F98e8F2c1fC1D1872eC9",
+          "unscoped": true
+        }
+      ],
       "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
