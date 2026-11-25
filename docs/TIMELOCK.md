@@ -420,8 +420,10 @@ sequence on a fork of each chain.
    `execute()` from the CI deploy key, one operation per dispatch. On HyperEVM
    the rename batch needs more gas than a small block holds, so enable big
    blocks for the deploy key (`manual-hyperevm-big-blocks`) before executing it
-   there. The script writes no record: the rename batch's record is the
-   execution's record.
+   there. After the rename batch executes, the Safe signs `run-script`
+   `20261021-execute-underlying-naming` `run()`. It writes the execution's
+   record, and until it lands the root line stays at the rename batch's record
+   and every later migration on that chain refuses.
 
 After the beacon batch, the in-use receipt-vault beacon serves a vault that
 initializes only from the ConfigRegistry (rain-vats 0.2.12, config V3). The
