@@ -17,8 +17,10 @@ import {
     ReceiptBeaconMismatch,
     RbacOwnerMismatch,
     RbacAuthorizerMismatch,
+    VaultBeaconNotDeployed,
     WrapperBeaconMismatch
 } from "../../script/Deploy.sol";
+import {BeaconImplementationMismatch} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibTimelockController} from "rain-deploy-0.1.38/src/lib/LibTimelockController.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
@@ -39,6 +41,15 @@ contract DeployTokenBindingsTest is Test {
     function setUp() external {
         harness = new DeployPreDeployCheckHarness();
         LibTestDeploy.etchConfigRegistry(vm);
+        placeVaultBeacon(LibProdDeployCurrent.STOX_RECEIPT_VAULT);
+    }
+
+    function placeVaultBeacon(address implementation) internal {
+        // UpgradeableBeacon refuses an implementation without code.
+        if (implementation.code.length == 0) {
+            vm.etch(implementation, hex"00");
+        }
+        LibTestDeploy.placeBeacon(vm, LibProdTokenParams.vaultBeacon(), implementation, address(this));
     }
 
     /// Deploys the governance timelock with `proposer` as its proposer.
@@ -206,6 +217,50 @@ contract DeployTokenBindingsTest is Test {
             for (uint256 j = 0; j < tokens.length; j++) {
                 vm.expectRevert(
                     abi.encodeWithSelector(VaultBeaconMismatch.selector, wrong, LibProdTokenParams.vaultBeacon())
+                );
+                harness.exposedPreDeployCheck(tokens[j], networks[i]);
+            }
+        }
+    }
+
+    function testTokensRefuseABoundVaultBeaconWithNoCode() external {
+        vm.etch(LibProdTokenParams.vaultBeacon(), "");
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibTestTokenRows.allRows());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            bindPinned(networks[i].chainId);
+            for (uint256 j = 0; j < tokens.length; j++) {
+                vm.expectRevert(
+                    abi.encodeWithSelector(VaultBeaconNotDeployed.selector, LibProdTokenParams.vaultBeacon())
+                );
+                harness.exposedPreDeployCheck(tokens[j], networks[i]);
+            }
+        }
+    }
+
+    function testTokensRefuseAVaultBeaconServingAnotherImplementation(
+        address implementation,
+        uint256 usSeed,
+        uint256 euSeed
+    ) external {
+        vm.assume(implementation != LibProdDeployCurrent.STOX_RECEIPT_VAULT);
+        assumeNotPrecompile(implementation);
+        assumeNotForgeAddress(implementation);
+        placeVaultBeacon(implementation);
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(oneRowPerRegion(usSeed, euSeed));
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        for (uint256 i = 0; i < networks.length; i++) {
+            vm.chainId(networks[i].chainId);
+            bindPinned(networks[i].chainId);
+            for (uint256 j = 0; j < tokens.length; j++) {
+                vm.expectRevert(
+                    abi.encodeWithSelector(
+                        BeaconImplementationMismatch.selector,
+                        LibProdTokenParams.vaultBeacon(),
+                        LibProdDeployCurrent.STOX_RECEIPT_VAULT,
+                        implementation
+                    )
                 );
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
             }
