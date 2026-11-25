@@ -58,6 +58,9 @@
 - **Expected state marks a token at its suite address `Listed`**
   (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
   deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
+- **`StoxReceiptVault.initialize` refuses
+  `CorporateActionsFacetNotDeployed(facet)` when the pinned facet has no
+  code**, instead of failing the decode with no reason.
 
 ### StoxReceipt
 
