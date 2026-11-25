@@ -21,39 +21,32 @@ struct ContractRoles {
 library LibIdealRoles {
     /// @notice The V4 authoriser, EU authoriser, orchestrator, governance timelock
     /// and mint-caps orchestrator on a chain, in that order. Every timelock
-    /// holder is the chain's prod governance timelock. On a chain whose
-    /// authoriser grants no orchestrator (0G), the two orchestrators are left
-    /// out: nothing there is expected to hold their roles.
+    /// holder is the chain's prod governance timelock. Every chain, 0G
+    /// included, runs the orchestrator.
     /// @param chainId The chain id.
     /// @return The contracts' ideal role state.
     function contractRoles(uint256 chainId) internal pure returns (ContractRoles[] memory) {
         address safe = LibSafeInvariants.safeForChainId(chainId);
         address timelock = LibTimelockInvariants.timelockForChainId(chainId);
-        bool orchestrated = LibAuthoriserInvariants.grantsOrchestrator(chainId);
-        ContractRoles[] memory roles = new ContractRoles[](orchestrated ? 5 : 3);
-        uint256 next = 0;
-        roles[next++] = ContractRoles(
+        ContractRoles[] memory roles = new ContractRoles[](5);
+        roles[0] = ContractRoles(
             LibAuthoriserInvariants.authoriserForChainId(chainId),
-            LibAuthoriserInvariants.expectedGrantsOn(chainId, safe, timelock)
+            LibAuthoriserInvariants.expectedGrants(safe, timelock)
         );
-        roles[next++] = ContractRoles(
+        roles[1] = ContractRoles(
             LibAuthoriserInvariants.euAuthoriserForChainId(chainId),
             LibAuthoriserInvariants.expectedEuGrants(
                 timelock, LibAuthoriserInvariants.GRANTEE_EU_MINTER, LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C
             )
         );
-        if (orchestrated) {
-            roles[next++] = ContractRoles(
-                LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
-                LibOrchestratorInvariants.expectedGrants(safe, timelock)
-            );
-        }
-        roles[next++] = ContractRoles(timelock, LibTimelockInvariants.expectedGrants(timelock, safe));
-        if (orchestrated) {
-            roles[next++] = ContractRoles(
-                LibOrchestratorInvariants.mintCapsInstance(), LibOrchestratorInvariants.mintCapsExpectedGrants(timelock)
-            );
-        }
+        roles[2] = ContractRoles(
+            LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE,
+            LibOrchestratorInvariants.expectedGrants(safe, timelock)
+        );
+        roles[3] = ContractRoles(timelock, LibTimelockInvariants.expectedGrants(timelock, safe));
+        roles[4] = ContractRoles(
+            LibOrchestratorInvariants.mintCapsInstance(), LibOrchestratorInvariants.mintCapsExpectedGrants(timelock)
+        );
         return roles;
     }
 }
