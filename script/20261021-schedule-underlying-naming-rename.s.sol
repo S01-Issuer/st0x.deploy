@@ -148,6 +148,7 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
 
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
         LibUnderlyingNamingRollout.assertTickersBound(block.chainid);
+        LibUnderlyingNamingRollout.assertIsinsBound(block.chainid);
         // `setUnderlying` checks the vault owner, so a vault the timelock
         // does not own would revert the whole batch at execution.
         LibTokenInvariants.assertUniformOwnership(chainTokens, timelock());

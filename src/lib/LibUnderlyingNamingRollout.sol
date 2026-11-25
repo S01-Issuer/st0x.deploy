@@ -31,12 +31,19 @@ error UnderlyingNamingReleaseNotFrozen();
 /// @param actual The table's length.
 error UnderlyingNamingTokenTableShort(uint256 chainId, uint256 expected, uint256 actual);
 
-/// @notice A token's live receipt-vault symbol is not `"t" + underlying`, so
-/// the row this rollout would set does not belong to that vault.
-/// @param underlying The token's join key.
+/// @notice A token's live receipt-vault symbol is not `"t" + ticker` for the
+/// ticker the rename writes, so the row does not belong to that vault.
+/// @param ticker The ticker the rename writes.
 /// @param vault The token's receipt vault.
 /// @param symbol The vault's live symbol.
-error TickerNotBoundToVault(string underlying, address vault, string symbol);
+error TickerNotBoundToVault(string ticker, address vault, string symbol);
+
+/// @notice A row's ISIN is not its listing-time asset id, so the ISIN the
+/// rename writes is not bound to the share line the row tracks.
+/// @param underlying The token's join key.
+/// @param isin The ISIN the rename writes.
+/// @param assetId The row's listing-time asset id.
+error IsinNotBoundToAssetId(string underlying, string isin, string assetId);
 
 /// @notice A row's ticker or underlying name is not in the shape the rename
 /// sets: the ticker is 1 to 16 of `A-Z`, `0-9` and `.`, and the name is
@@ -249,16 +256,30 @@ library LibUnderlyingNamingRollout {
     }
 
     /// @notice Reverts unless every production vault of the chain reports
-    /// `"t" + underlying` as its live symbol, binding each row the rename
-    /// batch sets to the vault it lands on.
+    /// `"t" + ticker` as its live symbol for the ticker the rename batch
+    /// writes to it, binding each row the batch sets to the vault it lands on.
     /// @param chainId The chain id.
     function assertTickersBound(uint256 chainId) internal view {
         TokenInstance[] memory chainTokens = tokens(chainId);
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenInstance memory token = chainTokens[tokenIndex];
+            string memory ticker = LibProdTokenConfig.configOf(token.underlying).ticker;
             string memory symbol = IERC20Metadata(token.receiptVault).symbol();
-            if (keccak256(bytes(symbol)) != keccak256(bytes(string.concat("t", token.underlying)))) {
-                revert TickerNotBoundToVault(token.underlying, token.receiptVault, symbol);
+            if (keccak256(bytes(symbol)) != keccak256(bytes(string.concat("t", ticker)))) {
+                revert TickerNotBoundToVault(ticker, token.receiptVault, symbol);
+            }
+        }
+    }
+
+    /// @notice Reverts unless every row the chain's rename sets writes its
+    /// listing-time asset id as the ISIN.
+    /// @param chainId The chain id.
+    function assertIsinsBound(uint256 chainId) internal pure {
+        TokenInstance[] memory chainTokens = tokens(chainId);
+        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
+            TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
+            if (keccak256(bytes(config.isin)) != keccak256(bytes(config.assetId))) {
+                revert IsinNotBoundToAssetId(config.underlying, config.isin, config.assetId);
             }
         }
     }
