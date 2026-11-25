@@ -3,7 +3,9 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {LibTestCusip} from "../../lib/LibTestCusip.sol";
 import {LibProdTokenConfig, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibSecurity} from "../../../src/lib/LibSecurity.sol";
 
 /// An underlying and the ISIN of the share line it tracks.
 struct UnderlyingIsin {
@@ -99,6 +101,47 @@ contract LibProdTokenConfigIsinTest is Test {
         isins[3] = UnderlyingIsin({underlying: "SNES", isin: "US81720R6045"});
         isins[4] = UnderlyingIsin({underlying: "DIS", isin: "US2546871060"});
         return isins;
+    }
+
+    /// The CUSIP each source above gives, index-aligned with `sourcedIsins`.
+    function sourcedCusips() internal pure returns (string[] memory) {
+        string[] memory cusips = new string[](5);
+        cusips[0] = "46436E478";
+        cusips[1] = "773121108";
+        cusips[2] = "01675A208";
+        cusips[3] = "81720R604";
+        cusips[4] = "254687106";
+        return cusips;
+    }
+
+    /// Each sourced ISIN is `US` + its source's CUSIP + the ISIN check digit, and each CUSIP carries its own check
+    /// digit.
+    function testSourcedIsinsDeriveFromTheirCusip() external pure {
+        UnderlyingIsin[] memory isins = sourcedIsins();
+        string[] memory cusips = sourcedCusips();
+        assertEq(cusips.length, isins.length, "one CUSIP per sourced row");
+        for (uint256 i = 0; i < isins.length; i++) {
+            assertTrue(LibTestCusip.cusipCheckDigitHolds(bytes(cusips[i])), cusips[i]);
+            assertEq(LibTestCusip.isinOf(cusips[i]), isins[i].isin, isins[i].underlying);
+        }
+    }
+
+    /// The CUSIP check refuses a changed check digit, a changed body character, a short and a long value, and accepts
+    /// a check digit of 0; an ISIN with a changed check digit is refused.
+    function testTheDerivationCatchesAnAlteredCharacter() external pure {
+        assertFalse(LibTestCusip.cusipCheckDigitHolds(bytes("254687107")), "changed check digit");
+        assertFalse(LibTestCusip.cusipCheckDigitHolds(bytes("254688106")), "changed body character");
+        assertFalse(LibTestCusip.cusipCheckDigitHolds(bytes("25468710")), "short");
+        assertFalse(LibTestCusip.cusipCheckDigitHolds(bytes("2546871060")), "long");
+        assertTrue(LibTestCusip.cusipCheckDigitHolds(bytes("037833100")), "check digit 0");
+        assertFalse(LibSecurity.isinWellFormed("US2546871061"), "changed ISIN check digit");
+        assertEq(LibTestCusip.isinOf("254687106"), "US2546871060", "DIS");
+    }
+
+    /// SMCI's ISIN before and after its 2024 split derive from the two CUSIPs.
+    function testSmciIsinsDeriveFromBothCusips() external pure {
+        assertEq(LibTestCusip.isinOf("86800U302"), "US86800U3023", "after the split");
+        assertEq(LibTestCusip.isinOf("86800U104"), "US86800U1043", "before the split");
     }
 
     /// The off-Base rows' ISINs, each the ordinary share line the listing ticker trades on its home exchange.
