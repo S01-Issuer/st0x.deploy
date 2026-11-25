@@ -26,9 +26,7 @@ import {
 } from "../../script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol";
 import {qsepSetFleetAuthoriserDeclaration} from "../../script/20261111-qsep-set-fleet-authoriser.s.sol";
 import {bindOrchestratorConfigDeclaration} from "../../script/20261113-bind-orchestrator-config.s.sol";
-import {
-    scheduleZerogOrchestratorRolesDeclaration
-} from "../../script/20261123-schedule-zerog-orchestrator-roles.s.sol";
+import {scheduleZerogOrchestratorRolesDeclaration} from "../../script/20261123-schedule-zerog-orchestrator-roles.s.sol";
 import {executeZerogOrchestratorRolesDeclaration} from "../../script/20261123-execute-zerog-orchestrator-roles.s.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
