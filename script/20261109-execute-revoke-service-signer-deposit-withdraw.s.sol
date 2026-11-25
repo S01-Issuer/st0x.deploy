@@ -9,6 +9,7 @@ import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -62,7 +63,7 @@ function executeRevokeServiceSignerDeclaration() pure returns (ScriptDeclaration
 /// `script = 20261109-execute-revoke-service-signer-deposit-withdraw`,
 /// `sig = execute()` per chain, and `run()` via `Actions → run-script` with
 /// the same `script`.
-contract ExecuteRevokeServiceSignerDepositWithdraw is SafeBundleScript, IStoxScript {
+contract ExecuteRevokeServiceSignerDepositWithdraw is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return executeRevokeServiceSignerDeclaration();

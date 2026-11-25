@@ -14,6 +14,7 @@ import {LibExtrospectRegistryBeaconProxy} from "rain-extrospection-0.1.31/src/li
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {RoleGrant} from "../src/lib/RoleGrant.sol";
@@ -92,7 +93,7 @@ function handSafeOwnedBaseVaultsToTimelockDeclaration() pure returns (ScriptDecl
 /// @notice Per-chain Safe bundle: on Base, `transferOwnership(timelock)` on each of tWMT, tMC, tDIS, tIFX, tSOI and
 /// tTPRO the Safe still owns, then this migration's root-line record; elsewhere the record alone.
 /// @dev A vault the timelock already owns is skipped.
-contract HandSafeOwnedBaseVaultsToTimelock is SafeBundleScript, IStoxScript {
+contract HandSafeOwnedBaseVaultsToTimelock is StoxSafeBundleScript, IStoxScript {
     bytes32 internal constant PROOF_SALT = keccak256("st0x.hand-safe-owned-base-vaults-to-timelock.proof");
 
     /// @inheritdoc IStoxScript
