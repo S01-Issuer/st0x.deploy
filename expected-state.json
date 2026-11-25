@@ -1877,6 +1877,7 @@
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -4017,6 +4018,7 @@
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -5972,6 +5974,7 @@
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -7932,6 +7935,7 @@
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -9908,6 +9912,7 @@
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -11868,6 +11873,7 @@
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
