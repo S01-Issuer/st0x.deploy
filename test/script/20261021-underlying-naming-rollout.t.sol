@@ -616,6 +616,53 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         executor.execute();
     }
 
+    /// @notice A rename that is ready while its rescheduled beacon batch is in its delay is refused without
+    /// executing; once the beacon batch matures the executor runs it, then the rename.
+    function testExecutorWaitsForARescheduledBeaconBatch() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("reschedule");
+        prepareRename();
+        executePrefix(rename.callAuthorBundle(), 2);
+
+        vm.prank(safe);
+        controller.cancel(beaconId);
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + 1);
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            LibUnderlyingNamingRollout.beaconBatch(block.chainid);
+        vm.prank(safe);
+        controller.scheduleBatch(
+            targets,
+            values,
+            payloads,
+            bytes32(0),
+            LibUnderlyingNamingRollout.BEACON_SALT,
+            LibTimelockInvariants.TIMELOCK_MIN_DELAY
+        );
+
+        vm.warp(controller.getTimestamp(renameId));
+        assertTrue(controller.isOperationReady(renameId), "rename ready");
+        assertFalse(controller.isOperationReady(beaconId), "beacon in its delay");
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
+        vm.expectRevert(
+            abi.encodeWithSelector(NoUnderlyingNamingOperationReady.selector, beaconId, false, renameId, false)
+        );
+        executor.execute();
+        assertFalse(controller.isOperationDone(renameId), "rename not executed while the beacon waits");
+
+        vm.warp(controller.getTimestamp(beaconId));
+        executor.execute();
+        assertTrue(controller.isOperationDone(beaconId), "beacon executed");
+        assertFalse(controller.isOperationDone(renameId), "rename waits for the next dispatch");
+        executor.execute();
+        assertTrue(controller.isOperationDone(renameId), "rename executed");
+    }
+
     /// @notice A ticker that does not match its vault's live symbol refuses.
     function testTickerBindingRefusesAMismatchedVault() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
