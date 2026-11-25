@@ -7,6 +7,9 @@ import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRai
 import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 import {DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
 import {
     BYTECODE_HASH as TIMELOCK_BYTECODE_HASH,
     RUNTIME_CODE as TIMELOCK_RUNTIME_CODE
@@ -41,7 +44,8 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
-import {LibTokenMetadata} from "../../src/lib/LibTokenMetadata.sol";
+import {LibTokenMetadata, TokenMetadataState} from "../../src/lib/LibTokenMetadata.sol";
+import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
@@ -95,6 +99,11 @@ contract BuildExpectedStateTest is Test {
                 tokenFields()
             );
             assertRowKeys(json, string.concat(at, ".zoltu"), expectedZoltu(nets[c]).length, deploymentFields());
+            string memory delegates = string.concat(at, ".registryDelegates");
+            assertFalse(vm.keyExistsJson(json, index(delegates, 3)), delegates);
+            assertKeys(json, index(delegates, 0), registryDelegateFields(false));
+            assertKeys(json, index(delegates, 1), registryDelegateFields(true));
+            assertKeys(json, index(delegates, 2), registryDelegateFields(false));
         }
         SupportedNetwork[] memory v2 = v2Networks();
         for (uint256 c = 0; c < v2.length; c++) {
@@ -488,24 +497,32 @@ contract BuildExpectedStateTest is Test {
                 LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
             );
             for (uint256 i = 0; i < tokens.length; i++) {
+                TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
+                TokenMetadataState state = tokens[i].receiptVault == LibProdTokenParams.tokenAddress(config)
+                    ? TokenMetadataState.Listed
+                    : TokenMetadataState.Initialized;
                 assertTokenMetadata(
                     json,
                     index(list, i),
-                    LibProdTokenConfig.configOf(tokens[i].underlying),
-                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i)
+                    config,
+                    state,
+                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i) ? TokenMetadataState.Renamed : state
                 );
             }
         }
     }
 
-    function assertTokenMetadata(string memory json, string memory row, TokenConfig memory config, bool renames)
-        internal
-        pure
-    {
+    function assertTokenMetadata(
+        string memory json,
+        string memory row,
+        TokenConfig memory config,
+        TokenMetadataState state,
+        TokenMetadataState renamedState
+    ) internal pure {
         string memory symbol = field(json, row, "symbol");
         assertMetadataState(
             config,
-            false,
+            state,
             field(json, row, "name"),
             symbol,
             field(json, row, "wrappedTokenVaultName"),
@@ -514,26 +531,29 @@ contract BuildExpectedStateTest is Test {
         string memory renamedName = field(json, row, "renamedName");
         assertMetadataState(
             config,
-            renames,
+            renamedState,
             renamedName,
             symbol,
             field(json, row, "wrappedTokenVaultRenamedName"),
             field(json, row, "wrappedTokenVaultRenamedSymbol")
         );
-        assertEq(LibTestTokenMetadata.vaultRenamed(config, renamedName), renames);
+        if (state == TokenMetadataState.Initialized) {
+            assertEq(LibTestTokenMetadata.vaultRenamed(config, renamedName), renamedState == TokenMetadataState.Renamed);
+        }
     }
 
     function assertMetadataState(
         TokenConfig memory config,
-        bool renamed,
+        TokenMetadataState state,
         string memory name,
         string memory symbol,
         string memory wrappedName,
         string memory wrappedSymbol
     ) internal pure {
-        assertEq(name, LibTokenMetadata.vaultName(config, renamed));
-        assertEq(wrappedName, LibTokenMetadata.wrappedName(config, renamed));
-        assertEq(wrappedSymbol, LibTokenMetadata.wrappedSymbol(config, renamed));
+        assertEq(name, LibTokenMetadata.vaultName(config, state));
+        assertEq(symbol, LibTokenMetadata.vaultSymbol(config, state));
+        assertEq(wrappedName, LibTokenMetadata.wrappedName(config, state));
+        assertEq(wrappedSymbol, LibTokenMetadata.wrappedSymbol(config, state));
         assertTrue(LibTestTokenMetadata.consistent(config, name, symbol, wrappedName, wrappedSymbol));
     }
 
@@ -746,11 +766,29 @@ contract BuildExpectedStateTest is Test {
 
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         assertTrue(LibUnderlyingNamingRollout.renamesRow(0), "row 0 renames on a full line");
+        TokenInstance memory token = LibTokenInvariants.productionTokensForChainId(id)[0];
+        assertEq(token.underlying, "MSTR");
         TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
-        string memory zerog = harness.tokenMetadata(id, 0, "MSTR");
-        assertTokenMetadata(zerog, "", config, false);
-        string memory base = harness.tokenMetadata(LibSafeInvariants.BASE_CHAIN_ID, 0, "MSTR");
-        assertTokenMetadata(base, "", config, true);
+        string memory zerog = harness.tokenMetadata(id, 0, token);
+        assertTokenMetadata(zerog, "", config, TokenMetadataState.Initialized, TokenMetadataState.Initialized);
+        string memory base = harness.tokenMetadata(LibSafeInvariants.BASE_CHAIN_ID, 0, token);
+        assertTokenMetadata(base, "", config, TokenMetadataState.Initialized, TokenMetadataState.Renamed);
+    }
+
+    /// A token at its suite's address was initialized from the row's listing, so its metadata is the
+    /// listed state.
+    function testATokenAtItsSuiteAddressIsListed() external {
+        BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
+        TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
+        TokenInstance memory token = TokenInstance({
+            underlying: "MSTR",
+            receipt: address(0),
+            receiptVault: LibProdTokenParams.tokenAddress(config),
+            wrappedTokenVault: address(0)
+        });
+        string memory zerog = harness.tokenMetadata(LibSafeInvariants.ZEROG_CHAIN_ID, 0, token);
+        assertTokenMetadata(zerog, "", config, TokenMetadataState.Listed, TokenMetadataState.Listed);
+        assertEq(vm.parseJsonString(zerog, ".symbol"), string.concat("t", config.listingTicker));
     }
 
     function testV2IsTheV2NetworksKeyedByChainId() external {
@@ -884,10 +922,55 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
+    function testRegistryDelegatesAreTheRootsExpectedDelegations() external {
+        string memory json = build.render();
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            uint256 id = nets[c].chainId;
+            address safe = LibSafeInvariants.safeForChainId(id);
+            string memory list = string.concat(chain(nets[c]), ".registryDelegates");
+            assertFalse(vm.keyExistsJson(json, index(list, 3)));
+            assertRegistryDelegate(
+                json, index(list, 0), LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, safe, true
+            );
+            assertRegistryDelegate(
+                json,
+                index(list, 1),
+                LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
+                LibTimelockInvariants.timelockForChainId(id),
+                false
+            );
+            assertEq(vm.parseJsonBytes32(json, string.concat(index(list, 1), ".scope")), LibStoxMigrations.NAMESPACE);
+            assertRegistryDelegate(
+                json, index(list, 2), LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, safe, true
+            );
+        }
+    }
+
+    function assertRegistryDelegate(
+        string memory json,
+        string memory row,
+        address registry,
+        address delegate,
+        bool unscoped
+    ) internal pure {
+        assertEq(vm.parseJsonAddress(json, string.concat(row, ".registry")), registry);
+        assertEq(vm.parseJsonAddress(json, string.concat(row, ".account")), LibRegistryAuthority.ROOT_AUTHORITY);
+        assertEq(vm.parseJsonAddress(json, string.concat(row, ".delegate")), delegate);
+        assertEq(vm.parseJsonBool(json, string.concat(row, ".unscoped")), unscoped);
+    }
+
     function testUnknownUnderlyingRevertsTyped() external {
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
-        harness.callTokenMetadataJson(LibSafeInvariants.BASE_CHAIN_ID, "row", 0, "NOPE");
+        harness.callTokenMetadataJson(
+            LibSafeInvariants.BASE_CHAIN_ID,
+            "row",
+            0,
+            TokenInstance({
+                underlying: "NOPE", receipt: address(0), receiptVault: address(0), wrappedTokenVault: address(0)
+            })
+        );
     }
 
     function testRunWritesTheRender() external {
@@ -1000,7 +1083,7 @@ contract BuildExpectedStateTest is Test {
 
     function chainFields(uint256 chainId) internal pure returns (string[] memory) {
         bool isBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-        string[] memory fields = new string[](isBase ? 12 : 11);
+        string[] memory fields = new string[](isBase ? 13 : 12);
         fields[0] = "network";
         fields[1] = "beaconSetDeployer";
         fields[2] = "beacons";
@@ -1011,9 +1094,22 @@ contract BuildExpectedStateTest is Test {
         fields[7] = "euAuthoriser";
         fields[8] = "zoltu";
         fields[9] = "renameMigration";
-        fields[10] = "tokens";
+        fields[10] = "registryDelegates";
+        fields[11] = "tokens";
         if (isBase) {
-            fields[11] = "qsep";
+            fields[12] = "qsep";
+        }
+        return fields;
+    }
+
+    function registryDelegateFields(bool scoped) internal pure returns (string[] memory) {
+        string[] memory fields = new string[](scoped ? 5 : 4);
+        fields[0] = "registry";
+        fields[1] = "account";
+        fields[2] = "delegate";
+        fields[3] = "unscoped";
+        if (scoped) {
+            fields[4] = "scope";
         }
         return fields;
     }

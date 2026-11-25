@@ -2,11 +2,10 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-/// Thrown when `setUnderlying` is called with an empty symbol. The token
-/// symbols built from the underlying ticker would otherwise collapse to their
-/// bare prefix or suffix.
-error EmptyUnderlyingSymbol();
+/// Thrown when `setUnderlying` is called with a symbol that fails
+/// `LibSecurity.tickerWellFormed`, the rule init applies to the listing ticker.
+error MalformedUnderlyingSymbol(string symbol);
 
-/// Thrown when `setUnderlying` is called with an empty name. The token names
-/// built from the underlying name would otherwise be empty.
-error EmptyUnderlyingName();
+/// Thrown when `setUnderlying` is called with a name that fails
+/// `LibSecurity.nameWellFormed`, the rule init applies to the listing name.
+error MalformedUnderlyingName(string name);
