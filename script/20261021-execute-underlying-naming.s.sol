@@ -22,13 +22,18 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 /// @param executor The broadcasting key.
 error UnderlyingNamingExecutorHoldsRole(address timelock, address executor);
 
-/// @notice No rollout operation can execute: the beacon batch is not ready, and the rename batch is not ready or waits
-/// for the beacon batch.
+/// @notice Neither rollout operation is ready on this chain.
 /// @param beaconId The beacon batch's operation id.
 /// @param beaconDone Whether the beacon batch has executed.
 /// @param renameId The rename batch's operation id.
 /// @param renameDone Whether the rename batch has executed.
 error NoUnderlyingNamingOperationReady(bytes32 beaconId, bool beaconDone, bytes32 renameId, bool renameDone);
+
+/// @notice The rename batch is ready but its predecessor, the beacon batch, has not executed.
+/// @param beaconId The beacon batch's operation id.
+/// @param beaconPending Whether the beacon batch is scheduled; false once cancelled and not rescheduled.
+/// @param renameId The rename batch's operation id.
+error UnderlyingNamingRenameWaitsForBeacon(bytes32 beaconId, bool beaconPending, bytes32 renameId);
 
 /// @notice The executed operation is not done afterwards.
 /// @param id The operation id.
@@ -56,10 +61,9 @@ function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration me
 /// @notice `execute()` executes the next ready underlying-naming operation on
 /// the active chain from the CI deploy key, which holds no role: the beacon
 /// batch if it is ready, otherwise the rename batch once the beacon batch is
-/// done. One operation per
-/// dispatch. Both operations are reconstructed by `LibUnderlyingNamingRollout`,
-/// the same library the scheduling scripts use, so only calldata committed in
-/// this repo can execute.
+/// done. One operation per dispatch. Both operations are reconstructed by
+/// `LibUnderlyingNamingRollout`, the same library the scheduling scripts use,
+/// so only calldata committed in this repo can execute.
 ///
 /// `run()` authors the record-only Safe bundle that writes this script's
 /// record on the root line once the rename batch has executed, outside any
@@ -105,8 +109,12 @@ contract ExecuteUnderlyingNaming is StoxSafeBundleScript, IStoxScript {
             if (!controller.isOperationDone(beaconId)) revert UnderlyingNamingOperationNotDone(beaconId);
             return;
         }
-        // The rename's predecessor is the beacon batch, so it waits for it.
-        if (controller.isOperationReady(renameId) && controller.isOperationDone(beaconId)) {
+        if (controller.isOperationReady(renameId)) {
+            if (!controller.isOperationDone(beaconId)) {
+                revert UnderlyingNamingRenameWaitsForBeacon(
+                    beaconId, controller.isOperationPending(beaconId), renameId
+                );
+            }
             (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
                 LibUnderlyingNamingRollout.renameBatch(block.chainid);
             console2.log("Executing the rename batch:", vm.toString(renameId));
