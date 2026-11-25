@@ -17,10 +17,8 @@ import {LibTokenInvariants} from "../src/lib/LibTokenInvariants.sol";
 
 /// @title BuildPrivilegedAddresses
 /// @notice Writes `privileged-addresses.json`: the Safe policy, the authoriser implementation, the beacon owners, the
-/// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, in-use
-/// production beacons (`LibBeaconInvariants.prodBeaconsInUse`: no orchestrator beacon on 0G), whether its token table
-/// is hydrated, and its receipt vaults (none where the table is not hydrated, as 0G's
-/// until its tokens exist). `address(0)` is none.
+/// registry root authority, and per deployment network the Safe, timelock, authoriser, EU authoriser, the four
+/// production beacons, and its receipt vaults. `address(0)` is none.
 contract BuildPrivilegedAddresses is Script {
     string internal constant PATH = "privileged-addresses.json";
 
@@ -28,12 +26,12 @@ contract BuildPrivilegedAddresses is Script {
         address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(chainId);
         address[4] memory implementations = LibBeaconInvariants.prodImplementationsForChainId(chainId);
         address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(chainId);
-        string[] memory rows = new string[](LibBeaconInvariants.prodBeaconsInUse(chainId));
-        for (uint256 i = 0; i < rows.length; i++) {
-            string memory row = string.concat(key, ".beacon.", vm.toString(i));
-            vm.serializeAddress(row, "beacon", pinned[i]);
-            vm.serializeAddress(row, "implementation", implementations[i]);
-            rows[i] = vm.serializeAddress(row, "v1Implementation", v1[i]);
+        string[] memory rows = new string[](pinned.length);
+        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
+            string memory row = string.concat(key, ".beacon.", vm.toString(rowIndex));
+            vm.serializeAddress(row, "beacon", pinned[rowIndex]);
+            vm.serializeAddress(row, "implementation", implementations[rowIndex]);
+            rows[rowIndex] = vm.serializeAddress(row, "v1Implementation", v1[rowIndex]);
         }
         return rows;
     }
@@ -48,13 +46,7 @@ contract BuildPrivilegedAddresses is Script {
         vm.serializeAddress(key, "euAuthoriser", LibAuthoriserInvariants.euAuthoriserForChainId(chainId));
         vm.serializeAddress(key, "beaconSetDeployer", LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId));
         vm.serializeString(key, "beacons", beaconsJson(chainId, key));
-        bool hydrated = LibTokenInvariants.tokenTableHydrated(chainId);
-        vm.serializeBool(key, "tokenTableHydrated", hydrated);
-        return vm.serializeAddress(
-            key,
-            "receiptVaults",
-            hydrated ? LibTokenInvariants.productionReceiptVaultsForChainId(chainId) : new address[](0)
-        );
+        return vm.serializeAddress(key, "receiptVaults", LibTokenInvariants.productionReceiptVaultsForChainId(chainId));
     }
 
     function render() public returns (string memory) {

@@ -51,4 +51,11 @@ from the repo and are deliberately absent — do not re-add them.
   each of those declarations is record-only on 0G, and the backfill writes them
   there in the off-Base order. Declare a new migration onto the line's current
   head on every chain, and give it a record-only bundle on a chain where it has
-  nothing to do.
+  nothing to do. Insert it before the first unrecorded migration instead, moving
+  that migration's `onto`, only when live reads on every chain, repeated right
+  before the inserting PR merges, prove nothing recorded, queued or approved it
+  or anything after it: `LibStoxMigrations.head()`, the Safe Transaction Service
+  queue at or above the live nonce, and `approvedHashes(owner, safeTxHash)` for
+  every owner and authored artifact at that nonce (an on-chain `approveHash`
+  skips the service). Until the inserted record lands on a chain, nobody signs
+  there an artifact of the moved migration authored before the change.
