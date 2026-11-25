@@ -14,6 +14,8 @@ import {StoxGovernanceTimelock} from "../../src/concrete/StoxGovernanceTimelock.
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {BindBeaconInitialOwnerHarness} from "../script/BindBeaconInitialOwnerHarness.sol";
 import {CreateZerogTokensHarness} from "../script/CreateZerogTokensHarness.sol";
+import {ExecuteZerogOrchestratorRolesHarness} from "../script/ExecuteZerogOrchestratorRolesHarness.sol";
+import {ScheduleZerogOrchestratorRolesHarness} from "../script/ScheduleZerogOrchestratorRolesHarness.sol";
 import {LibTestConfigRegistryDelegates} from "./LibTestConfigRegistryDelegates.sol";
 
 /// @title LibTestBeaconInitialOwnerBind
@@ -41,8 +43,7 @@ library LibTestBeaconInitialOwnerBind {
     }
 
     /// @notice Executes from `safe`, on a chain other than 0G with the line at
-    /// the backfill, the 0G token creation's bundle: its record alone, the
-    /// bind's onto.
+    /// the backfill, the 0G token creation's bundle: its record alone.
     function executeZerogTokensRecord(Vm vm, address safe, string memory artifactTag) internal {
         CreateZerogTokensHarness creation = new CreateZerogTokensHarness(artifactTag);
         creation.callPreflight();
@@ -50,13 +51,28 @@ library LibTestBeaconInitialOwnerBind {
         creation.callAssertPostState();
     }
 
+    /// @notice Executes from `safe`, on a chain other than 0G with the line at
+    /// the 0G token creation, the 0G orchestrator roles' two bundles: the
+    /// schedule's record alone, then the execution's, the bind's onto.
+    function executeZerogOrchestratorRolesRecords(Vm vm, address safe, string memory artifactTag) internal {
+        ScheduleZerogOrchestratorRolesHarness schedule = new ScheduleZerogOrchestratorRolesHarness(artifactTag);
+        schedule.callPreflight();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), schedule.callAuthorBundle());
+        schedule.callAssertPostState();
+        ExecuteZerogOrchestratorRolesHarness execution = new ExecuteZerogOrchestratorRolesHarness(artifactTag);
+        execution.callPreflight();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), execution.callAuthorBundle());
+        execution.callAssertPostState();
+    }
+
     /// @notice Deploys the timelock, approves `safe` and executes from it,
-    /// with the line at the backfill, the 0G token creation's record and then
-    /// the bind bundle.
+    /// with the line at the backfill, the 0G token creation's record, the 0G
+    /// orchestrator roles' records and then the bind bundle.
     function execute(Vm vm, address safe, string memory artifactTag) internal {
         deployTimelock(vm, safe);
         approveSafe(vm, safe);
         executeZerogTokensRecord(vm, safe, artifactTag);
+        executeZerogOrchestratorRolesRecords(vm, safe, artifactTag);
         BindBeaconInitialOwnerHarness bind = new BindBeaconInitialOwnerHarness(artifactTag);
         bind.callPreflight();
         LibSafeFork.executeBundle(vm, Safe(payable(safe)), bind.callAuthorBundle());

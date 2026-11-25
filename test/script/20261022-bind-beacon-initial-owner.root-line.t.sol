@@ -29,8 +29,9 @@ import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecor
 /// @title BindBeaconInitialOwnerRootLineTest
 /// @notice The bind on HyperEVM at its pinned pre-backfill block, with the
 /// governance timelock deployed and the root's unscoped approval of the Safe
-/// written on the fork, onto the 0G token creation's record after the
-/// executed V5 backfill bundle.
+/// written on the fork, onto the 0G orchestrator roles' execution record
+/// after the executed V5 backfill bundle, the 0G token creation's record and
+/// the schedule's.
 contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
     IConfigRegistryV5 internal constant CONFIG_REGISTRY =
         IConfigRegistryV5(LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS);
@@ -44,7 +45,7 @@ contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.CREATE_ZEROG_TOKENS;
+        return LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES;
     }
 
     function landBeforeOnto() internal override {
@@ -62,6 +63,7 @@ contract BindBeaconInitialOwnerRootLineTest is RootLineRecordScriptTest {
             vm, Safe(payable(safeAddress())), new BackfillMigrationRegistryV5Harness("root-line").callAuthorBundle()
         );
         LibTestBeaconInitialOwnerBind.executeZerogTokensRecord(vm, safeAddress(), "bind-root-line");
+        LibTestBeaconInitialOwnerBind.executeZerogOrchestratorRolesRecords(vm, safeAddress(), "bind-root-line");
     }
 
     function restampAtThisMoment() internal override {
