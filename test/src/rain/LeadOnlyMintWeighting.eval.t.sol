@@ -8,30 +8,10 @@ import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV
 import {MessageHashUtils} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MessageHashUtils.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
-import {
-    CONTEXT_ATTESTATION_ROWS,
-    CONTEXT_ATTESTATION_ROW_SYMBOL,
-    CONTEXT_ATTESTATION_ROW_PRICE,
-    CONTEXT_ATTESTATION_ROW_TIME,
-    CONTEXT_ATTESTATION_ROW_SOURCE,
-    CONTEXT_ATTESTATION_ROW_CURRENCY
-} from "src/lib/LibSt0xAttestContext.sol";
 import {UnderlyingSymbolEmpty} from "src/error/ErrSt0xAttest.sol";
 import {WeightingEvalTest} from "test/src/rain/WeightingEvalTest.sol";
 
 contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
-    struct Attestation {
-        uint256 key;
-        bytes32 domain;
-        bytes32 attestedSymbol;
-        Float price;
-        Float time;
-        bytes32 priceSource;
-        bytes32 currency;
-    }
-
-    bytes32 internal constant OTHER_DOMAIN = keccak256("st0x.test.other-domain");
-
     function bindingSet() internal pure override returns (string memory) {
         return "lead-only-mint-weighting";
     }
@@ -54,29 +34,11 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         return attestations;
     }
 
-    function signAll(Attestation[] memory attestations) internal pure returns (SignedContextV2[] memory) {
-        SignedContextV2[] memory signed = new SignedContextV2[](attestations.length);
-        for (uint256 i = 0; i < attestations.length; i++) {
-            bytes32[] memory context = new bytes32[](CONTEXT_ATTESTATION_ROWS);
-            context[CONTEXT_ATTESTATION_ROW_SYMBOL] = attestations[i].attestedSymbol;
-            context[CONTEXT_ATTESTATION_ROW_PRICE] = Float.unwrap(attestations[i].price);
-            context[CONTEXT_ATTESTATION_ROW_TIME] = Float.unwrap(attestations[i].time);
-            context[CONTEXT_ATTESTATION_ROW_SOURCE] = attestations[i].priceSource;
-            context[CONTEXT_ATTESTATION_ROW_CURRENCY] = attestations[i].currency;
-            signed[i] = signUnder(attestations[i].key, attestations[i].domain, context);
-        }
-        return signed;
-    }
-
     function signedAt(string memory ticker, Float time) internal pure override returns (SignedContextV2[] memory) {
         Attestation memory attestation = lead();
         attestation.attestedSymbol = symbol(ticker);
         attestation.time = time;
         return signAll(only(attestation));
-    }
-
-    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value) internal view {
-        evalAccepted(grid(mintToken, amount, signed), mintToken, value);
     }
 
     function accepted(Attestation memory attestation, Float value) internal view {
@@ -330,6 +292,7 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
     }
 
     function testChecksRefuseInTheirOrder() external {
+        mintAt(token, at(1));
         Attestation memory attestation = lead();
         attestation.key = OPERATOR_KEY_0;
         attestation.domain = OTHER_DOMAIN;
@@ -354,6 +317,8 @@ contract LeadOnlyMintWeightingEvalTest is WeightingEvalTest {
         attestation.currency = symbol("USD");
         refused(mintToken, only(attestation), ensureError("Times disagree"));
         attestation.time = at(0);
+        refused(mintToken, only(attestation), ensureError("Lead time went backwards"));
+        attestation.time = at(1);
         refused(mintToken, only(attestation), ensureError("Price outside bounds"));
         attestation.price = decimal(PRICE, 0);
         accepted(attestation, decimal(AMOUNT * PRICE, 0));

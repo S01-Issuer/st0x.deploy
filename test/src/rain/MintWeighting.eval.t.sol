@@ -7,30 +7,10 @@ import {Float} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 
-import {
-    CONTEXT_ATTESTATION_ROWS,
-    CONTEXT_ATTESTATION_ROW_SYMBOL,
-    CONTEXT_ATTESTATION_ROW_PRICE,
-    CONTEXT_ATTESTATION_ROW_TIME,
-    CONTEXT_ATTESTATION_ROW_SOURCE,
-    CONTEXT_ATTESTATION_ROW_CURRENCY
-} from "src/lib/LibSt0xAttestContext.sol";
 import {UnderlyingSymbolEmpty} from "src/error/ErrSt0xAttest.sol";
 import {WeightingEvalTest} from "test/src/rain/WeightingEvalTest.sol";
 
 contract MintWeightingEvalTest is WeightingEvalTest {
-    struct Attestation {
-        uint256 key;
-        bytes32 domain;
-        bytes32 attestedSymbol;
-        Float price;
-        Float time;
-        bytes32 priceSource;
-        bytes32 currency;
-    }
-
-    bytes32 internal constant OTHER_DOMAIN = keccak256("st0x.test.other-domain");
-
     uint256 internal constant UNLISTED_KEY = OPERATOR_KEY_0 + POOL_SIZE;
 
     function bindingSet() internal pure override returns (string memory) {
@@ -69,20 +49,6 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         return attestations;
     }
 
-    function signAll(Attestation[] memory attestations) internal pure returns (SignedContextV2[] memory) {
-        SignedContextV2[] memory signed = new SignedContextV2[](attestations.length);
-        for (uint256 i = 0; i < attestations.length; i++) {
-            bytes32[] memory context = new bytes32[](CONTEXT_ATTESTATION_ROWS);
-            context[CONTEXT_ATTESTATION_ROW_SYMBOL] = attestations[i].attestedSymbol;
-            context[CONTEXT_ATTESTATION_ROW_PRICE] = Float.unwrap(attestations[i].price);
-            context[CONTEXT_ATTESTATION_ROW_TIME] = Float.unwrap(attestations[i].time);
-            context[CONTEXT_ATTESTATION_ROW_SOURCE] = attestations[i].priceSource;
-            context[CONTEXT_ATTESTATION_ROW_CURRENCY] = attestations[i].currency;
-            signed[i] = signUnder(attestations[i].key, attestations[i].domain, context);
-        }
-        return signed;
-    }
-
     function signedAt(string memory ticker, Float time) internal pure override returns (SignedContextV2[] memory) {
         Attestation[] memory attestations = quorum();
         for (uint256 i = 0; i < attestations.length; i++) {
@@ -90,10 +56,6 @@ contract MintWeightingEvalTest is WeightingEvalTest {
             attestations[i].time = time;
         }
         return signAll(attestations);
-    }
-
-    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value) internal view {
-        evalAccepted(grid(mintToken, amount, signed), mintToken, value);
     }
 
     function accepted(Attestation[] memory attestations, Float value) internal view {
@@ -405,13 +367,13 @@ contract MintWeightingEvalTest is WeightingEvalTest {
 
     function testATimeBeyondTheSpreadInAnySeatIsRefused() external {
         int256[2] memory offsets = [-MAX_TIME_SPREAD - 1, MAX_TIME_SPREAD + 1];
-        for (uint256 t = 0; t < offsets.length; t++) {
+        for (uint256 i = 0; i < offsets.length; i++) {
             Attestation[] memory all = quorum();
-            for (uint256 i = 0; i < 3; i++) {
+            for (uint256 seat = 0; seat < 3; seat++) {
                 Attestation[] memory attestations = quorum();
-                attestations[i].time = at(offsets[t]);
+                attestations[seat].time = at(offsets[i]);
                 refused(attestations, "Times disagree");
-                all[i].time = at(offsets[t]);
+                all[seat].time = at(offsets[i]);
             }
             refused(all, "Times disagree");
         }
@@ -465,10 +427,10 @@ contract MintWeightingEvalTest is WeightingEvalTest {
 
     function testAPriceBeyondMaxDeviationInAnySeatIsRefused() external {
         Float[2] memory prices = [decimal(19799, -2), decimal(20203, -2)];
-        for (uint256 p = 0; p < prices.length; p++) {
-            for (uint256 i = 0; i < 3; i++) {
+        for (uint256 i = 0; i < prices.length; i++) {
+            for (uint256 seat = 0; seat < 3; seat++) {
                 Attestation[] memory attestations = quorumAt(decimal(200, 0));
-                attestations[i].price = prices[p];
+                attestations[seat].price = prices[i];
                 refused(attestations, "Attestors disagree");
             }
         }
@@ -545,6 +507,7 @@ contract MintWeightingEvalTest is WeightingEvalTest {
     }
 
     function testChecksRefuseInTheirOrder() external {
+        mintAt(token, at(1));
         Attestation[] memory attestations = new Attestation[](3);
         attestations[0] = attestationBy(UNLISTED_KEY);
         attestations[1] = attestationBy(UNLISTED_KEY + 1);
@@ -589,6 +552,8 @@ contract MintWeightingEvalTest is WeightingEvalTest {
         }
         refused(mintToken, signAll(attestations), ensureError("Times disagree"));
         attestations[2].time = at(0);
+        refused(mintToken, signAll(attestations), ensureError("Lead time went backwards"));
+        attestations[0].time = at(1);
         refused(mintToken, signAll(attestations), ensureError("Attestors disagree"));
         attestations[1].price = decimal(MAX_PRICE + 1, 0);
         refused(mintToken, signAll(attestations), ensureError("Price outside bounds"));

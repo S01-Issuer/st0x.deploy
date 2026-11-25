@@ -2,6 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
+import {stdError} from "forge-std-1.17.0/src/StdError.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 import {
@@ -20,7 +21,8 @@ import {MockERC20} from "test/concrete/MockERC20.sol";
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 import {EXTERN_OPCODES_LENGTH} from "src/lib/LibSt0xAttestSubParser.sol";
 import {EXTERN_OP_UNDERLYING_SYMBOL} from "src/lib/LibSt0xAttestExternUnderlyingSymbol.sol";
-import {UnderlyingSymbolEmpty, UnderlyingSymbolTooLong} from "src/error/ErrSt0xAttest.sol";
+import {UnderlyingSymbolEmpty, UnderlyingSymbolTooLong, UnderlyingSymbolNotAnAddress} from "src/error/ErrSt0xAttest.sol";
+import {IStoxUnderlyingV1} from "src/interface/IStoxUnderlyingV1.sol";
 
 /// `underlying-symbol(token)` reads `token`'s `underlyingSymbol()` at eval, as
 /// the string a Rainlang literal of the ticker parses to.
@@ -28,7 +30,30 @@ contract St0xAttestSubParserUnderlyingSymbolTest is St0xAttestSubParserTest {
     string internal constant WORD = "underlying-symbol(mint-token())";
 
     function mintGrid(address token) internal view returns (bytes32[][] memory) {
-        return LibSt0xAttestContext.build(tokenWord(token), float(1), new SignedContextV2[](0));
+        return mintGrid(tokenWord(token));
+    }
+
+    function mintGrid(bytes32 mintToken) internal view returns (bytes32[][] memory) {
+        return LibSt0xAttestContext.build(mintToken, float(1), new SignedContextV2[](0));
+    }
+
+    /// `token` with `high` in the bits above its 160.
+    function dirty(address token, uint256 high) internal pure returns (bytes32) {
+        return bytes32((high << 160) | uint256(uint160(token)));
+    }
+
+    function one(bytes32 input) internal pure returns (StackItem[] memory) {
+        StackItem[] memory inputs = new StackItem[](1);
+        inputs[0] = StackItem.wrap(input);
+        return inputs;
+    }
+
+    function externCall(uint256 opcode, uint16 operand, StackItem[] memory inputs)
+        internal
+        view
+        returns (StackItem[] memory)
+    {
+        return I_SUB_PARSER.extern(LibExtern.encodeExternDispatch(opcode, OperandV2.wrap(bytes32(uint256(operand)))), inputs);
     }
 
     function repeated(bytes1 fill, uint256 length) internal pure returns (string memory) {
@@ -136,5 +161,58 @@ contract St0xAttestSubParserUnderlyingSymbolTest is St0xAttestSubParserTest {
         opcode = uint16(bound(opcode, EXTERN_OPCODES_LENGTH, type(uint16).max));
         vm.expectRevert(abi.encodeWithSelector(ExternOpcodeOutOfRange.selector, opcode, EXTERN_OPCODES_LENGTH));
         I_SUB_PARSER.externIntegrity(LibExtern.encodeExternDispatch(opcode, OperandV2.wrap(0)), 1, 1);
+    }
+
+    function testExternReadsTheTicker(uint16 operand) external {
+        address token = underlyingToken("AAPL");
+        StackItem[] memory outputs = externCall(EXTERN_OP_UNDERLYING_SYMBOL, operand, one(tokenWord(token)));
+        assertEq(outputs.length, 1, "outputs");
+        assertEq(StackItem.unwrap(outputs[0]), symbol("AAPL"), "ticker");
+    }
+
+    function testExternOpcodesWrapModTheTable(uint16 opcode, uint16 operand) external {
+        opcode = uint16(bound(opcode, EXTERN_OPCODES_LENGTH, type(uint16).max));
+        vm.assume(opcode % EXTERN_OPCODES_LENGTH == EXTERN_OP_UNDERLYING_SYMBOL);
+        address token = underlyingToken("AAPL");
+        StackItem[] memory outputs = externCall(opcode, operand, one(tokenWord(token)));
+        assertEq(outputs.length, 1, "outputs");
+        assertEq(StackItem.unwrap(outputs[0]), symbol("AAPL"), "ticker");
+    }
+
+    function testExternWithNoInputsPanics() external {
+        vm.expectRevert(stdError.indexOOBError);
+        externCall(EXTERN_OP_UNDERLYING_SYMBOL, 0, new StackItem[](0));
+    }
+
+    function testExternRefusesAnInputWithBitsAboveAnAddress(uint256 high) external {
+        high = bound(high, 1, type(uint96).max);
+        bytes32 input = dirty(underlyingToken("AAPL"), high);
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingSymbolNotAnAddress.selector, input));
+        externCall(EXTERN_OP_UNDERLYING_SYMBOL, 0, one(input));
+    }
+
+    function testAMintTokenWithBitsAboveAnAddressReverts(uint256 high) external {
+        high = bound(high, 1, type(uint96).max);
+        bytes32 input = dirty(underlyingToken("AAPL"), high);
+        checkWordReverts(WORD, mintGrid(input), abi.encodeWithSelector(UnderlyingSymbolNotAnAddress.selector, input));
+    }
+
+    /// Bit 160 alone and bit 255 alone, over a token whose ticker the low 160
+    /// bits alone read.
+    function testTheLowestAndHighestBitAboveAnAddressEachRevert() external {
+        address token = underlyingToken("AAPL");
+        checkWord(WORD, mintGrid(token), symbol("AAPL"));
+        uint256[2] memory highs = [uint256(1), uint256(1) << 95];
+        for (uint256 i = 0; i < highs.length; i++) {
+            bytes32 input = dirty(token, highs[i]);
+            checkWordReverts(WORD, mintGrid(input), abi.encodeWithSelector(UnderlyingSymbolNotAnAddress.selector, input));
+        }
+    }
+
+    function testTheHighestAddressReadsItsTicker() external {
+        address token = address(type(uint160).max);
+        vm.etch(token, hex"00");
+        vm.mockCall(token, abi.encodeWithSelector(IStoxUnderlyingV1.underlyingSymbol.selector), abi.encode("AAPL"));
+        checkWord(WORD, mintGrid(token), symbol("AAPL"));
     }
 }

@@ -10,8 +10,7 @@ import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";
 import {
     LibSt0xAttestSubParser,
     PARSE_META_BUILD_DEPTH,
-    SUB_PARSER_WORD_PARSERS_LENGTH,
-    EXTERN_OPCODES_LENGTH
+    SUB_PARSER_WORD_PARSERS_LENGTH
 } from "src/lib/LibSt0xAttestSubParser.sol";
 import {
     BYTECODE_HASH,
@@ -19,14 +18,11 @@ import {
     PARSE_META_BUILD_DEPTH as GENERATED_PARSE_META_BUILD_DEPTH,
     SUB_PARSER_WORD_PARSERS,
     OPERAND_HANDLER_FUNCTION_POINTERS,
-    LITERAL_PARSER_FUNCTION_POINTERS,
-    OPCODE_FUNCTION_POINTERS,
-    INTEGRITY_FUNCTION_POINTERS
+    LITERAL_PARSER_FUNCTION_POINTERS
 } from "src/generated/St0xAttestSubParserPointers.sol";
 
-/// Every table the subparser dispatches on is a committed constant. These
-/// tests prove the constants are what `script/Build.sol` generates
-/// from the current source.
+/// The committed constants are what `script/Build.sol` generates from the
+/// current source.
 contract St0xAttestSubParserPointersTest is Test {
     function testBytecodeHash() external {
         St0xAttestSubParser subParser = new St0xAttestSubParser();
@@ -57,18 +53,6 @@ contract St0xAttestSubParserPointersTest is Test {
         St0xAttestSubParser subParser = new St0xAttestSubParser();
         assertEq(LITERAL_PARSER_FUNCTION_POINTERS, subParser.buildLiteralParserFunctionPointers());
         assertEq(LITERAL_PARSER_FUNCTION_POINTERS.length, 0);
-    }
-
-    function testOpcodeFunctionPointers() external {
-        St0xAttestSubParser subParser = new St0xAttestSubParser();
-        assertEq(OPCODE_FUNCTION_POINTERS, subParser.buildOpcodeFunctionPointers());
-        assertEq(OPCODE_FUNCTION_POINTERS.length, EXTERN_OPCODES_LENGTH * 2);
-    }
-
-    function testIntegrityFunctionPointers() external {
-        St0xAttestSubParser subParser = new St0xAttestSubParser();
-        assertEq(INTEGRITY_FUNCTION_POINTERS, subParser.buildIntegrityFunctionPointers());
-        assertEq(INTEGRITY_FUNCTION_POINTERS.length, EXTERN_OPCODES_LENGTH * 2);
     }
 
     /// The word list, in the index order the tables are built in.

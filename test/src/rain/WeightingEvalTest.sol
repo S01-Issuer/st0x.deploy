@@ -11,13 +11,30 @@ import {LibNamespace} from "rainlang-0.2.41/src/lib/ns/LibNamespace.sol";
 import {
     LibSt0xAttestContext,
     CONTEXT_LEAD_COLUMN,
-    CONTEXT_ATTESTATION_ROW_TIME
+    CONTEXT_ATTESTATION_ROWS,
+    CONTEXT_ATTESTATION_ROW_SYMBOL,
+    CONTEXT_ATTESTATION_ROW_PRICE,
+    CONTEXT_ATTESTATION_ROW_TIME,
+    CONTEXT_ATTESTATION_ROW_SOURCE,
+    CONTEXT_ATTESTATION_ROW_CURRENCY
 } from "src/lib/LibSt0xAttestContext.sol";
 import {IStoxUnderlyingV1} from "src/interface/IStoxUnderlyingV1.sol";
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 
 abstract contract WeightingEvalTest is St0xAttestSubParserTest {
     using LibDecimalFloat for Float;
+
+    struct Attestation {
+        uint256 key;
+        bytes32 domain;
+        bytes32 attestedSymbol;
+        Float price;
+        Float time;
+        bytes32 priceSource;
+        bytes32 currency;
+    }
+
+    bytes32 internal constant OTHER_DOMAIN = keccak256("st0x.test.other-domain");
 
     string internal constant VAULT_SYMBOL = "tMSTR";
     string internal constant TICKER = "MSTR";
@@ -109,6 +126,24 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         assertEq(StackItem.unwrap(stack[2]), priceDomain(), "price-domain");
         assertEq(StackItem.unwrap(stack[3]), symbol(ticker), "symbol");
         return (stack, writes);
+    }
+
+    function signAll(Attestation[] memory attestations) internal pure returns (SignedContextV2[] memory) {
+        SignedContextV2[] memory signed = new SignedContextV2[](attestations.length);
+        for (uint256 i = 0; i < attestations.length; i++) {
+            bytes32[] memory context = new bytes32[](CONTEXT_ATTESTATION_ROWS);
+            context[CONTEXT_ATTESTATION_ROW_SYMBOL] = attestations[i].attestedSymbol;
+            context[CONTEXT_ATTESTATION_ROW_PRICE] = Float.unwrap(attestations[i].price);
+            context[CONTEXT_ATTESTATION_ROW_TIME] = Float.unwrap(attestations[i].time);
+            context[CONTEXT_ATTESTATION_ROW_SOURCE] = attestations[i].priceSource;
+            context[CONTEXT_ATTESTATION_ROW_CURRENCY] = attestations[i].currency;
+            signed[i] = signUnder(attestations[i].key, attestations[i].domain, context);
+        }
+        return signed;
+    }
+
+    function accepted(address mintToken, Float amount, SignedContextV2[] memory signed, Float value) internal view {
+        evalAccepted(grid(mintToken, amount, signed), mintToken, value);
     }
 
     function signedAt(string memory ticker, Float time) internal view virtual returns (SignedContextV2[] memory);
