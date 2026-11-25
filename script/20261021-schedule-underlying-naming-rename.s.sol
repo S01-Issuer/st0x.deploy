@@ -10,6 +10,7 @@ import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -54,13 +55,12 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 }
 
 /// @title ScheduleUnderlyingNamingRename
-/// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch
-/// (rollout step 3 in `docs/TIMELOCK.md`): `setUnderlying(ticker,
-/// underlyingName)` on every production vault of the chain, ticker from
-/// `TokenConfig.underlying` and name from `TokenConfig.underlyingName`. Two
-/// Safe calls: `timelock.scheduleBatch(...)`, with the beacon batch as
-/// predecessor so the timelock refuses to execute the rename first, then the
-/// Safe's root-line record.
+/// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch:
+/// `setUnderlying(ticker, underlyingName)` on every production vault of the
+/// chain, ticker from `TokenConfig.underlying` and name from
+/// `TokenConfig.underlyingName`. Two Safe calls: `timelock.scheduleBatch(...)`,
+/// with the beacon batch as predecessor so the timelock refuses to execute the
+/// rename first, then the Safe's root-line record.
 ///
 /// **The pre-flight refuses until
 /// `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set**, which
@@ -78,7 +78,7 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261021-schedule-underlying-naming-rename` per chain, after the
 /// beacon batch is scheduled there.
-contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
+contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleUnderlyingNamingRenameDeclaration();
