@@ -203,8 +203,9 @@ library LibStoxMigrations {
         return LibMigrationRegistry.onto(LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.onto);
     }
 
-    /// @notice The registry call, sent by the Safe as the root's delegate for
-    /// `NAMESPACE` or unscoped, that writes `declared`'s record. Verifies the
+    /// @notice The registry call that writes `declared`'s record, sent by a root
+    /// delegate for `NAMESPACE` or unscoped: the Safe in its bundle, or the
+    /// timelock as a batch's last call. Verifies the
     /// registry's code hash first.
     /// @param declared The declaration.
     /// @return The registry.

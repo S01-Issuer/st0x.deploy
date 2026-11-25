@@ -67,12 +67,14 @@ error UnderlyingNamingNotCutForChain(uint256 chainId);
 ///
 /// 1. The beacon batch: the chain's in-use wrapped-token-vault beacon and
 ///    receipt-vault beacon move to the implementations below, then a
-///    read-only facet call on one production vault. A delegatecall into a
+///    read-only facet call on one production vault, then the batch's root-line
+///    record. A delegatecall into a
 ///    facet address with no code reverts with `CorporateActionsFacetNotDeployed`
 ///    in the new vault implementation, so the whole batch rolls back if the
 ///    facet is missing at execution.
 /// 2. The rename batch: `setUnderlying(ticker, underlyingName)` on every
-///    production vault of the chain, scheduled with the beacon batch as its
+///    production vault of the chain, then the batch's root-line record,
+///    scheduled with the beacon batch as its
 ///    predecessor, so the timelock refuses to execute it first.
 ///
 /// The implementations are the current-source candidate pins. They are the
@@ -204,19 +206,19 @@ library LibUnderlyingNamingRollout {
 
     /// @notice The beacon batch's calls: the wrapper beacon upgrade, the vault
     /// beacon upgrade, then the facet probe on the chain's first production
-    /// vault.
+    /// vault, then the batch's root-line record (`beaconDeclaration`).
     /// @param chainId The chain id.
-    /// @return targets The call targets.
-    /// @return values The call values, all zero.
-    /// @return payloads The calldata.
+    /// @return The call targets.
+    /// @return The call values, all zero.
+    /// @return The calldata.
     function beaconBatch(uint256 chainId)
         internal
         view
-        returns (address[] memory targets, uint256[] memory values, bytes[] memory payloads)
+        returns (address[] memory, uint256[] memory, bytes[] memory)
     {
-        targets = new address[](4);
-        values = new uint256[](4);
-        payloads = new bytes[](4);
+        address[] memory targets = new address[](4);
+        uint256[] memory values = new uint256[](4);
+        bytes[] memory payloads = new bytes[](4);
         targets[0] = wrappedTokenVaultBeacon(chainId);
         payloads[0] = abi.encodeCall(UpgradeableBeacon.upgradeTo, (WRAPPED_TOKEN_VAULT_IMPLEMENTATION));
         targets[1] = receiptVaultBeacon(chainId);
@@ -224,6 +226,7 @@ library LibUnderlyingNamingRollout {
         targets[2] = tokens(chainId)[0].receiptVault;
         payloads[2] = abi.encodeCall(ICorporateActionsV1.completedActionCount, ());
         (targets[3], payloads[3]) = LibStoxMigrations.recordCall(beaconDeclaration());
+        return (targets, values, payloads);
     }
 
     /// @notice The beacon batch's root-line record, its last call, written by
@@ -250,20 +253,20 @@ library LibUnderlyingNamingRollout {
 
     /// @notice The rename batch's calls: `setUnderlying(underlying,
     /// underlyingName)` on every production vault of the chain, in table
-    /// order.
+    /// order, then the batch's root-line record (`renameDeclaration`).
     /// @param chainId The chain id.
-    /// @return targets The call targets.
-    /// @return values The call values, all zero.
-    /// @return payloads The calldata.
+    /// @return The call targets.
+    /// @return The call values, all zero.
+    /// @return The calldata.
     function renameBatch(uint256 chainId)
         internal
         view
-        returns (address[] memory targets, uint256[] memory values, bytes[] memory payloads)
+        returns (address[] memory, uint256[] memory, bytes[] memory)
     {
         TokenInstance[] memory chainTokens = tokens(chainId);
-        targets = new address[](chainTokens.length + 1);
-        values = new uint256[](chainTokens.length + 1);
-        payloads = new bytes[](chainTokens.length + 1);
+        address[] memory targets = new address[](chainTokens.length + 1);
+        uint256[] memory values = new uint256[](chainTokens.length + 1);
+        bytes[] memory payloads = new bytes[](chainTokens.length + 1);
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
             targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
@@ -271,6 +274,7 @@ library LibUnderlyingNamingRollout {
                 abi.encodeCall(IStoxUnderlyingV1.setUnderlying, (config.underlying, config.underlyingName));
         }
         (targets[chainTokens.length], payloads[chainTokens.length]) = LibStoxMigrations.recordCall(renameDeclaration());
+        return (targets, values, payloads);
     }
 
     /// @notice Reverts unless every production vault of the chain reports

@@ -41,7 +41,7 @@ error UnderlyingNamingNotExecuted(bytes32 renameId);
 /// @param id The migration id.
 error ExecuteUnderlyingNamingRecorded(bytes32 id);
 
-/// @notice This script's declaration on the root line: after the rename schedule.
+/// @notice This script's declaration on the root line: onto the rename batch's record.
 /// @return The declaration.
 function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
@@ -65,7 +65,8 @@ function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration me
 ///
 /// A reverted `executeBatch` rolls back and leaves the operation Ready with
 /// its delay spent, so a failed dispatch (a missing facet, gas) is fixed and
-/// re-dispatched without rescheduling.
+/// re-dispatched without rescheduling. A batch whose record the registry
+/// refuses needs cancel and reschedule.
 ///
 /// **HyperEVM:** the rename batch needs more gas than a small block holds.
 /// Enable big blocks for the CI deploy key (`manual-hyperevm-big-blocks`)
