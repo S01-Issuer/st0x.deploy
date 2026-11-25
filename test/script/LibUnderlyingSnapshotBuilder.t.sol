@@ -104,13 +104,20 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         assertFalse(row.found, "found");
     }
 
+    /// One-byte fields, so EIP-170 never binds before the row cap.
+    function shortRows(uint256 n) internal pure returns (UnderlyingSnapshotRow[] memory) {
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](n);
+        for (uint256 i = 0; i < n; i++) {
+            address token = address(uint160(uint256(keccak256(abi.encode("row cap", i)))));
+            rows[i] = UnderlyingSnapshotRow(token, "T", "N", "I");
+        }
+        return rows;
+    }
+
     function testRowCapBoundsTheShardCount() external {
-        bytes32 seed = keccak256("row cap");
-        (, bytes[] memory atCap) =
-            LibUnderlyingSnapshotBuilder.build(0, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 256));
+        (, bytes[] memory atCap) = LibUnderlyingSnapshotBuilder.build(0, shortRows(256));
         assertEq(atCap.length, 1, "256 rows");
-        (, bytes[] memory pastCap) =
-            LibUnderlyingSnapshotBuilder.build(0, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 257));
+        (, bytes[] memory pastCap) = LibUnderlyingSnapshotBuilder.build(0, shortRows(257));
         assertEq(pastCap.length, 2, "257 rows");
     }
 
