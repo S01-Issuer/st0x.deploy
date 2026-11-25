@@ -49,8 +49,8 @@ function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration mem
 /// @notice Authors the per-chain Safe bundle that binds
 /// `LibStoxConfig.BEACON_INITIAL_OWNER_NAME` under the root authority to
 /// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK`, as the root's approved
-/// delegate, and records it.
-/// On 0G the bundle is the record alone: no current-source beacon deploys there to read the binding.
+/// delegate, and records it. On 0G the bundle is the record alone: no
+/// current-source beacon deploys there to read the binding.
 contract BindBeaconInitialOwner is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {

@@ -44,7 +44,8 @@ error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 /// @param head The line's head.
 error LineHeadMismatch(bytes32 head);
 
-/// @notice On 0G, `migration`'s arm waits on `decision`, so its script refuses there.
+/// @notice On 0G, `migration`'s arm waits on `decision`, so its script
+/// refuses there.
 /// @param migration The migration.
 /// @param decision The decision it waits on.
 error ZerogArmPendingDecision(bytes32 migration, string decision);

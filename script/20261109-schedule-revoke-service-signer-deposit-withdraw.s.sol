@@ -49,8 +49,9 @@ function scheduleRevokeServiceSignerDeclaration() pure returns (ScriptDeclaratio
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the timelock batch
 /// revoking `DEPOSIT` and `WITHDRAW` from the service signer on the chain's
 /// authoriser, then writes the Safe's root-line record. The timelock holds
-/// `DEPOSIT_ADMIN` and `WITHDRAW_ADMIN`, so it is the only route.
-/// On 0G the bundle is the record alone: the service signer never held `DEPOSIT` or `WITHDRAW` there.
+/// `DEPOSIT_ADMIN` and `WITHDRAW_ADMIN`, so it is the only route. On 0G the
+/// bundle is the record alone: the service signer never held `DEPOSIT` or
+/// `WITHDRAW` there.
 ///
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261109-schedule-revoke-service-signer-deposit-withdraw` per chain.
@@ -109,7 +110,8 @@ contract ScheduleRevokeServiceSignerDepositWithdraw is StoxSafeBundleScript, ISt
         if (TimelockController(payable(timelock())).isOperation(id)) revert RevokeAlreadyScheduled(id);
     }
 
-    /// @notice Reverts unless the service signer holds neither `DEPOSIT` nor `WITHDRAW` on `authoriser` and no revoke batch is pending.
+    /// @notice Reverts unless the service signer holds neither `DEPOSIT` nor
+    /// `WITHDRAW` on `authoriser` and no revoke batch is pending.
     /// @param authoriser 0G's US authoriser.
     function assertZerogRevoked(address authoriser) internal view {
         LibServiceSignerRevoke.assertRevoked(authoriser);

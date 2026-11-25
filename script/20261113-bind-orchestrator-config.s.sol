@@ -58,8 +58,9 @@ function bindOrchestratorConfigDeclaration() pure returns (ScriptDeclaration mem
 /// `LibStoxConfig.ORCHESTRATOR_BEACON_NAME` to the orchestrator proxy's beacon
 /// and `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME` to
 /// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` under the root authority, as
-/// the root's approved delegate, and records it.
-/// On 0G the bundle is the record alone: no current-source orchestrator deploys there to read the bindings.
+/// the root's approved delegate, and records it. On 0G the bundle is the
+/// record alone: no current-source orchestrator deploys there to read the
+/// bindings.
 contract BindOrchestratorConfig is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {

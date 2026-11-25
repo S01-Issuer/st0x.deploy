@@ -57,8 +57,8 @@ function executeRevokeServiceSignerDeclaration() pure returns (ScriptDeclaration
 /// `LibServiceSignerRevoke`, the same library the scheduling script uses.
 ///
 /// `run()` authors the record-only Safe bundle that writes this script's
-/// record on the root line once the batch has executed.
-/// On 0G nothing is scheduled, so `run()` records once the service signer holds neither role.
+/// record on the root line once the batch has executed. On 0G nothing is
+/// scheduled, so `run()` records once the service signer holds neither role.
 ///
 /// @dev Dispatch `execute()` via `Actions → manual-broadcast` with
 /// `script = 20261109-execute-revoke-service-signer-deposit-withdraw`,
