@@ -155,7 +155,7 @@ library LibUnderlyingNamingRollout {
     /// @notice Whether the rollout's rename and beacon batches were cut for
     /// `chainId`: one of the networks before 0G
     /// (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
-    /// `BuildExpectedState.renameMigration` both read this, so they agree.
+    /// `BuildExpectedState`'s renamed fields both read this, so they agree.
     /// @param chainId The chain id.
     /// @return Whether the batches were cut for the chain.
     function cutForChain(uint256 chainId) internal pure returns (bool) {
