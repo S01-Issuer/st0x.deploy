@@ -35,6 +35,31 @@
   at 195 runs, larger than the inline form. As with every optimizer change, this
   moves every candidate Zoltu address; the candidate pins are regenerated.
 
+### Token init data (`StoxTokenConfigV1`)
+
+- **Tokens initialize from the listing facts.** Init data is
+  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the listing-time
+  ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC and
+  receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
+  delegatecalls the facet's `initializeStoxToken`, which refuses
+  `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,
+  `MalformedAssetId`, `MalformedListingTicker`, `MalformedListingName` and
+  `StoxTokenAlreadyInitialized`, stores the listing facts at
+  `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and passes
+  rain-vats the V3 config named `listingName + " (ST0x)"` / `"t" + listingTicker`.
+  `initialize` refuses `CorporateActionsFacetNotDeployed` when the pinned facet
+  has no code, and the facet is a token deploy dependency.
+- **rain-vats V3 init data is refused** (`InvalidStoxTokenConfigTag`).
+- **The token salt is zero.** The clone factory's effective salt already hashes
+  the init data, so each token's address is unique to its config.
+- **`underlyingSymbol()` / `underlyingName()` fall back to the listing ticker
+  and name** until `setUnderlying` runs, so the wrapper reports
+  `listingTicker + "s"` and the vault's name from init. Vaults initialized
+  before this read empty until set.
+- **Expected state marks a token at its suite address `Listed`**
+  (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
+  deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
+
 ### StoxReceipt
 
 - **`uri` names "the underlying off-chain asset".** The vault's `asset()` is
@@ -48,9 +73,10 @@
   `underlyingName()` and `setUnderlying(symbol, name)`, with the values in a new
   ERC-7201 namespace `rain.storage.underlying.1` (`LibSecurity`). The setter is
   `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains it
-  goes through the governance timelock), rejects empty values with
-  `EmptyUnderlyingSymbol` / `EmptyUnderlyingName`, emits `UnderlyingSet` with
-  the old and new values, and can be called again when a listing is renamed.
+  goes through the governance timelock), refuses values that fail init's
+  listing rules (`LibSecurity.tickerWellFormed` / `nameWellFormed`) with
+  `MalformedUnderlyingSymbol` / `MalformedUnderlyingName`, emits `UnderlyingSet`
+  with the getters' old values and the new ones, and can be called again when a listing is renamed.
 - **Token metadata is built from those values.** Once set, `StoxReceiptVault`
   reports `symbol() = "t" + ticker` and `name() = name + " (ST0x)"`, and
   `StoxWrappedTokenVault` reports `symbol() = ticker + "s"` and the vault's
@@ -58,7 +84,8 @@
   suffix is the single constant `ST0X_NAME_SUFFIX`. While unset, the vault
   reports the name and symbol it was initialized with and the wrapper
   `"Wrapped " + name` / `"w" + symbol`, so nothing changes on chain until the
-  values are set.
+  values are set. A vault initialized with `StoxTokenConfigV1` (below) is named
+  from its listing at init instead.
 - **The wrapper does not revert because of its asset's underlying getters.** It
   reads the underlying values with a `staticcall` and falls back to the asset's
   ERC-20 metadata if the call fails, returns data that is not a well-formed

@@ -39,6 +39,7 @@ library LibProdTokenParams {
             beaconName: LibStoxConfig.VAULT_BEACON_NAME,
             beacon: vaultBeacon(),
             data: tokenData(config),
+            // The clone factory's effective salt already hashes `data`.
             salt: bytes32(0)
         });
     }

@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {TokenConfig} from "./LibProdTokenConfig.sol";
-import {ST0X_NAME_SUFFIX} from "./LibSecurity.sol";
+import {LibSecurity} from "./LibSecurity.sol";
 
 /// @notice The state a production token's ERC-20 metadata is in.
 /// - `Initialized`: the receipt vault holds the `TokenConfig.name` /
@@ -39,7 +39,7 @@ library LibTokenMetadata {
     /// @param config The token's row.
     /// @return The renamed name.
     function renamedName(TokenConfig memory config) internal pure returns (string memory) {
-        return string.concat(config.underlyingName, ST0X_NAME_SUFFIX);
+        return LibSecurity.vaultName(config.underlyingName);
     }
 
     /// @notice The wrapper's symbol once renamed.
@@ -55,7 +55,7 @@ library LibTokenMetadata {
     /// @return The vault name.
     function vaultName(TokenConfig memory config, TokenMetadataState state) internal pure returns (string memory) {
         if (state == TokenMetadataState.Renamed) return renamedName(config);
-        if (state == TokenMetadataState.Listed) return string.concat(config.listingName, ST0X_NAME_SUFFIX);
+        if (state == TokenMetadataState.Listed) return LibSecurity.vaultName(config.listingName);
         return config.name;
     }
 
@@ -64,8 +64,8 @@ library LibTokenMetadata {
     /// @param state The token's metadata state.
     /// @return The vault symbol.
     function vaultSymbol(TokenConfig memory config, TokenMetadataState state) internal pure returns (string memory) {
-        if (state == TokenMetadataState.Renamed) return string.concat("t", config.underlying);
-        if (state == TokenMetadataState.Listed) return string.concat("t", config.listingTicker);
+        if (state == TokenMetadataState.Renamed) return LibSecurity.vaultSymbol(config.underlying);
+        if (state == TokenMetadataState.Listed) return LibSecurity.vaultSymbol(config.listingTicker);
         return config.symbol;
     }
 
