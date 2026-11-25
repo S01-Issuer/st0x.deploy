@@ -40,7 +40,6 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
 import {LibZerogOrchestratorRoles} from "../../src/lib/LibZerogOrchestratorRoles.sol";
 import {ExecuteUnderlyingNamingHarness} from "./ExecuteUnderlyingNamingHarness.sol";
-import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
 import {ZerogRootLineFixture} from "./ZerogRootLineFixture.sol";
@@ -50,7 +49,6 @@ import {ZerogRootLineFixture} from "./ZerogRootLineFixture.sol";
 /// waits on a decision refuse 0G loudly at their onto, and the whole line walks through the orchestrator roles and every
 /// other 0G arm as the record alone, changing nothing the roles batch does not.
 contract ZerogRootLineTest is ZerogRootLineFixture {
-    string internal constant EMERGENCY_DECISION = "whether the 0G Safe holds EMERGENCY_ROLE on the orchestrator";
     string internal constant NAMING_DECISION = "whether the underlying naming applies on 0G";
 
     function setUp() public {
@@ -115,15 +113,6 @@ contract ZerogRootLineTest is ZerogRootLineFixture {
 
     function expectPending(bytes32 migration, string memory decision) internal {
         vm.expectRevert(abi.encodeWithSelector(ZerogArmPendingDecision.selector, migration, decision));
-    }
-
-    function testOrchestratorAdminToTimelockWaitsOnTheEmergencyDecision() external {
-        landZerogLineThrough(LibStoxMigrations.BIND_BEACON_INITIAL_OWNER);
-        OrchestratorAdminToTimelockHarness script = new OrchestratorAdminToTimelockHarness("zerog-pending");
-        expectPending(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, EMERGENCY_DECISION);
-        script.callPreflight();
-        expectPending(LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK, EMERGENCY_DECISION);
-        script.run();
     }
 
     function testNamingBeaconsWaitOnTheNamingDecision() external {

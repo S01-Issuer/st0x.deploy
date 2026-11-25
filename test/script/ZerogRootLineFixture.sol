@@ -16,6 +16,7 @@ import {BindOrchestratorConfigHarness} from "./BindOrchestratorConfigHarness.sol
 import {ExecuteRevokeServiceSignerDepositWithdrawHarness} from "./ExecuteRevokeServiceSignerDepositWithdrawHarness.sol";
 import {ExecuteZerogOrchestratorRolesHarness} from "./ExecuteZerogOrchestratorRolesHarness.sol";
 import {HandSafeOwnedBaseVaultsToTimelockHarness} from "./HandSafeOwnedBaseVaultsToTimelockHarness.sol";
+import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {QsepSetFleetAuthoriserHarness} from "./QsepSetFleetAuthoriserHarness.sol";
 import {
     ScheduleRevokeServiceSignerDepositWithdrawHarness
@@ -51,8 +52,7 @@ abstract contract ZerogRootLineFixture is ZerogOrchestratorRolesFixture {
 
     /// @notice Whether `migration`'s 0G arm waits on a decision, so the fixture writes its record as a stand-in.
     function zerogPendingDecision(bytes32 migration) internal pure returns (bool) {
-        return migration == LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK
-            || migration == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
+        return migration == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
             || migration == LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME
             || migration == LibStoxMigrations.EXECUTE_UNDERLYING_NAMING;
     }
@@ -99,6 +99,8 @@ abstract contract ZerogRootLineFixture is ZerogOrchestratorRolesFixture {
             LibTestRootLine.write(vm, address(zerogSafe()), migration, onto);
         } else if (migration == LibStoxMigrations.BIND_BEACON_INITIAL_OWNER) {
             runRecordOnly(IRecordScriptHooks(address(new BindBeaconInitialOwnerHarness("zerog-line"))));
+        } else if (migration == LibStoxMigrations.ORCHESTRATOR_ADMIN_TO_TIMELOCK) {
+            runRecordOnly(IRecordScriptHooks(address(new OrchestratorAdminToTimelockHarness("zerog-line"))));
         } else if (migration == LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK) {
             runRecordOnly(IRecordScriptHooks(address(new HandSafeOwnedBaseVaultsToTimelockHarness("zerog-line"))));
         } else if (migration == LibStoxMigrations.SCHEDULE_REVOKE_SERVICE_SIGNER) {

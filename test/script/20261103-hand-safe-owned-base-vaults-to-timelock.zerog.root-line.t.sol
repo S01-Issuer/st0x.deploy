@@ -12,8 +12,8 @@ import {HandSafeOwnedBaseVaultsToTimelockHarness} from "./HandSafeOwnedBaseVault
 import {ZerogRootLineScriptTest} from "./ZerogRootLineScriptTest.sol";
 
 /// @title HandSafeOwnedBaseVaultsToTimelockZerogRootLineTest
-/// @notice The hand-over on 0G, onto the orchestrator admin move's stand-in record: the record alone, every vault in
-/// 0G's token table already on the timelock.
+/// @notice The hand-over on 0G, onto the orchestrator admin move's record: the record alone, every vault in 0G's token
+/// table already on the timelock.
 contract HandSafeOwnedBaseVaultsToTimelockZerogRootLineTest is ZerogRootLineScriptTest {
     function newScript() internal override returns (IRecordScriptHooks) {
         return IRecordScriptHooks(address(new HandSafeOwnedBaseVaultsToTimelockHarness("zerog-root-line")));
