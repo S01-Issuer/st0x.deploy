@@ -36,8 +36,9 @@ from the repo and are deliberately absent — do not re-add them.
   timelock, not by the token-owner Safe.** Once a surface has moved, the Safe
   can no longer call it directly: a script touching it goes
   `timelock.schedule(...)` → delay → `timelock.execute(...)`, resolving the
-  address only via `LibTimelockInvariants.timelockForChainId`. Role model and
-  runbook: `docs/TIMELOCK.md`. Exception: the tQSEP vault
+  address via `LibTimelockInvariants.timelockForChainId`, or
+  `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` for the surfaces it owns. How
+  the timelock works: `docs/TIMELOCK.md`. Exception: the tQSEP vault
   (`LibTokenInvariants.QSEP_RECEIPT_VAULT`) is outside the token table, so its
   `owner()` is still the Safe and vault `onlyOwner` calls (`setAuthorizer`
   included) are direct Safe transactions. Even on the fleet authoriser, tQSEP
