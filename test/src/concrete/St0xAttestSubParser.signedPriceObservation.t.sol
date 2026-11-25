@@ -45,6 +45,12 @@ bytes constant YAHOO_SIGNATURE =
 contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTest {
     using Strings for address;
 
+    address internal aaplToken;
+
+    function setUp() external {
+        aaplToken = underlyingToken("AAPL");
+    }
+
     function observationContext(bytes32 source) internal pure returns (bytes32[] memory) {
         bytes32[] memory context = new bytes32[](OBSERVATION_ROWS);
         context[0] = OBSERVATION_SYMBOL;
@@ -73,7 +79,7 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
     }
 
     function buildExternal(SignedContextV2[] memory attestations) external view returns (bytes32[][] memory) {
-        return LibSt0xAttestContext.build(symbol("tAAPL"), float(1), attestations);
+        return LibSt0xAttestContext.build(tokenWord(aaplToken), float(1), attestations);
     }
 
     function toString(bytes32 value) internal pure returns (string memory) {
@@ -92,7 +98,7 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
             vm.toString(OBSERVATION_SIGNER)
         );
         (StackItem[] memory stack,) =
-            parseAndEval(bytes(rainlang), LibSt0xAttestContext.build(symbol("tAAPL"), float(1), observations()));
+            parseAndEval(bytes(rainlang), LibSt0xAttestContext.build(tokenWord(aaplToken), float(1), observations()));
         assertTrue(LibDecimalFloat.eq(Float.wrap(StackItem.unwrap(stack[0])), LibDecimalFloat.packLossless(34463, -2)));
     }
 
@@ -115,7 +121,7 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
     /// 1793318400, "alpaca" for the lead and "yahoo" for attestor 0, and
     /// "USD".
     function testObservationsVerifyAndReadThroughTheWords() external view {
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("tAAPL"), float(1), observations());
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(aaplToken), float(1), observations());
 
         checkWord("lead()", context, signer(OBSERVATION_SIGNER));
         checkWord("attestor<0>()", context, signer(OBSERVATION_SIGNER));
@@ -189,7 +195,7 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
     /// which differ only at the source, are told apart by the source words
     /// alone.
     function testObservationsDifferOnlyAtTheSource() external view {
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("tAAPL"), float(1), observations());
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(aaplToken), float(1), observations());
 
         assertEq(context[CONTEXT_LEAD_COLUMN], observationContext(ALPACA_SOURCE));
         assertEq(context[CONTEXT_ATTESTOR_0_COLUMN], observationContext(YAHOO_SOURCE));
@@ -210,7 +216,7 @@ contract St0xAttestSubParserSignedPriceObservationTest is St0xAttestSubParserTes
         SignedContextV2[] memory attestations = new SignedContextV2[](2);
         attestations[0] = sign(LEAD_KEY, values);
         attestations[1] = sign(OPERATOR_KEY_0, values);
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("tAAPL"), float(1), attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(aaplToken), float(1), attestations);
 
         checkWord("lead-symbol()", context, OBSERVATION_SYMBOL);
         checkWord("lead-price()", context, OBSERVATION_PRICE);
