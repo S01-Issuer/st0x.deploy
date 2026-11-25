@@ -30,11 +30,10 @@
   `initialize` override under EIP-170.** Measured with the override applied:
   `runs=195` → 24,680 (over by 104); `runs=188` → 24,632; `runs=184` → 24,632
   (over by 56); `runs=183` → 24,479 (**97 spare**); `runs=182` → 24,479;
-  `runs=180` → 24,479; `runs=150` → 24,302. The facet code check in `initialize`
-  then takes it to 24,528 (48 spare). Sharing one internal delegatecall function
-  between `fallback` and `initialize` was measured and rejected: 24,733 at 195
-  runs, larger than the inline form. As with every optimizer change, this moves
-  every candidate Zoltu address; the candidate pins are regenerated.
+  `runs=180` → 24,479; `runs=150` → 24,302. Sharing one internal delegatecall
+  function between `fallback` and `initialize` was measured and rejected: 24,733
+  at 195 runs, larger than the inline form. As with every optimizer change, this
+  moves every candidate Zoltu address; the candidate pins are regenerated.
 
 ### Token init data (`StoxTokenConfigV1`)
 
@@ -48,8 +47,7 @@
   `StoxTokenAlreadyInitialized`, stores the listing facts at
   `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and passes
   rain-vats the V3 config named `listingName + " (ST0x)"` /
-  `"t" + listingTicker`. `initialize` refuses `CorporateActionsFacetNotDeployed`
-  when the pinned facet has no code.
+  `"t" + listingTicker`.
 - **rain-vats V3 init data is refused** (`InvalidStoxTokenConfigTag`).
 - **The token salt is zero.** The clone factory's effective salt already hashes
   the init data, so each token's address is unique to its config.
@@ -74,10 +72,9 @@
   `underlyingName()` and `setUnderlying(symbol, name)`, with the values in a new
   ERC-7201 namespace `rain.storage.underlying.1` (`LibSecurity`). The setter is
   `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains it
-  goes through the governance timelock), refuses values that fail init's listing
-  rules (`LibSecurity.tickerWellFormed` / `nameWellFormed`) with
-  `MalformedUnderlyingSymbol` / `MalformedUnderlyingName`, emits `UnderlyingSet`
-  with the getters' old values and the new ones, and can be called again when a
+  goes through the governance timelock), rejects empty values with
+  `EmptyUnderlyingSymbol` / `EmptyUnderlyingName`, emits `UnderlyingSet` with
+  the getters' old values and the new ones, and can be called again when a
   listing is renamed.
 - **Token metadata is built from those values.** Once set, `StoxReceiptVault`
   reports `symbol() = "t" + ticker` and `name() = name + " (ST0x)"`, and
