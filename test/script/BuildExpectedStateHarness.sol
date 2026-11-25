@@ -8,9 +8,7 @@ import {TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
 /// @title BuildExpectedStateHarness
 /// @notice External shim so `vm.expectRevert` can intercept reverts from the script's internal emitters.
 contract BuildExpectedStateHarness is BuildExpectedState {
-    function callTokenMetadataJson(uint256 chainId, string memory row, uint256 i, TokenInstance memory token)
-        external
-    {
+    function callTokenMetadataJson(uint256 chainId, string memory row, uint256 i, TokenInstance memory token) external {
         tokenMetadataJson(chainId, row, i, token);
     }
 

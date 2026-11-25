@@ -155,10 +155,10 @@ contract BuildExpectedState is Script {
         TokenMetadataState state = token.receiptVault == LibProdTokenParams.tokenAddress(config)
             ? TokenMetadataState.Listed
             : TokenMetadataState.Initialized;
-        TokenMetadataState renamed =
-            LibUnderlyingNamingRollout.cutForChain(chainId) && LibUnderlyingNamingRollout.renamesRow(i)
-                ? TokenMetadataState.Renamed
-                : state;
+        TokenMetadataState renamed = LibUnderlyingNamingRollout.cutForChain(chainId)
+            && LibUnderlyingNamingRollout.renamesRow(i)
+            ? TokenMetadataState.Renamed
+            : state;
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, state));
         vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renamed));
         vm.serializeString(row, "symbol", LibTokenMetadata.vaultSymbol(config, state));

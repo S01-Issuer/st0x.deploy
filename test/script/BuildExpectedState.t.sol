@@ -967,7 +967,9 @@ contract BuildExpectedStateTest is Test {
             LibSafeInvariants.BASE_CHAIN_ID,
             "row",
             0,
-            TokenInstance({underlying: "NOPE", receipt: address(0), receiptVault: address(0), wrappedTokenVault: address(0)})
+            TokenInstance({
+                underlying: "NOPE", receipt: address(0), receiptVault: address(0), wrappedTokenVault: address(0)
+            })
         );
     }
 

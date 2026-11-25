@@ -272,8 +272,8 @@ contract LibConstantsStructureTest is Test {
     }
 
     function testStoxTokenConfigStorageLocationMatchesNamespace() external pure {
-        bytes32 expected = keccak256(abi.encode(uint256(keccak256("rain.storage.stox-token-config.1")) - 1))
-            & ~bytes32(uint256(0xff));
+        bytes32 expected =
+            keccak256(abi.encode(uint256(keccak256("rain.storage.stox-token-config.1")) - 1)) & ~bytes32(uint256(0xff));
         assertEq(STOX_TOKEN_CONFIG_STORAGE_LOCATION, expected);
     }
 

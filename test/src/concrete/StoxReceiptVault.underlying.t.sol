@@ -242,7 +242,8 @@ contract StoxReceiptVaultUnderlyingTest is Test {
     /// A name init would refuse as a listing is rejected, the empty one
     /// included.
     function testSetUnderlyingMalformedNameReverts() external {
-        string[5] memory names = ["", "NVIDIA \"Corporation\"", "NVIDIA\\Corporation", "NVIDIA\nCorporation", "NVIDIA (ST0x)"];
+        string[5] memory names =
+            ["", "NVIDIA \"Corporation\"", "NVIDIA\\Corporation", "NVIDIA\nCorporation", "NVIDIA (ST0x)"];
         for (uint256 i = 0; i < names.length; i++) {
             vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, names[i]));
             vm.prank(OWNER);
@@ -250,6 +251,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         }
         assertEq(underlying().underlyingName(), "");
     }
+
     /// The ownership check runs before the shape checks, so a non-owner
     /// learns nothing from the revert about which input was bad.
     function testSetUnderlyingNonOwnerEmptyRevertsUnauthorized() external {
