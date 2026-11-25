@@ -190,7 +190,7 @@ contract StoxCorporateActionsFacetTest is Test {
     /// `FacetMustBeDelegatecalled` on the standalone facet, before any
     /// authorizer lookup.
     function testEveryEntryPointDirectCallReverts() external {
-        bytes[10] memory calls = [
+        bytes[11] memory calls = [
             abi.encodeWithSelector(StoxCorporateActionsFacet.completedActionCount.selector),
             abi.encodeCall(
                 StoxCorporateActionsFacet.scheduleCorporateAction,
@@ -206,7 +206,8 @@ contract StoxCorporateActionsFacetTest is Test {
             abi.encodeCall(
                 StoxCorporateActionsFacet.initializeStoxToken,
                 (LibTestDeploy.vaultData("US0378331005", "AAPL", "Apple Inc.", address(0), bytes32(0)))
-            )
+            ),
+            abi.encodeWithSelector(StoxCorporateActionsFacet.assetId.selector)
         ];
         for (uint256 i = 0; i < calls.length; i++) {
             (bool success, bytes memory returnData) = address(facetImpl).call(calls[i]);
