@@ -82,8 +82,8 @@ function qsepSetFleetAuthoriserDeclaration() pure returns (ScriptDeclaration mem
 /// and, in the same transaction, revokes every role the retired signer
 /// `LibAuthoriserInvariants.V3_RETIRED_SIGNER_1C66` holds on the V3 clone. The
 /// vault's `owner()` and the V3 clone's `_ADMIN` roles are on the Safe, so this
-/// is a direct Safe transaction, with no timelock delay (see
-/// `docs/TIMELOCK.md`). The vault's `owner()` stays on the Safe.
+/// is a direct Safe transaction, with no timelock delay. The vault's `owner()`
+/// stays on the Safe.
 ///
 /// The bundle depends on live state, so a dispatch authors one of two bundles:
 ///
