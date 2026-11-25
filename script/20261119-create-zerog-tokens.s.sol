@@ -63,8 +63,8 @@ error ZerogTokensRecordedEarly(bytes32 head);
 /// @param role The role the Safe holds.
 error ZerogAuthoriserSafeAdmin(address authoriser, bytes32 role);
 
-/// @notice A 0G authoriser clone grants a role to the orchestrator's pinned address, which no reviewed step creates on
-/// 0G (`LibAuthoriserInvariants.grantsOrchestrator`).
+/// @notice A 0G authoriser clone grants a role to the orchestrator, which only the later 0G orchestrator roles batch
+/// (`20261123-schedule-zerog-orchestrator-roles`) grants.
 /// @param authoriser The clone.
 /// @param role The role it grants.
 error ZerogOrchestratorGranted(address authoriser, bytes32 role);
@@ -203,8 +203,8 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
         }
     }
 
-    /// @notice Reverts unless the in-use beacons (the three token beacons: 0G runs no orchestrator) are owned by the
-    /// timelock and each serves the implementation every other 0.1.1 chain serves.
+    /// @notice Reverts unless the four in-use beacons are owned by the timelock and each of the three token beacons
+    /// serves the implementation every other 0.1.1 chain serves.
     function assertBeacons() internal view {
         LibBeaconInvariants.assertProdBeaconsOwnedBy(block.chainid, timelock());
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(block.chainid);
@@ -216,8 +216,9 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
     }
 
     /// @notice Reverts unless both pinned authoriser clones are deployed with the clone code hash, hold the role maps
-    /// `LibIdealRoles` expects of them on 0G with the timelock as admin, grant the orchestrator's pinned address no
-    /// role, and leave the Safe that initialised them no admin role.
+    /// `LibIdealRoles` expects of them on 0G with the timelock as admin, less the US clone's orchestrator pairs, grant
+    /// the orchestrator no role, and leave the Safe that initialised them no admin role. The orchestrator's pairs come
+    /// after the tokens, in the 0G orchestrator roles batch.
     /// @dev Both pins are CloneFactory 0.1.15 open-salt addresses over the 0G Safe as initial admin, so the code hash
     /// proves the implementation and the address proves the init data, whoever deployed the clone. These checks prove
     /// the listed grants and the absence of the Safe's admin roles and the orchestrator's roles. The access control is
@@ -227,7 +228,7 @@ contract CreateZerogTokens is SafeBundleScript, IStoxScript {
         LibAuthoriserInvariants.assertEuAuthoriserDeployed(block.chainid);
         address eu = LibAuthoriserInvariants.euAuthoriserForChainId(block.chainid);
         LibAuthoriserInvariants.assertHeld(
-            us, LibAuthoriserInvariants.expectedGrantsOn(block.chainid, address(safe()), timelock())
+            us, LibAuthoriserInvariants.expectedGrantsWithoutOrchestrator(address(safe()), timelock())
         );
         LibAuthoriserInvariants.assertExpectedEuGrants(eu, timelock(), LibAuthoriserInvariants.GRANTEE_EU_MINTER);
         assertNoSafeAdmin(us);
