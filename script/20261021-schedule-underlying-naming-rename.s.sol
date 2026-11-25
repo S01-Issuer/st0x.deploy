@@ -230,6 +230,7 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
             assertMetadata(token.receiptVault, config.isin, IStoxUnderlyingV2(token.receiptVault).underlyingIsin());
             // `UnderlyingStorage.timestamp` is the struct's fourth slot.
             uint256 timestamp = uint256(vm.load(token.receiptVault, bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)));
+            // forge-lint: disable-next-line(block-timestamp)
             if (timestamp != block.timestamp) {
                 revert RenamedTimestampMismatch(token.receiptVault, block.timestamp, timestamp);
             }
