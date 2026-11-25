@@ -33,6 +33,8 @@ fs_permissions = [
   # here to name the `src/generated/<tag>/` snapshot and generate the deploy tag.
   { access = "read", path = "foundry.toml" },
   { access = "read", path = ".github/workflows/manual-sol-artifacts.yaml" },
+  { access = "read", path = ".github/workflows/run-script.yaml" },
+  { access = "read", path = ".github/workflows/manual-broadcast.yaml" },
   # `out` is needed by the RAI-296 multisig migration script and its tests:
   # the script writes the Safe Tx Builder JSON artifact under `out/`, and
   # the LibSafeOps round-trip tests round-trip the JSON through disk.
@@ -44,6 +46,7 @@ fs_permissions = [
   { access = "read-write", path = "subgraph/networks.json" },
   { access = "read", path = "script" },
   { access = "read", path = "test/fixture/declarations" },
+  { access = "read", path = "test/script" },
 ]
 
 # `script/Build.sol` emits the released-suites libs with `string.concat` over
