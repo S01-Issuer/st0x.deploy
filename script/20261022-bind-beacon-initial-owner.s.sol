@@ -31,12 +31,15 @@ error SafeNotBeaconInitialOwnerDelegate(address safe);
 /// @param registeredAt When it was bound.
 error BeaconInitialOwnerBindingMismatch(bytes value, uint256 registeredAt);
 
-/// @notice This script's declaration on the root line, after the 0G token
-/// creation record, which follows the backfill.
+/// @notice This script's declaration on the root line, after the 0G
+/// orchestrator roles' execution record, which follows their schedule and the
+/// 0G token creation.
 /// @return The declaration.
 function bindBeaconInitialOwnerDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: LibStoxMigrations.BIND_BEACON_INITIAL_OWNER, onto: LibStoxMigrations.CREATE_ZEROG_TOKENS, history: false
+        id: LibStoxMigrations.BIND_BEACON_INITIAL_OWNER,
+        onto: LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES,
+        history: false
     });
 }
 

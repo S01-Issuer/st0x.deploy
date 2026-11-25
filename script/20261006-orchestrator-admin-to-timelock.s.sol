@@ -75,15 +75,19 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// burning and emergency recovery are not delayed. A holder can still
 /// `renounceRole` itself immediately.
 ///
-/// The record is applied onto the beacon-initial-owner bind record, which
-/// follows the 0G token creation record and the migration-registry-v5
-/// backfill record before it, which follows the EMERGENCY grant's, so the
+/// The record is applied onto the beacon-initial-owner bind record. The line
+/// before it is the migration-registry-v5 backfill (which follows the
+/// EMERGENCY grant's record), the 0G token creation record, then the 0G
+/// orchestrator roles schedule and execute records, then the bind. So the
 /// registry refuses it on a chain where that grant has not executed: the Safe
 /// must be granted `EMERGENCY_ROLE` while it can still do so directly. On 0G
 /// (`LibStoxMigrations.withoutHistory`) the backfill writes the EMERGENCY
 /// grant's record record-only, without the grant, so there the line proves
-/// nothing about it. The pre-flight refuses 0G with `ZerogArmPendingDecision`
-/// until the Safe's `EMERGENCY_ROLE` there is decided (see `preflight`).
+/// nothing about it. This bundle has the Safe hand over `DEFAULT_ADMIN_ROLE`,
+/// which on 0G the timelock already holds (the 0G orchestrator roles
+/// schedule's pre-flight requires it), so it is not the 0G path: 0G needs
+/// its own arm of this move (docs/TIMELOCK.md, "Orchestrator roles"), and the
+/// pre-flight refuses 0G with `ZerogArmPendingDecision` until it exists.
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a

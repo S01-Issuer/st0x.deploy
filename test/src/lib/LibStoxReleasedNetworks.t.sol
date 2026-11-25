@@ -10,15 +10,15 @@ import {LibStoxReleasedNetworks, ReleaseNotOnZerogUnknown} from "../../../src/li
 
 /// @title LibStoxReleasedNetworksTest
 /// @notice Every frozen release is required on every deployment network, 0G
-/// included, except the 0.1.1 payment-mint authoriser and the 0.1.30
-/// orchestrator beacon-set deployer, which stay on the networks before 0G.
+/// included, except the 0.1.1 payment-mint authoriser, which stays on the
+/// networks before 0G. The 0.1.30 orchestrator beacon-set deployer is required
+/// on 0G: it is deployed there, its instance claimed for the 0G timelock.
 contract LibStoxReleasedNetworksTest is Test {
     string internal constant PAYMENT_MINT = "stox-offchain-asset-receipt-vault-payment-mint-authorizer@0_1_1";
     string internal constant ORCHESTRATOR_SET_DEPLOYER = "stox-orchestrator-beacon-set-deployer@0_1_30";
 
     function offZerog(string memory suite) internal pure returns (bool) {
-        bytes32 key = keccak256(bytes(suite));
-        return key == keccak256(bytes(PAYMENT_MINT)) || key == keccak256(bytes(ORCHESTRATOR_SET_DEPLOYER));
+        return keccak256(bytes(suite)) == keccak256(bytes(PAYMENT_MINT));
     }
 
     function testOnlyTheReleasesNotOnZerogAreNarrowed() external pure {
@@ -39,7 +39,23 @@ contract LibStoxReleasedNetworksTest is Test {
                 assertEq(released[i].networks[j], before[j], "network");
             }
         }
-        assertEq(narrowed, 2, "two releases off 0G");
+        assertEq(narrowed, 1, "one release off 0G");
+    }
+
+    /// @notice The 0.1.30 orchestrator beacon-set deployer is a release 0G runs.
+    function testTheOrchestratorSetDeployerIsRequiredOnZerog() external pure {
+        DeploySuite[] memory released = LibStoxReleasedNetworks.releasedSuites();
+        string[] memory notOnZerog = LibStoxReleasedNetworks.releasesNotOnZerog();
+        for (uint256 i = 0; i < notOnZerog.length; i++) {
+            assertNotEq(notOnZerog[i], ORCHESTRATOR_SET_DEPLOYER, "not narrowed");
+        }
+        bool found = false;
+        for (uint256 i = 0; i < released.length; i++) {
+            if (keccak256(bytes(released[i].suite)) != keccak256(bytes(ORCHESTRATOR_SET_DEPLOYER))) continue;
+            found = true;
+            assertEq(released[i].networks.length, 0, "required on every deployment network");
+        }
+        assertTrue(found, "released");
     }
 
     /// @notice 0G runs only the audited 0.1.1 and 0.1.30 releases, so every

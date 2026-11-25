@@ -6,6 +6,7 @@ import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum
 import {LibMigrationRegistry} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistry.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
 import {IRegistryDelegatesV3} from "rain-deploy-0.1.38/src/interface/IRegistryDelegatesV3.sol";
+import {LibRegistryDelegates} from "rain-deploy-0.1.38/src/lib/LibRegistryDelegates.sol";
 import {Prerequisite} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
@@ -26,8 +27,8 @@ error NoGovernanceTimelockMigrationOnChain(uint256 chainId);
 /// @param head The line's head.
 error UnexpectedMigrationLine(bytes32 head);
 
-/// @notice The account that would write the record is not an unscoped
-/// delegate of the root authority, so the record would revert.
+/// @notice The registry would not let the account write the root line, so
+/// the record would revert.
 /// @param safe The account.
 error SafeNotApprovedWriter(address safe);
 
@@ -61,9 +62,9 @@ error ZerogCurrentSourceDeployed(address deployed);
 /// those records.
 ///
 /// Every record is on one line: writer `LibRegistryAuthority.ROOT_AUTHORITY`,
-/// namespace `NAMESPACE`. The chain's token-owner Safe, an unscoped delegate
-/// of the root, writes every record, so the line does not depend on which
-/// account performs a migration:
+/// namespace `NAMESPACE`. The chain's token-owner Safe, the root's delegate for
+/// `NAMESPACE` or unscoped, writes every record, so the line does not depend
+/// on which account performs a migration:
 ///
 /// - a migration the Safe performs directly is recorded as the last call of
 ///   the Safe's MultiSend, so the record and the change land atomically;
@@ -174,6 +175,20 @@ library LibStoxMigrations {
     /// Recorded right after the backfill on every chain.
     bytes32 internal constant CREATE_ZEROG_TOKENS = keccak256("script/20261119-create-zerog-tokens.s.sol");
 
+    /// @notice `script/20261123-schedule-zerog-orchestrator-roles.s.sol`: on
+    /// 0G, the Safe schedules the timelock batch that grants the service
+    /// signer `MINT` and `BURN` and the Safe `EMERGENCY` on the orchestrator,
+    /// and the orchestrator `DEPOSIT` and `WITHDRAW` on the US authoriser; the
+    /// record alone elsewhere. Recorded right after the 0G token creation on
+    /// every chain.
+    bytes32 internal constant SCHEDULE_ZEROG_ORCHESTRATOR_ROLES =
+        keccak256("script/20261123-schedule-zerog-orchestrator-roles.s.sol");
+
+    /// @notice `script/20261123-execute-zerog-orchestrator-roles.s.sol`: the
+    /// record, once the 0G batch has executed; the record alone elsewhere.
+    bytes32 internal constant EXECUTE_ZEROG_ORCHESTRATOR_ROLES =
+        keccak256("script/20261123-execute-zerog-orchestrator-roles.s.sol");
+
     /// @notice Every chain with a root line: each deployment network, 0G
     /// included. Every line holds every migration.
     /// @return The networks, in manifest order.
@@ -209,9 +224,9 @@ library LibStoxMigrations {
         return LibMigrationRegistry.onto(LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.onto);
     }
 
-    /// @notice The registry call, sent by the Safe as an unscoped delegate of
-    /// the root, that writes `declared`'s record. Verifies the registry's code
-    /// hash first.
+    /// @notice The registry call, sent by the Safe as the root's delegate for
+    /// `NAMESPACE` or unscoped, that writes `declared`'s record. Verifies the
+    /// registry's code hash first.
     /// @param declared The declaration.
     /// @return The registry.
     /// @return The calldata.
@@ -251,14 +266,19 @@ library LibStoxMigrations {
         if (lineHead != declared.id) revert LineHeadMismatch(lineHead);
     }
 
-    /// @notice Whether `delegate` is an unscoped delegate of the root
-    /// authority. Verifies the registry's code hash first.
+    /// @notice Whether the registry lets `delegate` write the root line: it is
+    /// the root authority, or the root's delegate for `NAMESPACE` or unscoped.
+    /// Verifies the registry's code hash first.
     /// @param delegate The account asked about.
-    /// @return The root's unscoped approval of it.
+    /// @return True when `delegate` may write the root line.
     function approved(address delegate) internal view returns (bool) {
         LibMigrationRegistry.checkCodeHash();
-        return IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS)
-            .approvedUnscopedV5(LibRegistryAuthority.ROOT_AUTHORITY, delegate);
+        return LibRegistryDelegates.approved(
+            IRegistryDelegatesV3(LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS),
+            LibRegistryAuthority.ROOT_AUTHORITY,
+            NAMESPACE,
+            delegate
+        );
     }
 
     /// @notice `recordCall` as history, at `appliedAt`.

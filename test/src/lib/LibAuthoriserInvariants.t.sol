@@ -197,32 +197,22 @@ contract LibAuthoriserInvariantsTest is Test {
         assertEq(grants[at + 1].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "withdraw grantee");
     }
 
-    /// @notice On 0G the map drops the orchestrator's two pairs and keeps every
-    /// other pair in order. On every other chain it is the whole map.
-    function testExpectedGrantsOnDropsTheOrchestratorOnlyOnZerog(uint256 chainId, address safe, address timelock)
+    /// @notice The map without the orchestrator, what 0G's US clone held before the 0G orchestrator roles batch, is
+    /// the map's leading pairs in order: everything but the orchestrator's two.
+    function testExpectedGrantsWithoutOrchestratorDropsOnlyTheOrchestrator(address safe, address timelock)
         external
         pure
     {
         vm.assume(safe != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
         vm.assume(timelock != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
         RoleGrant[] memory all = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-        RoleGrant[] memory zerog =
-            LibAuthoriserInvariants.expectedGrantsOn(LibSafeInvariants.ZEROG_CHAIN_ID, safe, timelock);
-        assertFalse(LibAuthoriserInvariants.grantsOrchestrator(LibSafeInvariants.ZEROG_CHAIN_ID), "not on 0G");
-        assertEq(zerog.length, LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX, "0G length");
-        for (uint256 i = 0; i < zerog.length; i++) {
-            assertEq(zerog[i].role, all[i].role, "role");
-            assertEq(zerog[i].grantee, all[i].grantee, "grantee");
-            assertNotEq(zerog[i].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "no orchestrator");
-        }
-
-        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
-        assertTrue(LibAuthoriserInvariants.grantsOrchestrator(chainId), "elsewhere");
-        RoleGrant[] memory other = LibAuthoriserInvariants.expectedGrantsOn(chainId, safe, timelock);
-        assertEq(other.length, all.length, "whole map elsewhere");
-        for (uint256 i = 0; i < other.length; i++) {
-            assertEq(other[i].role, all[i].role, "role elsewhere");
-            assertEq(other[i].grantee, all[i].grantee, "grantee elsewhere");
+        RoleGrant[] memory without = LibAuthoriserInvariants.expectedGrantsWithoutOrchestrator(safe, timelock);
+        assertEq(without.length, LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX, "length");
+        assertEq(all.length, without.length + 2, "two dropped");
+        for (uint256 i = 0; i < without.length; i++) {
+            assertEq(without[i].role, all[i].role, "role");
+            assertEq(without[i].grantee, all[i].grantee, "grantee");
+            assertNotEq(without[i].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "no orchestrator");
         }
     }
 
@@ -319,11 +309,10 @@ contract LibAuthoriserInvariantsTest is Test {
             uint256 snapshot = vm.snapshotState();
             vm.clearMockedCalls();
             LibLocalProdState.authorisers(vm, chainIds[i]);
-            LibAuthoriserInvariants.assertExpectedGrants(
-                LibAuthoriserInvariants.authoriserForChainId(chainIds[i]),
-                LibSafeInvariants.safeForChainId(chainIds[i]),
-                LibTimelockInvariants.timelockForChainId(chainIds[i])
-            );
+            address authoriser = LibAuthoriserInvariants.authoriserForChainId(chainIds[i]);
+            address safe = LibSafeInvariants.safeForChainId(chainIds[i]);
+            address timelock = LibTimelockInvariants.timelockForChainId(chainIds[i]);
+            LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
             vm.revertToState(snapshot);
         }
     }

@@ -10,8 +10,8 @@ import {DeployPreDeployCheckHarness} from "./DeployPreDeployCheckHarness.sol";
 
 /// @title DeployZerogNetworksTest
 /// @notice A run reaches 0G only for the suites 0G runs: the audited 0.1.1
-/// and 0.1.30 releases but the 0.1.1 payment-mint authoriser and the 0.1.30
-/// orchestrator beacon-set deployer, and the EU and US authoriser clones.
+/// and 0.1.30 releases but the 0.1.1 payment-mint authoriser, and the EU and
+/// US authoriser clones.
 /// Every other release and candidate runs on the other deployment networks.
 contract DeployZerogNetworksTest is Test {
     DeployPreDeployCheckHarness internal harness;
@@ -92,7 +92,7 @@ contract DeployZerogNetworksTest is Test {
         assertBeforeZerog(harness.deployNetworkConfigs(), "payment-mint authoriser release");
 
         harness.setRequestedSuite("stox-orchestrator-beacon-set-deployer@0_1_30");
-        assertBeforeZerog(harness.deployNetworkConfigs(), "orchestrator beacon-set deployer release");
+        assertEveryNetwork(harness.deployNetworkConfigs(), "orchestrator beacon-set deployer release");
 
         harness.setRequestedSuite("not-a-suite");
         assertEveryNetwork(harness.deployNetworkConfigs(), "not-a-suite");
@@ -121,7 +121,7 @@ contract DeployZerogNetworksTest is Test {
     }
 
     function testTheZerogReleasesRunOnZerog() external view {
-        string[14] memory releases = [
+        string[15] memory releases = [
             "stox-corporate-actions-facet@0_1_1",
             "stox-receipt@0_1_1",
             "stox-receipt-vault@0_1_1",
@@ -135,7 +135,8 @@ contract DeployZerogNetworksTest is Test {
             "stox-receipt@0_1_30",
             "stox-receipt-vault@0_1_30",
             "stox-offchain-asset-receipt-vault-beacon-set-deployer@0_1_30",
-            "stox-orchestrator@0_1_30"
+            "stox-orchestrator@0_1_30",
+            "stox-orchestrator-beacon-set-deployer@0_1_30"
         ];
         for (uint256 i = 0; i < releases.length; i++) {
             assertRunsOnEveryNetwork(releases[i]);
@@ -152,12 +153,10 @@ contract DeployZerogNetworksTest is Test {
         assertZerogAlone(harness.deployNetworkConfigsFor("stox-us-assets-authoriser"), "stox-us-assets-authoriser");
     }
 
-    /// @notice The 0.1.1 payment-mint authoriser and the 0.1.30 orchestrator
-    /// beacon-set deployer never run on 0G: the set deployer's permissionless
-    /// first `deploy` would hand anyone the orchestrator's pinned address.
+    /// @notice The 0.1.1 payment-mint authoriser never runs on 0G: no 0G token
+    /// mints through it.
     function testTheReleasesNotOnZerogRunOffZerog() external view {
         assertRunsBeforeZerog("stox-offchain-asset-receipt-vault-payment-mint-authorizer@0_1_1");
-        assertRunsBeforeZerog("stox-orchestrator-beacon-set-deployer@0_1_30");
     }
 
     /// @notice The V4 candidates, the token suites and the orchestrator proxy
