@@ -23,6 +23,8 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {
     BeaconCodehashMismatch,
     BeaconImplementationMismatch,
+    BeaconImplNotDeployed,
+    BeaconNotDeployed,
     BeaconOwnerMismatch
 } from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
@@ -308,6 +310,30 @@ contract DeployTokenBindingsTest is Test {
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
             }
         }
+    }
+
+    function testTokensRefuseAVaultBeaconWithNoCode() external {
+        vm.etch(LibProdTokenParams.vaultBeacon(), "");
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, LibProdTokenParams.vaultBeacon()));
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
+    }
+
+    function testTokensRefuseAVaultBeaconServingAnImplementationWithNoCode() external {
+        vm.etch(LibProdDeployCurrent.STOX_RECEIPT_VAULT, "");
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconImplNotDeployed.selector, LibProdTokenParams.vaultBeacon(), LibProdDeployCurrent.STOX_RECEIPT_VAULT
+            )
+        );
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
     }
 
     function testTokensRefuseOtherReceiptBeacon(address wrong, uint256 usSeed, uint256 euSeed) external {
