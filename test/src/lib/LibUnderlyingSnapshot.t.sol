@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibTestUnderlyingSnapshotRows} from "../../lib/LibTestUnderlyingSnapshotRows.sol";
 import {LibUnderlyingSnapshot} from "../../../src/lib/LibUnderlyingSnapshot.sol";
 import {LibProdTokenConfig, TokenConfig, UNDERLYING_SNAPSHOT_AS_OF} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
@@ -25,14 +26,8 @@ contract LibUnderlyingSnapshotTest is Test {
     }
 
     function deploy(uint256 asOf, UnderlyingSnapshotRow[] memory rows) internal returns (address, uint256) {
-        LibRainDeploy.etchZoltuFactory(vm);
         (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(asOf, rows);
-        for (uint256 i = 0; i < shardCodes.length; i++) {
-            if (LibRainDeploy.zoltuAddress(shardCodes[i]).code.length == 0) LibRainDeploy.deployZoltu(shardCodes[i]);
-        }
-        address root = LibRainDeploy.zoltuAddress(rootCode);
-        if (root.code.length == 0) LibRainDeploy.deployZoltu(rootCode);
-        return (root, shardCodes.length);
+        return (LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes), shardCodes.length);
     }
 
     /// The deployed generated snapshot holds every production token's current
@@ -83,20 +78,6 @@ contract LibUnderlyingSnapshotTest is Test {
         assertEq(row.isin, "", "isin");
     }
 
-    function rowsFrom(bytes32 seed, uint256 n) internal pure returns (UnderlyingSnapshotRow[] memory) {
-        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](n);
-        for (uint256 i = 0; i < n; i++) {
-            bytes32 h = keccak256(abi.encode(seed, i));
-            rows[i] = UnderlyingSnapshotRow(
-                address(uint160(uint256(h))),
-                vm.toString(uint256(uint16(uint256(h)))),
-                string.concat("Name ", vm.toString(h)),
-                vm.toString(uint256(uint40(uint256(h))))
-            );
-        }
-        return rows;
-    }
-
     function assertRoundTrips(uint256 asOf, bytes32 seed, UnderlyingSnapshotRow[] memory rows)
         internal
         returns (uint256)
@@ -116,12 +97,16 @@ contract LibUnderlyingSnapshotTest is Test {
     }
 
     function testBuiltRowsRoundTrip(uint256 asOf, bytes32 seed, uint8 count) external {
-        assertRoundTrips(asOf, seed, rowsFrom(seed, bound(count, 1, 40)));
+        assertRoundTrips(asOf, seed, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 1, 40)));
     }
 
-    /// Too many rows for one shard still read back, from several shards.
+    /// 600 rows read back from 3 shards, the fewest the 256-row cap allows.
     function testManyBuiltRowsRoundTripAcrossShards() external {
         bytes32 seed = keccak256("many rows");
-        assertGt(assertRoundTrips(UNDERLYING_SNAPSHOT_AS_OF, seed, rowsFrom(seed, 600)), 1, "shard count");
+        assertEq(
+            assertRoundTrips(UNDERLYING_SNAPSHOT_AS_OF, seed, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 600)),
+            3,
+            "shard count"
+        );
     }
 }
