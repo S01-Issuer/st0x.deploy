@@ -335,27 +335,27 @@
       "chains": {
         "1": {
           "executedAt": 0,
-          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+          "onto": "0xc0fba8f31245831dc4dfb184c901beddc595ed9eceba437c54e8e4a33e4f56c2"
         },
         "16661": {
           "executedAt": 0,
-          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+          "onto": "0xc0fba8f31245831dc4dfb184c901beddc595ed9eceba437c54e8e4a33e4f56c2"
         },
         "4663": {
           "executedAt": 0,
-          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+          "onto": "0xc0fba8f31245831dc4dfb184c901beddc595ed9eceba437c54e8e4a33e4f56c2"
         },
         "56": {
           "executedAt": 0,
-          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+          "onto": "0xc0fba8f31245831dc4dfb184c901beddc595ed9eceba437c54e8e4a33e4f56c2"
         },
         "8453": {
           "executedAt": 0,
-          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+          "onto": "0xc0fba8f31245831dc4dfb184c901beddc595ed9eceba437c54e8e4a33e4f56c2"
         },
         "999": {
           "executedAt": 0,
-          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+          "onto": "0xc0fba8f31245831dc4dfb184c901beddc595ed9eceba437c54e8e4a33e4f56c2"
         }
       },
       "id": "0x5fbef4067513a5c39a8d35b370b8919bbdefd2388f5fd2bfbfbf8f5b2ea2bff6",
@@ -570,6 +570,66 @@
       },
       "id": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f",
       "script": "script/20261119-create-zerog-tokens.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0xd0116b2b7c586191807fe957ae044549c829f1722aeda499735e07cb51eb232f"
+        },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0xd0116b2b7c586191807fe957ae044549c829f1722aeda499735e07cb51eb232f"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0xd0116b2b7c586191807fe957ae044549c829f1722aeda499735e07cb51eb232f"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0xd0116b2b7c586191807fe957ae044549c829f1722aeda499735e07cb51eb232f"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0xd0116b2b7c586191807fe957ae044549c829f1722aeda499735e07cb51eb232f"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0xd0116b2b7c586191807fe957ae044549c829f1722aeda499735e07cb51eb232f"
+        }
+      },
+      "id": "0xc0fba8f31245831dc4dfb184c901beddc595ed9eceba437c54e8e4a33e4f56c2",
+      "script": "script/20261123-execute-zerog-orchestrator-roles.s.sol"
+    },
+    {
+      "chains": {
+        "1": {
+          "executedAt": 0,
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+        },
+        "16661": {
+          "executedAt": 0,
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+        },
+        "4663": {
+          "executedAt": 0,
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+        },
+        "56": {
+          "executedAt": 0,
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+        },
+        "8453": {
+          "executedAt": 0,
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+        },
+        "999": {
+          "executedAt": 0,
+          "onto": "0x5870a2bb2eb234a432c205e098d54a99b4f4f7592752e4345c60b0ad95e8873f"
+        }
+      },
+      "id": "0xd0116b2b7c586191807fe957ae044549c829f1722aeda499735e07cb51eb232f",
+      "script": "script/20261123-schedule-zerog-orchestrator-roles.s.sol"
     }
   ],
   "namespace": "0xd9cec8396b568ba46ea521970e5edeac9163854e75287e989c213c3e9e84bda4",
