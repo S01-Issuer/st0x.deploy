@@ -40,8 +40,10 @@ error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 /// `DEPLOYMENT_SUITE` names to every network it is declared on. Before each
 /// network it refuses unless every registry binding the suite's construction or
 /// initialisation resolves is bound to this repo's pin for that chain (an
-/// unbound name reverts in the registry), and, for beacon and token suites,
-/// unless the governance timelock that owns them is in its pinned state.
+/// unbound name reverts in the registry), and, for beacon, token and wrapper
+/// suites, unless the governance timelock that owns them is in its pinned
+/// state, and, for token and wrapper suites, unless each bound beacon is owned
+/// by the governance timelock and serves its pinned implementation and code.
 contract Deploy is StoxDeploySuites, RainDeployBroadcast {
     /// @notice `StoxDeploySuites.declaration`, with the run's networks narrowed
     /// to those the suite `requestedSuite` names is declared on. A run
