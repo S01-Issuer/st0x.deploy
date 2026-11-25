@@ -86,8 +86,7 @@ contract BuildPrivilegedAddressesTest is Test {
         }
     }
 
-    /// The rows are the chain's in-use beacons: all four, or the three token beacons on a chain that runs no
-    /// orchestrator (0G).
+    /// The rows are the chain's four in-use beacons.
     function testBeaconsAreTheChainsProductionSet() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -101,7 +100,7 @@ contract BuildPrivilegedAddressesTest is Test {
             address[4] memory pinned = LibBeaconInvariants.prodPinnedBeaconsForChainId(id);
             address[4] memory implementations = LibBeaconInvariants.prodImplementationsForChainId(id);
             address[4] memory v1 = LibBeaconInvariants.prodV1ImplementationsForChainId(id);
-            uint256 inUse = LibAuthoriserInvariants.grantsOrchestrator(id) ? 4 : 3;
+            uint256 inUse = 4;
             string memory list = string.concat(at, ".beacons");
             assertFalse(vm.keyExistsJson(json, index(list, inUse)));
             for (uint256 i = 0; i < inUse; i++) {

@@ -23,6 +23,9 @@ import {
 } from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
+import {
+    IST0xOrchestratorBeaconSetDeployerV1
+} from "../../src/interface/deprecated/IST0xOrchestratorBeaconSetDeployerV1.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../../src/lib/LibBeaconInvariants.sol";
 import {EU_AUTHORISER_SALT} from "../../src/lib/LibEuAuthoriserClone.sol";
@@ -39,9 +42,10 @@ import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5H
 /// @title ZerogTokenCreationFixture
 /// @notice 0G at a pinned block, where none of this exists yet, brought to the state the token creation runs against:
 /// the released 0.1.1 and 0.1.30 suites through the live Zoltu factory, the token-owner Safe from the live v1.4.1
-/// factory at its pinned address with the policy threshold, its timelock, the beacons repointed and handed to it as
-/// rainlang.eth would, the US and EU authoriser clones at their 0G pins with the role maps `LibIdealRoles` expects and
-/// the timelock as admin, and a `MigrationRegistry` whose root approves the Safe, with 0G's root line still empty.
+/// factory at its pinned address with the policy threshold, its timelock, the orchestrator claimed for it, the beacons
+/// repointed and handed to it as rainlang.eth would, the US and EU authoriser clones at their 0G pins with the role maps
+/// `LibIdealRoles` expects, less the US clone's orchestrator pairs, and the timelock as admin, and a
+/// `MigrationRegistry` whose root approves the Safe, with 0G's root line still empty.
 abstract contract ZerogTokenCreationFixture is Test {
     uint256 internal constant ZEROG_BLOCK = 50746000;
 
@@ -58,6 +62,9 @@ abstract contract ZerogTokenCreationFixture is Test {
         deployReleased("stox-corporate-actions-facet@0_1_30");
         deployReleased("stox-receipt@0_1_30");
         deployReleased("stox-receipt-vault@0_1_30");
+        // Before the orchestrator, which lists it as a dependency: through the live Zoltu factory, as on 0G, so its
+        // constructor creates its beacons rather than the dependency etch skipping them.
+        deployReleased("stox-offchain-asset-receipt-vault-beacon-set-deployer@0_1_30");
         deployReleased("stox-orchestrator@0_1_30");
         deployReleased("stox-offchain-asset-receipt-vault-authorizer@0_1_1");
 
@@ -75,6 +82,7 @@ abstract contract ZerogTokenCreationFixture is Test {
 
         address timelock = LibRainDeploy.deployZoltu(LibTimelockInvariants.timelockInitCode(safe));
         assertEq(timelock, LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK_ZEROG, "timelock at its pinned address");
+        claimOrchestratorFor(timelock);
         handBeaconsTo(timelock);
         buildAuthorisers(safe, timelock);
 
@@ -82,9 +90,19 @@ abstract contract ZerogTokenCreationFixture is Test {
         LibTestRootLine.approve(vm, safe);
     }
 
+    /// @notice Deploys the 0.1.30 orchestrator beacon-set deployer and makes its first `deploy` with the timelock as
+    /// admin, as 0G transaction 0x5d7b34d5f54c46ed036ec4959de1736f15af1b2b351f3dfc08f80bb1fcafc60c does in one call.
+    /// @param timelock The 0G timelock.
+    function claimOrchestratorFor(address timelock) internal {
+        deployReleased("stox-orchestrator-beacon-set-deployer@0_1_30");
+        address instance = IST0xOrchestratorBeaconSetDeployerV1(
+                LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30
+            ).deploy(timelock);
+        assertEq(instance, LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE, "orchestrator at its pinned address");
+    }
+
     /// @notice What rainlang.eth signs on 0G before any token exists: the receipt and receipt-vault beacons onto
-    /// 0.1.30, then the three in-use beacons to the timelock. 0G has no orchestrator beacon: its set deployer is not
-    /// deployed there (`LibStoxReleasedNetworks.releasesNotOnZerog`).
+    /// 0.1.30, then the four in-use beacons to the timelock.
     /// @param timelock The 0G timelock.
     function handBeaconsTo(address timelock) internal {
         address[4] memory beacons = LibBeaconInvariants.prodBeaconsForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
@@ -93,7 +111,7 @@ abstract contract ZerogTokenCreationFixture is Test {
             .upgradeTo(LibProdDeployV4.STOX_RECEIPT_0_1_30);
         UpgradeableBeacon(beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX])
             .upgradeTo(LibProdDeployV4.STOX_RECEIPT_VAULT_0_1_30);
-        for (uint256 i = 0; i < LibBeaconInvariants.prodBeaconsInUse(LibSafeInvariants.ZEROG_CHAIN_ID); i++) {
+        for (uint256 i = 0; i < beacons.length; i++) {
             Ownable(beacons[i]).transferOwnership(timelock);
         }
         vm.stopPrank();
@@ -119,9 +137,7 @@ abstract contract ZerogTokenCreationFixture is Test {
             ICloneableFactoryV4(CLONE_FACTORY_0_1_15).cloneDeterministicOpenSalt(impl, data, EU_AUTHORISER_SALT);
         assertEq(eu, LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.ZEROG_CHAIN_ID), "EU clone pin");
 
-        grantAndRenounce(
-            us, LibAuthoriserInvariants.expectedGrantsOn(LibSafeInvariants.ZEROG_CHAIN_ID, safe, timelock), safe
-        );
+        grantAndRenounce(us, LibAuthoriserInvariants.expectedGrantsWithoutOrchestrator(safe, timelock), safe);
         grantAndRenounce(
             eu,
             LibAuthoriserInvariants.expectedEuGrants(
