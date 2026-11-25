@@ -52,12 +52,3 @@ bytes constant OPERAND_HANDLER_FUNCTION_POINTERS =
 /// jumps as the possibilities are limited compared to the number of words we
 /// have.
 bytes constant LITERAL_PARSER_FUNCTION_POINTERS = hex"";
-
-/// @dev The function pointers known to the interpreter for dynamic dispatch.
-/// By setting these as a constant they can be inlined into the interpreter
-/// and loaded at eval time for very low gas (~100) due to the compiler
-/// optimising it to a single `codecopy` to build the in memory bytes array.
-bytes constant OPCODE_FUNCTION_POINTERS = hex"05c0";
-
-/// @dev The function pointers for the integrity check fns.
-bytes constant INTEGRITY_FUNCTION_POINTERS = hex"06fc";

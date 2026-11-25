@@ -40,9 +40,10 @@ import {
 /// grid in `LibSt0xAttestContext`, and `underlying-symbol`, an extern call
 /// back into this contract that reads a token at eval.
 ///
-/// Every table the base contract dispatches on is a constant from
-/// `src/generated/St0xAttestSubParserPointers.sol`, which
-/// `script/Build.sol` regenerates from the `build*` functions below.
+/// The parse meta, word parser and operand handler tables are constants from
+/// `src/generated/St0xAttestSubParserPointers.sol`, which `script/Build.sol`
+/// regenerates from the `build*` functions below. The extern opcode and
+/// integrity tables are built at call time from function references.
 contract St0xAttestSubParser is BaseRainlangSubParser, BaseRainlangExtern {
     /// @inheritdoc IDescribedByMetaV1
     function describedByMetaV1() external pure returns (bytes32) {

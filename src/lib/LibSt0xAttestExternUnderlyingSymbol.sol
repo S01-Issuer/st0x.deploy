@@ -8,7 +8,7 @@ import {LibSubParse} from "rainlang-0.2.41/src/lib/parse/LibSubParse.sol";
 import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.5/src/lib/LibIntOrAString.sol";
 
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
-import {UnderlyingSymbolEmpty, UnderlyingSymbolTooLong} from "../error/ErrSt0xAttest.sol";
+import {UnderlyingSymbolEmpty, UnderlyingSymbolTooLong, UnderlyingSymbolNotAnAddress} from "../error/ErrSt0xAttest.sol";
 
 /// @dev Index of `underlying-symbol` in the extern opcode table.
 uint256 constant EXTERN_OP_UNDERLYING_SYMBOL = 0;
@@ -19,7 +19,9 @@ uint256 constant EXTERN_OP_UNDERLYING_SYMBOL = 0;
 library LibSt0xAttestExternUnderlyingSymbol {
     //slither-disable-next-line dead-code
     function run(OperandV2, StackItem[] memory inputs) internal view returns (StackItem[] memory) {
-        address token = address(uint160(uint256(StackItem.unwrap(inputs[0]))));
+        bytes32 input = StackItem.unwrap(inputs[0]);
+        if (uint256(input) >> 160 != 0) revert UnderlyingSymbolNotAnAddress(input);
+        address token = address(uint160(uint256(input)));
         string memory symbol = IStoxUnderlyingV1(token).underlyingSymbol();
         if (bytes(symbol).length == 0) revert UnderlyingSymbolEmpty(token);
         // `fromStringV3` keeps the length mod 32, so a longer ticker would alias a shorter one.

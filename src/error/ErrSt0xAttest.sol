@@ -12,3 +12,9 @@ error UnderlyingSymbolEmpty(address token);
 /// @param token The token read.
 /// @param length The ticker's length in bytes.
 error UnderlyingSymbolTooLong(address token, uint256 length);
+
+/// @notice `underlying-symbol` input has bits set above the low 160, so it is
+/// not an address. Refused rather than truncated, since the truncation is
+/// another address.
+/// @param input The input as given.
+error UnderlyingSymbolNotAnAddress(bytes32 input);
