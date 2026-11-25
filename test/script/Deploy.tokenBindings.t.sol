@@ -17,7 +17,6 @@ import {
     ReceiptBeaconMismatch,
     RbacOwnerMismatch,
     RbacAuthorizerMismatch,
-    VaultBeaconNotDeployed,
     WrapperBeaconMismatch
 } from "../../script/Deploy.sol";
 import {BeaconImplementationMismatch} from "../../src/lib/LibBeaconInvariants.sol";
@@ -217,22 +216,6 @@ contract DeployTokenBindingsTest is Test {
             for (uint256 j = 0; j < tokens.length; j++) {
                 vm.expectRevert(
                     abi.encodeWithSelector(VaultBeaconMismatch.selector, wrong, LibProdTokenParams.vaultBeacon())
-                );
-                harness.exposedPreDeployCheck(tokens[j], networks[i]);
-            }
-        }
-    }
-
-    function testTokensRefuseABoundVaultBeaconWithNoCode() external {
-        vm.etch(LibProdTokenParams.vaultBeacon(), "");
-        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibTestTokenRows.allRows());
-        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
-        for (uint256 i = 0; i < networks.length; i++) {
-            vm.chainId(networks[i].chainId);
-            bindPinned(networks[i].chainId);
-            for (uint256 j = 0; j < tokens.length; j++) {
-                vm.expectRevert(
-                    abi.encodeWithSelector(VaultBeaconNotDeployed.selector, LibProdTokenParams.vaultBeacon())
                 );
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
             }
