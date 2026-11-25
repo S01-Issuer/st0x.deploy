@@ -253,8 +253,8 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(block.chainid);
         if (block.chainid != LibSafeInvariants.BASE_CHAIN_ID) return table;
         TokenInstance[] memory chainTokens = new TokenInstance[](table.length + 1);
-        for (uint256 i = 0; i < table.length; i++) {
-            chainTokens[i] = table[i];
+        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
+            chainTokens[tokenIndex] = table[tokenIndex];
         }
         chainTokens[table.length] = TokenInstance({
             underlying: "QSEP",
