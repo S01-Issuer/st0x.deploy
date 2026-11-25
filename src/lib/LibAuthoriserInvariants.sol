@@ -58,12 +58,13 @@ error EuAuthoriserNotReady(address clone);
 /// and `LibTokenInvariants`; individually callable via `assertAll()` for
 /// the focused authoriser drift detector.
 library LibAuthoriserInvariants {
-    /// @notice A chain's V4 authoriser clone pin, raw: `address(0)` while the
-    /// slot is a placeholder. Reverts for a chain without a slot rather than
-    /// falling back to another chain's clone. The one chain-to-clone table;
-    /// the deploy script and every invariant read it.
+    /// @notice A chain's V4 authoriser clone pin, raw. Every slot holds its
+    /// chain's pinned clone; a future chain may hold `address(0)` as a
+    /// placeholder until its clone lands. Reverts for a chain without a slot
+    /// rather than falling back to another chain's clone. The one
+    /// chain-to-clone table; the deploy script and every invariant read it.
     /// @param chainId The chain id.
-    /// @return The pinned clone, or zero for a placeholder slot.
+    /// @return The chain's pinned clone.
     function authoriserForChainId(uint256 chainId) internal pure returns (address) {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
@@ -79,6 +80,9 @@ library LibAuthoriserInvariants {
         }
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
             return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC;
+        }
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG;
         }
         revert UnsupportedChainForAuthoriser(chainId);
     }
@@ -102,6 +106,12 @@ library LibAuthoriserInvariants {
     /// @notice The EU assets authoriser clone on BNB Smart Chain.
     address internal constant STOX_EU_AUTHORISER_CLONE_BSC = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
 
+    /// @notice The EU assets authoriser clone on 0G. The 0G Safe is the
+    /// Ethereum Safe's address, and the open salt covers only the
+    /// implementation and that Safe, so the clone lands at the Ethereum
+    /// address.
+    address internal constant STOX_EU_AUTHORISER_CLONE_ZEROG = STOX_EU_AUTHORISER_CLONE_ETHEREUM;
+
     /// @notice A chain's EU assets authoriser clone pin. Reverts for a chain
     /// without a slot rather than falling back to another chain's clone.
     /// @param chainId The chain id.
@@ -121,6 +131,9 @@ library LibAuthoriserInvariants {
         }
         if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
             return STOX_EU_AUTHORISER_CLONE_BSC;
+        }
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return STOX_EU_AUTHORISER_CLONE_ZEROG;
         }
         revert UnsupportedChainForAuthoriser(chainId);
     }
@@ -153,16 +166,35 @@ library LibAuthoriserInvariants {
     /// every invariant and script reads. Aliases the V4 clone pinned in
     /// `LibProdDeployV4` (the generated deploy lib is the single source
     /// for the address; this constant is the semantic name "current
-    /// authoriser"). Every production receipt vault's `authorizer()` must
-    /// return this address — an expectation that goes green when the
-    /// `20260623` swap bundle executes on Base.
+    /// authoriser"). Every US `productionTokensBase()` vault's
+    /// `authorizer()` must return this address (EU rows use
+    /// `euAuthoriserForChainId`) — an expectation that goes green when the
+    /// `20260623` swap bundle executes on Base. The tQSEP vault
+    /// (`LibTokenInvariants.QSEP_RECEIPT_VAULT`), outside that table, is
+    /// expected here too, once the token-owner Safe, its owner, calls
+    /// `setAuthorizer(STOX_PROD_AUTHORISER)` on it. Every grant tQSEP needs
+    /// is already in `expectedGrants()`, which is not per-vault.
     /// https://basescan.org/address/0x315b16faa6ee413fabca877d3851b3818369f0cd
     address internal constant STOX_PROD_AUTHORISER = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
 
-    /// @notice The V3-era production authoriser clone on Base. No production
-    /// vault's `authorizer()` returns it.
+    /// @notice The V3-era production authoriser clone on Base. No
+    /// `productionTokensBase()` vault's `authorizer()` returns it. The tQSEP
+    /// vault still does until its `setAuthorizer` to `STOX_PROD_AUTHORISER`
+    /// executes; after that no vault the repo knows of uses it. Nothing here
+    /// enumerates every vault that points at it. Its role state is not part
+    /// of the expected state: its `_ADMIN` roles are on the token-owner Safe,
+    /// and the retired signer `V3_RETIRED_SIGNER_1C66` holds DEPOSIT, WITHDRAW
+    /// and CERTIFY on it until the `20261111-qsep-set-fleet-authoriser` bundle
+    /// revokes them in the same Safe transaction as the tQSEP swap. Those
+    /// grants act on any unknown vault that points at this clone, so the
+    /// revoke is not a no-op.
     /// https://basescan.org/address/0x35f9fa9d80aaf2b0fb27f0ff015641b3408d7456
     address internal constant STOX_PROD_AUTHORISER_V3_CLONE = address(0x35f9fA9d80aAF2B0fB27f0FF015641B3408d7456);
+
+    /// @notice The retired Fireblocks signer. The token-owner Safe granted it
+    /// DEPOSIT, WITHDRAW and CERTIFY on `STOX_PROD_AUTHORISER_V3_CLONE` (Safe
+    /// nonces 434 to 436); it holds no role on the fleet authoriser.
+    address internal constant V3_RETIRED_SIGNER_1C66 = 0x1c66D6708914C40239D54919320b4C48cAE3D1A9;
 
     /// @notice The number of `_ADMIN` roles in the grant map — its LEADING
     /// slice, so `expectedGrants(...)[0..ADMIN_ROLE_COUNT)` are exactly the
@@ -182,9 +214,10 @@ library LibAuthoriserInvariants {
     address internal constant GRANTEE_SERVICE_3D0C = 0x3d0CD66EFA66c05d86c3d4316B03eAE87ab9E8aE;
 
     /// @notice The production orchestrator instance, granted `DEPOSIT` and
-    /// `WITHDRAW` on each chain's authoriser by
-    /// `20260831-enable-orchestrator-roles` so the service signer can mint
-    /// and burn through it. Same address on every chain.
+    /// `WITHDRAW` on each chain's authoriser so the service signer can mint
+    /// and burn through it: by `20260831-enable-orchestrator-roles` on the
+    /// chains before 0G, by the `20261123-schedule-zerog-orchestrator-roles`
+    /// timelock batch on 0G. Same address on every chain.
     address internal constant GRANTEE_ORCHESTRATOR = LibProdDeployV4.ST0X_ORCHESTRATOR_INSTANCE;
 
     /// @notice The minter for the EU assets authoriser, holding `DEPOSIT` and
@@ -238,9 +271,31 @@ library LibAuthoriserInvariants {
         grants[9] = RoleGrant(keccak256("CERTIFY"), tokenOwnerSafe);
 
         grants[10] = RoleGrant(keccak256("CERTIFY"), GRANTEE_SERVICE_3D0C);
-        grants[11] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
-        grants[12] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
+        grants[ORCHESTRATOR_GRANT_INDEX] = RoleGrant(keccak256("DEPOSIT"), GRANTEE_ORCHESTRATOR);
+        grants[ORCHESTRATOR_GRANT_INDEX + 1] = RoleGrant(keccak256("WITHDRAW"), GRANTEE_ORCHESTRATOR);
         return grants;
+    }
+
+    /// @notice Where the orchestrator's two pairs start in `expectedGrants`. They are its last two.
+    uint256 internal constant ORCHESTRATOR_GRANT_INDEX = 11;
+
+    /// @notice `expectedGrants(tokenOwnerSafe, adminHolder)` without the orchestrator's two pairs, its last two: the
+    /// map 0G's US authoriser held from its creation (`20261119-create-zerog-tokens`) until the 0G orchestrator roles
+    /// batch (`20261123-schedule-zerog-orchestrator-roles`) grants the orchestrator `DEPOSIT` and `WITHDRAW`.
+    /// @param tokenOwnerSafe The chain's token-owner Safe.
+    /// @param adminHolder The holder of the seven `_ADMIN` roles.
+    /// @return The `(role, grantee)` pairs before the orchestrator's.
+    function expectedGrantsWithoutOrchestrator(address tokenOwnerSafe, address adminHolder)
+        internal
+        pure
+        returns (RoleGrant[] memory)
+    {
+        RoleGrant[] memory grants = expectedGrants(tokenOwnerSafe, adminHolder);
+        RoleGrant[] memory withoutOrchestrator = new RoleGrant[](ORCHESTRATOR_GRANT_INDEX);
+        for (uint256 grantIndex = 0; grantIndex < ORCHESTRATOR_GRANT_INDEX; grantIndex++) {
+            withoutOrchestrator[grantIndex] = grants[grantIndex];
+        }
+        return withoutOrchestrator;
     }
 
     /// @notice A region's authoriser map: every `_ADMIN` on the admin holder
@@ -338,8 +393,9 @@ library LibAuthoriserInvariants {
     /// `expectedGrants()` map holds. Pre-flight at the start of every
     /// migration script and prod-state fork test; if this passes silently
     /// the production authoriser is in its expected state.
-    /// @dev No-arg; composed into `LibInvariants.assertAll`. The retired
-    /// V3 clone is deliberately NOT asserted — nothing references it.
+    /// @dev No-arg; composed into `LibInvariants.assertAll`. The V3 clone
+    /// is deliberately NOT asserted: once tQSEP's `setAuthorizer` executes,
+    /// no vault the repo knows of reads it.
     function assertAll() internal view {
         bytes32 expected = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH;
         bytes32 actual = STOX_PROD_AUTHORISER.codehash;

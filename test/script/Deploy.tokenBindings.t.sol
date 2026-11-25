@@ -3,15 +3,15 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeploySuite} from "rain-deploy-0.1.30/src/abstract/RainDeploySuitesBase.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.30/src/interface/IConfigRegistryV5.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.30/src/lib/LibRegistryAuthority.sol";
-import {IAuthorizeV1} from "rain-vats-0.2.20/src/interface/IAuthorizeV1.sol";
+import {DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
     OFFCHAIN_ASSET_RECEIPT_VAULT_RBAC_V1_VALUE_TYPE
-} from "rain-vats-0.2.20/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
+} from "rain-vats-0.2.25/src/lib/LibOffchainAssetReceiptVaultRbac.sol";
 import {
     VaultBeaconMismatch,
     ReceiptBeaconMismatch,
@@ -20,14 +20,15 @@ import {
     WrapperBeaconMismatch
 } from "../../script/Deploy.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
-import {LibTimelockController} from "rain-deploy-0.1.30/src/lib/LibTimelockController.sol";
-import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
+import {LibTimelockController} from "rain-deploy-0.1.38/src/lib/LibTimelockController.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
-import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibProdTokenConfig, Region, TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
+import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
+import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {
     BeaconCodehashMismatch,
     BeaconImplementationMismatch,
@@ -202,6 +203,28 @@ contract DeployTokenBindingsTest is Test {
             }
         }
         return sample;
+    }
+
+    /// A US token on 0G is checked against the pinned 0G clone, so an RBAC
+    /// binding of the zero address is refused as a mismatch with the pin.
+    function testUsTokenOnZerogRefusesAZeroAuthoriserBinding() external {
+        TokenConfig[] memory us = new TokenConfig[](1);
+        us[0] = oneRowPerRegion(0, 0)[0];
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(us);
+        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        bindPinnedBeacons();
+        bindRbac(LibStoxConfig.RBAC_US_NAME, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, address(0));
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                RbacAuthorizerMismatch.selector,
+                LibStoxConfig.RBAC_US_NAME,
+                address(0),
+                LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ZEROG_CHAIN_ID)
+            )
+        );
+        harness.exposedPreDeployCheck(
+            tokens[0], SupportedNetwork(LibStoxDeployNetworks.ZEROG, LibSafeInvariants.ZEROG_CHAIN_ID, "", "")
+        );
     }
 
     function testTokensRefuseOtherVaultBeacon(address wrong, uint256 usSeed, uint256 euSeed) external {
@@ -504,8 +527,7 @@ contract DeployTokenBindingsTest is Test {
         harness.exposedPreDeployCheck(wrappers[0], networks[0]);
     }
 
-    /// The token's address commits to the beacon name, not the implementation, so a pinned beacon serving any
-    /// implementation but the current receipt vault, which carries the asset id hook, is refused.
+    /// A pinned vault beacon serving any implementation but the current receipt vault is refused.
     function testTokensRefuseVaultBeaconServingOtherImplementation(
         address implementation,
         uint256 usSeed,
@@ -698,21 +720,6 @@ contract DeployTokenBindingsTest is Test {
                 vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, LibProdTokenParams.vaultBeacon()));
                 harness.exposedPreDeployCheck(tokens[j], networks[i]);
             }
-        }
-    }
-
-    /// A production row without an asset id has no token suite, so its key matches no token check: with nothing
-    /// bound, the check passes instead of reverting on an unbound name.
-    function testRowsWithoutAssetIdMatchNoTokenCheck() external view {
-        TokenConfig[] memory production = LibProdTokenConfig.productionTokenConfigs();
-        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
-        for (uint256 j = 0; j < production.length; j++) {
-            if (bytes(production[j].assetId).length != 0) {
-                continue;
-            }
-            DeploySuite memory suite;
-            suite.suite = string.concat("stox-token-", vm.toLowercase(production[j].symbol));
-            harness.exposedPreDeployCheck(suite, networks[0]);
         }
     }
 }

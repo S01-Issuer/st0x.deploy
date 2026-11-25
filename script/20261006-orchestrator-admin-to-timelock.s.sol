@@ -7,9 +7,9 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.30/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 
 import {ST0xOrchestrator} from "../src/concrete/ST0xOrchestrator.sol";
 import {LibOrchestratorInvariants} from "../src/lib/LibOrchestratorInvariants.sol";
@@ -75,11 +75,18 @@ function orchestratorAdminToTimelockDeclaration() pure returns (ScriptDeclaratio
 /// burning and emergency recovery are not delayed. A holder can still
 /// `renounceRole` itself immediately.
 ///
-/// The record is applied onto the beacon-initial-owner bind record, which
-/// follows the migration-registry-v5 backfill record, which follows the
-/// EMERGENCY grant's, so the registry refuses it on a chain where
-/// that grant has not executed: the Safe must be granted `EMERGENCY_ROLE` while
-/// it can still do so directly.
+/// The record is applied onto the beacon-initial-owner bind record. The line
+/// before it is the migration-registry-v5 backfill (which follows the
+/// EMERGENCY grant's record), the 0G token creation record, then the 0G
+/// orchestrator roles schedule and execute records, then the bind. So the
+/// registry refuses it on a chain where that grant has not executed: the Safe
+/// must be granted `EMERGENCY_ROLE` while it can still do so directly. On 0G
+/// (`LibStoxMigrations.withoutHistory`) the backfill writes the EMERGENCY
+/// grant's record record-only, without the grant, so there the line proves
+/// nothing about it. This bundle has the Safe hand over `DEFAULT_ADMIN_ROLE`,
+/// which on 0G the timelock already holds (the 0G orchestrator roles
+/// schedule's pre-flight requires it), so it is not the 0G path: 0G needs
+/// its own arm of this move (docs/TIMELOCK.md, "Orchestrator roles").
 ///
 /// **Before signing: cancel any timelock operation already scheduled against
 /// the orchestrator.** `schedule` does not run the inner call, so a

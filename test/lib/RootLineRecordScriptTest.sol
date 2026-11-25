@@ -5,9 +5,9 @@ pragma solidity ^0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.30/src/interface/IMigrationRegistryV5.sol";
-import {SafeTx} from "rain-deploy-0.1.30/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.30/src/lib/LibSafeFork.sol";
+import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 
 import {IStoxScript, ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
@@ -88,22 +88,15 @@ abstract contract RootLineRecordScriptTest is Test {
         executeBundlePrefix(sScript.callAuthorBundle().length);
     }
 
-    /// @dev What the pre-flight raises with its own record at the head; empty when it passes there (a reschedule).
     function ownRecordPreflightRefusal() internal pure virtual returns (bytes memory) {
         return abi.encodeWithSelector(UnexpectedMigrationLine.selector, declaredId());
-    }
-
-    /// @dev Whether the post-state accepts its record from an earlier block, the state a reschedule leaves.
-    function acceptsAnEarlierRecord() internal pure virtual returns (bool) {
-        return false;
     }
 
     function assumeUnrecorded(bytes32 record) internal view {
         vm.assume(record != bytes32(0) && record != MIGRATION_HEAD_GENESIS && LibStoxMigrations.applied(record) == 0);
     }
 
-    /// @dev A record the post-state refuses at the head over its own record.
-    function assumeForeign(bytes32 record) internal view virtual {
+    function assumeForeign(bytes32 record) internal view {
         assumeUnrecorded(record);
         vm.assume(record != declaredId());
     }
@@ -126,7 +119,7 @@ abstract contract RootLineRecordScriptTest is Test {
     function assertPreflightRefusesTheLineMovedTo(bytes32 next, bytes memory refusal) internal {
         sScript.callPreflight();
         LibTestRootLine.write(vm, safeAddress(), next, declaredOnto());
-        if (refusal.length != 0) vm.expectRevert(refusal);
+        vm.expectRevert(refusal);
         sScript.callPreflight();
     }
 
@@ -180,9 +173,7 @@ abstract contract RootLineRecordScriptTest is Test {
         uint256 recorded = block.timestamp;
         vm.warp(recorded + later);
         restampAtThisMoment();
-        if (!acceptsAnEarlierRecord()) {
-            vm.expectRevert(abi.encodeWithSelector(RecordMismatch.selector, declaredId(), recorded + later, recorded));
-        }
+        vm.expectRevert(abi.encodeWithSelector(RecordMismatch.selector, declaredId(), recorded + later, recorded));
         sScript.callAssertPostState();
     }
 

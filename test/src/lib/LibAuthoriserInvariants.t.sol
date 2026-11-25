@@ -16,36 +16,17 @@ import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibAuthoriserInvariantsHarness} from "./LibAuthoriserInvariantsHarness.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.30/src/lib/LibRainDeploy.sol";
-import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.8/src/generated/0_1_1/CloneFactory.sol";
+import {LibUsAuthoriserClone} from "../../../src/lib/LibUsAuthoriserClone.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_1} from "rain-factory-deploy-0.2.14/src/generated/0_1_1/CloneFactory.sol";
 
 /// @title LibAuthoriserInvariantsTest
-/// @notice Fork tests pinning the production V4 authoriser clone's state
-/// against the constants in `LibAuthoriserInvariants`. The positive case
-/// runs the lib's no-arg `assertAll()`, which checks the clone's codehash
-/// against the `LibProdDeployV4` pin and iterates the master
-/// `expectedGrants()` map against the live clone. Any drift (a grant
-/// missing on-chain, or the clone's bytecode changing) surfaces as a typed
-/// error here.
-/// @dev Uses unpinned head forks of each production chain (same precedent
-/// as the other prod-state drift detectors in this repo). Pinning would freeze the
-/// invariant assertions against a stale snapshot and let new drift slip
-/// through unnoticed.
+/// @notice The authoriser pins, the chain-to-clone tables, the expected-grant
+/// maps, and each `LibAuthoriserInvariants` assertion tripped by a mocked or
+/// etched drift.
 contract LibAuthoriserInvariantsTest is Test {
-    /// @notice Selects the Base fork at chain head — deliberately unpinned.
-    /// Live drift detector; see contract-level rationale.
-    function selectBaseFork() internal {
-        vm.createSelectFork(LibRainDeploy.BASE);
-    }
-
-    /// @notice The production V4 clone pinned in `LibProdDeployV4` holds
-    /// every `expectedGrants()` pair and its codehash matches the pin.
-    /// Passes against the live chain state.
-    function testAssertAllPasses() external {
-        selectBaseFork();
-        LibAuthoriserInvariants.assertAll();
-    }
-
     /// @notice The four factory-derived clone pins are the first CREATE from
     /// the canonical CloneFactory (nonce 1) on each chain, re-derived here so a
     /// mistyped literal fails fork-free. Base's clone came from a factory with
@@ -57,6 +38,16 @@ contract LibAuthoriserInvariantsTest is Test {
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD, derived, "robinhood");
         assertEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC, derived, "bsc");
         assertNotEq(LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE, derived, "base");
+    }
+
+    /// @notice 0G's clone pin is the CloneFactory 0.1.15 open-salt address over
+    /// the 0G Safe as initial admin, not the 0.1.1 factory's nonce-1 address
+    /// that any first caller of `clone` takes, and not the EU clone.
+    function testZerogClonePinIsTheOpenSaltDerivation() external pure {
+        address pin = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG;
+        assertEq(pin, LibUsAuthoriserClone.cloneDeployedAddress(LibSafeInvariants.ZEROG_CHAIN_ID), "open salt");
+        assertNotEq(pin, vm.computeCreateAddress(CLONE_FACTORY_0_1_1, 1), "not the nonce-1 clone");
+        assertNotEq(pin, LibAuthoriserInvariants.euAuthoriserForChainId(LibSafeInvariants.ZEROG_CHAIN_ID), "not EU");
     }
 
     /// @notice The one chain-to-clone table resolves every pinned chain to
@@ -87,6 +78,11 @@ contract LibAuthoriserInvariantsTest is Test {
             LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_BSC,
             "bsc"
         );
+        assertEq(
+            LibAuthoriserInvariants.authoriserForChainId(LibSafeInvariants.ZEROG_CHAIN_ID),
+            LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ZEROG,
+            "zerog"
+        );
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         vm.expectRevert(abi.encodeWithSelector(UnsupportedChainForAuthoriser.selector, uint256(123456)));
         harness.callAuthoriserForChainId(123456);
@@ -102,6 +98,17 @@ contract LibAuthoriserInvariantsTest is Test {
             abi.encodeWithSelector(AuthoriserNotReady.selector, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_ROBINHOOD)
         );
         harness.callActiveChainAuthoriser();
+    }
+
+    /// @notice Every deploy network resolves to a nonzero authoriser. The Build
+    /// generators write the slot as is, so a chain that joins the deploy list
+    /// with an unpinned placeholder fails here instead of publishing zero.
+    function testEveryDeploymentNetworkHasAPinnedAuthoriser() external pure {
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 i = 0; i < networks.length; i++) {
+            assertNotEq(LibAuthoriserInvariants.authoriserForChainId(networks[i].chainId), address(0), networks[i].name);
+        }
     }
 
     /// @notice A pin carrying bytecode other than the EIP-1167 clone is
@@ -128,7 +135,7 @@ contract LibAuthoriserInvariantsTest is Test {
     /// clone's runtime codehash drifts from the pinned EIP-1167 runtime.
     /// Simulated by etching alien bytecode over the pinned clone address.
     function testAssertAllRejectsWrongCodehash() external {
-        selectBaseFork();
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         vm.etch(clone, hex"600160005260206000f3");
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
@@ -180,18 +187,44 @@ contract LibAuthoriserInvariantsTest is Test {
         }
     }
 
-    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` passes on
-    /// the live Base clone with the seven `_ADMIN` roles on the governance
-    /// timelock and pinpoints a missing `_ADMIN` on the timelock.
+    /// @notice `ORCHESTRATOR_GRANT_INDEX` starts the orchestrator's pairs, and
+    /// they end the map.
+    function testOrchestratorGrantIndexIsTheOrchestratorsPairs(address safe, address timelock) external pure {
+        RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        uint256 at = LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX;
+        assertEq(grants.length, at + 2, "orchestrator pairs end the map");
+        assertEq(grants[at].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "deposit grantee");
+        assertEq(grants[at + 1].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "withdraw grantee");
+    }
+
+    /// @notice The map without the orchestrator, what 0G's US clone held before the 0G orchestrator roles batch, is
+    /// the map's leading pairs in order: everything but the orchestrator's two.
+    function testExpectedGrantsWithoutOrchestratorDropsOnlyTheOrchestrator(address safe, address timelock)
+        external
+        pure
+    {
+        vm.assume(safe != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        vm.assume(timelock != LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR);
+        RoleGrant[] memory all = LibAuthoriserInvariants.expectedGrants(safe, timelock);
+        RoleGrant[] memory without = LibAuthoriserInvariants.expectedGrantsWithoutOrchestrator(safe, timelock);
+        assertEq(without.length, LibAuthoriserInvariants.ORCHESTRATOR_GRANT_INDEX, "length");
+        assertEq(all.length, without.length + 2, "two dropped");
+        for (uint256 i = 0; i < without.length; i++) {
+            assertEq(without[i].role, all[i].role, "role");
+            assertEq(without[i].grantee, all[i].grantee, "grantee");
+            assertNotEq(without[i].grantee, LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR, "no orchestrator");
+        }
+    }
+
+    /// @notice `assertExpectedGrants(authoriser, safe, adminHolder)` pinpoints
+    /// a missing `_ADMIN` on the timelock.
     function testAssertExpectedGrantsWithDistinctAdminHolder() external {
-        selectBaseFork();
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address safe = LibAuthoriserInvariants.GRANTEE_TOKEN_OWNER_SAFE;
         address timelock = LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
         RoleGrant[] memory grants = LibAuthoriserInvariants.expectedGrants(safe, timelock);
-
-        harness.callAssertExpectedGrants(clone, safe, timelock);
 
         vm.mockCall(
             clone, abi.encodeWithSelector(IAccessControl.hasRole.selector, grants[0].role, timelock), abi.encode(false)
@@ -203,10 +236,10 @@ contract LibAuthoriserInvariantsTest is Test {
     /// @notice The orchestrator rows are strict like every other row, under
     /// every production chain id alike: a revoked orchestrator `WITHDRAW`
     /// red-lines as `ExpectedGrantMissing` naming the orchestrator. Driven
-    /// on the Base fork with the chain id switched, so the row state is the
-    /// same under each id.
+    /// on local Base state with the chain id switched, so the row state is
+    /// the same under each id.
     function testAssertExpectedGrantsRejectsARevokedOrchestratorGrant() external {
-        selectBaseFork();
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address clone = LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE;
         address orchestrator = LibAuthoriserInvariants.GRANTEE_ORCHESTRATOR;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
@@ -240,13 +273,64 @@ contract LibAuthoriserInvariantsTest is Test {
     }
 
     function testAssertExpectedEuGrantsRejectsMissingServiceSignerCertify() external {
-        selectBaseFork();
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
         address clone = LibAuthoriserInvariants.STOX_EU_AUTHORISER_CLONE;
         address signer = LibAuthoriserInvariants.GRANTEE_SERVICE_3D0C;
         LibAuthoriserInvariantsHarness harness = new LibAuthoriserInvariantsHarness();
-        assertBaseEuGrants(harness);
         vm.mockCall(clone, abi.encodeCall(IAccessControl.hasRole, (keccak256("CERTIFY"), signer)), abi.encode(false));
         vm.expectRevert(abi.encodeWithSelector(ExpectedGrantMissing.selector, clone, keccak256("CERTIFY"), signer));
         assertBaseEuGrants(harness);
+    }
+
+    /// @notice Base's V4 clone with the pinned codehash and the Base map
+    /// passes the focused authoriser bundle.
+    function testAssertAllPassesOnLocalBase() external {
+        LibLocalProdState.authorisers(vm, LibSafeInvariants.BASE_CHAIN_ID);
+        LibAuthoriserInvariants.assertAll();
+    }
+
+    /// @notice Every chain's pinned EU clone, deployed over the audited
+    /// implementation, passes.
+    function testAssertEuAuthoriserDeployedOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.authorisers(vm, chainIds[i]);
+            LibAuthoriserInvariants.assertEuAuthoriserDeployed(chainIds[i]);
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice Every chain's US clone holding that chain's map passes the
+    /// three-argument grant assertion with that chain's Safe and timelock.
+    function testAssertExpectedGrantsHoldsOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.clearMockedCalls();
+            LibLocalProdState.authorisers(vm, chainIds[i]);
+            address authoriser = LibAuthoriserInvariants.authoriserForChainId(chainIds[i]);
+            address safe = LibSafeInvariants.safeForChainId(chainIds[i]);
+            address timelock = LibTimelockInvariants.timelockForChainId(chainIds[i]);
+            LibAuthoriserInvariants.assertExpectedGrants(authoriser, safe, timelock);
+            vm.revertToState(snapshot);
+        }
+    }
+
+    /// @notice Every chain's EU clone holding the EU map passes with that
+    /// chain's timelock as admin holder and the EU minter.
+    function testAssertExpectedEuGrantsHoldsOnEveryChain() external {
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 i = 0; i < chainIds.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            vm.clearMockedCalls();
+            LibLocalProdState.authorisers(vm, chainIds[i]);
+            LibAuthoriserInvariants.assertExpectedEuGrants(
+                LibAuthoriserInvariants.euAuthoriserForChainId(chainIds[i]),
+                LibTimelockInvariants.timelockForChainId(chainIds[i]),
+                LibAuthoriserInvariants.GRANTEE_EU_MINTER
+            );
+            vm.revertToState(snapshot);
+        }
     }
 }

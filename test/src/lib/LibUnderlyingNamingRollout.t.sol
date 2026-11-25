@@ -3,15 +3,18 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {
     LibUnderlyingNamingRollout,
     MalformedUnderlying,
     DownstreamNotReadyForRename,
+    UnderlyingNamingNotCutForChain,
     UnderlyingNamingTokenTableShort
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
+import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
 import {FrozenReleaseRenameHarness} from "../../script/FrozenReleaseRenameHarness.sol";
@@ -38,14 +41,20 @@ contract LibUnderlyingNamingRolloutTest is Test {
         return LibUnderlyingNamingRollout.leadingRows(chainId, table);
     }
 
-    function row(string memory ticker, string memory underlyingName) internal pure returns (TokenConfig memory) {
+    function row(string memory isin, string memory ticker, string memory underlyingName)
+        internal
+        pure
+        returns (TokenConfig memory)
+    {
         return TokenConfig({
+            assetId: isin,
+            listingTicker: ticker,
+            listingName: underlyingName,
             underlying: ticker,
             name: string.concat(underlyingName, " ST0x"),
             symbol: string.concat("t", ticker),
             region: Region.US,
-            underlyingName: underlyingName,
-            assetId: ""
+            underlyingName: underlyingName
         });
     }
 
@@ -72,59 +81,16 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// The row check refuses a malformed ticker or name, naming the row, and
     /// accepts a well-formed one.
     function testRowCheckRefusesEachMalformedField() external {
-        this.externalAssertUnderlyingWellFormed(row("NVDA", "NVIDIA Corporation"));
+        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA Corporation"));
 
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "tNVDA", "NVIDIA Corporation"));
-        this.externalAssertUnderlyingWellFormed(row("tNVDA", "NVIDIA Corporation"));
+        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "tNVDA", "NVIDIA Corporation"));
 
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA Corporation ST0x"));
-        this.externalAssertUnderlyingWellFormed(row("NVDA", "NVIDIA Corporation ST0x"));
+        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA Corporation ST0x"));
 
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA \"Corp\""));
-        this.externalAssertUnderlyingWellFormed(row("NVDA", "NVIDIA \"Corp\""));
-    }
-
-    function testTickerShape() external pure {
-        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("NVDA"));
-        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("BRK.B"));
-        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("A"));
-        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("ABCDEFGHIJKLMNOP"));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed(""));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("ABCDEFGHIJKLMNOPQ"));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("tNVDA"));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("NV DA"));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("NV\"DA"));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("NV\\DA"));
-    }
-
-    function testNameShape() external pure {
-        assertTrue(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA Corporation"));
-        assertTrue(LibUnderlyingNamingRollout.nameWellFormed(unicode"LVMH Moët Hennessy Louis Vuitton SE"));
-        assertTrue(LibUnderlyingNamingRollout.nameWellFormed("Meta Platforms, Inc."));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed(""));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA Corporation ST0x"));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA Corporation (ST0x)"));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA \"Corp\""));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA\\Corp"));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("NVIDIA\nCorp"));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed(hex"4e56494449417f"));
-    }
-
-    /// The boundaries the NatSpec states: digits 0 and 9 are tickers, the
-    /// bytes either side are not; a space is the lowest name byte, 0x1f is
-    /// not; a name shorter than the suffix is checked without underflow.
-    function testShapeBoundaries() external pure {
-        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("0"));
-        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("9"));
-        assertTrue(LibUnderlyingNamingRollout.tickerWellFormed("A0Z9."));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("/"));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed(":"));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("@"));
-        assertFalse(LibUnderlyingNamingRollout.tickerWellFormed("["));
-        assertTrue(LibUnderlyingNamingRollout.nameWellFormed("3M"));
-        assertTrue(LibUnderlyingNamingRollout.nameWellFormed(" "));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed(hex"1f"));
-        assertFalse(LibUnderlyingNamingRollout.nameWellFormed("ST0x"));
+        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA \"Corp\""));
     }
 
     /// With the release frozen but the downstream flag unset, the rename
@@ -175,12 +141,12 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// The row loop refuses the first malformed row, after well-formed ones.
     function testRowsCheckRefusesAMalformedRowAmongGoodOnes() external {
         TokenConfig[] memory rows = new TokenConfig[](3);
-        rows[0] = row("NVDA", "NVIDIA Corporation");
-        rows[1] = row("AAPL", "Apple Inc. ST0x");
-        rows[2] = row("MSFT", "Microsoft Corporation");
+        rows[0] = row("US67066G1040", "NVDA", "NVIDIA Corporation");
+        rows[1] = row("US0378331005", "AAPL", "Apple Inc. ST0x");
+        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation");
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "AAPL", "Apple Inc. ST0x"));
         this.externalAssertRowsWellFormed(rows);
-        rows[1] = row("AAPL", "Apple Inc.");
+        rows[1] = row("US0378331005", "AAPL", "Apple Inc.");
         this.externalAssertRowsWellFormed(rows);
     }
 
@@ -188,18 +154,87 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// bad row, refuses. An empty list passes.
     function testRowsCheckCoversTheEndRows() external {
         TokenConfig[] memory rows = new TokenConfig[](3);
-        rows[0] = row("NVDA", "NVIDIA \"Corp\"");
-        rows[1] = row("AAPL", "Apple Inc.");
-        rows[2] = row("MSFT", "Microsoft Corporation");
+        rows[0] = row("US67066G1040", "NVDA", "NVIDIA \"Corp\"");
+        rows[1] = row("US0378331005", "AAPL", "Apple Inc.");
+        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation");
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA \"Corp\""));
         this.externalAssertRowsWellFormed(rows);
 
-        rows[0] = row("NVDA", "NVIDIA Corporation");
-        rows[2] = row("MSFT", "Microsoft Corporation (ST0x)");
+        rows[0] = row("US67066G1040", "NVDA", "NVIDIA Corporation");
+        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation (ST0x)");
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "MSFT", "Microsoft Corporation (ST0x)"));
         this.externalAssertRowsWellFormed(rows);
 
         this.externalAssertRowsWellFormed(new TokenConfig[](0));
+    }
+
+    function externalTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
+        return LibUnderlyingNamingRollout.tokens(chainId);
+    }
+
+    /// 0G's leading `TOKEN_COUNT` rows hold a token Base's leading rows do
+    /// not, so the rollout refuses 0G.
+    function testTokensRefusesZerog() external {
+        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
+        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
+        uint256 count = LibUnderlyingNamingRollout.TOKEN_COUNT;
+        bool foundForeign = false;
+        for (uint256 zerogRowIndex = 0; zerogRowIndex < count; zerogRowIndex++) {
+            bool inBase = false;
+            for (uint256 baseRowIndex = 0; baseRowIndex < count; baseRowIndex++) {
+                if (
+                    keccak256(bytes(zerog[zerogRowIndex].underlying)) == keccak256(bytes(base[baseRowIndex].underlying))
+                ) inBase = true;
+            }
+            if (!inBase) foundForeign = true;
+        }
+        assertTrue(foundForeign, "0G's leading rows hold a token Base's do not");
+        vm.expectRevert(
+            abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, LibSafeInvariants.ZEROG_CHAIN_ID)
+        );
+        this.externalTokens(LibSafeInvariants.ZEROG_CHAIN_ID);
+    }
+
+    /// `cutForChain` holds for exactly the five networks before 0G, on any
+    /// chain id: not for 0G, a chain with no deployment, or an id no chain has.
+    function testCutForChainIsExactlyTheNetworksBeforeZerog(uint256 chainId) external pure {
+        bool historical = chainId == LibSafeInvariants.BASE_CHAIN_ID || chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID
+            || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID
+            || chainId == LibSafeInvariants.BSC_CHAIN_ID;
+        assertEq(LibUnderlyingNamingRollout.cutForChain(chainId), historical);
+        assertFalse(LibUnderlyingNamingRollout.cutForChain(LibSafeInvariants.ZEROG_CHAIN_ID), "0G");
+        assertFalse(LibUnderlyingNamingRollout.cutForChain(0), "no chain");
+        assertFalse(LibUnderlyingNamingRollout.cutForChain(137), "Polygon");
+        assertFalse(LibUnderlyingNamingRollout.cutForChain(type(uint256).max), "max id");
+        assertEq(LibStoxDeployNetworks.networksBeforeZerog().length, 5, "five networks before 0G");
+    }
+
+    /// The rollout serves exactly the networks its batches were cut for: each
+    /// one before 0G resolves its rows, and every other deployment network
+    /// with a table refuses.
+    function testTokensServesOnlyTheNetworksBeforeZerog() external view {
+        SupportedNetwork[] memory before =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        for (uint256 networkIndex = 0; networkIndex < before.length; networkIndex++) {
+            assertEq(this.externalTokens(before[networkIndex].chainId).length, LibUnderlyingNamingRollout.TOKEN_COUNT);
+        }
+        SupportedNetwork[] memory all = LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        uint256 refused = 0;
+        for (uint256 networkIndex = 0; networkIndex < all.length; networkIndex++) {
+            if (LibRainDeploy.hasChainId(before, all[networkIndex].chainId)) continue;
+            try this.externalTokens(all[networkIndex].chainId) {
+                revert(string.concat(all[networkIndex].name, " resolved"));
+            } catch (bytes memory reason) {
+                assertEq(
+                    reason,
+                    abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, all[networkIndex].chainId),
+                    all[networkIndex].name
+                );
+            }
+            refused++;
+        }
+        assertEq(refused, all.length - before.length, "every later network refuses");
+        assertGt(refused, 0, "0G is a later network");
     }
 
     /// A table longer than `TOKEN_COUNT` is cut to its leading rows, so a
@@ -217,5 +252,27 @@ contract LibUnderlyingNamingRolloutTest is Test {
         TokenInstance[] memory shorter = new TokenInstance[](count - 1);
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingTokenTableShort.selector, uint256(1), count, count - 1));
         this.externalLeadingRows(1, shorter);
+    }
+
+    /// `renamesRow` holds for exactly the table rows whose vault the rename batch targets.
+    function testRenamesRowIsTheRenameBatchTargets() external pure {
+        uint256[5] memory chainIds = [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
+            (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainIds[chainIndex]);
+            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainIds[chainIndex]);
+            for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
+                bool targeted = false;
+                for (uint256 targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+                    if (targets[targetIndex] == table[rowIndex].receiptVault) targeted = true;
+                }
+                assertEq(LibUnderlyingNamingRollout.renamesRow(rowIndex), targeted, table[rowIndex].underlying);
+            }
+        }
     }
 }

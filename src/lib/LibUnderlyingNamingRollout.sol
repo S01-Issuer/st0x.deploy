@@ -5,6 +5,7 @@ pragma solidity ^0.8.25;
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../interface/IStoxUnderlyingV1.sol";
@@ -13,8 +14,10 @@ import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
+import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
+import {LibSecurity} from "./LibSecurity.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
@@ -47,14 +50,12 @@ error MalformedUnderlying(string underlying, string underlyingName);
 /// renamed wrapper symbols, so the rename may not be scheduled.
 error DownstreamNotReadyForRename();
 
-/// @notice A schedule pre-flight derived another operation id than the pinned one.
-/// @param expected The pinned id.
-/// @param actual The derived id.
-error UnderlyingNamingBatchMoved(bytes32 expected, bytes32 actual);
-
-/// @notice The chain has no pinned rollout operation ids.
+/// @notice The rollout's batches were cut for the networks before 0G
+/// (`LibStoxDeployNetworks.networksBeforeZerog`), whose tables share Base's row
+/// order. Any other chain's leading `TOKEN_COUNT` rows can be another token
+/// set (0G's follow Ethereum's creation order), so the rollout refuses it.
 /// @param chainId The chain id.
-error NoPinnedUnderlyingNamingIds(uint256 chainId);
+error UnderlyingNamingNotCutForChain(uint256 chainId);
 
 /// @title LibUnderlyingNamingRollout
 /// @notice The two timelock operations that roll out the underlying ticker
@@ -138,11 +139,27 @@ library LibUnderlyingNamingRollout {
 
     /// @notice The production tokens this rollout renames on the chain: the
     /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
-    /// `NoTokenTableForChain` on a chain with no table.
+    /// `NoTokenTableForChain` on a chain with no table and
+    /// `UnderlyingNamingNotCutForChain` on a chain with a table that the
+    /// rollout was not cut for, 0G included.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
-        return leadingRows(chainId, LibTokenInvariants.productionTokensForChainId(chainId));
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+        if (!cutForChain(chainId)) revert UnderlyingNamingNotCutForChain(chainId);
+        return leadingRows(chainId, table);
+    }
+
+    /// @notice Whether the rollout's rename and beacon batches were cut for
+    /// `chainId`: one of the networks before 0G
+    /// (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
+    /// `BuildExpectedState.renameMigration` both read this, so they agree.
+    /// @param chainId The chain id.
+    /// @return Whether the batches were cut for the chain.
+    function cutForChain(uint256 chainId) internal pure returns (bool) {
+        return LibRainDeploy.hasChainId(
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
+        );
     }
 
     /// @notice The leading `TOKEN_COUNT` rows of `table`, so the rename id
@@ -159,6 +176,14 @@ library LibUnderlyingNamingRollout {
             mstore(table, count)
         }
         return table;
+    }
+
+    /// @notice Whether the rename batch renames the row at `tokenIndex` of a
+    /// chain's production table: one of the leading `TOKEN_COUNT`.
+    /// @param tokenIndex The row's index in the chain's production table.
+    /// @return Whether the rename batch renames it.
+    function renamesRow(uint256 tokenIndex) internal pure returns (bool) {
+        return tokenIndex < TOKEN_COUNT;
     }
 
     /// @notice The chain's in-use receipt-vault beacon.
@@ -262,47 +287,12 @@ library LibUnderlyingNamingRollout {
     /// underlying name are well formed.
     /// @param config The row.
     function assertUnderlyingWellFormed(TokenConfig memory config) internal pure {
-        if (!tickerWellFormed(bytes(config.underlying)) || !nameWellFormed(bytes(config.underlyingName))) {
+        if (
+            !LibSecurity.tickerWellFormed(bytes(config.underlying))
+                || !LibSecurity.nameWellFormed(bytes(config.underlyingName))
+        ) {
             revert MalformedUnderlying(config.underlying, config.underlyingName);
         }
-    }
-
-    /// @notice Whether `ticker` is 1 to 16 bytes of `A-Z`, `0-9` and `.`.
-    /// @param ticker The ticker.
-    /// @return Whether it is well formed.
-    function tickerWellFormed(bytes memory ticker) internal pure returns (bool) {
-        if (ticker.length == 0 || ticker.length > 16) return false;
-        for (uint256 i = 0; i < ticker.length; i++) {
-            bytes1 c = ticker[i];
-            if (!((c >= "A" && c <= "Z") || (c >= "0" && c <= "9") || c == ".")) return false;
-        }
-        return true;
-    }
-
-    /// @notice Whether `name` is non-empty, has no `"`, `\` or control byte,
-    /// and does not end in "ST0x" or "(ST0x)".
-    /// @param name The underlying name.
-    /// @return Whether it is well formed.
-    function nameWellFormed(bytes memory name) internal pure returns (bool) {
-        if (name.length == 0) return false;
-        for (uint256 i = 0; i < name.length; i++) {
-            bytes1 c = name[i];
-            if (c < 0x20 || c == 0x7f || c == '"' || c == "\\") return false;
-        }
-        return !endsWith(name, "ST0x") && !endsWith(name, "(ST0x)");
-    }
-
-    /// @notice Whether `value` ends with `suffix`.
-    /// @param value The value.
-    /// @param suffix The suffix.
-    /// @return Whether it does.
-    function endsWith(bytes memory value, bytes memory suffix) internal pure returns (bool) {
-        if (value.length < suffix.length) return false;
-        uint256 offset = value.length - suffix.length;
-        for (uint256 i = 0; i < suffix.length; i++) {
-            if (value[offset + i] != suffix[i]) return false;
-        }
-        return true;
     }
 
     /// @notice The beacon batch's operation id on `timelock`.
@@ -324,39 +314,6 @@ library LibUnderlyingNamingRollout {
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = renameBatch(chainId);
         return TimelockController(payable(timelock))
             .hashOperationBatch(targets, values, payloads, beaconOperationId(timelock, chainId), RENAME_SALT);
-    }
-
-    /// @notice The beacon and rename batches' pinned operation ids on `chainId`; both schedule pre-flights refuse a
-    /// derived id that differs. Once a chain's batch is scheduled these and what they hash must not change.
-    /// @param chainId The chain id.
-    /// @return The beacon batch's id.
-    /// @return The rename batch's id.
-    function pinnedOperationIds(uint256 chainId) internal pure returns (bytes32, bytes32) {
-        if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
-            return (
-                0xf63aaa72925336a95835da078cdad510ffcccc4be5a272d5acf2b8de37b11726,
-                0x8e8cc0125e7d73540065e3c7473e8bcca9125cfad9c541aafe37e7df74420b98
-            );
-        }
-        if (chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID) {
-            return (
-                0x233d1fc4f1807157c8d3aa3c11f7dec9a20537a444ed00429869e86a682ac149,
-                0x56e6800af24c1d9095afac65fe74f8557d68e29d85d67ac0a68bdf55e69fee11
-            );
-        }
-        if (chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID) {
-            return (
-                0x233d1fc4f1807157c8d3aa3c11f7dec9a20537a444ed00429869e86a682ac149,
-                0xe5c63c492d23e0b6d7a4ca5bea4ce67a2439ec60ae57ba8daf253d197ae0524e
-            );
-        }
-        if (chainId == LibSafeInvariants.BSC_CHAIN_ID) {
-            return (
-                0x1d63b53f9ae1052c54e3fa80a83a372f50e918d2cbde21139d20d0b3ff1b942f,
-                0x4a3f8c4623d69d17aa1deba3be574af628296db04be6a143e35cb59fc6701912
-            );
-        }
-        revert NoPinnedUnderlyingNamingIds(chainId);
     }
 
     /// @notice `scheduleBatch` calldata for the beacon batch.

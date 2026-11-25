@@ -1,75 +1,20 @@
 # Changelog
 
-## Asset id and nameless V6 deploy (RAI-4373)
-
-### StoxReceiptVault
-
-- **`initialize` requires an empty name and symbol and an asset id.** The vault
-  overrides rain-vats' `_initialize`: after it, it delegatecalls the pinned
-  facet's `initializeAssetId` with its own `initialize(bytes)` calldata, and
-  reverts unless the call succeeds and returns one word. The facet reverts with
-  `NonEmptyInitialName` / `NonEmptyInitialSymbol` unless both are empty, decodes
-  the asset id from the config metadata (`LibAssetId.encodeMetadata`, tagged
-  `st0x.metadata.asset-id.1`, canonical encoding enforced), and stores it once
-  in a new ERC-7201 namespace `rain.storage.asset-id.1`. So a V6 token's address
-  depends only on its asset id, region, authority and beacon names. The owner
-  (the timelock) names the token later with `setUnderlying`.
-- **The hook is init-only.** It needs the OZ `_initializing` flag, which only a
-  fresh proxy's single `initialize` sets. Live tokens, initialized before the
-  hook, report `assetId() == ""` and can never set one. A facet with no code
-  makes `initialize` revert `CorporateActionsFacetNotDeployed`, so no token
-  deploys without an id.
-- **Size.** The vault runtime is 24,555 bytes (21 spare), up 105 bytes; all the
-  logic lives in the facet, which is 12,897 bytes.
-
-### StoxCorporateActionsFacet
-
-- **`IStoxAssetIdV1`:** `assetId()` and the `AssetIdSet(sender, assetId)` event,
-  plus the init-only `initializeAssetId(bytes)`. Errors are in
-  `src/error/ErrAssetId.sol`. `assetId()` and `AssetIdSet` are not proof that a
-  token is genuine: only the pinned address is.
-
-### StoxWrappedTokenVault
-
-- **`assetId()` passes the asset's `assetId()` through**, or returns `""` when
-  the asset has none, so it never reverts. Runtime 6,729 bytes.
+## Deploy requires the governance timelock (RAI-4173)
 
 ### Token config and deploy
 
-- **`TokenConfig.assetId`**, fixed at listing time (the ISIN of the exact share
-  line where one exists). `LibProdTokenConfig.v6TokenConfigs()` is the rows with
-  a non-empty asset id; only those get a V6 token suite.
-- **Every production row has an asset id, so every row has a V6 token suite.**
-  The ids are ISINs: 54 from the st0x.registry Base token list
-  (`extensions.isin` at `e9e47a6`), and IBHG, RKLB, BIRD, SNES and DIS sourced
-  from issuer and sponsor SEC filings (see `LibProdTokenConfigIsinTest`).
-  `manual-sol-artifacts` offers one `stox-token-*` and one
-  `stox-token-*-wrapper` choice per row; every token key is pinned, and each
-  wrapper key derives from its token key. A V6 suite deploys a second token at a
-  new address; it does not touch the live token. The vault choices deploy
-  unnamed; the rollout deploys and names a token in one Multicall3 transaction
-  instead (see `docs/TIMELOCK.md`).
-- **Test tokens carry asset ids.** `tUSTEST` and `tEUTEST` have the synthetic
-  ids `ST0XTESTUS` and `ST0XTESTEU` and an underlying name, so they deploy
-  nameless and `setUnderlying` can name them. Their wrappers are salted by
-  `keccak256(assetId)`, like the tokens.
-- **V6 token params are nameless.** `LibProdTokenParams.tokenData` carries an
-  empty name and symbol and the asset id as metadata, and the salt is
-  `keccak256(assetId)`. Suite keys stay `stox-token-` + lowercase symbol; a
-  released row's symbol never changes, and the released keys are pinned.
-- **`Deploy.preDeployCheck` refuses a token suite unless the bound vault beacon
-  serves `LibProdDeployCurrent.STOX_RECEIPT_VAULT`, and the vault and receipt
-  beacons (and, for a wrapper suite, the wrapper beacon) are owned by the
-  governance timelock** (`LibBeaconInvariants.assertBeaconInvariants`:
+- **`Deploy.preDeployCheck` refuses a token suite unless the bound vault and
+  receipt beacons (and, for a wrapper suite, the wrapper beacon) serve
+  `LibProdDeployCurrent`'s implementations and are owned by the governance
+  timelock** (`LibBeaconInvariants.assertBeaconInvariants`:
   `BeaconOwnerMismatch`, `BeaconImplementationMismatch`, and for the receipt
   beacon also `BeaconNotDeployed` and `BeaconCodehashMismatch`). The vault and
   wrapper beacons are suite dependencies, so the broadcaster's dependency check
   (`MissingDependency`, `DependencyChanged`) refuses them with no code or other
   code before the pre-flight runs; the receipt beacon is not, so the pre-flight
   checks its code itself. A wrapper suite also requires the governance timelock
-  in its pinned state. A token's address commits to the beacon name, not the
-  implementation, so a token deployed through a beacon serving a hook-less
-  implementation would never get an asset id.
+  in its pinned state.
 - **`Deploy.preDeployCheck` refuses a beacon or token suite unless the
   governance timelock that owns them is in its pinned state**
   (`LibTimelockInvariants.assertTimelockState` with the chain's Safe as
@@ -80,14 +25,6 @@
   `STOX_GOVERNANCE_TIMELOCK` (`NameNotRegistered` when unbound,
   `BeaconInitialOwnerMismatch` when bound to another address); before, it had no
   check.
-- **Pins moved:** facet `0xEcbC00c59019fe72628bE5e70E01BcF31460301D`, receipt
-  vault `0x45C8FeF0bBa6230759F28DC7328DE50Da8f7008F`, wrapped token vault
-  `0x8405cb839951dECd3D0bbb620e809A3eE300616b`, receipt-vault beacon
-  `0x6Bd545bdbc624953FC599985d67684CabAB825F7`, wrapped-token-vault beacon
-  `0x9804E0810Ae2776dC9a398838796438D94Db5e23`, orchestrator
-  `0xE2375DCb679aC52B8D7EebCF154d4AaFc1c9A09f`, orchestrator beacon
-  `0xF605c034E2D16D39f656A7F12AF6cb04D7Cef329`, and the token, wrapper and
-  orchestrator proxy runtime code that embeds the beacons.
 
 ## Registry-config tokens (rain.vats 0.2.9)
 
@@ -112,9 +49,9 @@
 - **`IStoxUnderlyingV1`: each receipt vault stores its underlying ticker and
   name.** `StoxCorporateActionsFacet` implements `underlyingSymbol()`,
   `underlyingName()` and `setUnderlying(symbol, name)`, with the values in a new
-  ERC-7201 namespace `rain.storage.underlying.1` (`LibUnderlying`). The setter
-  is `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains
-  it goes through the governance timelock), rejects empty values with
+  ERC-7201 namespace `rain.storage.underlying.1` (`LibSecurity`). The setter is
+  `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains it
+  goes through the governance timelock), rejects empty values with
   `EmptyUnderlyingSymbol` / `EmptyUnderlyingName`, emits `UnderlyingSet` with
   the old and new values, and can be called again when a listing is renamed.
 - **Token metadata is built from those values.** Once set, `StoxReceiptVault`
@@ -249,6 +186,36 @@
 
 ### Deploy scripts
 
+- **0G runs the orchestrator.** The 0.1.30 orchestrator beacon-set deployer is
+  on 0G, and its first `deploy` claimed the instance for the 0G timelock in the
+  same transaction, so `LibAuthoriserInvariants.grantsOrchestrator` and
+  `expectedGrantsOn` are removed: every chain's ideal and expected state, 0G
+  included, carries the orchestrator, its beacon and the US authoriser's
+  orchestrator pairs. `releasesNotOnZerog` no longer names the set deployer.
+  `expectedGrantsWithoutOrchestrator` keeps the map 0G's US authoriser held
+  until the grants below execute, for the token creation's checks.
+- **The 0G orchestrator roles.** `LibZerogOrchestratorRoles` builds the 0G
+  timelock batch of the five grants 0G lacks: `MINT` and `BURN` to the service
+  signer and `EMERGENCY` to the Safe on the orchestrator, `DEPOSIT` and
+  `WITHDRAW` to the orchestrator on the US authoriser.
+  `20261123-schedule-zerog-orchestrator-roles` authors the Safe bundle that
+  schedules it, and `20261123-execute-zerog-orchestrator-roles` executes it from
+  the CI deploy key and authors the record. Both are recorded right after the 0G
+  token creation on every chain, record-only off 0G, and
+  `20261022-bind-beacon-initial-owner` now follows them.
+- **The 0G token table holds the live tokens.** `20261119-create-zerog-tokens`
+  created the 65 0G tokens on 2026-11-23 in Safe nonces 2-5, and
+  `productionTokensZerog()` now pins each row's receipt, vault and wrapper. Each
+  row that Ethereum's table also carries has the same addresses there.
+  `productionTokensForChainId` returns 0G's table as it does every other
+  chain's, and `BuildExpectedState` and `BuildPrivilegedAddresses` write every
+  chain's tokens and receipt vaults, with no `tokenTableHydrated` key. The
+  creation script still refuses a table that is not all placeholders, so it
+  cannot create the tokens again; its rehearsal tests stand in the placeholder
+  table the bundles were authored against. `LibUnderlyingNamingRollout.tokens`
+  refuses every chain outside the networks its batches were cut for, 0G
+  included: 0G's rows follow Ethereum's creation order, not the table order Base
+  and Ethereum share, so the rollout's cut would pick another token set.
 - **The underlying-naming rollout.** `LibUnderlyingNamingRollout` reconstructs
   two timelock operations per chain:
   - a beacon batch that upgrades the in-use wrapped-token-vault and
@@ -337,12 +304,11 @@
   `DEPLOYMENT_NETWORK` env var, the `network` choice on both workflows and the
   per-script supported-network lists are all removed, leaving one declaration of
   the set in `LibStoxDeployNetworks`. 0.1.1 no longer excludes Base — the whole
-  audited 0.1.1 set already has code at its pinned addresses there, as
-  `StoxProdV4Test` asserts per chain, so the exclusion had nothing left to
-  express and the run is a no-op on all three. Both workflows now pass
-  `legacy: true` unconditionally: `--legacy` is one flag over the whole
-  `forge script` run, so it cannot vary per network within a run, and type-0 is
-  valid on every network these scripts ship to.
+  audited 0.1.1 set already has code at its pinned addresses there, so the
+  exclusion had nothing left to express and the run is a no-op on all three.
+  Both workflows now pass `legacy: true` unconditionally: `--legacy` is one flag
+  over the whole `forge script` run, so it cannot vary per network within a run,
+  and type-0 is valid on every network these scripts ship to.
 
 ### New contracts
 

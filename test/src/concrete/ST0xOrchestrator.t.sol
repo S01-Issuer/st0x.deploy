@@ -16,7 +16,7 @@ import {
     MintCapKind,
     Digest
 } from "../../../src/interface/IST0xOrchestratorV2.sol";
-import {Float, LibDecimalFloat} from "rain-math-float-0.3.11/src/lib/LibDecimalFloat.sol";
+import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {ICorporateActionsV1} from "../../../src/interface/ICorporateActionsV1.sol";
 
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
@@ -38,13 +38,13 @@ import {MockManagerRevert1155} from "./MockManagerRevert1155.sol";
 import {
     LeakyBucketNegativeCapacity,
     LeakyBucketNegativeLeakRate
-} from "rain-lib-leakybucket-0.5.3/src/lib/LibLeakyBucket.sol";
+} from "rain-lib-leakybucket-0.5.5/src/lib/LibLeakyBucket.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
-import {EvaluableV4, SignedContextV2} from "rainlang-0.2.32/src/interface/IInterpreterCallerV5.sol";
+import {EvaluableV4, SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {OffchainAssetReceiptVault} from "rain-vats-0.2.20/src/abstract/OffchainAssetReceiptVault.sol";
-import {ReceiptVault} from "rain-vats-0.2.20/src/abstract/ReceiptVault.sol";
-import {IReceiptV3} from "rain-vats-0.2.20/src/interface/IReceiptV3.sol";
+import {OffchainAssetReceiptVault} from "rain-vats-0.2.25/src/abstract/OffchainAssetReceiptVault.sol";
+import {ReceiptVault} from "rain-vats-0.2.25/src/abstract/ReceiptVault.sol";
+import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
 
 /// @dev Unit and fuzz tests for the singleton `ST0xOrchestrator`. The vault,
 /// receipt, ERC-20 shares and the production beacon set are mocked via
