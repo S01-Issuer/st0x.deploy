@@ -671,6 +671,35 @@ contract DeployTokenBindingsTest is Test {
         harness.exposedPreDeployCheck(wrappers[0], networks[0]);
     }
 
+    /// A pinned wrapper beacon address holding other code is refused.
+    function testWrappersRefuseAWrapperBeaconWithOtherCode() external {
+        vm.etch(LibProdTokenParams.wrapperBeacon(), hex"00");
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconCodehashMismatch.selector,
+                LibProdTokenParams.wrapperBeacon(),
+                LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH,
+                keccak256(hex"00")
+            )
+        );
+        harness.exposedPreDeployCheck(wrappers[0], networks[0]);
+    }
+
+    /// A pinned wrapper beacon address with no code is refused.
+    function testWrappersRefuseAWrapperBeaconWithNoCode() external {
+        vm.etch(LibProdTokenParams.wrapperBeacon(), "");
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
+        vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, LibProdTokenParams.wrapperBeacon()));
+        harness.exposedPreDeployCheck(wrappers[0], networks[0]);
+    }
+
     /// A pinned receipt beacon serving another implementation is refused.
     function testTokensRefuseAReceiptBeaconServingOtherImplementation() external {
         address other = LibProdDeployCurrent.STOX_RECEIPT_VAULT;
