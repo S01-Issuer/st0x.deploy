@@ -57,13 +57,24 @@ library LibTestDeploy {
     /// Zoltu-deploys the generated underlying snapshot shards and root,
     /// refusing a root that lands off its constant address.
     function deployUnderlyingSnapshot(Vm vm) internal {
-        LibRainDeploy.etchZoltuFactory(vm);
-        bytes[] memory shards = LibUnderlyingSnapshotCode.shardCreationCodes();
-        for (uint256 i = 0; i < shards.length; i++) {
-            LibRainDeploy.deployZoltu(shards[i]);
-        }
-        address root = LibRainDeploy.deployZoltu(LibUnderlyingSnapshotCode.ROOT_CREATION_CODE);
+        address root = deployUnderlyingSnapshot(
+            vm, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE, LibUnderlyingSnapshotCode.shardCreationCodes()
+        );
         require(root == UNDERLYING_SNAPSHOT_ROOT, "underlying snapshot root address mismatch");
+    }
+
+    /// Zoltu-deploys snapshot shards and root, skipping any already deployed.
+    function deployUnderlyingSnapshot(Vm vm, bytes memory rootCode, bytes[] memory shardCodes)
+        internal
+        returns (address)
+    {
+        LibRainDeploy.etchZoltuFactory(vm);
+        for (uint256 i = 0; i < shardCodes.length; i++) {
+            if (LibRainDeploy.zoltuAddress(shardCodes[i]).code.length == 0) LibRainDeploy.deployZoltu(shardCodes[i]);
+        }
+        address root = LibRainDeploy.zoltuAddress(rootCode);
+        if (root.code.length == 0) LibRainDeploy.deployZoltu(rootCode);
+        return root;
     }
 
     /// Places an `UpgradeableBeacon` serving `implementation`, owned by

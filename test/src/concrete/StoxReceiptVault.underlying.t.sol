@@ -8,12 +8,12 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
 import {
-    MalformedUnderlyingTicker,
+    MalformedUnderlyingSymbol,
     MalformedUnderlyingName,
     MalformedUnderlyingIsin
 } from "../../../src/error/ErrUnderlying.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
-import {UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
+import {LibSecurity, UNDERLYING_STORAGE_LOCATION, ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {ERC20_STORAGE_LOCATION} from "../../../src/lib/LibERC20Storage.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {OwnedStoxReceiptVault} from "./OwnedStoxReceiptVault.sol";
@@ -257,13 +257,13 @@ contract StoxReceiptVaultUnderlyingTest is Test {
     }
 
     function testSetUnderlyingEmptyTickerReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingTicker.selector, ""));
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSymbol.selector, ""));
         vm.prank(OWNER);
         underlying().setUnderlying("", "NVIDIA Corporation", NVDA_ISIN);
     }
 
     function testSetUnderlyingLowercaseTickerReverts() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingTicker.selector, "nvda"));
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSymbol.selector, "nvda"));
         vm.prank(OWNER);
         underlying().setUnderlying("nvda", "NVIDIA Corporation", NVDA_ISIN);
     }
@@ -275,7 +275,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         assertEq(sVault.symbol(), "tABCDEFGHIJKLMNOP");
         assertLe(bytes(sVault.symbol()).length, 31);
 
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingTicker.selector, "ABCDEFGHIJKLMNOPQ"));
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSymbol.selector, "ABCDEFGHIJKLMNOPQ"));
         vm.prank(OWNER);
         underlying().setUnderlying("ABCDEFGHIJKLMNOPQ", "NVIDIA Corporation", NVDA_ISIN);
     }
@@ -318,7 +318,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
 
     /// The checks run ticker, then name, then ISIN.
     function testSetUnderlyingChecksInOrder() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingTicker.selector, ""));
+        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSymbol.selector, ""));
         vm.prank(OWNER);
         underlying().setUnderlying("", "", "");
         vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingName.selector, ""));

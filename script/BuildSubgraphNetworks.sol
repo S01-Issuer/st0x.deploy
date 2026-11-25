@@ -46,9 +46,15 @@ contract BuildSubgraphNetworks is Script {
         "WrappedTokenVaultBeacon"
     ];
 
-    /// The Graph's id for chain 1 is `mainnet`; every other deployment network's id is its foundry alias.
+    /// The Graph's id is `mainnet` for chain 1, `0g` for 0G, and the foundry alias for every other network.
     function graphNetwork(SupportedNetwork memory network) public pure returns (string memory) {
-        return network.chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID ? "mainnet" : network.name;
+        if (network.chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID) {
+            return "mainnet";
+        }
+        if (network.chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return "0g";
+        }
+        return network.name;
     }
 
     function addresses(uint256 chainId) public pure returns (address[16] memory) {

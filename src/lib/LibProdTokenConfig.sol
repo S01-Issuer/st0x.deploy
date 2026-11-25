@@ -2,28 +2,29 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
+import {Region} from "../interface/IStoxTokenConfigV1.sol";
+
 /// @notice The deploy-time configuration for one production token — the
 /// inputs `StoxUnifiedDeployer.newTokenAndWrapperVault` needs to reproduce
 /// a Base token instance on another chain.
-/// @dev Of the deploy inputs, only `name` + `symbol` are captured: the offchain-asset receipt
-/// vault takes `asset = address(0)` (the asset is offchain) and
+/// @dev For tokens deployed before `StoxTokenConfigV1`, only `name` + `symbol`
+/// were captured: the offchain-asset receipt vault takes `asset = address(0)` (the asset is offchain) and
 /// `receipt = address(0)` (the beacon-set deployer wires the receipt),
 /// `initialAdmin` is the target chain's Safe (supplied by the deploy
 /// script, not the table), `decimals` is fixed by the shared vault
 /// implementation bytecode, and the wrapped token vault derives its own
 /// name/symbol on-chain from the receipt vault. So the receipt vault's
-/// `name` + `symbol` are the ONLY free initialization inputs, and this table
-/// holds exactly those.
+/// `name` + `symbol` were their only free initialization inputs.
 ///
 /// The underlying ticker and name are not deploy inputs: the vault owner sets
 /// them after deployment with `IStoxUnderlyingV1.setUnderlying`. The ticker
-/// is this table's `underlying` key (every row's `symbol` is
-/// `"t" + underlying`) and the name is `underlyingName`. Once both are set,
+/// is the row's `ticker` and the name is `underlyingName`. Once both are set,
 /// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
 /// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
-/// Until then the receipt vault reports the `name` + `symbol` it was
-/// initialized with, and the wrapped token vault `"Wrapped " + name` /
-/// `"w" + symbol`.
+/// Until then a token deployed before `StoxTokenConfigV1` reports the
+/// `name` + `symbol` it was initialized with, and its wrapper
+/// `"Wrapped " + name` / `"w" + symbol`; a `StoxTokenConfigV1` token reports
+/// its listing (`LibTokenMetadata`).
 ///
 /// `assetId`, `listingTicker` and `listingName` record the listing each
 /// token tracks, and are the token's `StoxTokenConfigV1` init data.
@@ -58,11 +59,6 @@ struct TokenConfig {
     Region region;
     string underlyingName;
     string isin;
-}
-
-enum Region {
-    US,
-    EU
 }
 
 /// @dev Unix seconds the underlying snapshot was cut from this table.

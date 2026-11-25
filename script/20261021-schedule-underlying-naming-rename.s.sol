@@ -10,6 +10,7 @@ import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
@@ -79,7 +80,7 @@ function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclara
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261021-schedule-underlying-naming-rename` per chain, after the
 /// beacon batch is scheduled there.
-contract ScheduleUnderlyingNamingRename is SafeBundleScript, IStoxScript {
+contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleUnderlyingNamingRenameDeclaration();
