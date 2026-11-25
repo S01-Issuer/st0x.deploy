@@ -37,11 +37,6 @@ error RevokeOperationNotDone(bytes32 id);
 /// @param id The operation id.
 error RevokeNotExecuted(bytes32 id);
 
-/// @notice On 0G a revoke batch is pending on the timelock, though 0G's schedule
-/// arm schedules nothing.
-/// @param id The operation id.
-error ZerogRevokeScheduled(bytes32 id);
-
 /// @notice The root line already holds this script's record.
 /// @param id The migration id.
 error ExecuteRevokeServiceSignerRecorded(bytes32 id);
@@ -62,10 +57,8 @@ function executeRevokeServiceSignerDeclaration() pure returns (ScriptDeclaration
 /// `LibServiceSignerRevoke`, the same library the scheduling script uses.
 ///
 /// `run()` authors the record-only Safe bundle that writes this script's
-/// record on the root line once the batch has executed. On 0G the schedule's
-/// arm is the record alone, so there is no batch: `execute()` refuses with
-/// `RevokeOperationNotReady`, and `run()` records once the service signer
-/// holds neither role and no batch is pending.
+/// record on the root line once the batch has executed.
+/// On 0G nothing is scheduled, so `run()` records once the service signer holds neither role.
 ///
 /// @dev Dispatch `execute()` via `Actions → manual-broadcast` with
 /// `script = 20261109-execute-revoke-service-signer-deposit-withdraw`,
@@ -123,13 +116,11 @@ contract ExecuteRevokeServiceSignerDepositWithdraw is StoxSafeBundleScript, ISto
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        bytes32 revokeId = LibServiceSignerRevoke.operationId(timelock, block.chainid);
         if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
-            if (TimelockController(payable(timelock)).isOperationPending(revokeId)) {
-                revert ZerogRevokeScheduled(revokeId);
-            }
-        } else if (!TimelockController(payable(timelock)).isOperationDone(revokeId)) {
-            revert RevokeNotExecuted(revokeId);
+            LibServiceSignerRevoke.assertNotPending(timelock, block.chainid);
+        } else {
+            bytes32 revokeId = LibServiceSignerRevoke.operationId(timelock, block.chainid);
+            if (!TimelockController(payable(timelock)).isOperationDone(revokeId)) revert RevokeNotExecuted(revokeId);
         }
         LibServiceSignerRevoke.assertRevoked(LibAuthoriserInvariants.authoriserForChainId(block.chainid));
         bytes32 id = LibStoxMigrations.EXECUTE_REVOKE_SERVICE_SIGNER;
@@ -139,9 +130,7 @@ contract ExecuteRevokeServiceSignerDepositWithdraw is StoxSafeBundleScript, ISto
 
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = LibStoxMigrations.recordTx(executeRevokeServiceSignerDeclaration());
-        return txs;
+        return LibStoxMigrations.recordOnlyBundle(executeRevokeServiceSignerDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript
