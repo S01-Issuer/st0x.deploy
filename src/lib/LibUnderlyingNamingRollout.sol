@@ -116,10 +116,7 @@ library LibUnderlyingNamingRollout {
     /// scripts refuse. The target implementation constants alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
 
-    /// @notice Reverts `ZerogArmPendingDecision` for `migration` on 0G, so each
-    /// of the three naming scripts refuses there before any other check. The
-    /// rollout's batches are cut only for the networks before 0G
-    /// (`cutForChain`), and none of the three has a 0G arm.
+    /// @notice Reverts `ZerogArmPendingDecision` for `migration` on 0G, where the batches are not cut (`cutForChain`).
     /// @param migration The naming migration.
     function refuseZerog(bytes32 migration) internal view {
         if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {

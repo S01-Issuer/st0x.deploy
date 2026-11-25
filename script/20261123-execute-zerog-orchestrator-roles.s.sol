@@ -134,9 +134,7 @@ contract ExecuteZerogOrchestratorRoles is StoxSafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = LibStoxMigrations.recordTx(executeZerogOrchestratorRolesDeclaration());
-        return txs;
+        return LibStoxMigrations.recordOnlyBundle(executeZerogOrchestratorRolesDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript

@@ -145,9 +145,7 @@ contract ScheduleZerogOrchestratorRoles is StoxSafeBundleScript, IStoxScript {
     /// @dev On 0G the schedule, then the record; elsewhere the record alone.
     function authorBundle() internal view override returns (SafeTx[] memory txs) {
         if (!onZerog()) {
-            txs = new SafeTx[](1);
-            txs[0] = LibStoxMigrations.recordTx(scheduleZerogOrchestratorRolesDeclaration());
-            return txs;
+            return LibStoxMigrations.recordOnlyBundle(scheduleZerogOrchestratorRolesDeclaration());
         }
         txs = new SafeTx[](2);
         txs[0] = scheduleTx();
