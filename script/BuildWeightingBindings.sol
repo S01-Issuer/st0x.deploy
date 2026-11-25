@@ -7,7 +7,6 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {WeightingFixture} from "../test/lib/WeightingFixture.sol";
 
 contract BuildWeightingBindings is Script, WeightingFixture {
-    string internal constant DIR = "test/composed/";
     string internal constant RAIN_DIR = "src/rain/";
 
     function binding(string memory key, string memory value) internal pure returns (string memory) {

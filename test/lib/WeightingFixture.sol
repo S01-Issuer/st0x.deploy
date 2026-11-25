@@ -7,6 +7,8 @@ pragma solidity ^0.8.25;
 /// composes the `test/composed` weightings from, shared with the tests that
 /// eval them.
 abstract contract WeightingFixture {
+    string internal constant DIR = "test/composed/";
+
     uint256 internal constant LEAD_KEY = 0x1EAD;
     uint256 internal constant OPERATOR_KEY_0 = 0x0A00;
     uint256 internal constant POOL_SIZE = 6;
