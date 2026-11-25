@@ -1988,7 +1988,7 @@
         "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
         "setDeployer": "0x945D0Faf6f268e805246907507ef1044e70E75D7"
       },
-      "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
+      "renameMigration": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
         "fallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
