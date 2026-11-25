@@ -5,7 +5,8 @@ pragma solidity =0.8.25;
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdOrchestratorParams} from "../../src/lib/LibProdOrchestratorParams.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
-import {LibStoxMigrations, ZerogCurrentSourceDeployed} from "../../src/lib/LibStoxMigrations.sol";
+import {CurrentSourceDeployed} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {RootNameBound} from "../../src/lib/LibRootConfigBinding.sol";
 import {IRecordScriptHooks} from "../lib/RootLineRecordScriptTest.sol";
 import {BindOrchestratorConfigHarness} from "./BindOrchestratorConfigHarness.sol";
@@ -66,21 +67,21 @@ contract BindOrchestratorConfigZerogRootLineTest is ZerogRootLineScriptTest {
         executeBundle();
         vm.etch(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, hex"00");
         vm.expectRevert(
-            abi.encodeWithSelector(ZerogCurrentSourceDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
+            abi.encodeWithSelector(CurrentSourceDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
         );
         sScript.callAssertPostState();
     }
 
     function testZerogPreflightRefusesTheOrchestratorBeaconDeployed() external {
         vm.etch(beacon(), hex"00");
-        vm.expectRevert(abi.encodeWithSelector(ZerogCurrentSourceDeployed.selector, beacon()));
+        vm.expectRevert(abi.encodeWithSelector(CurrentSourceDeployed.selector, beacon()));
         sScript.callPreflight();
     }
 
     function testZerogPreflightRefusesTheSuiteTimelockDeployed() external {
         vm.etch(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, hex"00");
         vm.expectRevert(
-            abi.encodeWithSelector(ZerogCurrentSourceDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
+            abi.encodeWithSelector(CurrentSourceDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
         );
         sScript.callPreflight();
     }
@@ -88,7 +89,7 @@ contract BindOrchestratorConfigZerogRootLineTest is ZerogRootLineScriptTest {
     function testZerogPostStateRefusesTheOrchestratorBeaconDeployed() external {
         executeBundle();
         vm.etch(beacon(), hex"00");
-        vm.expectRevert(abi.encodeWithSelector(ZerogCurrentSourceDeployed.selector, beacon()));
+        vm.expectRevert(abi.encodeWithSelector(CurrentSourceDeployed.selector, beacon()));
         sScript.callAssertPostState();
     }
 }

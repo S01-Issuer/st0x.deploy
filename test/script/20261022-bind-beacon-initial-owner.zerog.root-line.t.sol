@@ -4,7 +4,8 @@ pragma solidity =0.8.25;
 
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
-import {LibStoxMigrations, ZerogCurrentSourceDeployed} from "../../src/lib/LibStoxMigrations.sol";
+import {CurrentSourceDeployed} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {RootNameBound} from "../../src/lib/LibRootConfigBinding.sol";
 import {IRecordScriptHooks} from "../lib/RootLineRecordScriptTest.sol";
 import {BindBeaconInitialOwnerHarness} from "./BindBeaconInitialOwnerHarness.sol";
@@ -57,7 +58,7 @@ contract BindBeaconInitialOwnerZerogRootLineTest is ZerogRootLineScriptTest {
     function testZerogPreflightRefusesTheSuiteTimelockDeployed() external {
         vm.etch(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, hex"00");
         vm.expectRevert(
-            abi.encodeWithSelector(ZerogCurrentSourceDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
+            abi.encodeWithSelector(CurrentSourceDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
         );
         sScript.callPreflight();
     }
@@ -66,7 +67,7 @@ contract BindBeaconInitialOwnerZerogRootLineTest is ZerogRootLineScriptTest {
         executeBundle();
         vm.etch(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, hex"00");
         vm.expectRevert(
-            abi.encodeWithSelector(ZerogCurrentSourceDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
+            abi.encodeWithSelector(CurrentSourceDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
         );
         sScript.callAssertPostState();
     }

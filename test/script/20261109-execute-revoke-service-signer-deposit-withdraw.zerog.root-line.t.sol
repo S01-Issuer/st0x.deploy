@@ -5,9 +5,9 @@ pragma solidity =0.8.25;
 import {
     ExecuteRevokeServiceSignerDepositWithdraw,
     ExecuteRevokeServiceSignerRecorded,
-    RevokeOperationNotReady,
-    ZerogRevokeScheduled
+    RevokeOperationNotReady
 } from "../../script/20261109-execute-revoke-service-signer-deposit-withdraw.s.sol";
+import {RevokeBatchPending} from "../../src/lib/LibServiceSignerRevoke.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {IRecordScriptHooks} from "../lib/RootLineRecordScriptTest.sol";
 import {ExecuteRevokeServiceSignerDepositWithdrawHarness} from "./ExecuteRevokeServiceSignerDepositWithdrawHarness.sol";
@@ -35,7 +35,7 @@ contract ExecuteRevokeServiceSignerDepositWithdrawZerogRootLineTest is ZerogServ
 
     function testZerogPreflightRefusesAScheduledRevoke() external {
         scheduleRevoke();
-        vm.expectRevert(abi.encodeWithSelector(ZerogRevokeScheduled.selector, revokeId()));
+        vm.expectRevert(abi.encodeWithSelector(RevokeBatchPending.selector, revokeId()));
         sScript.callPreflight();
     }
 

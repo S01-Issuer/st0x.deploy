@@ -4,11 +4,8 @@ pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
-import {
-    RevokeAlreadyScheduled,
-    TimelockLacksAdminRole
-} from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
-import {ServiceSignerStillHoldsRole} from "../../src/lib/LibServiceSignerRevoke.sol";
+import {TimelockLacksAdminRole} from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
+import {RevokeBatchPending, ServiceSignerStillHoldsRole} from "../../src/lib/LibServiceSignerRevoke.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {IRecordScriptHooks} from "../lib/RootLineRecordScriptTest.sol";
 import {
@@ -34,7 +31,7 @@ contract ScheduleRevokeServiceSignerDepositWithdrawZerogRootLineTest is ZerogSer
 
     function testZerogPreflightRefusesAScheduledRevoke() external {
         scheduleRevoke();
-        vm.expectRevert(abi.encodeWithSelector(RevokeAlreadyScheduled.selector, revokeId()));
+        vm.expectRevert(abi.encodeWithSelector(RevokeBatchPending.selector, revokeId()));
         sScript.callPreflight();
     }
 
@@ -56,7 +53,7 @@ contract ScheduleRevokeServiceSignerDepositWithdrawZerogRootLineTest is ZerogSer
     function testZerogPostStateRefusesAScheduledRevoke() external {
         executeBundle();
         scheduleRevoke();
-        vm.expectRevert(abi.encodeWithSelector(RevokeAlreadyScheduled.selector, revokeId()));
+        vm.expectRevert(abi.encodeWithSelector(RevokeBatchPending.selector, revokeId()));
         sScript.callAssertPostState();
     }
 }
