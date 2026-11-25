@@ -263,11 +263,18 @@ library LibUnderlyingNamingRollout {
         TokenInstance[] memory chainTokens = tokens(chainId);
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenInstance memory token = chainTokens[tokenIndex];
-            string memory ticker = LibProdTokenConfig.configOf(token.underlying).ticker;
-            string memory symbol = IERC20Metadata(token.receiptVault).symbol();
-            if (keccak256(bytes(symbol)) != keccak256(bytes(string.concat("t", ticker)))) {
-                revert TickerNotBoundToVault(ticker, token.receiptVault, symbol);
-            }
+            assertTickerBound(token, LibProdTokenConfig.configOf(token.underlying));
+        }
+    }
+
+    /// @notice Reverts `TickerNotBoundToVault` unless `token`'s receipt vault
+    /// reports `"t" + config.ticker` as its live symbol.
+    /// @param token The token whose vault the rename writes to.
+    /// @param config The row the rename writes.
+    function assertTickerBound(TokenInstance memory token, TokenConfig memory config) internal view {
+        string memory symbol = IERC20Metadata(token.receiptVault).symbol();
+        if (keccak256(bytes(symbol)) != keccak256(bytes(string.concat("t", config.ticker)))) {
+            revert TickerNotBoundToVault(config.ticker, token.receiptVault, symbol);
         }
     }
 
@@ -277,10 +284,16 @@ library LibUnderlyingNamingRollout {
     function assertIsinsBound(uint256 chainId) internal pure {
         TokenInstance[] memory chainTokens = tokens(chainId);
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
-            if (keccak256(bytes(config.isin)) != keccak256(bytes(config.assetId))) {
-                revert IsinNotBoundToAssetId(config.underlying, config.isin, config.assetId);
-            }
+            assertIsinBound(LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying));
+        }
+    }
+
+    /// @notice Reverts `IsinNotBoundToAssetId` unless `config`'s ISIN is its
+    /// listing-time asset id.
+    /// @param config The row.
+    function assertIsinBound(TokenConfig memory config) internal pure {
+        if (keccak256(bytes(config.isin)) != keccak256(bytes(config.assetId))) {
+            revert IsinNotBoundToAssetId(config.underlying, config.isin, config.assetId);
         }
     }
 
