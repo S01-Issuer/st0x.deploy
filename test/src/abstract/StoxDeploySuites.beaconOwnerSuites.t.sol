@@ -16,8 +16,7 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 /// @notice `beaconOwnerSuites()` is exactly the candidates whose constructors read the beacon initial owner binding.
 contract StoxDeploySuitesBeaconOwnerSuitesTest is Test, StoxDeploySuites {
     /// With every other address name bound and each candidate's dependencies in place, a candidate is in the list
-    /// exactly when its creation code reverts on the unbound beacon initial owner, and no candidate reverts on another
-    /// unbound name.
+    /// exactly when its creation code reverts on the unbound beacon initial owner, and every other candidate deploys.
     function testBeaconOwnerSuitesAreTheCandidatesThatReadTheBinding() external {
         LibTestDeploy.etchConfigRegistry(vm);
         bytes32[6] memory others = [
@@ -53,15 +52,7 @@ contract StoxDeploySuitesBeaconOwnerSuitesTest is Test, StoxDeploySuites {
             }
             bool readsOwner = !deployed && keccak256(reverted) == keccak256(unbound);
             string memory suite = candidates[i].snapshot.suite;
-            bytes4 selector;
-            assembly ("memory-safe") {
-                selector := mload(add(reverted, 0x20))
-            }
-            assertFalse(
-                !readsOwner && !deployed && reverted.length >= 4
-                    && selector == IConfigRegistryV5.NameNotRegistered.selector,
-                string.concat("another unbound name read by ", suite)
-            );
+            assertTrue(deployed || readsOwner, string.concat("reverted before reading the owner: ", suite));
             assertEq(readsOwner, isBeaconOwnerSuite(keccak256(bytes(suite))), suite);
             if (readsOwner) {
                 reading++;
