@@ -29,6 +29,12 @@ import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
+import {
+    BeaconCodehashMismatch,
+    BeaconImplementationMismatch,
+    BeaconNotDeployed,
+    BeaconOwnerMismatch
+} from "../../src/lib/LibBeaconInvariants.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {LibTestTokenRows} from "../lib/LibTestTokenRows.sol";
 import {DeployPreDeployCheckHarness} from "./DeployPreDeployCheckHarness.sol";
@@ -39,6 +45,24 @@ contract DeployTokenBindingsTest is Test {
     function setUp() external {
         harness = new DeployPreDeployCheckHarness();
         LibTestDeploy.etchConfigRegistry(vm);
+        placeOwnedBeacon(
+            LibProdDeployCurrent.STOX_RECEIPT_BEACON,
+            LibProdDeployCurrent.STOX_RECEIPT,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+        );
+        placeOwnedBeacon(
+            LibProdTokenParams.wrapperBeacon(),
+            LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+        );
+    }
+
+    /// A pinned beacon at `at`, serving `implementation`, owned by `owner`.
+    function placeOwnedBeacon(address at, address implementation, address owner) internal {
+        if (implementation.code.length == 0) {
+            vm.etch(implementation, hex"00");
+        }
+        LibTestDeploy.placeBeacon(vm, at, implementation, owner);
     }
 
     /// Deploys the governance timelock with `proposer` as its proposer.
@@ -471,10 +495,164 @@ contract DeployTokenBindingsTest is Test {
         SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
         bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
         for (uint256 i = 0; i < networks.length; i++) {
+            uint256 snapshot = vm.snapshotState();
             vm.chainId(networks[i].chainId);
+            deployTimelock(LibSafeInvariants.safeForChainId(networks[i].chainId));
             for (uint256 j = 0; j < wrappers.length; j++) {
                 harness.exposedPreDeployCheck(wrappers[j], networks[i]);
             }
+            vm.revertToState(snapshot);
         }
+    }
+
+    /// With the wrapper beacon right but no timelock at its address, the wrappers are refused.
+    function testWrappersRefuseAnUndeployedGovernanceTimelock() external {
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                LibTimelockController.TimelockNotDeployed.selector, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK
+            )
+        );
+        harness.exposedPreDeployCheck(wrappers[0], networks[0]);
+    }
+
+    /// A pinned receipt beacon owned by anyone but the governance timelock is refused: its owner upgrades every
+    /// receipt.
+    function testTokensRefuseAReceiptBeaconWithAnotherOwner(address owner) external {
+        vm.assume(owner != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK && owner != address(0));
+        placeOwnedBeacon(LibProdDeployCurrent.STOX_RECEIPT_BEACON, LibProdDeployCurrent.STOX_RECEIPT, owner);
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconOwnerMismatch.selector,
+                LibProdDeployCurrent.STOX_RECEIPT_BEACON,
+                LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+                owner
+            )
+        );
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
+    }
+
+    /// A pinned wrapper beacon owned by anyone but the governance timelock is refused: its owner upgrades every
+    /// wrapper.
+    function testWrappersRefuseAWrapperBeaconWithAnotherOwner(address owner) external {
+        vm.assume(owner != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK && owner != address(0));
+        placeOwnedBeacon(LibProdTokenParams.wrapperBeacon(), LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT, owner);
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconOwnerMismatch.selector,
+                LibProdTokenParams.wrapperBeacon(),
+                LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+                owner
+            )
+        );
+        harness.exposedPreDeployCheck(wrappers[0], networks[0]);
+    }
+
+    /// A pinned receipt beacon address holding other code is refused: the receipt beacon is not a token-suite
+    /// dependency, so the pre-flight checks its code itself.
+    function testTokensRefuseAReceiptBeaconWithOtherCode() external {
+        vm.etch(LibProdDeployCurrent.STOX_RECEIPT_BEACON, hex"00");
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconCodehashMismatch.selector,
+                LibProdDeployCurrent.STOX_RECEIPT_BEACON,
+                LibProdDeployCurrent.STOX_RECEIPT_BEACON_CODEHASH,
+                keccak256(hex"00")
+            )
+        );
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
+    }
+
+    /// A pinned receipt beacon address with no code is refused.
+    function testTokensRefuseAReceiptBeaconWithNoCode() external {
+        vm.etch(LibProdDeployCurrent.STOX_RECEIPT_BEACON, "");
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, LibProdDeployCurrent.STOX_RECEIPT_BEACON));
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
+    }
+
+    /// A pinned wrapper beacon serving another implementation is refused.
+    function testWrappersRefuseAWrapperBeaconServingOtherImplementation() external {
+        address other = LibProdDeployCurrent.STOX_RECEIPT_VAULT;
+        placeOwnedBeacon(LibProdTokenParams.wrapperBeacon(), other, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconImplementationMismatch.selector,
+                LibProdTokenParams.wrapperBeacon(),
+                LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT,
+                other
+            )
+        );
+        harness.exposedPreDeployCheck(wrappers[0], networks[0]);
+    }
+
+    /// A pinned wrapper beacon address holding other code is refused.
+    function testWrappersRefuseAWrapperBeaconWithOtherCode() external {
+        vm.etch(LibProdTokenParams.wrapperBeacon(), hex"00");
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconCodehashMismatch.selector,
+                LibProdTokenParams.wrapperBeacon(),
+                LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH,
+                keccak256(hex"00")
+            )
+        );
+        harness.exposedPreDeployCheck(wrappers[0], networks[0]);
+    }
+
+    /// A pinned wrapper beacon address with no code is refused.
+    function testWrappersRefuseAWrapperBeaconWithNoCode() external {
+        vm.etch(LibProdTokenParams.wrapperBeacon(), "");
+        DeploySuite[] memory wrappers = harness.declaredWrapperSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindAddress(LibStoxConfig.WRAPPER_BEACON_NAME, LibProdTokenParams.wrapperBeacon());
+        vm.expectRevert(abi.encodeWithSelector(BeaconNotDeployed.selector, LibProdTokenParams.wrapperBeacon()));
+        harness.exposedPreDeployCheck(wrappers[0], networks[0]);
+    }
+
+    /// A pinned receipt beacon serving another implementation is refused.
+    function testTokensRefuseAReceiptBeaconServingOtherImplementation() external {
+        address other = LibProdDeployCurrent.STOX_RECEIPT_VAULT;
+        placeOwnedBeacon(LibProdDeployCurrent.STOX_RECEIPT_BEACON, other, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
+        DeploySuite[] memory tokens = harness.declaredTokenSuites(LibProdTokenConfig.testTokenConfigs());
+        SupportedNetwork[] memory networks = harness.deployNetworkConfigs();
+        vm.chainId(networks[0].chainId);
+        bindPinned(networks[0].chainId);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                BeaconImplementationMismatch.selector,
+                LibProdDeployCurrent.STOX_RECEIPT_BEACON,
+                LibProdDeployCurrent.STOX_RECEIPT,
+                other
+            )
+        );
+        harness.exposedPreDeployCheck(tokens[0], networks[0]);
     }
 }

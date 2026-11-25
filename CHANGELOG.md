@@ -4,6 +4,18 @@
 
 ### Token config and deploy
 
+- **`Deploy.preDeployCheck` refuses a token suite unless the bound receipt
+  beacon serves `LibProdDeployCurrent`'s implementation and code and is owned
+  by the governance timelock** (`LibBeaconInvariants.assertBeaconInvariants`:
+  `BeaconOwnerMismatch`, `BeaconImplementationMismatch`, `BeaconNotDeployed`,
+  `BeaconCodehashMismatch`). **It refuses a wrapper suite unless the bound
+  wrapper beacon serves `LibProdDeployCurrent`'s implementation and is owned by
+  the governance timelock, and the governance timelock is in its pinned state**
+  (`BeaconOwnerMismatch`, `BeaconImplementationMismatch`). The wrapper beacon is
+  a suite dependency, so the broadcaster's dependency check
+  (`MissingDependency`, `DependencyChanged`) refuses it with no code or other
+  code before the pre-flight runs; the receipt beacon is not, so the pre-flight
+  checks its code itself.
 - **`Deploy.preDeployCheck` refuses a beacon or token suite unless the
   governance timelock that owns them is in its pinned state**
   (`LibTimelockInvariants.assertTimelockState` with the chain's Safe as
