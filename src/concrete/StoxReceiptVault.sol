@@ -115,12 +115,13 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
                 mstore(4, facet)
                 revert(0, 0x24)
             }
-            calldatacopy(0, 0, calldatasize())
-            let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
-            returndatacopy(0, 0, returndatasize())
+            let ptr := mload(0x40)
+            calldatacopy(ptr, 0, calldatasize())
+            let success := delegatecall(gas(), facet, ptr, calldatasize(), 0, 0)
+            returndatacopy(ptr, 0, returndatasize())
             switch success
-            case 0 { revert(0, returndatasize()) }
-            default { return(0, returndatasize()) }
+            case 0 { revert(ptr, returndatasize()) }
+            default { return(ptr, returndatasize()) }
         }
     }
 

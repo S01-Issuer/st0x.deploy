@@ -30,11 +30,9 @@ string constant ST0X_NAME_SUFFIX = " (ST0x)";
 string constant ST0X_SYMBOL_PREFIX = "t";
 
 /// @title LibSecurity
-/// @notice Storage for the ticker and name of the off-chain asset a
-/// `StoxReceiptVault` tokenizes. The vault's own ERC-20 `symbol()` / `name()`
-/// and the wrapping `StoxWrappedTokenVault`'s `symbol()` / `name()` are all
-/// built from these two values, so neither is ever recovered by trimming
-/// another token's string.
+/// @notice Storage for a token's underlying override: ticker, name, ISIN and
+/// the `block.timestamp` it was set at, which
+/// `StoxCorporateActionsFacet.resolveUnderlying` weighs against the snapshot.
 library LibSecurity {
     /// @custom:storage-location erc7201:rain.storage.underlying.1
     /// @dev **DO NOT REORDER — APPEND ONLY.** This struct lives at a fixed
