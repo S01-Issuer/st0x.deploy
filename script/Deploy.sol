@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {RainDeployBroadcast} from "rain-deploy-0.1.38/src/abstract/RainDeployBroadcast.sol";
 import {
     DeployDeclaration,
@@ -25,7 +24,7 @@ import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenCo
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
-import {BeaconImplementationMismatch} from "../src/lib/LibBeaconInvariants.sol";
+import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
@@ -134,10 +133,12 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             revert VaultBeaconMismatch(vaultBeacon, LibProdTokenParams.vaultBeacon());
         }
         // A token's address commits to the beacon name, not the implementation the beacon serves.
-        address implementation = IBeacon(vaultBeacon).implementation();
-        if (implementation != LibProdDeployCurrent.STOX_RECEIPT_VAULT) {
-            revert BeaconImplementationMismatch(vaultBeacon, LibProdDeployCurrent.STOX_RECEIPT_VAULT, implementation);
-        }
+        LibBeaconInvariants.assertBeaconInvariants(
+            vaultBeacon,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT,
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT_BEACON_CODEHASH
+        );
         address receiptBeacon = boundAddress(LibStoxConfig.RECEIPT_BEACON_NAME);
         if (receiptBeacon != LibProdDeployCurrent.STOX_RECEIPT_BEACON) {
             revert ReceiptBeaconMismatch(receiptBeacon, LibProdDeployCurrent.STOX_RECEIPT_BEACON);
