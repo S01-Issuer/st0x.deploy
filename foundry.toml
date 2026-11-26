@@ -46,6 +46,7 @@ fs_permissions = [
   { access = "read-write", path = "subgraph/networks.json" },
   { access = "read", path = "script" },
   { access = "read", path = "test/fixture/declarations" },
+  { access = "read", path = "test/fixture/gleif" },
   { access = "read", path = "test/script" },
 ]
 
