@@ -6,4 +6,5 @@ pragma solidity ^0.8.25;
 /// @notice The 0G token creation's on-chain landmarks.
 library LibTestZerogTokenCreation {
     uint256 internal constant LAST_BUNDLE_BLOCK = 51156480;
+    uint256 internal constant LAST_BUNDLE_TIMESTAMP = 1795454017;
 }

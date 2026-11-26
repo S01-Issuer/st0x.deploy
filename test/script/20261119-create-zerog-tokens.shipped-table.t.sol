@@ -33,6 +33,8 @@ contract CreateZerogTokensShippedTableTest is Test {
     /// @notice On live 0G at the last bundle's block, every row is created and the script's post-state holds.
     function testPostStateHoldsOnLiveZerogAfterTheLastBundle() external {
         vm.createSelectFork(LibStoxDeployNetworks.ZEROG, LibTestZerogTokenCreation.LAST_BUNDLE_BLOCK);
+        // A run's tests share a fork's block env, so another test's warp at this block can leak in.
+        vm.warp(LibTestZerogTokenCreation.LAST_BUNDLE_TIMESTAMP);
         CreateZerogTokensHarness script = new CreateZerogTokensHarness("shipped-table-live");
         assertEq(script.callCreatedCount(), LibTokenInvariants.productionTokensZerog().length, "every row created");
         script.callAssertPostState();
