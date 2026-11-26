@@ -39,8 +39,8 @@
 
 - **Tokens initialize from the listing facts.** Init data is
   `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the token's
-  starting ISIN, ticker and name, the region, the ConfigRegistry authority,
-  RBAC and receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
+  starting ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC
+  and receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
   delegatecalls the facet's `initializeStoxToken`, which refuses
   `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,
   `MalformedAssetId`, `MalformedListingTicker`, `MalformedListingName` and
@@ -58,10 +58,10 @@
 - **Expected state marks a token at its suite address `Listed`**
   (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
   deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
-- **`IStoxAssetIdV1.assetId()` reports the token's current asset id (an
-  ISIN)**, the one it was initialized with, through the vault's fallback
-  (`StoxCorporateActionsFacet`); a vault initialized before
-  `StoxTokenConfigV1` returns `""`.
+- **`IStoxAssetIdV1.assetId()` reports the token's current asset id (an ISIN)**,
+  the one it was initialized with, through the vault's fallback
+  (`StoxCorporateActionsFacet`); a vault initialized before `StoxTokenConfigV1`
+  returns `""`.
 
 ### StoxReceipt
 
