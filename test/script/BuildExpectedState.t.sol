@@ -1024,7 +1024,8 @@ contract BuildExpectedStateTest is Test {
     function testRunWritesTheRender() external {
         vm.removeFile("expected-state.json");
         build.run();
-        assertEq(keccak256(vm.parseJson(vm.readFile("expected-state.json"))), keccak256(vm.parseJson(build.render())));
+        bytes32 rendered = keccak256(vm.parseJson(build.render()));
+        assertEq(keccak256(vm.parseJson(vm.readFile("expected-state.json"))), rendered);
     }
 
     function expectedZoltu(SupportedNetwork memory network) internal pure returns (DeploySuite[] memory) {
