@@ -42,7 +42,7 @@ error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 /// initialisation resolves is bound to this repo's pin for that chain (an
 /// unbound name reverts in the registry), and, for beacon, token and wrapper
 /// suites, unless the governance timelock that owns them is in its pinned
-/// state, and, for token and wrapper suites, unless the bound receipt or
+/// state, and, for token and wrapper suites, unless the bound vault, receipt or
 /// wrapper beacon is owned by the governance timelock and serves its pinned
 /// implementation and code.
 contract Deploy is StoxDeploySuites, RainDeployBroadcast {
@@ -140,6 +140,13 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         if (vaultBeacon != LibProdTokenParams.vaultBeacon()) {
             revert VaultBeaconMismatch(vaultBeacon, LibProdTokenParams.vaultBeacon());
         }
+        // Whoever owns the vault beacon upgrades every vault behind it.
+        LibBeaconInvariants.assertBeaconInvariants(
+            vaultBeacon,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT,
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT_BEACON_CODEHASH
+        );
         address receiptBeacon = boundAddress(LibStoxConfig.RECEIPT_BEACON_NAME);
         if (receiptBeacon != LibProdDeployCurrent.STOX_RECEIPT_BEACON) {
             revert ReceiptBeaconMismatch(receiptBeacon, LibProdDeployCurrent.STOX_RECEIPT_BEACON);

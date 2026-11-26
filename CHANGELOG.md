@@ -27,6 +27,14 @@
   `STOX_GOVERNANCE_TIMELOCK` (`NameNotRegistered` when unbound,
   `BeaconInitialOwnerMismatch` when bound to another address); before, it had no
   check.
+- **`Deploy.preDeployCheck` refuses a token suite unless the bound vault beacon
+  is owned by the governance timelock and serves
+  `LibProdDeployCurrent.STOX_RECEIPT_VAULT` and its code**
+  (`LibBeaconInvariants.assertBeaconInvariants`: `BeaconOwnerMismatch`,
+  `BeaconImplementationMismatch`, `BeaconImplNotDeployed`), because a token's
+  address commits to the beacon name, not the implementation. The vault beacon
+  is a suite dependency, so the broadcaster's dependency check refuses it with
+  no code or other code first.
 
 ## Registry-config tokens (rain.vats 0.2.9)
 
@@ -39,6 +47,45 @@
 - **`optimizer_runs` lowered 1666 → 200 to fit EIP-170.** At 200 runs the
   runtime is 24,418 bytes (158 spare). As with every optimizer change, this
   moves every candidate Zoltu address; the candidate pins are regenerated.
+- **`optimizer_runs` lowered 195 → 183 to fit the `StoxTokenConfigV1`
+  `initialize` override under EIP-170.** Measured with the override applied:
+  `runs=195` → 24,680 (over by 104); `runs=188` → 24,632; `runs=184` → 24,632
+  (over by 56); `runs=183` → 24,479 (**97 spare**); `runs=182` → 24,479;
+  `runs=180` → 24,479; `runs=150` → 24,302. Sharing one internal delegatecall
+  function between `fallback` and `initialize` was measured and rejected: 24,733
+  at 195 runs, larger than the inline form. As with every optimizer change, this
+  moves every candidate Zoltu address; the candidate pins are regenerated.
+
+### Token init data (`StoxTokenConfigV1`)
+
+- **Tokens initialize from the listing facts.** Init data is
+  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the token's
+  starting ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC
+  and receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
+  delegatecalls the facet's `initializeStoxToken`, which refuses
+  `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,
+  `MalformedAssetId`, `MalformedListingTicker`, `MalformedListingName` and
+  `StoxTokenAlreadyInitialized`, stores the listing facts at
+  `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and passes
+  rain-vats the V3 config named `listingName + " (ST0x)"` /
+  `"t" + listingTicker`.
+- **rain-vats V3 init data is refused** (`InvalidStoxTokenConfigTag`).
+- **The token salt is zero.** The clone factory's effective salt already hashes
+  the init data, so each token's address is unique to its config.
+- **`underlyingSymbol()` / `underlyingName()` fall back to the listing ticker
+  and name** until `setUnderlying` runs, so the wrapper reports
+  `listingTicker + "s"` and the vault's name from init. Vaults initialized
+  before this read empty until set.
+- **Expected state marks a token at its suite address `Listed`**
+  (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
+  deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
+- **`IStoxAssetIdV1.assetId()` reports the token's current asset id (an ISIN)**,
+  the one it was initialized with, through the vault's fallback
+  (`StoxCorporateActionsFacet`); a vault initialized before `StoxTokenConfigV1`
+  returns `""`.
+- **`StoxReceiptVault.initialize` refuses
+  `CorporateActionsFacetNotDeployed(facet)` when the pinned facet has no code**,
+  instead of failing the decode with no reason.
 
 ### StoxReceipt
 
@@ -55,7 +102,8 @@
   `onlyOwner`-equivalent (it checks the vault's `owner()`, so on live chains it
   goes through the governance timelock), rejects empty values with
   `EmptyUnderlyingSymbol` / `EmptyUnderlyingName`, emits `UnderlyingSet` with
-  the old and new values, and can be called again when a listing is renamed.
+  the getters' old values and the new ones, and can be called again when a
+  listing is renamed.
 - **Token metadata is built from those values.** Once set, `StoxReceiptVault`
   reports `symbol() = "t" + ticker` and `name() = name + " (ST0x)"`, and
   `StoxWrappedTokenVault` reports `symbol() = ticker + "s"` and the vault's
@@ -63,7 +111,8 @@
   suffix is the single constant `ST0X_NAME_SUFFIX`. While unset, the vault
   reports the name and symbol it was initialized with and the wrapper
   `"Wrapped " + name` / `"w" + symbol`, so nothing changes on chain until the
-  values are set.
+  values are set. A vault initialized with `StoxTokenConfigV1` (below) is named
+  from its listing at init instead.
 - **The wrapper does not revert because of its asset's underlying getters.** It
   reads the underlying values with a `staticcall` and falls back to the asset's
   ERC-20 metadata if the call fails, returns data that is not a well-formed
