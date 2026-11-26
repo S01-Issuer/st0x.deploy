@@ -19,6 +19,7 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
+import {IStoxAssetIdV1} from "../../../src/interface/IStoxAssetIdV1.sol";
 import {MalformedUnderlyingSnapshot} from "../../../src/error/ErrUnderlying.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
@@ -134,7 +135,7 @@ contract StoxCorporateActionsFacetUnderlyingReadRuleTest is Test {
     {
         assertEq(IStoxUnderlyingV2(address(vault)).underlyingSymbol(), ticker, "underlyingSymbol");
         assertEq(IStoxUnderlyingV2(address(vault)).underlyingName(), name, "underlyingName");
-        assertEq(IStoxUnderlyingV2(address(vault)).underlyingIsin(), isin, "underlyingIsin");
+        assertEq(IStoxAssetIdV1(address(vault)).assetId(), isin, "assetId");
         assertEq(vault.symbol(), string.concat("t", ticker), "symbol");
         assertEq(vault.name(), string.concat(name, " (ST0x)"), "name");
     }
@@ -163,7 +164,7 @@ contract StoxCorporateActionsFacetUnderlyingReadRuleTest is Test {
         vm.expectRevert(err);
         IStoxUnderlyingV2(address(vault)).underlyingName();
         vm.expectRevert(err);
-        IStoxUnderlyingV2(address(vault)).underlyingIsin();
+        IStoxAssetIdV1(address(vault)).assetId();
         vm.expectRevert(err);
         vault.symbol();
         vm.expectRevert(err);
@@ -307,7 +308,7 @@ contract StoxCorporateActionsFacetUnderlyingReadRuleTest is Test {
         StoxWrappedTokenVault legacyWrapper = LibTestDeploy.newWrapper(AUTHORITY, address(legacy));
         assertEq(IStoxUnderlyingV2(address(legacy)).underlyingSymbol(), "");
         assertEq(IStoxUnderlyingV2(address(legacy)).underlyingName(), "");
-        assertEq(IStoxUnderlyingV2(address(legacy)).underlyingIsin(), "");
+        assertEq(IStoxAssetIdV1(address(legacy)).assetId(), "");
         assertEq(legacy.symbol(), "tNVDA");
         assertEq(legacy.name(), "NVIDIA Corporation ST0x");
         assertEq(legacyWrapper.symbol(), "wtNVDA");
