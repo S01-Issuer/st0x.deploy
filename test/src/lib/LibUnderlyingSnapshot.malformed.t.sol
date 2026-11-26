@@ -13,13 +13,13 @@ import {
 } from "../../../src/lib/LibUnderlyingSnapshot.sol";
 import {MalformedUnderlyingSnapshot} from "../../../src/error/ErrUnderlying.sol";
 import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../../script/LibUnderlyingSnapshotBuilder.sol";
+import {UNDERLYING_SNAPSHOT_AS_OF as AS_OF} from "../../../src/lib/LibProdTokenConfig.sol";
 
 /// @notice Root and shard bytes that do not match the snapshot format revert
 /// `MalformedUnderlyingSnapshot` naming the contract, and never read past them.
 contract LibUnderlyingSnapshotMalformedTest is Test {
     address constant MEMBER = address(0xA11CE);
     address constant SECOND = address(0xB0B);
-    uint256 constant AS_OF = 1794441600;
 
     address internal root = makeAddr("root");
     address internal shard = makeAddr("shard");

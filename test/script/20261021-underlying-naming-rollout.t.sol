@@ -10,12 +10,16 @@ import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/Timel
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
+import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 
 import {
     ExecuteUnderlyingNaming,
     NoUnderlyingNamingOperationReady,
     UnderlyingNamingExecutorHoldsRole,
-    UnderlyingNamingNotExecuted
+    UnderlyingNamingNotExecuted,
+    UnderlyingNamingRenameWaitsForBeacon
 } from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
     ScheduleUnderlyingNamingBeacons,
@@ -28,7 +32,8 @@ import {
     ScheduleUnderlyingNamingRename,
     RenameAlreadyScheduled,
     RenamedMetadataMismatch,
-    RenamedTimestampMismatch
+    RenamedTimestampMismatch,
+    RenameMovedUnrenamedMetadata
 } from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
@@ -595,8 +600,9 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         }
     }
 
-    /// @notice The beacon batch's execution proof refuses a wrapper whose name
-    /// or a vault whose symbol moved across the upgrade.
+    /// @notice The beacon batch's execution proof refuses any of the four
+    /// metadata values that moved across the upgrade, a row the rename skips
+    /// and tQSEP on Base included.
     function testBeaconProofRefusesEachBrokenUpgrade() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         advanceRootLineToBeaconSchedule();
@@ -605,23 +611,67 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         TokenInstance memory first = LibUnderlyingNamingRollout.tokens(block.chainid)[0];
 
         uint256 snapshot = vm.snapshotState();
-        // A value read before the batch and another after it: the first wrapper's name, the last vault's symbol.
+        // A value read before the batch and another after it, for each of the four getters.
         bytes[] memory moved = new bytes[](2);
         moved[0] = abi.encode("Before");
         moved[1] = abi.encode("After");
-        vm.mockCalls(first.wrappedTokenVault, abi.encodeWithSignature("name()"), moved);
-        vm.expectRevert(
-            abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, first.wrappedTokenVault, "Before", "After")
-        );
-        beacons.callProveExecution();
-        vm.revertToState(snapshot);
-        vm.clearMockedCalls();
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(block.chainid);
+        assertGt(table.length, LibUnderlyingNamingRollout.TOKEN_COUNT, "the table has rows the rename skips");
+        TokenInstance memory skipped = table[table.length - 1];
+        address[6] memory targets = [
+            first.receiptVault,
+            first.wrappedTokenVault,
+            skipped.receiptVault,
+            skipped.wrappedTokenVault,
+            LibTokenInvariants.QSEP_RECEIPT_VAULT,
+            LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT
+        ];
+        string[6] memory getters = ["name()", "symbol()", "symbol()", "name()", "name()", "symbol()"];
+        for (uint256 getterIndex = 0; getterIndex < targets.length; getterIndex++) {
+            vm.mockCalls(targets[getterIndex], abi.encodeWithSignature(getters[getterIndex]), moved);
+            vm.expectRevert(
+                abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, targets[getterIndex], "Before", "After")
+            );
+            beacons.callProveExecution();
+            vm.revertToState(snapshot);
+            vm.clearMockedCalls();
+        }
+    }
 
-        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
-        address lastVault = chainTokens[chainTokens.length - 1].receiptVault;
-        vm.mockCalls(lastVault, abi.encodeWithSignature("symbol()"), moved);
-        vm.expectRevert(abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, lastVault, "Before", "After"));
-        beacons.callProveExecution();
+    /// @notice The rename batch's execution proof refuses a name or symbol
+    /// that moved across the rollout on a vault or wrapper the rename does not
+    /// set: a row the rename skips, and tQSEP on Base.
+    function testRenameProofRefusesMovedUnrenamedMetadata() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("proof-refusals");
+        prepareRename();
+        SafeTx[] memory bundle = rename.callAuthorBundle();
+        executePrefix(bundle, bundle.length);
+
+        uint256 snapshot = vm.snapshotState();
+        // A value read before the rollout and another after it.
+        bytes[] memory moved = new bytes[](2);
+        moved[0] = abi.encode("Before");
+        moved[1] = abi.encode("After");
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(block.chainid);
+        assertGt(table.length, LibUnderlyingNamingRollout.TOKEN_COUNT, "the table has rows the rename skips");
+        TokenInstance memory skipped = table[table.length - 1];
+        address[4] memory targets = [
+            skipped.receiptVault,
+            skipped.wrappedTokenVault,
+            LibTokenInvariants.QSEP_RECEIPT_VAULT,
+            LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT
+        ];
+        string[4] memory getters = ["name()", "symbol()", "symbol()", "name()"];
+        for (uint256 getterIndex = 0; getterIndex < targets.length; getterIndex++) {
+            vm.mockCalls(targets[getterIndex], abi.encodeWithSignature(getters[getterIndex]), moved);
+            vm.expectRevert(
+                abi.encodeWithSelector(RenameMovedUnrenamedMetadata.selector, targets[getterIndex], "Before", "After")
+            );
+            rename.callProveExecution();
+            vm.revertToState(snapshot);
+            vm.clearMockedCalls();
+        }
     }
 
     /// @notice The rename pre-flight refuses once the rename is registered.
@@ -650,6 +700,91 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         vm.prank(timelock);
         TimelockController(payable(timelock)).grantRole(executorRole, address(this));
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingExecutorHoldsRole.selector, timelock, address(this)));
+        executor.execute();
+    }
+
+    /// @notice A rename that is ready while its rescheduled beacon batch is in its delay is refused without
+    /// executing; once the beacon batch matures the executor runs it, then the rename.
+    function testExecutorWaitsForARescheduledBeaconBatch() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("reschedule");
+        prepareRename();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
+
+        vm.prank(safe);
+        controller.cancel(beaconId);
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + 1);
+        bytes memory scheduleBeacon = LibUnderlyingNamingRollout.scheduleBeaconCalldata(block.chainid);
+        vm.prank(safe);
+        (bool ok,) = timelock.call(scheduleBeacon);
+        assertTrue(ok, "rescheduled");
+
+        vm.warp(controller.getTimestamp(renameId));
+        assertTrue(controller.isOperationReady(renameId), "rename ready");
+        assertFalse(controller.isOperationReady(beaconId), "beacon in its delay");
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingRenameWaitsForBeacon.selector, beaconId, true, renameId));
+        executor.execute();
+
+        vm.warp(controller.getTimestamp(beaconId));
+        executor.execute();
+        assertTrue(controller.isOperationDone(beaconId), "beacon executed");
+        assertFalse(controller.isOperationDone(renameId), "rename waits for the next dispatch");
+        executor.execute();
+        assertTrue(controller.isOperationDone(renameId), "rename executed");
+    }
+
+    /// @notice A rename that is ready while its beacon batch is cancelled and
+    /// not rescheduled is refused, naming the beacon batch as not pending.
+    function testExecutorRefusesARenameWhoseBeaconBatchIsCancelled() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("cancelled");
+        prepareRename();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
+
+        vm.prank(safe);
+        controller.cancel(beaconId);
+        vm.warp(controller.getTimestamp(renameId));
+        assertTrue(controller.isOperationReady(renameId), "rename ready");
+        assertFalse(controller.isOperationPending(beaconId), "beacon cancelled");
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
+        vm.expectRevert(
+            abi.encodeWithSelector(UnderlyingNamingRenameWaitsForBeacon.selector, beaconId, false, renameId)
+        );
+        executor.execute();
+    }
+
+    /// @notice While both batches are inside their delay the executor refuses,
+    /// naming neither as done.
+    function testExecutorRefusesWhileBothBatchesWait() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
+        address safe = LibSafeInvariants.safeForChainId(block.chainid);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("both-wait");
+        prepareRename();
+        LibSafeFork.executeBundle(vm, Safe(payable(safe)), rename.callAuthorBundle());
+
+        vm.warp(controller.getTimestamp(renameId) - 1);
+        assertFalse(controller.isOperationReady(beaconId), "beacon in its delay");
+        assertFalse(controller.isOperationReady(renameId), "rename in its delay");
+        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
+        vm.expectRevert(
+            abi.encodeWithSelector(NoUnderlyingNamingOperationReady.selector, beaconId, false, renameId, false)
+        );
         executor.execute();
     }
 

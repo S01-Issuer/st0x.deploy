@@ -120,7 +120,8 @@ library LibUnderlyingNamingRollout {
     address internal constant WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1;
 
     /// @notice Whether the implementation constants above alias a frozen, audited release; while false both schedule
-    /// scripts refuse. The target implementation constants alias the current-source candidate pins.
+    /// scripts refuse. The targets (`FACET`, `RECEIPT_VAULT_IMPLEMENTATION`, `WRAPPED_TOKEN_VAULT_IMPLEMENTATION` and
+    /// their codehashes) alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
@@ -192,6 +193,66 @@ library LibUnderlyingNamingRollout {
     /// @return Whether the rename batch renames it.
     function renamesRow(uint256 tokenIndex) internal pure returns (bool) {
         return tokenIndex < TOKEN_COUNT;
+    }
+
+    /// @notice Every vault and wrapper behind the two beacons on the chain:
+    /// the chain's token table, then tQSEP on Base.
+    /// @param chainId The chain id.
+    /// @return The tokens.
+    function beaconTokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+        if (chainId != LibSafeInvariants.BASE_CHAIN_ID) return table;
+        TokenInstance[] memory chainTokens = new TokenInstance[](table.length + 1);
+        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
+            chainTokens[tokenIndex] = table[tokenIndex];
+        }
+        chainTokens[table.length] = LibTokenInvariants.qsepToken();
+        return chainTokens;
+    }
+
+    /// @notice Every vault and wrapper behind the two beacons on the chain
+    /// that the rename does not set: the table rows past the renamed ones,
+    /// then tQSEP on Base.
+    /// @param chainId The chain id.
+    /// @return The tokens.
+    function unrenamedTokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+        bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
+        uint256 count = onBase ? 1 : 0;
+        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
+            if (!renamesRow(tokenIndex)) count++;
+        }
+        TokenInstance[] memory chainTokens = new TokenInstance[](count);
+        uint256 next = 0;
+        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
+            if (!renamesRow(tokenIndex)) chainTokens[next++] = table[tokenIndex];
+        }
+        if (onBase) chainTokens[next] = LibTokenInvariants.qsepToken();
+        return chainTokens;
+    }
+
+    /// @notice Every vault's and wrapper's name and symbol, in a fixed order:
+    /// vault name, vault symbol, wrapper name, wrapper symbol, per token.
+    /// @param chainTokens The tokens.
+    /// @return The values read.
+    function metadata(TokenInstance[] memory chainTokens) internal view returns (string[] memory) {
+        string[] memory values = new string[](chainTokens.length * 4);
+        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
+            values[tokenIndex * 4] = IERC20Metadata(chainTokens[tokenIndex].receiptVault).name();
+            values[tokenIndex * 4 + 1] = IERC20Metadata(chainTokens[tokenIndex].receiptVault).symbol();
+            values[tokenIndex * 4 + 2] = IERC20Metadata(chainTokens[tokenIndex].wrappedTokenVault).name();
+            values[tokenIndex * 4 + 3] = IERC20Metadata(chainTokens[tokenIndex].wrappedTokenVault).symbol();
+        }
+        return values;
+    }
+
+    /// @notice The vault or wrapper `metadata` read at `index`.
+    /// @param chainTokens The tokens.
+    /// @param index The index into `metadata`.
+    /// @return The vault or wrapper.
+    function metadataToken(TokenInstance[] memory chainTokens, uint256 index) internal pure returns (address) {
+        TokenInstance memory token = chainTokens[index / 4];
+        return index % 4 < 2 ? token.receiptVault : token.wrappedTokenVault;
     }
 
     /// @notice The chain's in-use receipt-vault beacon.
