@@ -27,6 +27,14 @@
   `STOX_GOVERNANCE_TIMELOCK` (`NameNotRegistered` when unbound,
   `BeaconInitialOwnerMismatch` when bound to another address); before, it had no
   check.
+- **`Deploy.preDeployCheck` refuses a token suite unless the bound vault beacon
+  is owned by the governance timelock and serves
+  `LibProdDeployCurrent.STOX_RECEIPT_VAULT` and its code**
+  (`LibBeaconInvariants.assertBeaconInvariants`: `BeaconOwnerMismatch`,
+  `BeaconImplementationMismatch`, `BeaconImplNotDeployed`), because a token's
+  address commits to the beacon name, not the implementation. The vault beacon
+  is a suite dependency, so the broadcaster's dependency check refuses it with
+  no code or other code first.
 
 ## Registry-config tokens (rain.vats 0.2.9)
 
