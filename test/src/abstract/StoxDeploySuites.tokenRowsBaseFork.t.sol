@@ -118,8 +118,9 @@ contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
         return broadcast(declared, name, DEPLOYER);
     }
 
-    /// The release a token deploy needs: the timelock, the implementations and the beacons, with the root authority's
-    /// bindings. In its own call frame, because the declaration is large and memory is only freed when a frame returns.
+    /// The release a token deploy needs: the timelock, the underlying snapshot, the implementations and the beacons,
+    /// with the root authority's bindings. In its own call frame, because the declaration is large and memory is only
+    /// freed when a frame returns.
     function deployRelease() external {
         DeployDeclaration memory declared = declaration();
         bind(
@@ -133,6 +134,11 @@ contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
             "address",
             abi.encode(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK)
         );
+        dispatch(declared, UNDERLYING_SNAPSHOT_ROOT);
+        uint256 shardCount = underlyingSnapshotShardSuites().length;
+        for (uint256 i = 0; i < shardCount; i++) {
+            dispatch(declared, underlyingSnapshotShardSuite(i));
+        }
         dispatch(declared, FACET);
         dispatch(declared, RECEIPT);
         dispatch(declared, RECEIPT_VAULT);
