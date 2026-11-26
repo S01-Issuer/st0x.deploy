@@ -212,12 +212,7 @@ contract BuildExpectedState is Script {
         string memory row = string.concat(key, ".qsep");
         tokenLegsJson(
             row,
-            TokenInstance({
-                underlying: "QSEP",
-                receipt: LibTokenInvariants.QSEP_RECEIPT,
-                receiptVault: LibTokenInvariants.QSEP_RECEIPT_VAULT,
-                wrappedTokenVault: LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT
-            }),
+            LibTokenInvariants.qsepToken(),
             LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId),
             LibBeaconInvariants.prodTokenProxyCodehashesForChainId(chainId)
         );
