@@ -16,39 +16,50 @@ import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
 } from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
-import {
-    OffchainAssetReceiptVaultConfigV3,
-    OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG
-} from "rain-vats-0.2.25/src/interface/IOffchainAssetReceiptVaultV1.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
+import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind} from "../interface/IStoxTokenConfigV1.sol";
 import {Region, TokenConfig} from "./LibProdTokenConfig.sol";
 
 library LibProdTokenParams {
     function tokenParams(TokenConfig[] memory configs) internal pure returns (RegistryBeaconProxyParams[] memory) {
         RegistryBeaconProxyParams[] memory params = new RegistryBeaconProxyParams[](configs.length);
-        address beacon = vaultBeacon();
         for (uint256 i = 0; i < configs.length; i++) {
-            params[i] = RegistryBeaconProxyParams({
-                factory: CLONE_FACTORY_V8_ADDRESS,
-                registry: CONFIG_REGISTRY_ADDRESS,
-                authority: LibRegistryAuthority.ROOT_AUTHORITY,
-                beaconName: LibStoxConfig.VAULT_BEACON_NAME,
-                beacon: beacon,
-                data: tokenData(configs[i]),
-                salt: keccak256(bytes(configs[i].underlying))
-            });
+            params[i] = tokenParam(configs[i]);
         }
         return params;
     }
 
+    function tokenParam(TokenConfig memory config) internal pure returns (RegistryBeaconProxyParams memory) {
+        return RegistryBeaconProxyParams({
+            factory: CLONE_FACTORY_V8_ADDRESS,
+            registry: CONFIG_REGISTRY_ADDRESS,
+            authority: LibRegistryAuthority.ROOT_AUTHORITY,
+            beaconName: LibStoxConfig.VAULT_BEACON_NAME,
+            beacon: vaultBeacon(),
+            data: tokenData(config),
+            // The clone factory's effective salt already hashes `data`.
+            salt: bytes32(0)
+        });
+    }
+
+    /// @notice The address the token suite deploys `config`'s receipt vault
+    /// to. It commits to the `StoxTokenConfigV1` init data, so a vault at it
+    /// was initialized from the row's listing facts.
+    function tokenAddress(TokenConfig memory config) internal pure returns (address) {
+        return LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(tokenParam(config));
+    }
+
     function tokenData(TokenConfig memory config) internal pure returns (bytes memory) {
         return abi.encode(
-            OFFCHAIN_ASSET_RECEIPT_VAULT_CONFIG_V3_TAG,
-            OffchainAssetReceiptVaultConfigV3({
-                name: config.name,
-                symbol: config.symbol,
+            STOX_TOKEN_CONFIG_V1_TAG,
+            StoxTokenConfigV1({
+                assetId: config.assetId,
+                assetIdKind: AssetIdKind.ISIN,
+                listingTicker: config.listingTicker,
+                listingName: config.listingName,
+                region: config.region,
                 authority: LibRegistryAuthority.ROOT_AUTHORITY,
                 rbacName: config.region == Region.US ? LibStoxConfig.RBAC_US_NAME : LibStoxConfig.RBAC_EU_NAME,
                 receiptBeaconName: LibStoxConfig.RECEIPT_BEACON_NAME,

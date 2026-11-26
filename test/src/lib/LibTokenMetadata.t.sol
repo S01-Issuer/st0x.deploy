@@ -4,10 +4,10 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
-import {LibTokenMetadata} from "../../../src/lib/LibTokenMetadata.sol";
+import {LibTokenMetadata, TokenMetadataState} from "../../../src/lib/LibTokenMetadata.sol";
 
 /// @title LibTokenMetadataTest
-/// @notice Offline coverage of the unrenamed and renamed name/symbol states
+/// @notice Offline coverage of the initialized, listed and renamed name/symbol states
 /// `LibTokenMetadata` derives.
 contract LibTokenMetadataTest is Test {
     function config() internal pure returns (TokenConfig memory) {
@@ -29,13 +29,24 @@ contract LibTokenMetadataTest is Test {
         assertEq(LibTokenMetadata.renamedWrappedSymbol(row), "NVDAs");
     }
 
-    function testMetadataInBothStates() external pure {
+    function testMetadataInEachState() external pure {
         TokenConfig memory row = config();
-        assertEq(LibTokenMetadata.vaultName(row, false), "NVIDIA Corporation ST0x");
-        assertEq(LibTokenMetadata.wrappedName(row, false), "Wrapped NVIDIA Corporation ST0x");
-        assertEq(LibTokenMetadata.wrappedSymbol(row, false), "wtNVDA");
-        assertEq(LibTokenMetadata.vaultName(row, true), "NVIDIA Corporation (ST0x)");
-        assertEq(LibTokenMetadata.wrappedName(row, true), "NVIDIA Corporation (ST0x)");
-        assertEq(LibTokenMetadata.wrappedSymbol(row, true), "NVDAs");
+        row.listingTicker = "NVDX";
+        row.listingName = "NVIDIA Corp";
+        TokenMetadataState initialized = TokenMetadataState.Initialized;
+        assertEq(LibTokenMetadata.vaultName(row, initialized), "NVIDIA Corporation ST0x");
+        assertEq(LibTokenMetadata.vaultSymbol(row, initialized), "tNVDA");
+        assertEq(LibTokenMetadata.wrappedName(row, initialized), "Wrapped NVIDIA Corporation ST0x");
+        assertEq(LibTokenMetadata.wrappedSymbol(row, initialized), "wtNVDA");
+        TokenMetadataState listed = TokenMetadataState.Listed;
+        assertEq(LibTokenMetadata.vaultName(row, listed), "NVIDIA Corp (ST0x)");
+        assertEq(LibTokenMetadata.vaultSymbol(row, listed), "tNVDX");
+        assertEq(LibTokenMetadata.wrappedName(row, listed), "NVIDIA Corp (ST0x)");
+        assertEq(LibTokenMetadata.wrappedSymbol(row, listed), "NVDXs");
+        TokenMetadataState renamed = TokenMetadataState.Renamed;
+        assertEq(LibTokenMetadata.vaultName(row, renamed), "NVIDIA Corporation (ST0x)");
+        assertEq(LibTokenMetadata.vaultSymbol(row, renamed), "tNVDA");
+        assertEq(LibTokenMetadata.wrappedName(row, renamed), "NVIDIA Corporation (ST0x)");
+        assertEq(LibTokenMetadata.wrappedSymbol(row, renamed), "NVDAs");
     }
 }
