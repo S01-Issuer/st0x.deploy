@@ -15,8 +15,7 @@ enum Region {
     EU
 }
 
-/// @param assetId The listing-time ISIN of the exact share line. Never
-/// follows later changes.
+/// @param assetId The ISIN at listing: the token's starting asset id.
 /// @param listingTicker The ticker at listing, e.g. "MSTR".
 /// @param listingName The issuer name at listing, without any ST0x suffix.
 /// @param metadata Opaque: committed to by the address and emitted, never
