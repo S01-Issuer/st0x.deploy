@@ -90,10 +90,7 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
             if (bound != expected) {
                 revert TimelockInitialProposerMismatch(bound, expected);
             }
-        } else if (
-            name == keccak256(bytes(RECEIPT_BEACON)) || name == keccak256(bytes(RECEIPT_VAULT_BEACON))
-                || name == keccak256(bytes(WRAPPED_TOKEN_VAULT_BEACON)) || name == keccak256(bytes(ORCHESTRATOR_BEACON))
-        ) {
+        } else if (isBeaconOwnerSuite(name)) {
             address bound = LibStoxConfig.beaconInitialOwner();
             if (bound != LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
                 revert BeaconInitialOwnerMismatch(bound, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
