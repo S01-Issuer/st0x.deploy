@@ -61,7 +61,7 @@ struct TokenConfig {
 }
 
 /// @dev Unix seconds the underlying snapshot was cut from this table.
-uint256 constant UNDERLYING_SNAPSHOT_AS_OF = 1794441600;
+uint256 constant UNDERLYING_SNAPSHOT_AS_OF = 1795635132;
 
 /// @notice The underlying has no row in the production token table.
 error UnknownUnderlying(string underlying);
