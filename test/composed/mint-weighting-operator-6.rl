@@ -66,7 +66,7 @@ price-domain: [eip712-domain-separator name "prices" version "1"],
   "Times disagree"
 ),
 
-lead-time-key: hash("lead-time" symbol),
+lead-time-key: hash("lead-time" mint-token()),
 :ensure(
   greater-than-or-equal-to(lead-time() get(lead-time-key))
   "Lead time went backwards"
