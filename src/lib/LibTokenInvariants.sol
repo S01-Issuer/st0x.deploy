@@ -2958,6 +2958,17 @@ library LibTokenInvariants {
         revert NoTokenTableForChain(chainId);
     }
 
+    /// @notice tQSEP's instance on Base, outside every token table.
+    /// @return The instance.
+    function qsepToken() internal pure returns (TokenInstance memory) {
+        return TokenInstance({
+            underlying: "QSEP",
+            receipt: QSEP_RECEIPT,
+            receiptVault: QSEP_RECEIPT_VAULT,
+            wrappedTokenVault: QSEP_WRAPPED_TOKEN_VAULT
+        });
+    }
+
     /// @notice Assert that every production receipt vault reports the same
     /// `owner()`. Iterates `productionReceiptVaults` and
     /// reverts with `ReceiptVaultOwnerMismatch` on the first vault whose

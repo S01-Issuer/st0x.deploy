@@ -217,6 +217,30 @@ contract LibTokenInvariantsTest is Test {
         assertTokenAddresses(LibTokenInvariants.productionTokensZerog());
     }
 
+    /// `qsepToken` is tQSEP's ticker and legs, each leg in its own field, and
+    /// no deployment network's table holds the ticker or any leg.
+    function testQsepTokenIsTqsepOutsideEveryTable() external pure {
+        TokenInstance memory qsep = LibTokenInvariants.qsepToken();
+        assertEq(qsep.underlying, "QSEP", "underlying");
+        assertEq(qsep.receipt, LibTokenInvariants.QSEP_RECEIPT, "receipt");
+        assertEq(qsep.receiptVault, LibTokenInvariants.QSEP_RECEIPT_VAULT, "receipt vault");
+        assertEq(qsep.wrappedTokenVault, LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT, "wrapper");
+        address[3] memory legs = [qsep.receipt, qsep.receiptVault, qsep.wrappedTokenVault];
+        uint256[] memory chainIds = LibLocalProdState.chainIds();
+        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
+            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainIds[chainIndex]);
+            for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
+                TokenInstance memory token = table[rowIndex];
+                assertNotEq(token.underlying, qsep.underlying, "ticker in a table");
+                for (uint256 legIndex = 0; legIndex < legs.length; legIndex++) {
+                    assertNotEq(token.receipt, legs[legIndex], token.underlying);
+                    assertNotEq(token.receiptVault, legs[legIndex], token.underlying);
+                    assertNotEq(token.wrappedTokenVault, legs[legIndex], token.underlying);
+                }
+            }
+        }
+    }
+
     /// @notice Base's table with every vault on its region's authoriser
     /// passes the Base overload against the production authoriser.
     function testAssertUniformAuthoriserPassesOnLocalBase() external {
