@@ -4,6 +4,19 @@
 
 ### Token config and deploy
 
+- **`Deploy.preDeployCheck` refuses a token suite unless the bound receipt
+  beacon serves `LibProdDeployCurrent`'s implementation and code and is owned by
+  the governance timelock** (`LibBeaconInvariants.assertBeaconInvariants`:
+  `BeaconOwnerMismatch`, `BeaconImplementationMismatch`, `BeaconNotDeployed`,
+  `BeaconCodehashMismatch`, `BeaconImplNotDeployed`). **It refuses a wrapper
+  suite unless the bound wrapper beacon serves `LibProdDeployCurrent`'s
+  implementation and is owned by the governance timelock, and the governance
+  timelock is in its pinned state** (`BeaconOwnerMismatch`,
+  `BeaconImplementationMismatch`, `BeaconImplNotDeployed`). The wrapper beacon
+  is a suite dependency, so the broadcaster's dependency check
+  (`MissingDependency`, `DependencyChanged`) refuses it with no code or other
+  code before the pre-flight runs; the receipt beacon is not, so the pre-flight
+  checks its code itself.
 - **`Deploy.preDeployCheck` refuses a beacon or token suite unless the
   governance timelock that owns them is in its pinned state**
   (`LibTimelockInvariants.assertTimelockState` with the chain's Safe as
@@ -58,6 +71,9 @@
 - **Expected state marks a token at its suite address `Listed`**
   (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
   deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
+- **`StoxReceiptVault.initialize` refuses
+  `CorporateActionsFacetNotDeployed(facet)` when the pinned facet has no code**,
+  instead of failing the decode with no reason.
 
 ### StoxReceipt
 

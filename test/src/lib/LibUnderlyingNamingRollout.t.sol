@@ -256,6 +256,82 @@ contract LibUnderlyingNamingRolloutTest is Test {
         this.externalLeadingRows(1, shorter);
     }
 
+    function externalBeaconTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
+        return LibUnderlyingNamingRollout.beaconTokens(chainId);
+    }
+
+    function externalUnrenamedTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
+        return LibUnderlyingNamingRollout.unrenamedTokens(chainId);
+    }
+
+    function assertSameToken(TokenInstance memory actual, TokenInstance memory expected) internal pure {
+        assertEq(actual.underlying, expected.underlying, "underlying");
+        assertEq(actual.receipt, expected.receipt, string.concat(expected.underlying, " receipt"));
+        assertEq(actual.receiptVault, expected.receiptVault, string.concat(expected.underlying, " receipt vault"));
+        assertEq(actual.wrappedTokenVault, expected.wrappedTokenVault, string.concat(expected.underlying, " wrapper"));
+    }
+
+    function rolloutChainIds() internal pure returns (uint256[5] memory) {
+        return [
+            LibSafeInvariants.BASE_CHAIN_ID,
+            LibSafeInvariants.ETHEREUM_CHAIN_ID,
+            LibSafeInvariants.HYPEREVM_CHAIN_ID,
+            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
+            LibSafeInvariants.BSC_CHAIN_ID
+        ];
+    }
+
+    /// `beaconTokens` is the chain's whole table, rows the rename skips
+    /// included, then tQSEP on Base and nothing more elsewhere.
+    function testBeaconTokensAreTheTableThenTqsepOnBase() external pure {
+        uint256[5] memory chainIds = rolloutChainIds();
+        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
+            uint256 chainId = chainIds[chainIndex];
+            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+            TokenInstance[] memory beaconTokens = LibUnderlyingNamingRollout.beaconTokens(chainId);
+            assertGt(table.length, LibUnderlyingNamingRollout.TOKEN_COUNT, "table has rows the rename skips");
+            bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
+            assertEq(beaconTokens.length, table.length + (onBase ? 1 : 0), "length");
+            for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
+                assertSameToken(beaconTokens[rowIndex], table[rowIndex]);
+            }
+            if (onBase) assertSameToken(beaconTokens[table.length], LibTokenInvariants.qsepToken());
+        }
+    }
+
+    /// `unrenamedTokens` is `beaconTokens` without the vaults the rename batch
+    /// targets, in order: the rows the rename skips, then tQSEP on Base.
+    function testUnrenamedTokensAreTheBeaconTokensTheRenameSkips() external pure {
+        uint256[5] memory chainIds = rolloutChainIds();
+        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
+            uint256 chainId = chainIds[chainIndex];
+            (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainId);
+            TokenInstance[] memory beaconTokens = LibUnderlyingNamingRollout.beaconTokens(chainId);
+            TokenInstance[] memory unrenamed = LibUnderlyingNamingRollout.unrenamedTokens(chainId);
+            uint256 next = 0;
+            for (uint256 tokenIndex = 0; tokenIndex < beaconTokens.length; tokenIndex++) {
+                bool targeted = false;
+                for (uint256 targetIndex = 0; targetIndex < targets.length; targetIndex++) {
+                    if (targets[targetIndex] == beaconTokens[tokenIndex].receiptVault) targeted = true;
+                }
+                if (!targeted) assertSameToken(unrenamed[next++], beaconTokens[tokenIndex]);
+            }
+            assertEq(unrenamed.length, next, "length");
+            bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
+            assertGt(unrenamed.length, onBase ? 1 : 0, "table rows the rename skips");
+            if (onBase) assertSameToken(unrenamed[unrenamed.length - 1], LibTokenInvariants.qsepToken());
+        }
+    }
+
+    /// Both token sets refuse a chain with no table rather than returning
+    /// nothing.
+    function testBeaconAndUnrenamedTokensRefuseAChainWithNoTable() external {
+        vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, uint256(137)));
+        this.externalBeaconTokens(137);
+        vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, uint256(137)));
+        this.externalUnrenamedTokens(137);
+    }
+
     /// `renamesRow` holds for exactly the table rows whose vault the rename batch targets.
     function testRenamesRowIsTheRenameBatchTargets() external pure {
         uint256[5] memory chainIds = [
