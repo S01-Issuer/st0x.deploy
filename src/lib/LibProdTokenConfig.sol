@@ -888,6 +888,19 @@ library LibProdTokenConfig {
         return rowIn(underlying, productionTokenConfigs(), offBaseTokenConfigs());
     }
 
+    /// @notice The row of `table` for `underlying`.
+    /// @param underlying The ticker join key.
+    /// @param table The table searched, e.g. one `canonicalTokenConfigs()`
+    /// build shared across many lookups.
+    /// @return The row. Reverts `UnknownUnderlying` when there is none.
+    function configOf(string memory underlying, TokenConfig[] memory table)
+        internal
+        pure
+        returns (TokenConfig memory)
+    {
+        return rowIn(underlying, table, new TokenConfig[](0));
+    }
+
     /// @notice The region of the production or off-Base row for
     /// `underlying`.
     /// @param underlying The ticker join key.

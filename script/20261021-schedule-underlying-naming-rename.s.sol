@@ -234,9 +234,10 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     /// @param chainId The chain id.
     function assertRenamed(uint256 chainId) internal view {
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainId);
+        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenInstance memory token = chainTokens[tokenIndex];
-            TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
+            TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying, configs);
             string memory vaultName = string.concat(config.underlyingName, ST0X_NAME_SUFFIX);
             assertMetadata(
                 token.receiptVault, string.concat("t", token.underlying), IERC20Metadata(token.receiptVault).symbol()

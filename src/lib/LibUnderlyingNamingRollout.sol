@@ -300,8 +300,9 @@ library LibUnderlyingNamingRollout {
         targets = new address[](chainTokens.length);
         values = new uint256[](chainTokens.length);
         payloads = new bytes[](chainTokens.length);
+        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
+            TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying, configs);
             targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
             payloads[tokenIndex] =
                 abi.encodeCall(IStoxUnderlyingV1.setUnderlying, (config.underlying, config.underlyingName));
@@ -329,8 +330,9 @@ library LibUnderlyingNamingRollout {
     function assertUnderlyingsWellFormed(uint256 chainId) internal pure {
         TokenInstance[] memory chainTokens = tokens(chainId);
         TokenConfig[] memory rows = new TokenConfig[](chainTokens.length);
+        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            rows[tokenIndex] = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
+            rows[tokenIndex] = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying, configs);
         }
         assertRowsWellFormed(rows);
     }

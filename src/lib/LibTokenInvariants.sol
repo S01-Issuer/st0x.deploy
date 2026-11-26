@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
-import {LibProdTokenConfig, Region} from "./LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 
@@ -3025,9 +3025,20 @@ library LibTokenInvariants {
         pure
         returns (address)
     {
-        return LibProdTokenConfig.regionOf(underlying) == Region.EU
-            ? LibAuthoriserInvariants.euAuthoriserForChainId(chainId)
-            : usAuthoriser;
+        return expectedAuthoriser(LibProdTokenConfig.regionOf(underlying), usAuthoriser, chainId);
+    }
+
+    /// @notice The authoriser a receipt vault of `region` must report on a chain.
+    /// @param region The token's `LibProdTokenConfig` region.
+    /// @param usAuthoriser The authoriser every US receipt vault on the chain shares.
+    /// @param chainId The chain id.
+    /// @return The expected authoriser.
+    function expectedAuthoriser(Region region, address usAuthoriser, uint256 chainId)
+        internal
+        pure
+        returns (address)
+    {
+        return region == Region.EU ? LibAuthoriserInvariants.euAuthoriserForChainId(chainId) : usAuthoriser;
     }
 
     /// @notice Chain-parametric `assertUniformAuthoriser`: assert every
@@ -3042,8 +3053,11 @@ library LibTokenInvariants {
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param expected The authoriser every US receipt vault must share.
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
+        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
         for (uint256 i = 0; i < tokens.length; i++) {
-            address expectedForToken = expectedAuthoriser(tokens[i].underlying, expected, block.chainid);
+            address expectedForToken = expectedAuthoriser(
+                LibProdTokenConfig.configOf(tokens[i].underlying, configs).region, expected, block.chainid
+            );
             address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
             if (actual != expectedForToken) {
                 revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expectedForToken, actual);
