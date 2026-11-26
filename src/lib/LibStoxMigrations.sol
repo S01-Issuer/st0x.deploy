@@ -44,12 +44,6 @@ error RecordMismatch(bytes32 migration, uint256 expected, uint256 actual);
 /// @param head The line's head.
 error LineHeadMismatch(bytes32 head);
 
-/// @notice On 0G, `migration`'s arm waits on `decision`, so its script
-/// refuses there.
-/// @param migration The migration.
-/// @param decision The decision it waits on.
-error ZerogArmPendingDecision(bytes32 migration, string decision);
-
 /// @title LibStoxMigrations
 /// @notice The ids under which this repo's scripts record what they applied
 /// in `rain-deploy`'s `MigrationRegistry`, and the calls that write and read
@@ -73,8 +67,7 @@ error ZerogArmPendingDecision(bytes32 migration, string decision);
 /// Every chain's line holds every migration. A migration with nothing to do on
 /// a chain is recorded there alone, record-only: the rehearsals off Base, the
 /// backfilled history on 0G (`withoutHistory`), the 0G token creation off 0G,
-/// and on 0G each later migration whose change 0G does not need. A 0G arm that
-/// waits on a decision refuses with `ZerogArmPendingDecision` instead.
+/// and on 0G each later migration whose change 0G does not need.
 /// On a `withoutHistory` chain a backfilled record proves only that the line
 /// passed it, not that its step ran: a script there asserts the state it
 /// depends on directly.

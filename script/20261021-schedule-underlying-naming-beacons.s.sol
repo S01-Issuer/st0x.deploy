@@ -132,7 +132,6 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     /// the operation is not registered, and the root line is at this
     /// migration's `onto`.
     function preflight() internal view override {
-        LibUnderlyingNamingRollout.refuseZerog(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);

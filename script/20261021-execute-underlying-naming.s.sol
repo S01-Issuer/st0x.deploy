@@ -82,7 +82,6 @@ contract ExecuteUnderlyingNaming is StoxSafeBundleScript, IStoxScript {
 
     /// @notice Execute the next ready rollout operation.
     function execute() external {
-        LibUnderlyingNamingRollout.refuseZerog(LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
         address safeAddress = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, safeAddress);
@@ -136,7 +135,6 @@ contract ExecuteUnderlyingNaming is StoxSafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function preflight() internal view override {
-        LibUnderlyingNamingRollout.refuseZerog(LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, block.chainid);

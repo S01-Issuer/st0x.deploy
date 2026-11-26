@@ -36,7 +36,7 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
-/// token's renamed metadata; on a network its rename and beacon batches were not cut for, 0G, the renamed fields
+/// token's renamed metadata; on a network its rename and beacon batches were not cut for, the renamed fields
 /// repeat the current ones), `registryDelegates` (each delegation the root is expected to have approved in a
 /// registry it writes through: `registry`, `account`, `delegate`, `unscoped`; an unscoped one carries no `scope`, a
 /// scoped one its non-zero `scope`), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
@@ -151,7 +151,7 @@ contract BuildExpectedState is Script {
         vm.serializeString(row, "listingTicker", config.listingTicker);
         vm.serializeString(row, "listingName", config.listingName);
         vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
-        bool renames = LibUnderlyingNamingRollout.cutForChain(chainId) && LibUnderlyingNamingRollout.renamesRow(i);
+        bool renames = LibUnderlyingNamingRollout.cutForChain(chainId) && LibUnderlyingNamingRollout.renamesRow(chainId, i);
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
         vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
         vm.serializeString(row, "symbol", config.symbol);

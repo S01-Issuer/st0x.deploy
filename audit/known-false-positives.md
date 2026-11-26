@@ -18,7 +18,7 @@ the same address.
 Mutants: `assertUnderlyingsWellFormed` drops its `assertRowsWellFormed(rows)`
 call, and `tokens()` returns the chain's table without `leadingRows`. Both are
 equivalent while every production row is well formed and every table has exactly
-`TOKEN_COUNT` rows, so no test can tell them apart. The behavior is pinned
+`tokenCount` rows, so no test can tell them apart. The behavior is pinned
 around them: `testEveryChainsRowsAreWellFormed` checks the production rows
 through `assertRowsWellFormed` directly, the row loop's refusals are tested on
 built rows, `testLeadingRowsCutsALongerTableAndRefusesAShorterOne` tests the cut

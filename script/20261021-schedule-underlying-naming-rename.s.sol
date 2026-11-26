@@ -124,7 +124,6 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     /// is bound to its vault, the timelock owns every vault, and the root
     /// line is at this migration's `onto`.
     function preflight() internal view override {
-        LibUnderlyingNamingRollout.refuseZerog(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         if (!downstreamReady()) revert DownstreamNotReadyForRename();
         LibUnderlyingNamingRollout.assertUnderlyingsWellFormed(block.chainid);
