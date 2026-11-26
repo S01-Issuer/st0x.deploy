@@ -22,6 +22,7 @@ import {OffchainAssetReceiptVault} from "rain-vats-0.2.25/src/abstract/OffchainA
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {ERC20Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/token/ERC20/ERC20Upgradeable.sol";
 import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
+import {IStoxAssetIdV1} from "../interface/IStoxAssetIdV1.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
 import {LibSecurity} from "../lib/LibSecurity.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
@@ -63,7 +64,7 @@ import {
 /// vault's OZ `Initializable` slot (see `LibInitializableStorage`). Any future external
 /// entry points added here (e.g. list traversal) must also carry
 /// `onlyDelegatecalled`.
-contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IStoxTokenConfigV1 {
+contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IStoxTokenConfigV1, IStoxAssetIdV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -241,8 +242,8 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         return name;
     }
 
-    /// @inheritdoc IStoxUnderlyingV2
-    function underlyingIsin() public view override onlyDelegatecalled returns (string memory) {
+    /// @inheritdoc IStoxAssetIdV1
+    function assetId() public view override onlyDelegatecalled returns (string memory) {
         string memory isin = LibSecurity.getStorage().isin;
         if (bytes(isin).length == 0) isin = LibStoxTokenConfig.getStorage().assetId;
         return isin;
@@ -272,7 +273,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (!LibSecurity.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
 
         emit UnderlyingSet(
-            msg.sender, underlyingSymbol(), underlyingName(), underlyingIsin(), newSymbol, newName, newIsin
+            msg.sender, underlyingSymbol(), underlyingName(), assetId(), newSymbol, newName, newIsin
         );
         LibSecurity.UnderlyingStorage storage underlyingStorage = LibSecurity.getStorage();
         underlyingStorage.symbol = newSymbol;

@@ -21,7 +21,7 @@ import {
     DownstreamNotReadyForRename
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibSecurity, UNDERLYING_STORAGE_LOCATION} from "../src/lib/LibSecurity.sol";
-import {IStoxUnderlyingV2} from "../src/interface/IStoxUnderlyingV2.sol";
+import {IStoxAssetIdV1} from "../src/interface/IStoxAssetIdV1.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -228,7 +228,7 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
                 token.receiptVault, LibSecurity.vaultSymbol(config.ticker), IERC20Metadata(token.receiptVault).symbol()
             );
             assertMetadata(token.receiptVault, vaultName, IERC20Metadata(token.receiptVault).name());
-            assertMetadata(token.receiptVault, config.isin, IStoxUnderlyingV2(token.receiptVault).underlyingIsin());
+            assertMetadata(token.receiptVault, config.isin, IStoxAssetIdV1(token.receiptVault).assetId());
             // `UnderlyingStorage.timestamp` is the struct's fourth slot.
             uint256 timestamp = uint256(vm.load(token.receiptVault, bytes32(uint256(UNDERLYING_STORAGE_LOCATION) + 3)));
             // forge-lint: disable-next-line(block-timestamp)
