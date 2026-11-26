@@ -47,7 +47,7 @@ contract GuardChecksTokensOwnBeaconsTest is OrchestratorIntegrationTest {
             abi.encode(OffchainAssetReceiptVaultRbacV1({owner: ADMIN, authorizer: IAuthorizeV1(address(authorizer))}))
         );
         return LibTestDeploy.newVault(
-            OTHER_AUTHORITY, LibTestDeploy.vaultData("Other tStock", "tOTHER", OTHER_AUTHORITY, RBAC_NAME)
+            OTHER_AUTHORITY, LibTestDeploy.vaultData("US88160R1014", "OTHER", "Other", OTHER_AUTHORITY, RBAC_NAME)
         );
     }
 
