@@ -26,7 +26,7 @@ import {
 import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
-import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
@@ -37,8 +37,9 @@ import {DeployPreDeployCheckHarness} from "../../script/DeployPreDeployCheckHarn
 
 /// @title StoxDeploySuitesTokenRowsBaseForkTest
 /// @notice On a Base fork pinned before the release, with the release up, every token row, production and test, deploys
-/// its token suite from a keyless address through the real `Deploy` pre-flight, initialized from its listing at deploy;
-/// a front-run deploy by someone else is the same token at the same address.
+/// its token suite from a keyless address through the real `Deploy` pre-flight, initialized from its listing at deploy
+/// and named from its snapshot row if it is a production row, else from its listing; a front-run deploy by someone else
+/// is the same token at the same address.
 /// @dev Each suite runs the broadcaster's address, chain id and dependency checks and `preDeployCheck`, not its seat
 /// checks.
 contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
@@ -155,18 +156,36 @@ contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
         return broadcast(declaration(), name, deployer);
     }
 
-    /// `token` reads `config`'s listing, and `logs` hold exactly one `StoxTokenInitialized` from it, of `data`.
-    function assertInitializedFromListing(
+    /// A production row reads its snapshot row; a test row has none and reads its listing.
+    function readState(uint256 row) internal pure returns (TokenMetadataState) {
+        return row < LibProdTokenConfig.productionTokenConfigs().length
+            ? TokenMetadataState.Renamed
+            : TokenMetadataState.Listed;
+    }
+
+    /// `token` reads `config` in `state`, and `logs` hold exactly one `StoxTokenInitialized` from its listing, of
+    /// `data`.
+    function assertInitialized(
         TokenConfig memory config,
+        TokenMetadataState state,
         bytes memory data,
         address token,
         Vm.Log[] memory logs
     ) internal view {
         StoxReceiptVault vault = StoxReceiptVault(payable(token));
-        assertEq(vault.name(), LibTokenMetadata.vaultName(config, TokenMetadataState.Listed), config.underlying);
-        assertEq(vault.symbol(), LibTokenMetadata.vaultSymbol(config, TokenMetadataState.Listed), config.underlying);
-        assertEq(IStoxUnderlyingV2(token).underlyingSymbol(), config.listingTicker, config.underlying);
-        assertEq(IStoxUnderlyingV2(token).underlyingName(), config.listingName, config.underlying);
+        bool renamed = state == TokenMetadataState.Renamed;
+        assertEq(vault.name(), LibTokenMetadata.vaultName(config, state), config.underlying);
+        assertEq(vault.symbol(), LibTokenMetadata.vaultSymbol(config, state), config.underlying);
+        assertEq(
+            IStoxUnderlyingV2(token).underlyingSymbol(),
+            renamed ? config.ticker : config.listingTicker,
+            config.underlying
+        );
+        assertEq(
+            IStoxUnderlyingV2(token).underlyingName(),
+            renamed ? config.underlyingName : config.listingName,
+            config.underlying
+        );
         assertEq(vault.owner(), LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, config.underlying);
         assertEq(
             address(vault.authorizer()),
@@ -187,7 +206,7 @@ contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
         assertEq(count, 1, config.underlying);
     }
 
-    function testEveryTokenRowDeploysKeylessAndIsNamedFromItsListing() external {
+    function testEveryTokenRowDeploysKeylessAndReadsItsSnapshotRowElseItsListing() external {
         TokenConfig[] memory configs = LibTestTokenRows.allRows();
         RegistryBeaconProxyParams[] memory params = LibProdTokenParams.tokenParams(configs);
         DeploySuite[] memory suites = harness.declaredTokenSuites(configs);
@@ -199,7 +218,7 @@ contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
             assertEq(token.code.length, 0, configs[i].underlying);
             vm.recordLogs();
             assertEq(this.broadcastSuite(suites[i].suite, DEPLOYER), token, configs[i].underlying);
-            assertInitializedFromListing(configs[i], params[i].data, token, vm.getRecordedLogs());
+            assertInitialized(configs[i], readState(i), params[i].data, token, vm.getRecordedLogs());
         }
     }
 
@@ -216,7 +235,7 @@ contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
                     params[i].registry, params[i].authority, params[i].beaconName, params[i].data, params[i].salt
                 );
             assertEq(this.broadcastSuite(suites[i].suite, DEPLOYER), frontRun, configs[i].underlying);
-            assertInitializedFromListing(configs[i], params[i].data, frontRun, vm.getRecordedLogs());
+            assertInitialized(configs[i], readState(i), params[i].data, frontRun, vm.getRecordedLogs());
         }
     }
 }
