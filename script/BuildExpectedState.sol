@@ -151,7 +151,8 @@ contract BuildExpectedState is Script {
         vm.serializeString(row, "listingTicker", config.listingTicker);
         vm.serializeString(row, "listingName", config.listingName);
         vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
-        bool renames = LibUnderlyingNamingRollout.cutForChain(chainId) && LibUnderlyingNamingRollout.renamesRow(chainId, i);
+        bool renames =
+            LibUnderlyingNamingRollout.cutForChain(chainId) && LibUnderlyingNamingRollout.renamesRow(chainId, i);
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, false));
         vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renames));
         vm.serializeString(row, "symbol", config.symbol);

@@ -163,8 +163,8 @@ library LibUnderlyingNamingRollout {
     function cutForChain(uint256 chainId) internal pure returns (bool) {
         return chainId == LibSafeInvariants.ZEROG_CHAIN_ID
             || LibRainDeploy.hasChainId(
-                LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
-            );
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
+        );
     }
 
     /// @notice How many leading rows of `chainId`'s production table the
