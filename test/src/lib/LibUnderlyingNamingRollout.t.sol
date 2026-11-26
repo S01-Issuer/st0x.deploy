@@ -358,7 +358,8 @@ contract LibUnderlyingNamingRolloutTest is Test {
 
     /// `unrenamedTokens` is `beaconTokens` without the vaults the rename batch
     /// targets, in order: the rows the rename skips, then tQSEP on Base.
-    function testUnrenamedTokensAreTheBeaconTokensTheRenameSkips() external pure {
+    function testUnrenamedTokensAreTheBeaconTokensTheRenameSkips() external {
+        LibTestRootLine.etchRegistry(vm);
         uint256[5] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
             uint256 chainId = chainIds[chainIndex];
@@ -392,13 +393,7 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// `renamesRow` holds for exactly the table rows whose vault the rename batch targets.
     function testRenamesRowIsTheRenameBatchTargets() external {
         LibTestRootLine.etchRegistry(vm);
-        uint256[5] memory chainIds = [
-            LibSafeInvariants.BASE_CHAIN_ID,
-            LibSafeInvariants.ETHEREUM_CHAIN_ID,
-            LibSafeInvariants.HYPEREVM_CHAIN_ID,
-            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
-        ];
+        uint256[5] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
             (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainIds[chainIndex]);
             TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainIds[chainIndex]);
