@@ -105,8 +105,8 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         return IStoxUnderlyingV1(mintToken).underlyingSymbol();
     }
 
-    function leadTimeKey(string memory ticker) internal pure returns (bytes32) {
-        return keccak256(abi.encode(symbol("lead-time"), symbol(ticker)));
+    function leadTimeKey(address mintToken) internal pure returns (bytes32) {
+        return keccak256(abi.encode(symbol("lead-time"), tokenWord(mintToken)));
     }
 
     function evalAccepted(bytes32[][] memory context, address mintToken, Float value)
@@ -115,8 +115,7 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         returns (StackItem[] memory, bytes32[] memory)
     {
         (StackItem[] memory stack, bytes32[] memory writes) = eval(context);
-        string memory ticker = tickerOf(mintToken);
-        bytes32 key = leadTimeKey(ticker);
+        bytes32 key = leadTimeKey(mintToken);
         assertEq(writes.length, 2, "writes");
         assertEq(writes[0], key, "lead-time-key write");
         assertEq(writes[1], context[CONTEXT_LEAD_COLUMN][CONTEXT_ATTESTATION_ROW_TIME], "lead-time write");
@@ -124,7 +123,7 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         assertTrue(Float.wrap(StackItem.unwrap(stack[0])).eq(value), "value");
         assertEq(StackItem.unwrap(stack[1]), key, "lead-time-key");
         assertEq(StackItem.unwrap(stack[2]), priceDomain(), "price-domain");
-        assertEq(StackItem.unwrap(stack[3]), symbol(ticker), "symbol");
+        assertEq(StackItem.unwrap(stack[3]), symbol(tickerOf(mintToken)), "symbol");
         return (stack, writes);
     }
 
@@ -161,14 +160,14 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         evalReverts(mintGrid(mintToken, time), ensureError("Lead time went backwards"));
     }
 
-    function storedLeadTime(string memory ticker) internal view returns (bytes32) {
-        return I_STORE.get(LibNamespace.qualifyNamespace(StateNamespace.wrap(0), address(this)), leadTimeKey(ticker));
+    function storedLeadTime(address mintToken) internal view returns (bytes32) {
+        return I_STORE.get(LibNamespace.qualifyNamespace(StateNamespace.wrap(0), address(this)), leadTimeKey(mintToken));
     }
 
-    function testTheFirstMintOfATickerIsAcceptedAndStoresItsLeadTime() external {
-        assertEq(storedLeadTime(TICKER), bytes32(0), "unset");
+    function testTheFirstMintOfATokenIsAcceptedAndStoresItsLeadTime() external {
+        assertEq(storedLeadTime(token), bytes32(0), "unset");
         mintAt(token, at(-MAX_TIME_SPREAD));
-        assertEq(storedLeadTime(TICKER), Float.unwrap(at(-MAX_TIME_SPREAD)), "stored");
+        assertEq(storedLeadTime(token), Float.unwrap(at(-MAX_TIME_SPREAD)), "stored");
     }
 
     function testAMintBeforeTheStoredLeadTimeIsRefused() external {
@@ -176,31 +175,50 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         mintRefusedAt(token, at(-1));
         mintRefusedAt(token, decimal(NOW * 10 - 1, -1));
         mintRefusedAt(token, at(-MAX_TIME_SPREAD));
-        assertEq(storedLeadTime(TICKER), Float.unwrap(at(0)), "unchanged");
+        assertEq(storedLeadTime(token), Float.unwrap(at(0)), "unchanged");
     }
 
     function testAMintAtTheStoredLeadTimeIsAccepted() external {
         mintAt(token, at(0));
         mintAt(token, at(0));
         mintAt(token, decimal(NOW * 10, -1));
-        assertTrue(Float.wrap(storedLeadTime(TICKER)).eq(at(0)), "stored");
+        assertTrue(Float.wrap(storedLeadTime(token)).eq(at(0)), "stored");
     }
 
     function testAMintAfterTheStoredLeadTimeMovesItForward() external {
         mintAt(token, at(-1));
         mintAt(token, at(0));
-        assertEq(storedLeadTime(TICKER), Float.unwrap(at(0)), "moved");
+        assertEq(storedLeadTime(token), Float.unwrap(at(0)), "moved");
         mintRefusedAt(token, at(-1));
     }
 
-    function testEachTickerHasItsOwnLeadTime() external {
+    function testEachTokenHasItsOwnLeadTime() external {
         mintAt(token, at(0));
         mintAt(otherToken, at(-1));
-        assertEq(storedLeadTime(TICKER), Float.unwrap(at(0)), "ticker");
-        assertEq(storedLeadTime(OTHER_TICKER), Float.unwrap(at(-1)), "other ticker");
+        assertEq(storedLeadTime(token), Float.unwrap(at(0)), "token");
+        assertEq(storedLeadTime(otherToken), Float.unwrap(at(-1)), "other token");
         mintRefusedAt(token, at(-1));
         mintAt(otherToken, at(-1));
         mintRefusedAt(otherToken, at(-2));
+    }
+
+    function testTwoTokensWithTheSameTickerHaveSeparateLeadTimes() external {
+        address sameTickerToken = underlyingToken(TICKER);
+        mintAt(token, at(0));
+        mintAt(sameTickerToken, at(-1));
+        assertEq(storedLeadTime(token), Float.unwrap(at(0)), "token");
+        assertEq(storedLeadTime(sameTickerToken), Float.unwrap(at(-1)), "same ticker token");
+        mintRefusedAt(token, at(-1));
+        mintAt(sameTickerToken, at(-1));
+        mintRefusedAt(sameTickerToken, at(-2));
+    }
+
+    function testATokenKeepsItsLeadTimeWhenItsTickerChanges() external {
+        mintAt(token, at(0));
+        setUnderlying(token, OTHER_TICKER);
+        mintRefusedAt(token, at(-1));
+        mintAt(token, at(0));
+        assertEq(storedLeadTime(token), Float.unwrap(at(0)), "kept");
     }
 
     function testASecondMintIsAcceptedIffItsLeadTimeIsNotBeforeTheFirst(int256 first, int256 second) external {
@@ -209,7 +227,7 @@ abstract contract WeightingEvalTest is St0xAttestSubParserTest {
         mintAt(token, at(first));
         if (second >= first) {
             mintAt(token, at(second));
-            assertEq(storedLeadTime(TICKER), Float.unwrap(at(second)), "stored");
+            assertEq(storedLeadTime(token), Float.unwrap(at(second)), "stored");
         } else {
             mintRefusedAt(token, at(second));
         }

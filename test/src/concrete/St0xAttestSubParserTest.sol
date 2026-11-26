@@ -133,14 +133,15 @@ abstract contract St0xAttestSubParserTest is Test, WeightingFixture {
     /// A token whose `underlyingSymbol()` is `ticker` and whose `symbol()` is
     /// "t" + `ticker`, as a vault's are after `setUnderlying`.
     function underlyingToken(string memory ticker) internal returns (address) {
-        MockUnderlyingERC20 token = new MockUnderlyingERC20();
-        token.setUnderlyingValues(ticker, "");
-        vm.mockCall(
-            address(token),
-            abi.encodeWithSelector(IERC20Metadata.symbol.selector),
-            abi.encode(string.concat("t", ticker))
-        );
-        return address(token);
+        address token = address(new MockUnderlyingERC20());
+        setUnderlying(token, ticker);
+        return token;
+    }
+
+    /// Gives `token` the ticker `setUnderlying` would.
+    function setUnderlying(address token, string memory ticker) internal {
+        MockUnderlyingERC20(token).setUnderlyingValues(ticker, "");
+        vm.mockCall(token, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(string.concat("t", ticker)));
     }
 
     function priceDomain() internal pure returns (bytes32) {
