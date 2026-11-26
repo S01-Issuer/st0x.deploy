@@ -44,6 +44,13 @@ error RenameNotPendingInsideDelay(bytes32 id);
 /// @param actual The value read.
 error RenamedMetadataMismatch(address token, string expected, string actual);
 
+/// @notice The rollout changed the name or symbol of a vault or wrapper the
+/// rename does not set.
+/// @param token The vault or wrapper.
+/// @param before The value before the rollout.
+/// @param afterRename The value after it.
+error RenameMovedUnrenamedMetadata(address token, string before, string afterRename);
+
 /// @notice This script's declaration: the Safe's record, after the beacon schedule.
 /// @return The declaration.
 function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclaration memory) {
@@ -180,8 +187,13 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
         vm.revertToState(postBundle);
     }
 
-    /// @notice The execution proof `assertReversible` runs.
+    /// @notice The execution proof `assertReversible` runs. Every renamed
+    /// vault and wrapper must report the metadata the rename sets, and every
+    /// other vault and wrapper behind the two beacons, the rows the rename
+    /// skips and tQSEP on Base, must keep the name and symbol it had before.
     function proveExecution() internal {
+        TokenInstance[] memory unrenamed = LibUnderlyingNamingRollout.unrenamedTokens(block.chainid);
+        string[] memory before = LibUnderlyingNamingRollout.metadata(unrenamed);
         TimelockController controller = TimelockController(payable(timelock()));
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
@@ -202,7 +214,19 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
         controller.executeBatch(targets, values, payloads, beaconId, LibUnderlyingNamingRollout.RENAME_SALT);
 
         assertRenamed(block.chainid);
-        console2.log("Execution proven: every production vault and wrapper renamed by a roleless executor");
+        string[] memory afterRename = LibUnderlyingNamingRollout.metadata(unrenamed);
+        for (uint256 valueIndex = 0; valueIndex < before.length; valueIndex++) {
+            if (keccak256(bytes(before[valueIndex])) != keccak256(bytes(afterRename[valueIndex]))) {
+                revert RenameMovedUnrenamedMetadata(
+                    LibUnderlyingNamingRollout.metadataToken(unrenamed, valueIndex),
+                    before[valueIndex],
+                    afterRename[valueIndex]
+                );
+            }
+        }
+        console2.log(
+            "Execution proven: every production vault and wrapper renamed by a roleless executor, the rest unmoved"
+        );
     }
 
     /// @notice Reverts unless every production token of `chainId` reports the
