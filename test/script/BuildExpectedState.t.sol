@@ -187,12 +187,11 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// `renamedImplementation` is what the rename migration's beacon batch upgrades the row's beacon to, and the row's
-    /// `implementation` where the batch leaves the beacon alone. Checked on the networks the rename's beacon batch was
-    /// cut for: every one before 0G.
+    /// `implementation` where the batch leaves the beacon alone. Checked on every deployment network: the rename's
+    /// beacon batch was cut for each.
     function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
         string memory json = build.render();
-        SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 snapshot = vm.snapshotState();
             LibLocalProdState.beacons(vm, nets[c].chainId);
@@ -491,16 +490,13 @@ contract BuildExpectedStateTest is Test {
         for (uint256 c = 0; c < nets.length; c++) {
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[c].chainId);
             string memory list = string.concat(chain(nets[c]), ".tokens");
-            // 0G has no rename migration (`testZerogHasNoRenameMigration`).
-            bool chainRenames = LibRainDeploy.hasChainId(
-                LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
-            );
+            bool chainRenames = LibUnderlyingNamingRollout.cutForChain(nets[c].chainId);
             for (uint256 i = 0; i < tokens.length; i++) {
                 assertTokenMetadata(
                     json,
                     index(list, i),
                     LibProdTokenConfig.configOf(tokens[i].underlying),
-                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i)
+                    chainRenames && LibUnderlyingNamingRollout.renamesRow(nets[c].chainId, i)
                 );
             }
         }
@@ -738,27 +734,36 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The underlying naming's batches were cut for the networks before 0G only: on 0G each beacon's
-    /// `renamedImplementation` is its implementation, and a token's renamed metadata is its current metadata.
-    function testZerogRenamesNothing() external {
+    /// The underlying naming's batches were cut for 0G over its whole table: its vault and wrapper beacons' renamed
+    /// implementations are the naming's, and its first and last tokens' renamed metadata is the renamed metadata.
+    function testZerogRenamesItsWholeTable() external {
         string memory json = build.render();
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
-        string memory at = string.concat(".chains.", vm.toString(id));
-        string memory list = string.concat(at, ".beacons");
-        for (uint256 i = 0; i < 4; i++) {
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(index(list, i), ".renamedImplementation")),
-                vm.parseJsonAddress(json, string.concat(index(list, i), ".implementation"))
-            );
-        }
+        string memory list = string.concat(".chains.", vm.toString(id), ".beacons");
+        assertEq(
+            vm.parseJsonAddress(
+                json,
+                string.concat(index(list, LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX), ".renamedImplementation")
+            ),
+            LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION
+        );
+        assertEq(
+            vm.parseJsonAddress(
+                json,
+                string.concat(
+                    index(list, LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX), ".renamedImplementation"
+                )
+            ),
+            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
+        );
 
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
-        assertTrue(LibUnderlyingNamingRollout.renamesRow(0), "row 0 renames on a full line");
-        TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
-        string memory zerog = harness.tokenMetadata(id, 0, "MSTR");
-        assertTokenMetadata(zerog, "", config, false);
-        string memory base = harness.tokenMetadata(LibSafeInvariants.BASE_CHAIN_ID, 0, "MSTR");
-        assertTokenMetadata(base, "", config, true);
+        TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(id);
+        assertEq(tokens.length, 65, "0G's table");
+        assertEq(tokens[0].underlying, "MSTR");
+        assertTokenMetadata(harness.tokenMetadata(id, 0, "MSTR"), "", LibProdTokenConfig.configOf("MSTR"), true);
+        assertEq(tokens[64].underlying, "TPRO");
+        assertTokenMetadata(harness.tokenMetadata(id, 64, "TPRO"), "", LibProdTokenConfig.configOf("TPRO"), true);
     }
 
     function testV2IsTheV2NetworksKeyedByChainId() external {

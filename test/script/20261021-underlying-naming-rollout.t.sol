@@ -158,10 +158,17 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         (ticker, plainName) = abi.decode(args, (string, string));
     }
 
-    /// @notice The rollout renames 56 rows on every chain, from MSTR to DIS,
-    /// pinned by literals so a changed `TOKEN_COUNT` or a reordered table
-    /// fails here.
+    /// @notice The rollout renames 56 rows on every chain before 0G, from MSTR
+    /// to DIS, and 65 on 0G, from MSTR to TPRO, pinned by literals so a
+    /// changed count or a reordered table fails here.
     function testTokenSetIsPinnedByIdentity() external pure {
+        assertEq(LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT, 65, "0G count");
+        TokenInstance[] memory zerogTokens = LibUnderlyingNamingRollout.tokens(LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertEq(zerogTokens.length, 65, "0G chain count");
+        assertEq(zerogTokens[0].underlying, "MSTR", "0G first row");
+        assertEq(zerogTokens[63].underlying, "SOI", "0G row 63");
+        assertEq(zerogTokens[64].underlying, "TPRO", "0G last row");
+
         assertEq(LibUnderlyingNamingRollout.TOKEN_COUNT, 56, "count");
         uint256[5] memory chainIds = [
             LibSafeInvariants.BASE_CHAIN_ID,
@@ -193,7 +200,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
 
     function testRenameBatchExactOnEveryDeploymentNetwork() external pure {
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < networks.length; i++) {
             assertRenameBatchExact(networks[i].chainId, networks[i].name);
         }
