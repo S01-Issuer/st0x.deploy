@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
 
-import {RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
+import {RoleHeld, RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {LocalBaseOrchestratorFixture} from "./LocalBaseOrchestratorFixture.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
@@ -99,5 +99,14 @@ contract OrchestratorAdminToTimelockLocalTest is LocalBaseOrchestratorFixture, R
             vm.expectRevert(abi.encodeWithSelector(RoleNotHeld.selector, roles[i], holders[i]));
             sScript.callAssertPostState();
         }
+    }
+
+    function testPostStateRefusesTheSafeAsAdmin() external {
+        executeBundle();
+        sScript.callAssertPostState();
+        vm.prank(timelock);
+        ORCHESTRATOR.grantRole(bytes32(0), address(safe));
+        vm.expectRevert(abi.encodeWithSelector(RoleHeld.selector, bytes32(0), address(safe)));
+        sScript.callAssertPostState();
     }
 }

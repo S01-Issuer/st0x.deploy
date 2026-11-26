@@ -57,7 +57,8 @@ function executeRevokeServiceSignerDeclaration() pure returns (ScriptDeclaration
 /// `LibServiceSignerRevoke`, the same library the scheduling script uses.
 ///
 /// `run()` authors the record-only Safe bundle that writes this script's
-/// record on the root line once the batch has executed.
+/// record on the root line once the batch has executed. On 0G nothing is
+/// scheduled, so `run()` records once the service signer holds neither role.
 ///
 /// @dev Dispatch `execute()` via `Actions → manual-broadcast` with
 /// `script = 20261109-execute-revoke-service-signer-deposit-withdraw`,
@@ -115,8 +116,12 @@ contract ExecuteRevokeServiceSignerDepositWithdraw is StoxSafeBundleScript, ISto
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        bytes32 revokeId = LibServiceSignerRevoke.operationId(timelock, block.chainid);
-        if (!TimelockController(payable(timelock)).isOperationDone(revokeId)) revert RevokeNotExecuted(revokeId);
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            LibServiceSignerRevoke.assertNotPending(timelock, block.chainid);
+        } else {
+            bytes32 revokeId = LibServiceSignerRevoke.operationId(timelock, block.chainid);
+            if (!TimelockController(payable(timelock)).isOperationDone(revokeId)) revert RevokeNotExecuted(revokeId);
+        }
         LibServiceSignerRevoke.assertRevoked(LibAuthoriserInvariants.authoriserForChainId(block.chainid));
         bytes32 id = LibStoxMigrations.EXECUTE_REVOKE_SERVICE_SIGNER;
         if (LibStoxMigrations.applied(id) != 0) revert ExecuteRevokeServiceSignerRecorded(id);
@@ -125,9 +130,7 @@ contract ExecuteRevokeServiceSignerDepositWithdraw is StoxSafeBundleScript, ISto
 
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = LibStoxMigrations.recordTx(executeRevokeServiceSignerDeclaration());
-        return txs;
+        return LibStoxMigrations.recordOnlyBundle(executeRevokeServiceSignerDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript

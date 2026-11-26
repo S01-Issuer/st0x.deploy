@@ -9,6 +9,10 @@ import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 /// @param network The name.
 error NotADeploymentNetwork(string network);
 
+/// @notice `target` has code, where the caller requires it undeployed.
+/// @param target The contract.
+error CurrentSourceDeployed(address target);
+
 /// @title LibStoxDeployNetworks
 /// @notice The ST0x deploy network set: the one list of networks ST0x deploys
 /// to, as `rain-deploy`'s `LibRainDeploy` network names. Each name matches its
@@ -95,5 +99,11 @@ library LibStoxDeployNetworks {
             mstore(networks, kept)
         }
         return networks;
+    }
+
+    /// @notice Reverts `CurrentSourceDeployed` if `target` has code.
+    /// @param target The contract.
+    function assertUndeployed(address target) internal view {
+        if (target.code.length != 0) revert CurrentSourceDeployed(target);
     }
 }

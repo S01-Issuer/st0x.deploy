@@ -2,8 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {console2} from "forge-std-1.17.0/src/console2.sol";
-import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
@@ -18,7 +16,6 @@ import {
     ExecuteUnderlyingNaming,
     NoUnderlyingNamingOperationReady,
     UnderlyingNamingExecutorHoldsRole,
-    UnderlyingNamingNotExecuted,
     UnderlyingNamingRenameWaitsForBeacon
 } from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
@@ -36,12 +33,10 @@ import {
 } from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
-import {ExecuteUnderlyingNamingHarness} from "./ExecuteUnderlyingNamingHarness.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.sol";
-import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 
-import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV1} from "../../src/interface/IStoxUnderlyingV1.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
@@ -76,48 +71,6 @@ import {
 contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
     /// @notice Distinguishes each mint-and-burn round's operator and nonce.
     uint256 internal sMintRound;
-
-    /// @notice The beacon batch is exactly: the wrapper beacon upgrade, the
-    /// vault beacon upgrade, then the facet probe on the first production
-    /// vault.
-    function assertBeaconBatchExact(uint256 chainId, string memory network) internal view {
-        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
-            LibUnderlyingNamingRollout.beaconBatch(chainId);
-        assertEq(targets.length, 3, string.concat(network, ": beacon batch length"));
-        assertEq(
-            targets[0],
-            LibUnderlyingNamingRollout.wrappedTokenVaultBeacon(chainId),
-            string.concat(network, ": wrapper beacon")
-        );
-        assertEq(
-            payloads[0],
-            abi.encodeCall(
-                UpgradeableBeacon.upgradeTo, (LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION)
-            ),
-            string.concat(network, ": beacon upgrade 0")
-        );
-        assertEq(
-            targets[1], LibUnderlyingNamingRollout.receiptVaultBeacon(chainId), string.concat(network, ": vault beacon")
-        );
-        assertEq(
-            payloads[1],
-            abi.encodeCall(UpgradeableBeacon.upgradeTo, (LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION)),
-            string.concat(network, ": beacon upgrade 1")
-        );
-        assertEq(
-            targets[2],
-            LibUnderlyingNamingRollout.tokens(chainId)[0].receiptVault,
-            string.concat(network, ": probe vault")
-        );
-        assertEq(
-            payloads[2],
-            abi.encodeCall(ICorporateActionsV1.completedActionCount, ()),
-            string.concat(network, ": probe call")
-        );
-        for (uint256 callIndex = 0; callIndex < values.length; callIndex++) {
-            assertEq(values[callIndex], 0, string.concat(network, ": value"));
-        }
-    }
 
     /// @notice The rename batch is exactly one `setUnderlying(underlying,
     /// underlyingName)` per production token of the chain, in table order,
@@ -158,10 +111,17 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         (ticker, plainName) = abi.decode(args, (string, string));
     }
 
-    /// @notice The rollout renames 56 rows on every chain, from MSTR to DIS,
-    /// pinned by literals so a changed `TOKEN_COUNT` or a reordered table
-    /// fails here.
+    /// @notice The rollout renames 56 rows on every chain before 0G, from MSTR
+    /// to DIS, and 65 on 0G, from MSTR to TPRO, pinned by literals so a
+    /// changed count or a reordered table fails here.
     function testTokenSetIsPinnedByIdentity() external pure {
+        assertEq(LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT, 65, "0G count");
+        TokenInstance[] memory zerogTokens = LibUnderlyingNamingRollout.tokens(LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertEq(zerogTokens.length, 65, "0G chain count");
+        assertEq(zerogTokens[0].underlying, "MSTR", "0G first row");
+        assertEq(zerogTokens[63].underlying, "SOI", "0G row 63");
+        assertEq(zerogTokens[64].underlying, "TPRO", "0G last row");
+
         assertEq(LibUnderlyingNamingRollout.TOKEN_COUNT, 56, "count");
         uint256[5] memory chainIds = [
             LibSafeInvariants.BASE_CHAIN_ID,
@@ -193,7 +153,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
 
     function testRenameBatchExactOnEveryDeploymentNetwork() external pure {
         SupportedNetwork[] memory networks =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         for (uint256 i = 0; i < networks.length; i++) {
             assertRenameBatchExact(networks[i].chainId, networks[i].name);
         }
@@ -241,81 +201,12 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         assertEq(renamedSeen, 2, "both renamed issuers are listed");
     }
 
-    /// @notice Authors, verifies and executes both batches on `network` and
-    /// checks the result.
+    /// @notice From `network`'s pinned pre-backfill block, the line to the
+    /// beacon onto, then the whole rollout.
     function assertRollout(string memory network) internal {
         LibTestPreBackfillFork.select(vm, network);
-        uint256 chainId = block.chainid;
-        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
-        TimelockController controller = TimelockController(payable(timelock));
-        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, chainId);
-        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, chainId);
-        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness(network);
-        ExecuteUnderlyingNamingHarness execution = new ExecuteUnderlyingNamingHarness(network);
-
-        assertBeaconBatchExact(chainId, network);
-        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness(network);
         advanceRootLineToBeaconSchedule();
-        // Before step 1 the beacon batch refuses, and the rename refuses the
-        // line until the beacon record lands.
-        vm.expectPartialRevert(ImplementationNotDeployed.selector);
-        beacons.callPreflight();
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                UnexpectedMigrationLine.selector, LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
-            )
-        );
-        rename.callPreflight();
-        plantImplementations();
-        authorVerifyExecute(address(beacons), beacons.callArtifactPath());
-        assertEq(
-            LibStoxMigrations.head(),
-            LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-            string.concat(network, ": beacon record")
-        );
-        authorVerifyExecute(address(rename), rename.callArtifactPath());
-        assertEq(
-            LibStoxMigrations.head(),
-            LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
-            string.concat(network, ": rename record")
-        );
-
-        // forge-lint: disable-next-line(block-timestamp)
-        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        execution.execute();
-        assertEq(
-            IBeacon(LibUnderlyingNamingRollout.receiptVaultBeacon(chainId)).implementation(),
-            LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION,
-            string.concat(network, ": vault beacon upgraded")
-        );
-        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotExecuted.selector, renameId));
-        execution.callPreflight();
-        logRenameExecutionGas(controller, chainId, beaconId);
-        execution.execute();
-        assertTrue(controller.isOperationDone(renameId), string.concat(network, ": rename executed"));
-        rename.callAssertRenamed(chainId);
-
-        vm.expectPartialRevert(NoUnderlyingNamingOperationReady.selector);
-        execution.execute();
-
-        authorVerifyExecute(address(execution), execution.callArtifactPath());
-        assertEq(
-            LibStoxMigrations.head(),
-            LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
-            string.concat(network, ": line at the execution")
-        );
-    }
-
-    /// @notice Logs the gas the rename batch's `executeBatch` alone takes, on a
-    /// snapshot: what the executing key must fit in one block.
-    function logRenameExecutionGas(TimelockController controller, uint256 chainId, bytes32 beaconId) internal {
-        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
-            LibUnderlyingNamingRollout.renameBatch(chainId);
-        uint256 snapshot = vm.snapshotState();
-        uint256 gasBefore = gasleft();
-        controller.executeBatch(targets, values, payloads, beaconId, LibUnderlyingNamingRollout.RENAME_SALT);
-        console2.log("Rename batch executeBatch gas:", gasBefore - gasleft());
-        vm.revertToState(snapshot);
+        assertRolloutFromTheBeaconOnto(network);
     }
 
     function testRolloutOnEveryDeploymentNetwork() external {

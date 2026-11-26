@@ -330,12 +330,11 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// `renamedImplementation` is what the rename migration's beacon batch upgrades the row's beacon to, and the row's
-    /// `implementation` where the batch leaves the beacon alone. Checked on the networks the rename's beacon batch was
-    /// cut for: every one before 0G.
+    /// `implementation` where the batch leaves the beacon alone. Checked on every deployment network: the rename's
+    /// beacon batch was cut for each.
     function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
         string memory json = build.render();
-        SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 snapshot = vm.snapshotState();
             LibLocalProdState.beacons(vm, nets[c].chainId);
@@ -586,10 +585,7 @@ contract BuildExpectedStateTest is Test {
                 vm.parseJsonTypeArray(json, string.concat(chain(nets[c]), ".tokens"), TOKEN_METADATA_JSON),
                 (ExpectedTokenMetadata[])
             );
-            // 0G has no rename migration (`testZerogHasNoRenameMigration`).
-            bool chainRenames = LibRainDeploy.hasChainId(
-                LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
-            );
+            bool chainRenames = LibUnderlyingNamingRollout.cutForChain(nets[c].chainId);
             for (uint256 i = 0; i < tokens.length; i++) {
                 TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
                 TokenMetadataState state = tokens[i].receiptVault == LibProdTokenParams.tokenAddress(config)
@@ -599,7 +595,9 @@ contract BuildExpectedStateTest is Test {
                     rows[i],
                     config,
                     state,
-                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i) ? TokenMetadataState.Renamed : state
+                    chainRenames && LibUnderlyingNamingRollout.renamesRow(nets[c].chainId, i)
+                        ? TokenMetadataState.Renamed
+                        : state
                 );
             }
         }
@@ -811,30 +809,41 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The underlying naming's batches were cut for the networks before 0G only: on 0G each beacon's
-    /// `renamedImplementation` is its implementation, and a token's renamed metadata is its current metadata.
-    function testZerogRenamesNothing() external {
+    /// The underlying naming's batches were cut for 0G over its whole table: its vault and wrapper beacons' renamed
+    /// implementations are the naming's, and its first and last tokens' renamed metadata is the renamed metadata.
+    function testZerogRenamesItsWholeTable() external {
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
         ExpectedBeacon[] memory beacons = beaconRows(build.render(), string.concat(".chains.", vm.toString(id)));
-        for (uint256 i = 0; i < 4; i++) {
-            assertEq(beacons[i].renamedImplementation, beacons[i].implementation);
-        }
+        assertEq(
+            beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX].renamedImplementation,
+            LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION
+        );
+        assertEq(
+            beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX].renamedImplementation,
+            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
+        );
 
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
-        assertTrue(LibUnderlyingNamingRollout.renamesRow(0), "row 0 renames on a full line");
-        TokenInstance memory token = LibTokenInvariants.productionTokensForChainId(id)[0];
-        assertEq(token.underlying, "MSTR");
-        TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
-        string memory zerog = harness.tokenMetadata(id, 0, token);
+        TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(id);
+        assertEq(tokens.length, 65, "0G's table");
+        assertEq(tokens[0].underlying, "MSTR");
         assertTokenMetadata(
-            tokenMetadataOf(zerog), config, TokenMetadataState.Initialized, TokenMetadataState.Initialized
+            tokenMetadataOf(harness.tokenMetadata(id, 0, tokens[0])),
+            LibProdTokenConfig.configOf("MSTR"),
+            TokenMetadataState.Initialized,
+            TokenMetadataState.Renamed
         );
-        string memory base = harness.tokenMetadata(LibSafeInvariants.BASE_CHAIN_ID, 0, token);
-        assertTokenMetadata(tokenMetadataOf(base), config, TokenMetadataState.Initialized, TokenMetadataState.Renamed);
+        assertEq(tokens[64].underlying, "TPRO");
+        assertTokenMetadata(
+            tokenMetadataOf(harness.tokenMetadata(id, 64, tokens[64])),
+            LibProdTokenConfig.configOf("TPRO"),
+            TokenMetadataState.Initialized,
+            TokenMetadataState.Renamed
+        );
     }
 
     /// A token at its suite's address was initialized from the row's listing, so its metadata is the
-    /// listed state.
+    /// listed state. Its row is past Base's renamed ones, so its renamed metadata is the listed state too.
     function testATokenAtItsSuiteAddressIsListed() external {
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
@@ -844,10 +853,12 @@ contract BuildExpectedStateTest is Test {
             receiptVault: LibProdTokenParams.tokenAddress(config),
             wrappedTokenVault: address(0)
         });
-        ExpectedTokenMetadata memory zerog =
-            tokenMetadataOf(harness.tokenMetadata(LibSafeInvariants.ZEROG_CHAIN_ID, 0, token));
-        assertTokenMetadata(zerog, config, TokenMetadataState.Listed, TokenMetadataState.Listed);
-        assertEq(zerog.symbol, string.concat("t", config.listingTicker));
+        uint256 id = LibSafeInvariants.BASE_CHAIN_ID;
+        uint256 row = LibUnderlyingNamingRollout.tokenCount(id);
+        assertGt(LibTokenInvariants.productionTokensForChainId(id).length, row);
+        ExpectedTokenMetadata memory base = tokenMetadataOf(harness.tokenMetadata(id, row, token));
+        assertTokenMetadata(base, config, TokenMetadataState.Listed, TokenMetadataState.Listed);
+        assertEq(base.symbol, string.concat("t", config.listingTicker));
     }
 
     function testV2IsTheV2NetworksKeyedByChainId() external {

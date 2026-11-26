@@ -19,6 +19,7 @@ import {LibProdOrchestratorParams} from "../src/lib/LibProdOrchestratorParams.so
 import {LibRootConfigBinding} from "../src/lib/LibRootConfigBinding.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
+import {LibStoxDeployNetworks} from "../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 
@@ -57,7 +58,9 @@ function bindOrchestratorConfigDeclaration() pure returns (ScriptDeclaration mem
 /// `LibStoxConfig.ORCHESTRATOR_BEACON_NAME` to the orchestrator proxy's beacon
 /// and `LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME` to
 /// `LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK` under the root authority, as
-/// the root's approved delegate, and records it.
+/// the root's approved delegate, and records it. On 0G the bundle is the
+/// record alone: no current-source orchestrator deploys there to read the
+/// bindings.
 contract BindOrchestratorConfig is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
@@ -81,6 +84,10 @@ contract BindOrchestratorConfig is StoxSafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function preflight() internal view override {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            preflightZerog();
+            return;
+        }
         LibConfigRegistry.checkCodeHash();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, chainSafe);
@@ -94,6 +101,25 @@ contract BindOrchestratorConfig is StoxSafeBundleScript, IStoxScript {
         LibStoxMigrations.assertNext(bindOrchestratorConfigDeclaration(), chainSafe);
         assertDelegate(LibStoxConfig.ORCHESTRATOR_BEACON_NAME, chainSafe);
         assertDelegate(LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, chainSafe);
+    }
+
+    /// @notice 0G's pre-flight: the Safe, 0G's timelock and the line, then
+    /// `assertNothingToBindOnZerog`.
+    function preflightZerog() internal view {
+        address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
+        LibTimelockInvariants.assertTimelockState(LibTimelockInvariants.timelockForChainId(block.chainid), chainSafe);
+        LibStoxMigrations.assertNext(bindOrchestratorConfigDeclaration(), chainSafe);
+        assertNothingToBindOnZerog();
+    }
+
+    /// @notice Reverts unless both names are unbound under the root, and the
+    /// orchestrator beacon and the suite timelock they would name have no code
+    /// on this chain.
+    function assertNothingToBindOnZerog() internal view {
+        LibRootConfigBinding.assertUnbound(LibStoxConfig.ORCHESTRATOR_BEACON_NAME);
+        LibRootConfigBinding.assertUnbound(LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME);
+        LibStoxDeployNetworks.assertUndeployed(LibProdOrchestratorParams.orchestratorParams().beacon);
+        LibStoxDeployNetworks.assertUndeployed(LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK);
     }
 
     function assertDelegate(bytes32 name, address chainSafe) internal view {
@@ -115,6 +141,9 @@ contract BindOrchestratorConfig is StoxSafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            return LibStoxMigrations.recordOnlyBundle(bindOrchestratorConfigDeclaration());
+        }
         SafeTx[] memory txs = new SafeTx[](3);
         txs[0] = LibRootConfigBinding.registerTx(LibStoxConfig.ORCHESTRATOR_BEACON_NAME, beaconBinding());
         txs[1] = LibRootConfigBinding.registerTx(LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, initialAdminBinding());
@@ -129,6 +158,12 @@ contract BindOrchestratorConfig is StoxSafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
+        if (block.chainid == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            LibStoxMigrations.assertRecorded(bindOrchestratorConfigDeclaration());
+            LibSafeInvariants.assertTokenOwnerSafePolicy(safe());
+            assertNothingToBindOnZerog();
+            return;
+        }
         assertBound(LibStoxConfig.ORCHESTRATOR_BEACON_NAME, beaconBinding());
         assertBound(LibStoxConfig.ORCHESTRATOR_INITIAL_ADMIN_NAME, initialAdminBinding());
         LibStoxMigrations.assertRecorded(bindOrchestratorConfigDeclaration());

@@ -4,7 +4,11 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {LibStoxDeployNetworks, NotADeploymentNetwork} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {
+    CurrentSourceDeployed,
+    LibStoxDeployNetworks,
+    NotADeploymentNetwork
+} from "../../../src/lib/LibStoxDeployNetworks.sol";
 
 /// @title LibStoxDeployNetworksTest
 /// @notice Pins the ST0x deploy network set: the name constants so a rename
@@ -101,5 +105,24 @@ contract LibStoxDeployNetworksTest is Test {
         for (uint256 i = 0; i < networks.length; i++) {
             assertGt(bytes(vm.rpcUrl(networks[i])).length, 0, networks[i]);
         }
+    }
+
+    function externalAssertUndeployed(address target) external view {
+        LibStoxDeployNetworks.assertUndeployed(target);
+    }
+
+    function testFuzzAssertUndeployedPassesNoCode(address target) external view {
+        vm.assume(target.code.length == 0);
+        this.externalAssertUndeployed(target);
+    }
+
+    function testFuzzAssertUndeployedRefusesCode(address target, bytes memory code) external {
+        vm.assume(code.length != 0);
+        assumeNotPrecompile(target);
+        assumeNotForgeAddress(target);
+        vm.assume(target != address(this));
+        vm.etch(target, code);
+        vm.expectRevert(abi.encodeWithSelector(CurrentSourceDeployed.selector, target));
+        this.externalAssertUndeployed(target);
     }
 }

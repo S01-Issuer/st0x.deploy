@@ -66,7 +66,8 @@ error LineHeadMismatch(bytes32 head);
 ///
 /// Every chain's line holds every migration. A migration with nothing to do on
 /// a chain is recorded there alone, record-only: the rehearsals off Base, the
-/// backfilled history on 0G (`withoutHistory`), the 0G token creation off 0G.
+/// backfilled history on 0G (`withoutHistory`), the 0G token creation off 0G,
+/// and on 0G each later migration whose change 0G does not need.
 /// On a `withoutHistory` chain a backfilled record proves only that the line
 /// passed it, not that its step ran: a script there asserts the state it
 /// depends on directly.
@@ -219,6 +220,15 @@ library LibStoxMigrations {
     function recordTx(ScriptDeclaration memory declared) internal view returns (SafeTx memory) {
         (address registry, bytes memory data) = recordCall(declared);
         return SafeTx({to: registry, value: 0, data: data, operation: Enum.Operation.Call});
+    }
+
+    /// @notice The bundle of `declared`'s record alone.
+    /// @param declared The declaration.
+    /// @return The one transaction.
+    function recordOnlyBundle(ScriptDeclaration memory declared) internal view returns (SafeTx[] memory) {
+        SafeTx[] memory txs = new SafeTx[](1);
+        txs[0] = recordTx(declared);
+        return txs;
     }
 
     /// @notice Reverts unless `declared` is the root line's next record and

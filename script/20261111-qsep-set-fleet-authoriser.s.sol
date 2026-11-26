@@ -221,9 +221,7 @@ contract QsepSetFleetAuthoriser is Script, IStoxScript {
     /// @return txs The transactions.
     function authorBundle() internal view returns (SafeTx[] memory txs) {
         if (!swapPending()) {
-            txs = new SafeTx[](1);
-            txs[0] = LibStoxMigrations.recordTx(qsepSetFleetAuthoriserDeclaration());
-            return txs;
+            return LibStoxMigrations.recordOnlyBundle(qsepSetFleetAuthoriserDeclaration());
         }
         bytes32[] memory roles = retiredSignerV3Roles();
         txs = new SafeTx[](1 + roles.length);

@@ -12,6 +12,10 @@ import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 /// @param role The role.
 error ServiceSignerStillHoldsRole(bytes32 role);
 
+/// @notice The revoke batch is pending on the timelock.
+/// @param id The operation id.
+error RevokeBatchPending(bytes32 id);
+
 /// @title LibServiceSignerRevoke
 /// @notice The timelock batch revoking `DEPOSIT` and `WITHDRAW` from the
 /// service signer on the chain's authoriser.
@@ -69,5 +73,13 @@ library LibServiceSignerRevoke {
         if (IAccessControl(authoriser).hasRole(keccak256("WITHDRAW"), signer)) {
             revert ServiceSignerStillHoldsRole(keccak256("WITHDRAW"));
         }
+    }
+
+    /// @notice Reverts `RevokeBatchPending` while the revoke batch is pending on `timelock`.
+    /// @param timelock The chain's governance timelock.
+    /// @param chainId The chain id.
+    function assertNotPending(address timelock, uint256 chainId) internal view {
+        bytes32 id = operationId(timelock, chainId);
+        if (TimelockController(payable(timelock)).isOperationPending(id)) revert RevokeBatchPending(id);
     }
 }

@@ -52,8 +52,8 @@ error DownstreamNotReadyForRename();
 
 /// @notice The rollout's batches were cut for the networks before 0G
 /// (`LibStoxDeployNetworks.networksBeforeZerog`), whose tables share Base's row
-/// order. Any other chain's leading `TOKEN_COUNT` rows can be another token
-/// set (0G's follow Ethereum's creation order), so the rollout refuses it.
+/// order, and for 0G. Any other chain's table can hold another token set, so
+/// the rollout refuses it.
 /// @param chainId The chain id.
 error UnderlyingNamingNotCutForChain(uint256 chainId);
 
@@ -131,46 +131,63 @@ library LibUnderlyingNamingRollout {
     ///   (ST0x-Technology/st0x.registry#117).
     bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = true;
 
-    /// @notice How many leading rows of each chain's production token table
-    /// this rollout renames: tMSTR to tDIS, on every chain. Fixed, so the
+    /// @notice How many leading rows of the production token table this
+    /// rollout renames on each network before 0G: tMSTR to tDIS. Fixed, so the
     /// rename operation's id does not move when a table grows once the batch
     /// is scheduled; a token added later gets its own `setUnderlying`
     /// operation.
     uint256 internal constant TOKEN_COUNT = 56;
 
+    /// @notice How many leading rows of 0G's production token table this
+    /// rollout renames: every token of 0G's token creation, tMSTR to tTPRO.
+    /// Fixed for the same reason as `TOKEN_COUNT`.
+    uint256 internal constant ZEROG_TOKEN_COUNT = 65;
+
     /// @notice The production tokens this rollout renames on the chain: the
-    /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
+    /// leading `tokenCount` rows of the chain's table. Reverts
     /// `NoTokenTableForChain` on a chain with no table and
     /// `UnderlyingNamingNotCutForChain` on a chain with a table that the
-    /// rollout was not cut for, 0G included.
+    /// rollout was not cut for.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
         TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
-        if (!cutForChain(chainId)) revert UnderlyingNamingNotCutForChain(chainId);
         return leadingRows(chainId, table);
     }
 
     /// @notice Whether the rollout's rename and beacon batches were cut for
     /// `chainId`: one of the networks before 0G
-    /// (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
+    /// (`LibStoxDeployNetworks.networksBeforeZerog`), or 0G. `tokens` and
     /// `BuildExpectedState.renameMigration` both read this, so they agree.
     /// @param chainId The chain id.
     /// @return Whether the batches were cut for the chain.
     function cutForChain(uint256 chainId) internal pure returns (bool) {
-        return LibRainDeploy.hasChainId(
+        return chainId == LibSafeInvariants.ZEROG_CHAIN_ID
+            || LibRainDeploy.hasChainId(
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
         );
     }
 
-    /// @notice The leading `TOKEN_COUNT` rows of `table`, so the rename id
-    /// does not move when the table grows. Reverts
-    /// `UnderlyingNamingTokenTableShort` when it has fewer.
-    /// @param chainId The chain id, for the error.
+    /// @notice How many leading rows of `chainId`'s production table the
+    /// rollout renames: `ZEROG_TOKEN_COUNT` on 0G, `TOKEN_COUNT` on the
+    /// networks before it. Reverts `UnderlyingNamingNotCutForChain` on any
+    /// other chain.
+    /// @param chainId The chain id.
+    /// @return The row count.
+    function tokenCount(uint256 chainId) internal pure returns (uint256) {
+        if (!cutForChain(chainId)) revert UnderlyingNamingNotCutForChain(chainId);
+        return chainId == LibSafeInvariants.ZEROG_CHAIN_ID ? ZEROG_TOKEN_COUNT : TOKEN_COUNT;
+    }
+
+    /// @notice The leading `tokenCount(chainId)` rows of `table`, so the
+    /// rename id does not move when the table grows. Reverts
+    /// `UnderlyingNamingNotCutForChain` as `tokenCount` does, and
+    /// `UnderlyingNamingTokenTableShort` when the table has fewer rows.
+    /// @param chainId The chain id.
     /// @param table The chain's token table.
     /// @return The leading rows.
     function leadingRows(uint256 chainId, TokenInstance[] memory table) internal pure returns (TokenInstance[] memory) {
-        uint256 count = TOKEN_COUNT;
+        uint256 count = tokenCount(chainId);
         if (table.length < count) revert UnderlyingNamingTokenTableShort(chainId, count, table.length);
         // The table's leading `count` rows: shorten the array in place.
         assembly ("memory-safe") {
@@ -179,12 +196,13 @@ library LibUnderlyingNamingRollout {
         return table;
     }
 
-    /// @notice Whether the rename batch renames the row at `tokenIndex` of a
-    /// chain's production table: one of the leading `TOKEN_COUNT`.
+    /// @notice Whether the rename batch renames the row at `tokenIndex` of
+    /// `chainId`'s production table: one of the leading `tokenCount(chainId)`.
+    /// @param chainId The chain id.
     /// @param tokenIndex The row's index in the chain's production table.
     /// @return Whether the rename batch renames it.
-    function renamesRow(uint256 tokenIndex) internal pure returns (bool) {
-        return tokenIndex < TOKEN_COUNT;
+    function renamesRow(uint256 chainId, uint256 tokenIndex) internal pure returns (bool) {
+        return tokenIndex < tokenCount(chainId);
     }
 
     /// @notice Every vault and wrapper behind the two beacons on the chain:
@@ -212,12 +230,12 @@ library LibUnderlyingNamingRollout {
         bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
         uint256 count = onBase ? 1 : 0;
         for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
-            if (!renamesRow(tokenIndex)) count++;
+            if (!renamesRow(chainId, tokenIndex)) count++;
         }
         TokenInstance[] memory chainTokens = new TokenInstance[](count);
         uint256 next = 0;
         for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
-            if (!renamesRow(tokenIndex)) chainTokens[next++] = table[tokenIndex];
+            if (!renamesRow(chainId, tokenIndex)) chainTokens[next++] = table[tokenIndex];
         }
         if (onBase) chainTokens[next] = LibTokenInvariants.qsepToken();
         return chainTokens;
