@@ -11,6 +11,7 @@ import {
     UnderlyingNamingNotCutForChain,
     UnderlyingNamingTokenTableShort
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
+import {AssetId, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
@@ -47,7 +48,7 @@ contract LibUnderlyingNamingRolloutTest is Test {
         returns (TokenConfig memory)
     {
         return TokenConfig({
-            assetId: isin,
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: isin}),
             listingTicker: ticker,
             listingName: underlyingName,
             underlying: ticker,

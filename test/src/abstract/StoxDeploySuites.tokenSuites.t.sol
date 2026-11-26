@@ -109,7 +109,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
                     == keccak256(
                         abi.encode(LibRainDeployRegistryBeaconProxy.registryBeaconProxyDeployedAddress(tokens[j]))
                     )
-                : keccak256(bytes(listed.assetId)) == keccak256(bytes(configs[j].assetId))
+                : keccak256(abi.encode(listed.assetId)) == keccak256(abi.encode(configs[j].assetId))
                     && keccak256(bytes(listed.listingTicker)) == keccak256(bytes(configs[j].listingTicker))
                     && keccak256(bytes(listed.listingName)) == keccak256(bytes(configs[j].listingName))
                     && listed.region == configs[j].region;
@@ -171,7 +171,7 @@ contract StoxDeploySuitesTokenSuitesTest is Test, StoxDeploySuites {
             );
             assertEq(abi.encode(suiteParams), abi.encode(params[j]), configs[j].underlying);
             (, StoxTokenConfigV1 memory config) = abi.decode(suiteParams.data, (bytes32, StoxTokenConfigV1));
-            assertEq(config.assetId, configs[j].assetId, configs[j].underlying);
+            assertEq(abi.encode(config.assetId), abi.encode(configs[j].assetId), configs[j].underlying);
             assertEq(config.listingTicker, configs[j].listingTicker, configs[j].underlying);
             assertEq(config.listingName, configs[j].listingName, configs[j].underlying);
         }
