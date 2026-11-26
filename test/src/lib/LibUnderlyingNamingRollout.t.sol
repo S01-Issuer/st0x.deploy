@@ -242,7 +242,8 @@ contract LibUnderlyingNamingRolloutTest is Test {
     /// on 0G with its own count as on the networks before it.
     function testLeadingRowsCutsALongerTableAndRefusesAShorterOne() external {
         uint256[2] memory chainIds = [LibSafeInvariants.ETHEREUM_CHAIN_ID, LibSafeInvariants.ZEROG_CHAIN_ID];
-        uint256[2] memory counts = [LibUnderlyingNamingRollout.TOKEN_COUNT, LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT];
+        uint256[2] memory counts =
+            [LibUnderlyingNamingRollout.TOKEN_COUNT, LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT];
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
             uint256 chainId = chainIds[chainIndex];
             uint256 count = counts[chainIndex];
