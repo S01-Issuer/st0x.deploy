@@ -55,15 +55,22 @@ error ZoltuRowMissing(string key);
 contract BuildExpectedStateTest is Test {
     BuildExpectedState internal build = new BuildExpectedState();
 
+    /// The rendered JSON rides every cheatcode call's trace; kept under -vvv it exhausts CI runner memory.
+    modifier untraced() {
+        vm.pauseTracing();
+        _;
+        vm.resumeTracing();
+    }
+
     function networks() internal pure returns (SupportedNetwork[] memory) {
         return LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
     }
 
-    function testVersionIsOne() external {
+    function testVersionIsOne() external untraced {
         assertEq(vm.parseJsonUint(build.render(), ".version"), 1);
     }
 
-    function testChainsAreTheDeploymentNetworksKeyedByChainId() external {
+    function testChainsAreTheDeploymentNetworksKeyedByChainId() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         assertEq(vm.parseJsonKeys(json, ".chains").length, nets.length);
@@ -72,7 +79,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function testEveryObjectCarriesExactlyItsFields() external {
+    function testEveryObjectCarriesExactlyItsFields() external untraced {
         string memory json = build.render();
         string[] memory root = new string[](3);
         root[0] = "version";
@@ -118,7 +125,7 @@ contract BuildExpectedStateTest is Test {
 
     /// The rows are the four in-use beacons the chain's set deployer getters resolve on a local build, so no row is
     /// left for the dashboard to resolve.
-    function testBeaconsAreTheInUseSetAtTheirExpectedImplementationsOwnedByTheTimelock() external {
+    function testBeaconsAreTheInUseSetAtTheirExpectedImplementationsOwnedByTheTimelock() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -145,7 +152,7 @@ contract BuildExpectedStateTest is Test {
 
     /// The set deployer is the one whose constructor's first and second CREATE are the chain's receipt and
     /// receipt-vault beacons: the V1 set deployer on Base, the 0.1.1 one elsewhere.
-    function testBeaconSetDeployerCreatedTheReceiptAndReceiptVaultBeacons() external {
+    function testBeaconSetDeployerCreatedTheReceiptAndReceiptVaultBeacons() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -170,7 +177,7 @@ contract BuildExpectedStateTest is Test {
 
     /// Fixed example from the Ethereum leg: the receipt beacon is the 0.1.1 set deployer's `iReceiptBeacon()` and
     /// serves the 0.1.30 receipt.
-    function testEthereumReceiptBeaconIsTheSetDeployersAt0_1_30() external {
+    function testEthereumReceiptBeaconIsTheSetDeployersAt0_1_30() external untraced {
         string memory json = build.render();
         LibLocalProdState.beacons(vm, LibSafeInvariants.ETHEREUM_CHAIN_ID);
         address expected = address(
@@ -190,7 +197,7 @@ contract BuildExpectedStateTest is Test {
     /// `renamedImplementation` is what the rename migration's beacon batch upgrades the row's beacon to, and the row's
     /// `implementation` where the batch leaves the beacon alone. Checked on the networks the rename's beacon batch was
     /// cut for: every one before 0G.
-    function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
+    function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
@@ -232,12 +239,12 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// Every value is concrete: zero appears only as each chain's Safe guard.
-    function testZeroIsOnlyTheSafeGuard() external {
+    function testZeroIsOnlyTheSafeGuard() external untraced {
         string memory json = build.render();
         assertEq(vm.split(json, vm.toString(address(0))).length - 1, networks().length);
     }
 
-    function testSafeIsTheChainsSafeWithThePinnedPolicy() external {
+    function testSafeIsTheChainsSafeWithThePinnedPolicy() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
@@ -261,7 +268,7 @@ contract BuildExpectedStateTest is Test {
 
     /// The accepted proxy, singleton and handler hashes are the hashes of the pinned runtime code, singleton i's
     /// hash at index i, so the dashboard's lock-down check matches `LibSafe.assertLockedDown`.
-    function testSafeLockDownIsLibSafesAcceptedCode() external {
+    function testSafeLockDownIsLibSafesAcceptedCode() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
@@ -297,7 +304,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function testTimelockIsTheChainsPinAtItsMinDelay() external {
+    function testTimelockIsTheChainsPinAtItsMinDelay() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
@@ -311,7 +318,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// The suite timelock's address carries the suite's runtime code, every other address the per-Safe code.
-    function testTimelockCodehashIsTheSuiteCodeAtTheSuiteAddressAndThePerSafeCodeElsewhere() external {
+    function testTimelockCodehashIsTheSuiteCodeAtTheSuiteAddressAndThePerSafeCodeElsewhere() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         bool sawPerSafe;
@@ -338,7 +345,7 @@ contract BuildExpectedStateTest is Test {
 
     /// The beacon and instance are the set deployer's nonce 1 and nonce 2 CREATEs, the beacon is a 0.1.30
     /// `UpgradeableBeacon` serving the 0.1.30 orchestrator, and the chain's timelock owns it, on every chain.
-    function testOrchestratorIsThe0_1_30BeaconSetOwnedByTheTimelock() external {
+    function testOrchestratorIsThe0_1_30BeaconSetOwnedByTheTimelock() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
@@ -367,7 +374,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// The orchestrator's implementation and set deployer are the released 0.1.30 Zoltu suites on every chain.
-    function testOrchestratorCodeIsItsReleasedZoltuSuites() external {
+    function testOrchestratorCodeIsItsReleasedZoltuSuites() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
@@ -383,7 +390,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function testAuthorisersAreTheChainsClonesAtTheCloneCodehash() external {
+    function testAuthorisersAreTheChainsClonesAtTheCloneCodehash() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
@@ -407,7 +414,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function testTokensAreTheChainsTableWithRegionRoutedAuthorisers() external {
+    function testTokensAreTheChainsTableWithRegionRoutedAuthorisers() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -442,7 +449,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// Fixed examples on Base: tMC is the EU token, on the EU clone; tMSTR is US, on the V4 clone.
-    function testBaseMcIsOnTheEuCloneAndMstrOnTheV4Clone() external {
+    function testBaseMcIsOnTheEuCloneAndMstrOnTheV4Clone() external untraced {
         string memory json = build.render();
         string memory list = ".chains.8453.tokens";
         uint256 n = LibTokenInvariants.productionTokensBase().length;
@@ -464,7 +471,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// Fixed examples on Base: tMC is EU, tMSTR is US.
-    function testBaseMcRegionIsEuAndMstrRegionIsUs() external {
+    function testBaseMcRegionIsEuAndMstrRegionIsUs() external untraced {
         string memory json = build.render();
         string memory list = ".chains.8453.tokens";
         uint256 n = LibTokenInvariants.productionTokensBase().length;
@@ -486,7 +493,7 @@ contract BuildExpectedStateTest is Test {
 
     /// The unprefixed fields are the initialized metadata, the `renamed` fields the metadata once the rename batch has
     /// run, which renames only its leading rows; each set is one consistent state of the vault and wrapper.
-    function testTokenMetadataIsTheInitializedAndRenamedStates() external {
+    function testTokenMetadataIsTheInitializedAndRenamedStates() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -557,7 +564,7 @@ contract BuildExpectedStateTest is Test {
         assertTrue(LibTestTokenMetadata.consistent(config, name, symbol, wrappedName, wrappedSymbol));
     }
 
-    function testTokenDecimalsAreTheVaultAndWrapperDecimals() external {
+    function testTokenDecimalsAreTheVaultAndWrapperDecimals() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -576,7 +583,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function testTokenVaultReceiptManagerAndWrapperAssetAreTheRowsOwnLegs() external {
+    function testTokenVaultReceiptManagerAndWrapperAssetAreTheRowsOwnLegs() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -594,7 +601,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// Each leg's beacon is the beacon the chain's set deployer getters resolve for that leg.
-    function testTokenLegBeaconsAreTheChainsBeaconRows() external {
+    function testTokenLegBeaconsAreTheChainsBeaconRows() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -619,7 +626,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// Base's token proxies are the V1 build, pinned by codehash.
-    function testBaseTokenLegCodehashesAreTheV1ProxyPins() external {
+    function testBaseTokenLegCodehashesAreTheV1ProxyPins() external untraced {
         string memory json = build.render();
         string memory list = ".chains.8453.tokens";
         uint256 n = LibTokenInvariants.productionTokensBase().length;
@@ -642,7 +649,7 @@ contract BuildExpectedStateTest is Test {
 
     /// tQSEP, outside the token table, is on Base only: its own legs on Base's beacon rows at the Base V1 proxy pins,
     /// owned by Base's timelock and authorised by the fleet authoriser.
-    function testQsepIsBaseOnlyOnTheBaseBeaconsWithTheTimelockAndFleetAuthoriser() external {
+    function testQsepIsBaseOnlyOnTheBaseBeaconsWithTheTimelockAndFleetAuthoriser() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         bool sawBase;
@@ -704,7 +711,7 @@ contract BuildExpectedStateTest is Test {
 
     /// Off Base each leg is a `RegistryBeaconProxy` over its in-use beacon: the receipt and receipt-vault beacons are
     /// the set deployer's first and second CREATE, the wrapper beacon is pinned.
-    function testOffBaseTokenLegCodehashesAreRegistryBeaconProxiesOverTheInUseBeacons() external {
+    function testOffBaseTokenLegCodehashesAreRegistryBeaconProxiesOverTheInUseBeacons() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         uint256 checked = 0;
@@ -738,7 +745,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// The rename migration is the id of the script that executes the rename batch.
-    function testRenameMigrationIsTheExecuteUnderlyingNamingScript() external {
+    function testRenameMigrationIsTheExecuteUnderlyingNamingScript() external untraced {
         string memory json = build.render();
         string memory script = "script/20261021-execute-underlying-naming.s.sol";
         assertTrue(vm.exists(script));
@@ -752,7 +759,7 @@ contract BuildExpectedStateTest is Test {
 
     /// The underlying naming's batches were cut for the networks before 0G only: on 0G each beacon's
     /// `renamedImplementation` is its implementation, and a token's renamed metadata is its current metadata.
-    function testZerogRenamesNothing() external {
+    function testZerogRenamesNothing() external untraced {
         string memory json = build.render();
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
         string memory at = string.concat(".chains.", vm.toString(id));
@@ -791,7 +798,7 @@ contract BuildExpectedStateTest is Test {
         assertEq(vm.parseJsonString(zerog, ".symbol"), string.concat("t", config.listingTicker));
     }
 
-    function testV2IsTheV2NetworksKeyedByChainId() external {
+    function testV2IsTheV2NetworksKeyedByChainId() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory v2 = v2Networks();
         assertEq(vm.parseJsonKeys(json, ".v2").length, v2.length);
@@ -800,7 +807,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function testV2DeploymentsAreTheLibProdDeployV2Pins() external {
+    function testV2DeploymentsAreTheLibProdDeployV2Pins() external untraced {
         string memory json = build.render();
         string[] memory keys = new string[](9);
         address[] memory addresses = new address[](9);
@@ -848,7 +855,7 @@ contract BuildExpectedStateTest is Test {
     /// The receipt and receipt-vault beacons are the V2 set deployer's getters on a local Zoltu deploy and serve the V2
     /// receipt and vault from the V2 owner, except on Base, which carries its overrides; the wrapper beacon is the
     /// deployed one.
-    function testV2BeaconsAreTheSetDeployersWithBaseOverrides() external {
+    function testV2BeaconsAreTheSetDeployersWithBaseOverrides() external untraced {
         string memory json = build.render();
         LibRainDeploy.etchZoltuFactory(vm);
         LibRainDeploy.deployZoltu(LibProdDeployV2.PROD_STOX_RECEIPT_CREATION_BYTECODE_V2);
@@ -903,7 +910,7 @@ contract BuildExpectedStateTest is Test {
 
     /// Every released Zoltu suite naming the chain, or naming no networks (so every declared one), in release order,
     /// at its recorded address with the hash of its recorded runtime code.
-    function testZoltuIsEveryReleasedZoltuSuiteOnTheChain() external {
+    function testZoltuIsEveryReleasedZoltuSuiteOnTheChain() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -922,7 +929,7 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function testRegistryDelegatesAreTheRootsExpectedDelegations() external {
+    function testRegistryDelegatesAreTheRootsExpectedDelegations() external untraced {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -973,7 +980,7 @@ contract BuildExpectedStateTest is Test {
         );
     }
 
-    function testRunWritesTheRender() external {
+    function testRunWritesTheRender() external untraced {
         vm.removeFile("expected-state.json");
         build.run();
         assertEq(keccak256(vm.parseJson(vm.readFile("expected-state.json"))), keccak256(vm.parseJson(build.render())));
