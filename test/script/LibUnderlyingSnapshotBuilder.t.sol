@@ -4,8 +4,6 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
-import {AuthoringMetaV2} from "rainlang-0.2.40/src/interface/IParserV2.sol";
-import {LibGenParseMeta, MaxDepthExceeded} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
 import {
     LibUnderlyingSnapshot,
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,
@@ -16,20 +14,22 @@ import {
     UnderlyingSnapshotRow,
     UnderlyingSnapshotDoesNotShard,
     UnderlyingSnapshotFieldTooLong,
-    EIP170_MAX_RUNTIME,
-    UNDERLYING_SNAPSHOT_META_DEPTH
+    EIP170_MAX_RUNTIME
 } from "../../script/LibUnderlyingSnapshotBuilder.sol";
-import {UnderlyingSnapshotShardEncoder} from "../../script/UnderlyingSnapshotShardEncoder.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {LibTestUnderlyingSnapshotRows} from "../lib/LibTestUnderlyingSnapshotRows.sol";
 
 contract LibUnderlyingSnapshotBuilderTest is Test {
-    function build(uint256 asOf, UnderlyingSnapshotRow[] memory rows) external returns (bytes memory, bytes[] memory) {
+    function build(uint256 asOf, UnderlyingSnapshotRow[] memory rows)
+        external
+        pure
+        returns (bytes memory, bytes[] memory)
+    {
         return LibUnderlyingSnapshotBuilder.build(asOf, rows);
     }
 
-    function shardData(UnderlyingSnapshotRow[] memory rows) external pure returns (bytes memory) {
-        return LibUnderlyingSnapshotBuilder.shardData(rows);
+    function shardData(UnderlyingSnapshotRow[] memory rows, uint256 k) external pure returns (bool, bytes memory) {
+        return LibUnderlyingSnapshotBuilder.shardData(rows, k);
     }
 
     function filled(uint256 length) internal pure returns (string memory) {
@@ -68,6 +68,18 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         assertEq(row.isin, expected.isin, "isin");
     }
 
+    function assertEveryRowReadsBack(
+        uint256 asOf,
+        UnderlyingSnapshotRow[] memory rows,
+        bytes memory rootCode,
+        bytes[] memory shardCodes
+    ) internal {
+        address root = LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes);
+        for (uint256 i = 0; i < rows.length; i++) {
+            assertReadsBack(root, asOf, rows[i]);
+        }
+    }
+
     function testFieldOf255BytesReadsBack(address token, uint256 field) external {
         UnderlyingSnapshotRow memory row = rowWithField(token, bound(field, 0, 2), type(uint8).max);
         (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, one(row));
@@ -83,10 +95,7 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
             if (empty == 2 || empty == 3) rows[i].isin = "";
         }
         (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
-        address root = LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes);
-        for (uint256 i = 0; i < rows.length; i++) {
-            assertReadsBack(root, 0, rows[i]);
-        }
+        assertEveryRowReadsBack(0, rows, rootCode, shardCodes);
     }
 
     function testEmptyIsinEndingTheShardReadsBack(address token) external {
@@ -98,11 +107,11 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         assertReadsBack(LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes), 0, row);
     }
 
-    function testFieldOver255BytesReverts(address token, uint256 field, uint256 length) external {
+    function testFieldOver255BytesReverts(address token, uint256 field, uint256 length, uint256 k) external {
         length = bound(length, uint256(type(uint8).max) + 1, 1024);
         UnderlyingSnapshotRow[] memory rows = one(rowWithField(token, bound(field, 0, 2), length));
         vm.expectRevert(abi.encodeWithSelector(UnderlyingSnapshotFieldTooLong.selector, token, length));
-        this.shardData(rows);
+        this.shardData(rows, bound(k, 1, type(uint16).max));
     }
 
     /// A row's encoding error surfaces from build instead of moving on to more shards.
@@ -122,25 +131,18 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         this.build(0, rows);
     }
 
-    function testMaxDepthExceededTriesTheNextShardCount(bytes32 seed) external {
-        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 8);
-        // Both parities, so neither two-shard member's calldata is the mocked one-shard call.
-        rows[0].token = address(uint160(rows[0].token) | 1);
-        rows[1].token = address(uint160(rows[1].token) & ~uint160(1));
-        address encoder = vm.computeCreateAddress(address(this), vm.getNonce(address(this)));
-        vm.mockCallRevert(
-            encoder,
-            abi.encodeCall(UnderlyingSnapshotShardEncoder.shardData, (rows)),
-            abi.encodeWithSelector(MaxDepthExceeded.selector, UNDERLYING_SNAPSHOT_META_DEPTH)
-        );
-        // mockCallRevert etches placeholder code there, which build's `new` would collide with.
-        vm.etch(encoder, "");
-        (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
-        assertEq(shardCodes.length, 2, "shard count");
-        address root = LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes);
-        for (uint256 i = 0; i < rows.length; i++) {
-            assertReadsBack(root, 0, rows[i]);
-        }
+    function testDuplicateTokenDoesNotFitAShard(bytes32 seed, uint256 count, uint256 i, uint256 j, uint256 k)
+        external
+        pure
+    {
+        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 2, 40));
+        i = bound(i, 0, rows.length - 1);
+        j = bound(j, 0, rows.length - 2);
+        if (j >= i) j++;
+        rows[j].token = rows[i].token;
+        (bool fits, bytes memory data) = LibUnderlyingSnapshotBuilder.shardData(rows, bound(k, 1, type(uint16).max));
+        assertFalse(fits, "fits");
+        assertEq(data.length, 0, "data");
     }
 
     function testZeroRowsBuildOneShardThatFindsNothing(uint256 asOf, address token) external {
@@ -153,38 +155,35 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         assertFalse(row.found, "found");
     }
 
-    /// One-byte fields, so EIP-170 never binds before the 256-word parse meta limit.
-    function shortRows(uint256 n) internal pure returns (UnderlyingSnapshotRow[] memory) {
-        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](n);
-        for (uint256 i = 0; i < n; i++) {
+    function testManyShortRowsShareOneShard() external {
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](600);
+        for (uint256 i = 0; i < rows.length; i++) {
             address token = address(uint160(uint256(keccak256(abi.encode("short row", i)))));
             rows[i] = UnderlyingSnapshotRow(token, "T", "N", "I");
         }
-        return rows;
+        (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
+        assertEq(shardCodes.length, 1, "shard count");
+        assertEveryRowReadsBack(0, rows, rootCode, shardCodes);
     }
 
-    function testParseMetaWordLimitBoundsTheShardCount() external {
-        (, bytes[] memory atLimit) = LibUnderlyingSnapshotBuilder.build(0, shortRows(256));
-        assertEq(atLimit.length, 1, "256 rows");
-        (, bytes[] memory pastLimit) = LibUnderlyingSnapshotBuilder.build(0, shortRows(257));
-        assertEq(pastLimit.length, 2, "257 rows");
-    }
-
-    /// 31 rows of 255-byte fields, the last name trimmed so one shard's runtime
-    /// is `extra` bytes over the EIP-170 limit.
+    /// 31 rows of 255-byte fields and a last row whose name is sized so one
+    /// shard's runtime is `extra` bytes over the EIP-170 limit.
     function rowsOverEip170By(uint256 extra) internal pure returns (UnderlyingSnapshotRow[] memory) {
-        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](31);
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](32);
         for (uint256 i = 0; i < rows.length; i++) {
             rows[i] = UnderlyingSnapshotRow(
                 address(uint160(uint256(keccak256(abi.encode(i))))), filled(255), filled(255), filled(255)
             );
         }
-        uint256 runtime = LibUnderlyingSnapshotBuilder.shardData(rows).length + 1;
-        assertGe(runtime, EIP170_MAX_RUNTIME + extra, "rows too short");
-        uint256 trim = runtime - EIP170_MAX_RUNTIME - extra;
-        assertLe(trim, 255, "rows too long");
-        rows[rows.length - 1].name = filled(255 - trim);
-        assertEq(LibUnderlyingSnapshotBuilder.shardData(rows).length + 1, EIP170_MAX_RUNTIME + extra, "sized");
+        rows[31] = UnderlyingSnapshotRow(rows[31].token, "", "", "");
+        (bool fits, bytes memory data) = LibUnderlyingSnapshotBuilder.shardData(rows, 1);
+        assertTrue(fits, "rows too long");
+        uint256 grow = EIP170_MAX_RUNTIME + extra - (data.length + 1);
+        assertLe(grow, 255, "rows too short");
+        rows[31].name = filled(grow);
+        (fits, data) = LibUnderlyingSnapshotBuilder.shardData(rows, 1);
+        assertEq(fits, extra == 0, "fits");
+        if (fits) assertEq(data.length + 1, EIP170_MAX_RUNTIME, "sized");
         return rows;
     }
 
@@ -193,20 +192,14 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
         assertEq(shardCodes.length, 1, "shard count");
         assertEq(shardCodes[0].length - (PREFIX_BYTES_LENGTH - 1), EIP170_MAX_RUNTIME, "runtime");
-        address root = LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes);
-        for (uint256 i = 0; i < rows.length; i++) {
-            assertReadsBack(root, 0, rows[i]);
-        }
+        assertEveryRowReadsBack(0, rows, rootCode, shardCodes);
     }
 
     function testShardOneByteOverEip170Splits() external {
         UnderlyingSnapshotRow[] memory rows = rowsOverEip170By(1);
         (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
         assertEq(shardCodes.length, 2, "shard count");
-        address root = LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes);
-        for (uint256 i = 0; i < rows.length; i++) {
-            assertReadsBack(root, 0, rows[i]);
-        }
+        assertEveryRowReadsBack(0, rows, rootCode, shardCodes);
     }
 
     function readUint(bytes memory data, uint256 start, uint256 length) internal pure returns (uint256) {
@@ -237,6 +230,175 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         return at + 1 + length;
     }
 
+    /// Asserts `rows` in input order from `at` to the end of `data`; returns where each starts.
+    function assertRowsFrom(bytes memory data, uint256 at, UnderlyingSnapshotRow[] memory rows)
+        internal
+        pure
+        returns (uint256[] memory)
+    {
+        uint256[] memory starts = new uint256[](rows.length);
+        for (uint256 i = 0; i < rows.length; i++) {
+            starts[i] = at;
+            assertEq(readUint(data, at, 20), uint160(rows[i].token), "token");
+            at = assertFieldAt(data, at + 20, rows[i].ticker, "ticker");
+            at = assertFieldAt(data, at, rows[i].name, "name");
+            at = assertFieldAt(data, at, rows[i].isin, "isin");
+        }
+        assertEq(data.length, at, "length");
+        return starts;
+    }
+
+    function bucketsOf(UnderlyingSnapshotRow[] memory rows, uint256 k, uint256 bucketCount)
+        internal
+        pure
+        returns (uint256[] memory)
+    {
+        uint256[] memory buckets = new uint256[](rows.length);
+        for (uint256 i = 0; i < rows.length; i++) {
+            buckets[i] = (uint256(uint160(rows[i].token)) / k) % bucketCount;
+        }
+        return buckets;
+    }
+
+    function slotOf(address token, bytes1 displacement, uint256 slotCount) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(token, displacement))) % slotCount;
+    }
+
+    /// Whether `bucket`'s tokens land on distinct slots not yet `taken`; takes them if so.
+    function take(
+        UnderlyingSnapshotRow[] memory rows,
+        uint256[] memory buckets,
+        uint256 bucket,
+        bytes1 displacement,
+        bool[] memory taken
+    ) internal pure returns (bool) {
+        bool[] memory mine = new bool[](taken.length);
+        for (uint256 i = 0; i < rows.length; i++) {
+            if (buckets[i] != bucket) continue;
+            uint256 slot = slotOf(rows[i].token, displacement, taken.length);
+            if (taken[slot] || mine[slot]) return false;
+            mine[slot] = true;
+        }
+        for (uint256 s = 0; s < taken.length; s++) {
+            taken[s] = taken[s] || mine[s];
+        }
+        return true;
+    }
+
+    /// The unplaced bucket with the most rows, the lowest index on ties.
+    function nextBucket(uint256[] memory buckets, bool[] memory placed) internal pure returns (uint256) {
+        uint256 best = type(uint256).max;
+        uint256 bestSize = 0;
+        for (uint256 b = 0; b < placed.length; b++) {
+            if (placed[b]) continue;
+            uint256 size = 0;
+            for (uint256 i = 0; i < buckets.length; i++) {
+                if (buckets[i] == b) size++;
+            }
+            if (best == type(uint256).max || size > bestSize) {
+                best = b;
+                bestSize = size;
+            }
+        }
+        return best;
+    }
+
+    /// Each bucket, largest first, takes the first displacement placing its
+    /// tokens on distinct free slots; false when a bucket has none.
+    function displacementsAt(UnderlyingSnapshotRow[] memory rows, uint256 k, uint256 bucketCount, uint256 slotCount)
+        internal
+        pure
+        returns (bool, bytes memory)
+    {
+        uint256[] memory buckets = bucketsOf(rows, k, bucketCount);
+        bytes memory displacements = new bytes(bucketCount);
+        bool[] memory placed = new bool[](bucketCount);
+        bool[] memory taken = new bool[](slotCount);
+        for (uint256 round = 0; round < bucketCount; round++) {
+            uint256 bucket = nextBucket(buckets, placed);
+            placed[bucket] = true;
+            uint256 d = 0;
+            // forge-lint: disable-next-line(unsafe-typecast)
+            while (d <= type(uint8).max && !take(rows, buckets, bucket, bytes1(uint8(d)), taken)) d++;
+            if (d > type(uint8).max) return (false, displacements);
+            // forge-lint: disable-next-line(unsafe-typecast)
+            displacements[bucket] = bytes1(uint8(d));
+        }
+        return (true, displacements);
+    }
+
+    /// Asserts `data` is `rows`' shard at routing divisor `k`; returns its slot count.
+    function assertShardOf(UnderlyingSnapshotRow[] memory rows, uint256 k, bytes memory data)
+        internal
+        pure
+        returns (uint256)
+    {
+        assertEq(readUint(data, 0, 4), uint32(UNDERLYING_SNAPSHOT_SHARD_MAGIC), "magic");
+        assertEq(readUint(data, 4, 2), rows.length, "row count");
+        uint256 bucketCount = readUint(data, 6, 2);
+        uint256 slotCount = readUint(data, 8, 2);
+        assertEq(bucketCount, rows.length == 0 ? 1 : (rows.length + 3) / 4, "bucket count");
+        uint256 minSlots = rows.length == 0 ? 1 : (12 * rows.length + 9) / 10;
+        assertGe(slotCount, minSlots, "slot count");
+        for (uint256 m = minSlots; m < slotCount; m++) {
+            (bool placesAll,) = displacementsAt(rows, k, bucketCount, m);
+            assertFalse(placesAll, "a smaller slot count places every bucket");
+        }
+        (bool fits, bytes memory expected) = displacementsAt(rows, k, bucketCount, slotCount);
+        assertTrue(fits, "slot count places every bucket");
+        bytes memory displacements = slice(data, 10, bucketCount);
+        assertEq(displacements, expected, "displacements");
+
+        uint256 offsets = 10 + bucketCount;
+        uint256[] memory rowStarts = assertRowsFrom(data, offsets + 2 * slotCount, rows);
+        uint256 owned = 0;
+        for (uint256 s = 0; s < slotCount; s++) {
+            if (readUint(data, offsets + 2 * s, 2) != 0) owned++;
+        }
+        assertEq(owned, rows.length, "owned slots");
+        uint256[] memory buckets = bucketsOf(rows, k, bucketCount);
+        for (uint256 i = 0; i < rows.length; i++) {
+            uint256 slot = slotOf(rows[i].token, displacements[buckets[i]], slotCount);
+            assertEq(readUint(data, offsets + 2 * slot, 2), rowStarts[i], "slot offset");
+        }
+        return slotCount;
+    }
+
+    function testShardIsItsHeaderThenDisplacementsSlotOffsetsAndRows(bytes32 seed, uint8 count, uint256 k)
+        external
+        pure
+    {
+        k = bound(k, 1, type(uint16).max);
+        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 0, 40));
+        (bool fits, bytes memory data) = LibUnderlyingSnapshotBuilder.shardData(rows, k);
+        assertTrue(fits, "fits");
+        assertShardOf(rows, k, data);
+    }
+
+    /// 12 rows whose tokens all route to bucket 0 of 3, so 12 tokens share
+    /// one displacement over as few as 15 slots.
+    function oneBucketRows(bytes32 seed) internal pure returns (UnderlyingSnapshotRow[] memory) {
+        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 12);
+        for (uint256 i = 0; i < rows.length; i++) {
+            rows[i].token = address(uint160(rows[i].token) / 3 * 3);
+        }
+        return rows;
+    }
+
+    function testCrowdedBucketGetsTheFirstSlotCountThatPlacesIt(bytes32 seed) external pure {
+        UnderlyingSnapshotRow[] memory rows = oneBucketRows(seed);
+        (bool fits, bytes memory data) = LibUnderlyingSnapshotBuilder.shardData(rows, 1);
+        assertTrue(fits, "fits");
+        assertShardOf(rows, 1, data);
+    }
+
+    function testSlotCountGrowsWhenNoDisplacementPlacesABucket() external pure {
+        UnderlyingSnapshotRow[] memory rows = oneBucketRows(bytes32(0));
+        (bool fits, bytes memory data) = LibUnderlyingSnapshotBuilder.shardData(rows, 1);
+        assertTrue(fits, "fits");
+        assertGt(assertShardOf(rows, 1, data), 15, "slot count");
+    }
+
     function testRootIsItsHeaderThenOneAddressPerShard(uint256 asOf, address[] memory shards) external pure {
         bytes memory data = LibUnderlyingSnapshotBuilder.rootData(asOf, shards);
         assertEq(data.length, 4 + 32 + 2 + 20 * shards.length, "length");
@@ -246,29 +408,5 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         for (uint256 i = 0; i < shards.length; i++) {
             assertEq(readUint(data, 38 + 20 * i, 20), uint160(shards[i]), "shard");
         }
-    }
-
-    function testShardIsItsHeaderThenMetaOffsetsAndRows(bytes32 seed, uint8 count) external pure {
-        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 0, 40));
-        AuthoringMetaV2[] memory words = new AuthoringMetaV2[](rows.length);
-        for (uint256 i = 0; i < rows.length; i++) {
-            words[i] = AuthoringMetaV2(bytes32(uint256(uint160(rows[i].token))), "");
-        }
-        bytes memory meta = LibGenParseMeta.buildParseMetaV2(words, UNDERLYING_SNAPSHOT_META_DEPTH);
-        bytes memory data = LibUnderlyingSnapshotBuilder.shardData(rows);
-        assertEq(readUint(data, 0, 4), uint32(UNDERLYING_SNAPSHOT_SHARD_MAGIC), "magic");
-        assertEq(readUint(data, 4, 2), rows.length, "row count");
-        assertEq(readUint(data, 6, 2), meta.length, "meta length");
-        assertEq(slice(data, 8, meta.length), meta, "meta");
-        uint256 offsets = 8 + meta.length;
-        uint256 at = offsets + 2 * rows.length;
-        for (uint256 i = 0; i < rows.length; i++) {
-            assertEq(readUint(data, offsets + 2 * i, 2), at, "offset");
-            assertEq(readUint(data, at, 20), uint160(rows[i].token), "token");
-            at = assertFieldAt(data, at + 20, rows[i].ticker, "ticker");
-            at = assertFieldAt(data, at, rows[i].name, "name");
-            at = assertFieldAt(data, at, rows[i].isin, "isin");
-        }
-        assertEq(data.length, at, "length");
     }
 }
