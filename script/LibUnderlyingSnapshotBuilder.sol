@@ -35,8 +35,7 @@ library LibUnderlyingSnapshotBuilder {
         }
         (bytes memory body, uint256[] memory rowStarts) = encodeRows(rows);
         (uint256[] memory rowBuckets, uint256[] memory order) = bucketsOf(rows, k);
-        (bool fits, bytes memory displacements, uint256[] memory slotRows) =
-            index(rows, rowBuckets, order, body.length);
+        (bool fits, bytes memory displacements, uint256[] memory slotRows) = index(rows, rowBuckets, order, body.length);
         if (!fits) {
             // forge-lint: disable-next-line(boolean-cst)
             return (false, "");
