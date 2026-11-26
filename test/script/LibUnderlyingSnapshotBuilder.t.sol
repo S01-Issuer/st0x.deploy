@@ -4,17 +4,20 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {AuthoringMetaV2} from "rainlang-0.2.40/src/interface/IParserV2.sol";
+import {LibGenParseMeta} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
 import {
     LibUnderlyingSnapshot,
-    UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH,
-    UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH
+    UNDERLYING_SNAPSHOT_ROOT_MAGIC,
+    UNDERLYING_SNAPSHOT_SHARD_MAGIC
 } from "../../src/lib/LibUnderlyingSnapshot.sol";
 import {
     LibUnderlyingSnapshotBuilder,
     UnderlyingSnapshotRow,
     UnderlyingSnapshotDoesNotShard,
     UnderlyingSnapshotFieldTooLong,
-    EIP170_MAX_RUNTIME
+    EIP170_MAX_RUNTIME,
+    UNDERLYING_SNAPSHOT_META_DEPTH
 } from "../../script/LibUnderlyingSnapshotBuilder.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {LibTestUnderlyingSnapshotRows} from "../lib/LibTestUnderlyingSnapshotRows.sol";
@@ -160,21 +163,66 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         }
     }
 
+    function readUint(bytes memory data, uint256 start, uint256 length) internal pure returns (uint256) {
+        uint256 value = 0;
+        for (uint256 i = 0; i < length; i++) {
+            value = value << 8 | uint8(data[start + i]);
+        }
+        return value;
+    }
+
+    function slice(bytes memory data, uint256 start, uint256 length) internal pure returns (bytes memory) {
+        bytes memory out = new bytes(length);
+        for (uint256 i = 0; i < length; i++) {
+            out[i] = data[start + i];
+        }
+        return out;
+    }
+
+    /// Asserts a one-byte length then `field` at `at`; returns the next position.
+    function assertFieldAt(bytes memory data, uint256 at, string memory field, string memory label)
+        internal
+        pure
+        returns (uint256)
+    {
+        uint256 length = bytes(field).length;
+        assertEq(readUint(data, at, 1), length, label);
+        assertEq(slice(data, at + 1, length), bytes(field), label);
+        return at + 1 + length;
+    }
+
     function testRootIsItsHeaderThenOneAddressPerShard(uint256 asOf, address[] memory shards) external pure {
-        assertEq(
-            LibUnderlyingSnapshotBuilder.rootData(asOf, shards).length,
-            UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shards.length
-        );
+        bytes memory data = LibUnderlyingSnapshotBuilder.rootData(asOf, shards);
+        assertEq(data.length, 4 + 32 + 2 + 20 * shards.length, "length");
+        assertEq(readUint(data, 0, 4), uint32(UNDERLYING_SNAPSHOT_ROOT_MAGIC), "magic");
+        assertEq(readUint(data, 4, 32), asOf, "asOf");
+        assertEq(readUint(data, 36, 2), shards.length, "shard count");
+        for (uint256 i = 0; i < shards.length; i++) {
+            assertEq(readUint(data, 38 + 20 * i, 20), uint160(shards[i]), "shard");
+        }
     }
 
     function testShardIsItsHeaderThenMetaOffsetsAndRows(bytes32 seed, uint8 count) external pure {
         UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 0, 40));
-        bytes memory data = LibUnderlyingSnapshotBuilder.shardData(rows);
-        uint256 metaLength = uint256(uint8(data[6])) << 8 | uint8(data[7]);
-        uint256 rowBytes = 0;
+        AuthoringMetaV2[] memory words = new AuthoringMetaV2[](rows.length);
         for (uint256 i = 0; i < rows.length; i++) {
-            rowBytes += 23 + bytes(rows[i].ticker).length + bytes(rows[i].name).length + bytes(rows[i].isin).length;
+            words[i] = AuthoringMetaV2(bytes32(uint256(uint160(rows[i].token))), "");
         }
-        assertEq(data.length, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + metaLength + 2 * rows.length + rowBytes);
+        bytes memory meta = LibGenParseMeta.buildParseMetaV2(words, UNDERLYING_SNAPSHOT_META_DEPTH);
+        bytes memory data = LibUnderlyingSnapshotBuilder.shardData(rows);
+        assertEq(readUint(data, 0, 4), uint32(UNDERLYING_SNAPSHOT_SHARD_MAGIC), "magic");
+        assertEq(readUint(data, 4, 2), rows.length, "row count");
+        assertEq(readUint(data, 6, 2), meta.length, "meta length");
+        assertEq(slice(data, 8, meta.length), meta, "meta");
+        uint256 offsets = 8 + meta.length;
+        uint256 at = offsets + 2 * rows.length;
+        for (uint256 i = 0; i < rows.length; i++) {
+            assertEq(readUint(data, offsets + 2 * i, 2), at, "offset");
+            assertEq(readUint(data, at, 20), uint160(rows[i].token), "token");
+            at = assertFieldAt(data, at + 20, rows[i].ticker, "ticker");
+            at = assertFieldAt(data, at, rows[i].name, "name");
+            at = assertFieldAt(data, at, rows[i].isin, "isin");
+        }
+        assertEq(data.length, at, "length");
     }
 }
