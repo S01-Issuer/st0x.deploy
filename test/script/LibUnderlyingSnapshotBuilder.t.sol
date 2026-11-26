@@ -338,6 +338,20 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         uint256 bucketCount = readUint(data, 6, 2);
         uint256 slotCount = readUint(data, 8, 2);
         assertEq(bucketCount, rows.length == 0 ? 1 : (rows.length + 3) / 4, "bucket count");
+        assertEq(
+            slice(data, 10, bucketCount), firstPlacingDisplacements(rows, k, bucketCount, slotCount), "displacements"
+        );
+        assertSlotsOwnTheirRows(rows, k, data, bucketCount, slotCount);
+        return slotCount;
+    }
+
+    /// Asserts no slot count from the minimum up to `slotCount` places every bucket, and returns the placement at it.
+    function firstPlacingDisplacements(
+        UnderlyingSnapshotRow[] memory rows,
+        uint256 k,
+        uint256 bucketCount,
+        uint256 slotCount
+    ) internal pure returns (bytes memory) {
         uint256 minSlots = rows.length == 0 ? 1 : (12 * rows.length + 9) / 10;
         assertGe(slotCount, minSlots, "slot count");
         for (uint256 m = minSlots; m < slotCount; m++) {
@@ -346,9 +360,17 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         }
         (bool fits, bytes memory expected) = displacementsAt(rows, k, bucketCount, slotCount);
         assertTrue(fits, "slot count places every bucket");
-        bytes memory displacements = slice(data, 10, bucketCount);
-        assertEq(displacements, expected, "displacements");
+        return expected;
+    }
 
+    /// Asserts each row's slot holds its absolute offset and every other slot is 0.
+    function assertSlotsOwnTheirRows(
+        UnderlyingSnapshotRow[] memory rows,
+        uint256 k,
+        bytes memory data,
+        uint256 bucketCount,
+        uint256 slotCount
+    ) internal pure {
         uint256 offsets = 10 + bucketCount;
         uint256[] memory rowStarts = assertRowsFrom(data, offsets + 2 * slotCount, rows);
         uint256 owned = 0;
@@ -358,10 +380,9 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         assertEq(owned, rows.length, "owned slots");
         uint256[] memory buckets = bucketsOf(rows, k, bucketCount);
         for (uint256 i = 0; i < rows.length; i++) {
-            uint256 slot = slotOf(rows[i].token, displacements[buckets[i]], slotCount);
+            uint256 slot = slotOf(rows[i].token, data[10 + buckets[i]], slotCount);
             assertEq(readUint(data, offsets + 2 * slot, 2), rowStarts[i], "slot offset");
         }
-        return slotCount;
     }
 
     function testShardIsItsHeaderThenDisplacementsSlotOffsetsAndRows(bytes32 seed, uint8 count, uint256 k)

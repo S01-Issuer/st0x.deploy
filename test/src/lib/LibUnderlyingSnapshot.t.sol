@@ -47,7 +47,7 @@ contract LibUnderlyingSnapshotTest is Test {
 
     /// The generated root and shards are what the builder makes from the
     /// production table today.
-    function testGeneratedSnapshotMatchesTheProductionTable() external {
+    function testGeneratedSnapshotMatchesTheProductionTable() external pure {
         (address[] memory tokens, TokenConfig[] memory configs) = productionTokens();
         UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
