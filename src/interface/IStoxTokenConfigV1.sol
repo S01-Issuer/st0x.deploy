@@ -15,13 +15,12 @@ enum Region {
     EU
 }
 
-/// @param id The listing-time id of the exact share line. Never follows later
-/// changes.
 struct AssetId {
     AssetIdKind kind;
     string id;
 }
 
+/// @param assetId The token's starting asset id.
 /// @param listingTicker The ticker at listing, e.g. "MSTR".
 /// @param listingName The issuer name at listing, without any ST0x suffix.
 /// @param metadata Opaque: committed to by the address and emitted, never

@@ -59,15 +59,16 @@
 ### Token init data (`StoxTokenConfigV1`)
 
 - **Tokens initialize from the listing facts.** Init data is
-  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the listing-time
-  asset id (`AssetId`: an `AssetIdKind`, only `ISIN`, and the id), ticker and
-  name, the region, the ConfigRegistry authority, RBAC and receipt-beacon names,
-  and opaque metadata. `StoxReceiptVault.initialize` delegatecalls the facet's
-  `initializeStoxToken`, which refuses `InvalidStoxTokenConfigTag`,
-  `NonCanonicalStoxTokenConfig`, `MalformedAssetId`, `MalformedListingTicker`,
-  `MalformedListingName` and `StoxTokenAlreadyInitialized`, stores the listing
-  facts at `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and
-  passes rain-vats the V3 config named `listingName + " (ST0x)"` /
+  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the token's
+  starting asset id (`AssetId`: an `AssetIdKind`, only `ISIN`, and the id),
+  ticker and name, the region, the ConfigRegistry authority, RBAC and
+  receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
+  delegatecalls the facet's `initializeStoxToken`, which refuses
+  `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,
+  `MalformedAssetId`, `MalformedListingTicker`, `MalformedListingName` and
+  `StoxTokenAlreadyInitialized`, stores the listing facts at
+  `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and passes
+  rain-vats the V3 config named `listingName + " (ST0x)"` /
   `"t" + listingTicker`.
 - **rain-vats V3 init data is refused** (`InvalidStoxTokenConfigTag`).
 - **The token salt is zero.** The clone factory's effective salt already hashes
@@ -79,6 +80,10 @@
 - **Expected state marks a token at its suite address `Listed`**
   (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
   deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
+- **`IStoxAssetIdV1.assetId()` reports the token's current asset id (an ISIN)**,
+  the one it was initialized with, through the vault's fallback
+  (`StoxCorporateActionsFacet`); a vault initialized before `StoxTokenConfigV1`
+  returns `""`.
 - **`StoxReceiptVault.initialize` refuses
   `CorporateActionsFacetNotDeployed(facet)` when the pinned facet has no code**,
   instead of failing the decode with no reason.
