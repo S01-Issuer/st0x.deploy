@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {AuthoringMetaV2} from "rainlang-0.2.40/src/interface/IParserV2.sol";
-import {LibGenParseMeta} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
+import {LibGenParseMeta, MaxDepthExceeded} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
 import {
     LibUnderlyingSnapshot,
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,
@@ -19,6 +19,7 @@ import {
     EIP170_MAX_RUNTIME,
     UNDERLYING_SNAPSHOT_META_DEPTH
 } from "../../script/LibUnderlyingSnapshotBuilder.sol";
+import {UnderlyingSnapshotShardEncoder} from "../../script/UnderlyingSnapshotShardEncoder.sol";
 import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 import {LibTestUnderlyingSnapshotRows} from "../lib/LibTestUnderlyingSnapshotRows.sol";
 
@@ -73,6 +74,30 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         assertReadsBack(LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes), 0, row);
     }
 
+    function testEmptyFieldsReadBack(bytes32 seed, uint256 count) external {
+        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 4, 40));
+        for (uint256 i = 0; i < rows.length; i++) {
+            uint256 empty = i % 4;
+            if (empty == 0 || empty == 3) rows[i].ticker = "";
+            if (empty == 1 || empty == 3) rows[i].name = "";
+            if (empty == 2 || empty == 3) rows[i].isin = "";
+        }
+        (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
+        address root = LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes);
+        for (uint256 i = 0; i < rows.length; i++) {
+            assertReadsBack(root, 0, rows[i]);
+        }
+    }
+
+    function testEmptyIsinEndingTheShardReadsBack(address token) external {
+        UnderlyingSnapshotRow memory row = rowWithField(token, 2, 0);
+        (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, one(row));
+        assertEq(shardCodes.length, 1, "shard count");
+        bytes memory shardCode = shardCodes[0];
+        assertEq(uint8(shardCode[shardCode.length - 1]), 0, "ISIN length is the last byte");
+        assertReadsBack(LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes), 0, row);
+    }
+
     function testFieldOver255BytesReverts(address token, uint256 field, uint256 length) external {
         length = bound(length, uint256(type(uint8).max) + 1, 1024);
         UnderlyingSnapshotRow[] memory rows = one(rowWithField(token, bound(field, 0, 2), length));
@@ -97,6 +122,24 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         this.build(0, rows);
     }
 
+    function testMaxDepthExceededTriesTheNextShardCount(bytes32 seed) external {
+        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, 8);
+        // Both parities, so neither two-shard member's calldata is the mocked one-shard call.
+        rows[0].token = address(uint160(rows[0].token) | 1);
+        rows[1].token = address(uint160(rows[1].token) & ~uint160(1));
+        vm.mockCallRevert(
+            vm.computeCreateAddress(address(this), vm.getNonce(address(this))),
+            abi.encodeCall(UnderlyingSnapshotShardEncoder.shardData, (rows)),
+            abi.encodeWithSelector(MaxDepthExceeded.selector, UNDERLYING_SNAPSHOT_META_DEPTH)
+        );
+        (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
+        assertEq(shardCodes.length, 2, "shard count");
+        address root = LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes);
+        for (uint256 i = 0; i < rows.length; i++) {
+            assertReadsBack(root, 0, rows[i]);
+        }
+    }
+
     function testZeroRowsBuildOneShardThatFindsNothing(uint256 asOf, address token) external {
         (bytes memory rootCode, bytes[] memory shardCodes) =
             LibUnderlyingSnapshotBuilder.build(asOf, new UnderlyingSnapshotRow[](0));
@@ -107,21 +150,21 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         assertFalse(row.found, "found");
     }
 
-    /// One-byte fields, so EIP-170 never binds before the row cap.
+    /// One-byte fields, so EIP-170 never binds before the 256-word parse meta limit.
     function shortRows(uint256 n) internal pure returns (UnderlyingSnapshotRow[] memory) {
         UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](n);
         for (uint256 i = 0; i < n; i++) {
-            address token = address(uint160(uint256(keccak256(abi.encode("row cap", i)))));
+            address token = address(uint160(uint256(keccak256(abi.encode("short row", i)))));
             rows[i] = UnderlyingSnapshotRow(token, "T", "N", "I");
         }
         return rows;
     }
 
-    function testRowCapBoundsTheShardCount() external {
-        (, bytes[] memory atCap) = LibUnderlyingSnapshotBuilder.build(0, shortRows(256));
-        assertEq(atCap.length, 1, "256 rows");
-        (, bytes[] memory pastCap) = LibUnderlyingSnapshotBuilder.build(0, shortRows(257));
-        assertEq(pastCap.length, 2, "257 rows");
+    function testParseMetaWordLimitBoundsTheShardCount() external {
+        (, bytes[] memory atLimit) = LibUnderlyingSnapshotBuilder.build(0, shortRows(256));
+        assertEq(atLimit.length, 1, "256 rows");
+        (, bytes[] memory pastLimit) = LibUnderlyingSnapshotBuilder.build(0, shortRows(257));
+        assertEq(pastLimit.length, 2, "257 rows");
     }
 
     /// 31 rows of 255-byte fields, the last name trimmed so one shard's runtime

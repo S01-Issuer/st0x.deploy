@@ -100,7 +100,7 @@ contract LibUnderlyingSnapshotTest is Test {
         assertRoundTrips(asOf, seed, LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 1, 40)));
     }
 
-    /// 600 rows read back from 3 shards, the fewest the 256-row cap allows.
+    /// 600 rows read back from 3 shards, the fewest a 256-word parse meta allows.
     function testManyBuiltRowsRoundTripAcrossShards() external {
         bytes32 seed = keccak256("many rows");
         assertEq(
