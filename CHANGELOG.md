@@ -27,6 +27,14 @@
   `STOX_GOVERNANCE_TIMELOCK` (`NameNotRegistered` when unbound,
   `BeaconInitialOwnerMismatch` when bound to another address); before, it had no
   check.
+- **`Deploy.preDeployCheck` refuses a token suite unless the bound vault beacon
+  is owned by the governance timelock and serves
+  `LibProdDeployCurrent.STOX_RECEIPT_VAULT` and its code**
+  (`LibBeaconInvariants.assertBeaconInvariants`: `BeaconOwnerMismatch`,
+  `BeaconImplementationMismatch`, `BeaconImplNotDeployed`), because a token's
+  address commits to the beacon name, not the implementation. The vault beacon
+  is a suite dependency, so the broadcaster's dependency check refuses it with
+  no code or other code first.
 
 ## Registry-config tokens (rain.vats 0.2.9)
 
@@ -51,9 +59,9 @@
 ### Token init data (`StoxTokenConfigV1`)
 
 - **Tokens initialize from the listing facts.** Init data is
-  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the listing-time
-  ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC and
-  receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
+  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the token's
+  starting ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC
+  and receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
   delegatecalls the facet's `initializeStoxToken`, which refuses
   `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,
   `MalformedAssetId`, `MalformedListingTicker`, `MalformedListingName` and
@@ -71,6 +79,10 @@
 - **Expected state marks a token at its suite address `Listed`**
   (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
   deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
+- **`IStoxAssetIdV1.assetId()` reports the token's current asset id (an ISIN)**,
+  the one it was initialized with, through the vault's fallback
+  (`StoxCorporateActionsFacet`); a vault initialized before `StoxTokenConfigV1`
+  returns `""`.
 - **`StoxReceiptVault.initialize` refuses
   `CorporateActionsFacetNotDeployed(facet)` when the pinned facet has no code**,
   instead of failing the decode with no reason.
