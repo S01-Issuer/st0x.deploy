@@ -60,14 +60,14 @@
 
 - **Tokens initialize from the listing facts.** Init data is
   `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the listing-time
-  ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC and
-  receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
-  delegatecalls the facet's `initializeStoxToken`, which refuses
-  `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,
-  `MalformedAssetId`, `MalformedListingTicker`, `MalformedListingName` and
-  `StoxTokenAlreadyInitialized`, stores the listing facts at
-  `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and passes
-  rain-vats the V3 config named `listingName + " (ST0x)"` /
+  asset id (`AssetId`: an `AssetIdKind`, only `ISIN`, and the id), ticker and
+  name, the region, the ConfigRegistry authority, RBAC and receipt-beacon names,
+  and opaque metadata. `StoxReceiptVault.initialize` delegatecalls the facet's
+  `initializeStoxToken`, which refuses `InvalidStoxTokenConfigTag`,
+  `NonCanonicalStoxTokenConfig`, `MalformedAssetId`, `MalformedListingTicker`,
+  `MalformedListingName` and `StoxTokenAlreadyInitialized`, stores the listing
+  facts at `rain.storage.stox-token-config.1`, emits `StoxTokenInitialized` and
+  passes rain-vats the V3 config named `listingName + " (ST0x)"` /
   `"t" + listingTicker`.
 - **rain-vats V3 init data is refused** (`InvalidStoxTokenConfigTag`).
 - **The token salt is zero.** The clone factory's effective salt already hashes

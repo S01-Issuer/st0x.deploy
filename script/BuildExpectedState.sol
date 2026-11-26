@@ -148,7 +148,7 @@ contract BuildExpectedState is Script {
     function tokenMetadataJson(uint256 chainId, string memory row, uint256 i, TokenInstance memory token) internal {
         TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
         vm.serializeString(row, "underlying", token.underlying);
-        vm.serializeString(row, "assetId", config.assetId);
+        vm.serializeString(row, "assetId", config.assetId.id);
         vm.serializeString(row, "listingTicker", config.listingTicker);
         vm.serializeString(row, "listingName", config.listingName);
         vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
