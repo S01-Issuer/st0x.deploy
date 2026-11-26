@@ -320,10 +320,12 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
             uint256 d = 0;
             // forge-lint: disable-next-line(unsafe-typecast)
             while (d <= type(uint8).max && !take(rows, buckets, bucket, bytes1(uint8(d)), taken)) d++;
+            // forge-lint: disable-next-line(boolean-cst)
             if (d > type(uint8).max) return (false, displacements);
             // forge-lint: disable-next-line(unsafe-typecast)
             displacements[bucket] = bytes1(uint8(d));
         }
+        // forge-lint: disable-next-line(boolean-cst)
         return (true, displacements);
     }
 
