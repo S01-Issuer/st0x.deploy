@@ -4,27 +4,29 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
+import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {MessageHashUtils} from "@openzeppelin-contracts-5.7.0/utils/cryptography/MessageHashUtils.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {SignedContextV2, SIGNED_CONTEXT_V2_TYPEHASH} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2, SIGNED_CONTEXT_V2_TYPEHASH} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 import {
     EvalV4,
     SourceIndexV2,
     StackItem,
     FullyQualifiedNamespace
-} from "rainlang-0.2.40/src/interface/IInterpreterV4.sol";
-import {StateNamespace} from "rainlang-0.2.40/src/interface/IInterpreterStoreV3.sol";
-import {LibNamespace} from "rainlang-0.2.40/src/lib/ns/LibNamespace.sol";
-import {BaseRainlangStore} from "rainlang-0.2.40/src/abstract/BaseRainlangStore.sol";
-import {BaseRainlangParser} from "rainlang-0.2.40/src/abstract/BaseRainlangParser.sol";
-import {BaseRainlangInterpreter} from "rainlang-0.2.40/src/abstract/BaseRainlangInterpreter.sol";
-import {BaseRainlangCompiler} from "rainlang-0.2.40/src/abstract/BaseRainlangCompiler.sol";
+} from "rainlang-0.2.41/src/interface/IInterpreterV4.sol";
+import {StateNamespace} from "rainlang-0.2.41/src/interface/IInterpreterStoreV3.sol";
+import {LibNamespace} from "rainlang-0.2.41/src/lib/ns/LibNamespace.sol";
+import {BaseRainlangStore} from "rainlang-0.2.41/src/abstract/BaseRainlangStore.sol";
+import {BaseRainlangParser} from "rainlang-0.2.41/src/abstract/BaseRainlangParser.sol";
+import {BaseRainlangInterpreter} from "rainlang-0.2.41/src/abstract/BaseRainlangInterpreter.sol";
+import {BaseRainlangCompiler} from "rainlang-0.2.41/src/abstract/BaseRainlangCompiler.sol";
 import {
     LibTestInterpreterDeploy,
     TEST_PARSER_ADDRESS,
     TEST_STORE_ADDRESS,
     TEST_INTERPRETER_ADDRESS,
     TEST_COMPILER_ADDRESS
-} from "rainlang-0.2.40/test/lib/deploy/LibTestInterpreterDeploy.sol";
+} from "rainlang-0.2.41/test/lib/deploy/LibTestInterpreterDeploy.sol";
 import {
     CREATION_CODE as DECIMAL_FLOAT_CREATION_CODE,
     DEPLOYED_ADDRESS as DECIMAL_FLOAT_ADDRESS,
@@ -35,24 +37,17 @@ import {LibIntOrAString, IntOrAString} from "rain-intorastring-0.1.5/src/lib/Lib
 
 import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";
 import {LibSt0xAttestContext, CONTEXT_ATTESTATION_ROWS} from "src/lib/LibSt0xAttestContext.sol";
+import {LibProdDeployV4} from "src/generated/LibProdDeployV4.sol";
 import {LibTestTofu} from "test/lib/LibTestTofu.sol";
+import {MockUnderlyingERC20} from "test/concrete/MockUnderlyingERC20.sol";
+import {WeightingFixture} from "test/lib/WeightingFixture.sol";
 
 /// @title St0xAttestSubParserTest
 /// @notice Binds a `St0xAttestSubParser` beside the test Rainlang etched at
 /// its fixed addresses, and signs attestations the way a caller would, so the
 /// tests parse and eval real expressions over a real grid.
-abstract contract St0xAttestSubParserTest is Test {
+abstract contract St0xAttestSubParserTest is Test, WeightingFixture {
     using Strings for address;
-
-    /// @dev Private key of the lead signer.
-    uint256 internal constant LEAD_KEY = 0x1EAD;
-    /// @dev Private key of pool operator `i` is `OPERATOR_KEY_0 + i`.
-    uint256 internal constant OPERATOR_KEY_0 = 0x0A00;
-
-    /// @dev EIP-712 domain separator the lead signs under.
-    bytes32 internal constant LEAD_DOMAIN = keccak256("st0x.test.lead-domain");
-    /// @dev EIP-712 domain separator every pool operator signs under.
-    bytes32 internal constant POOL_DOMAIN = keccak256("st0x.test.pool-domain");
 
     //solhint-disable-next-line private-vars-leading-underscore
     BaseRainlangCompiler internal immutable I_COMPILER;
@@ -78,7 +73,10 @@ abstract contract St0xAttestSubParserTest is Test {
             LibRainDeploy.deployZoltu(DECIMAL_FLOAT_CREATION_CODE);
         }
 
-        I_SUB_PARSER = new St0xAttestSubParser();
+        I_SUB_PARSER = St0xAttestSubParser(LibRainDeploy.etchAndDeployZoltu(vm, type(St0xAttestSubParser).creationCode));
+        require(
+            address(I_SUB_PARSER) == LibProdDeployV4.ST0X_ATTEST_SUB_PARSER_CANDIDATE, "sub-parser not at candidate"
+        );
     }
 
     /// Parses `rainString` and evals its first source against `context` in
@@ -127,10 +125,30 @@ abstract contract St0xAttestSubParserTest is Test {
         return bytes32(uint256(uint160(account)));
     }
 
-    /// The domain `key` signs under: `LEAD_DOMAIN` for `LEAD_KEY`,
-    /// `POOL_DOMAIN` for every other key.
-    function domainOf(uint256 key) internal pure returns (bytes32) {
-        return key == LEAD_KEY ? LEAD_DOMAIN : POOL_DOMAIN;
+    /// The mint column encoding of a token address.
+    function tokenWord(address token) internal pure returns (bytes32) {
+        return bytes32(uint256(uint160(token)));
+    }
+
+    /// A token whose `underlyingSymbol()` is `ticker` and whose `symbol()` is
+    /// "t" + `ticker`, as a vault's are after `setUnderlying`.
+    function underlyingToken(string memory ticker) internal returns (address) {
+        address token = address(new MockUnderlyingERC20());
+        setUnderlying(token, ticker);
+        return token;
+    }
+
+    /// Gives `token` the ticker `setUnderlying` would.
+    function setUnderlying(address token, string memory ticker) internal {
+        MockUnderlyingERC20(token).setUnderlyingValues(ticker, "");
+        vm.mockCall(
+            token, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode(string.concat("t", ticker))
+        );
+    }
+
+    function priceDomain() internal pure returns (bytes32) {
+        return
+            MessageHashUtils.toDomainSeparator(bytes1(0x03), string("prices"), string("1"), 0, address(0), bytes32(0));
     }
 
     /// The EIP-712 digest of a `SignedContextV2` by `account` over `context`
@@ -151,13 +169,13 @@ abstract contract St0xAttestSubParserTest is Test {
     }
 
     /// An attestation of `[symbol, price, time]` signed by `key` under
-    /// `domainOf(key)`.
+    /// `priceDomain()`.
     function attest(uint256 key, bytes32 attestedSymbol, bytes32 price, bytes32 time)
         internal
         pure
         returns (SignedContextV2 memory)
     {
-        return attestUnder(key, domainOf(key), attestedSymbol, price, time);
+        return attestUnder(key, priceDomain(), attestedSymbol, price, time);
     }
 
     /// An attestation of `[symbol, price, time]` signed by `key` under
@@ -170,10 +188,10 @@ abstract contract St0xAttestSubParserTest is Test {
         return signUnder(key, domain, attestation(attestedSymbol, price, time));
     }
 
-    /// Signs an arbitrary column as an attestation under `domainOf(key)`, for
+    /// Signs an arbitrary column as an attestation under `priceDomain()`, for
     /// the tests that need a malformed one.
     function sign(uint256 key, bytes32[] memory context) internal pure returns (SignedContextV2 memory) {
-        return signUnder(key, domainOf(key), context);
+        return signUnder(key, priceDomain(), context);
     }
 
     /// Signs `context` by `key`'s own account under `domain`.
@@ -236,7 +254,7 @@ abstract contract St0xAttestSubParserTest is Test {
     /// A grid with the lead and `poolSize` pool attestors all attesting the
     /// same `[symbol, price, time]`, and the given mint.
     function uniformGrid(
-        bytes32 mintSymbol,
+        bytes32 mintToken,
         bytes32 mintAmount,
         bytes32 attestedSymbol,
         bytes32 price,
@@ -248,6 +266,6 @@ abstract contract St0xAttestSubParserTest is Test {
         for (uint256 i = 0; i < poolSize; i++) {
             attestations[i + 1] = attest(OPERATOR_KEY_0 + i, attestedSymbol, price, time);
         }
-        return LibSt0xAttestContext.build(mintSymbol, mintAmount, attestations);
+        return LibSt0xAttestContext.build(mintToken, mintAmount, attestations);
     }
 }

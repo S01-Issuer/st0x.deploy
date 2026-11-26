@@ -2,15 +2,15 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibContext} from "rainlang-0.2.40/src/lib/caller/LibContext.sol";
-import {SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
+import {LibContext} from "rainlang-0.2.41/src/lib/caller/LibContext.sol";
+import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 
 // The context grid the subparser's words name. It is what `LibContext.buildV2`
 // produces for a caller that passes one column of its own, the mint, followed
 // by the attestations as signed contexts with the lead first:
 //
 //   column 0  base               [sender, calling contract]
-//   column 1  mint               [symbol, amount]
+//   column 1  mint               [token, amount]
 //   column 2  signers            [lead, attestor 0, attestor 1, ...]
 //   column 3  domain separators  [lead, attestor 0, attestor 1, ...]
 //   column 4  lead               [symbol, price, time, source, currency, ...]
@@ -24,10 +24,8 @@ import {SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV
 /// @dev The mint being requested is the single caller column.
 uint256 constant CONTEXT_MINT_COLUMN = 1;
 
-/// @dev The symbol of the token being minted, as an IntOrAString bytes32 so it
-/// compares binary-equal to a Rainlang string literal and to the attested
-/// symbols.
-uint256 constant CONTEXT_MINT_ROW_SYMBOL = 0;
+/// @dev The address of the token being minted.
+uint256 constant CONTEXT_MINT_ROW_TOKEN = 0;
 
 /// @dev The amount of the token being requested, as a Rain Float.
 uint256 constant CONTEXT_MINT_ROW_AMOUNT = 1;
@@ -86,20 +84,20 @@ library LibSt0xAttestContext {
     /// @notice Builds the grid for one mint request and its attestations.
     /// `LibContext.buildV2` reverts on any invalid signature, so every signer
     /// in the grid signed its attestation column under its domain separator.
-    /// @param mintSymbol The symbol of the token being minted, IntOrAString.
+    /// @param mintToken The address of the token being minted.
     /// @param mintAmount The amount being requested, a Rain Float.
     /// @param attestations The signed attestations, the lead's first. Each
     /// context begins `[symbol, price, time, source, currency]`; later rows are
     /// carried but not read. The layout is not checked here; a short column
     /// reverts at eval when a word reads past it.
     /// @return The context grid.
-    function build(bytes32 mintSymbol, bytes32 mintAmount, SignedContextV2[] memory attestations)
+    function build(bytes32 mintToken, bytes32 mintAmount, SignedContextV2[] memory attestations)
         internal
         view
         returns (bytes32[][] memory)
     {
         bytes32[] memory mint = new bytes32[](CONTEXT_MINT_ROWS);
-        mint[CONTEXT_MINT_ROW_SYMBOL] = mintSymbol;
+        mint[CONTEXT_MINT_ROW_TOKEN] = mintToken;
         mint[CONTEXT_MINT_ROW_AMOUNT] = mintAmount;
         bytes32[][] memory callerContext = new bytes32[][](1);
         callerContext[0] = mint;

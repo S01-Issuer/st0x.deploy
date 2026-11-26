@@ -9,8 +9,9 @@ import {
     UnexpectedOperandValue,
     OperandOverflow,
     UnknownWord
-} from "rainlang-0.2.40/src/error/ErrParse.sol";
-import {ContextGridOverflow} from "rainlang-0.2.40/src/error/ErrSubParse.sol";
+} from "rainlang-0.2.41/src/error/ErrParse.sol";
+import {ContextGridOverflow} from "rainlang-0.2.41/src/error/ErrSubParse.sol";
+import {ExternIntegrityInputsMismatch, ExternIntegrityOutputsMismatch} from "rainlang-0.2.41/src/error/ErrExtern.sol";
 
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 import {
@@ -48,8 +49,24 @@ contract St0xAttestSubParserOperandTest is St0xAttestSubParserTest {
         checkParseReverts("lead-time<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("lead-source<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("lead-currency<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
-        checkParseReverts("mint-symbol<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
+        checkParseReverts("mint-token<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
         checkParseReverts("mint-amount<0>()", abi.encodeWithSelector(UnexpectedOperand.selector));
+        checkParseReverts("underlying-symbol<0>(mint-token())", abi.encodeWithSelector(UnexpectedOperand.selector));
+    }
+
+    /// `underlying-symbol` takes exactly one input, the token, and leaves
+    /// exactly one output, its ticker.
+    function testUnderlyingSymbolInputsAndOutputs() external {
+        checkParseReverts("underlying-symbol()", abi.encodeWithSelector(ExternIntegrityInputsMismatch.selector, 0, 1));
+        checkParseReverts(
+            "underlying-symbol(mint-token() mint-token())",
+            abi.encodeWithSelector(ExternIntegrityInputsMismatch.selector, 2, 1)
+        );
+        checkUnhappyParse2(
+            bytes(string.concat(usingWords(), "_ _: underlying-symbol(mint-token());")),
+            abi.encodeWithSelector(ExternIntegrityOutputsMismatch.selector, 2, 1)
+        );
+        I_COMPILER.parse2(bytes(string.concat(usingWords(), "_: underlying-symbol(mint-token());")));
     }
 
     /// The words with an `N` require it: there is no default pool attestor.

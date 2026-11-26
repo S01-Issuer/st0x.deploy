@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Float} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
-import {EvaluableV4, SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
+import {EvaluableV4, SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 
 import {Digest, MintAuthV1} from "./deprecated/IST0xOrchestratorV1.sol";
 
@@ -121,12 +121,6 @@ interface IST0xOrchestratorV2 {
     error MintCapExceeded(MintCapKind kind, address account, Float capacity, Float headroom, Float charge);
     /// @notice A mint was requested before any mint weighting was set.
     error MintWeightingUnset();
-    /// @notice The token's symbol is longer than the 31 bytes the mint
-    /// weighting's context can carry. Refused rather than truncated, since a
-    /// truncated symbol can be another token's.
-    /// @param token The token being minted.
-    /// @param length The symbol's length in bytes.
-    error MintSymbolTooLong(address token, uint256 length);
     /// @notice The mint weighting evaluated to an empty stack, so there is no
     /// charge. The expression must leave at least one output; the last one is
     /// the charge.

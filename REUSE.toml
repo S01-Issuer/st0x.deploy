@@ -27,6 +27,7 @@ path = [
   "REUSE.toml",
   "slither.config.json",
   "subgraph/**/",
+  "test/composed/**/",
   "test/oracle/Cargo.lock",
 ]
 SPDX-FileCopyrightText = "Copyright (c) 2020 Rain Open Source Software Ltd"

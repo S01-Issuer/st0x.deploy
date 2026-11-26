@@ -4,7 +4,7 @@ pragma solidity =0.8.25;
 
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
 import {stdError} from "forge-std-1.17.0/src/StdError.sol";
-import {SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 
 import {St0xAttestSubParserTest} from "test/src/concrete/St0xAttestSubParserTest.sol";
 import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
@@ -12,6 +12,8 @@ import {LibSt0xAttestContext} from "src/lib/LibSt0xAttestContext.sol";
 /// Every word reads the cell of the grid it names, and nothing else.
 contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     using Strings for uint256;
+
+    address internal constant MINT_TOKEN = address(0xA11E);
 
     /// An attestation of `[symbol, price, time, source, currency]` signed by
     /// `key` under `domain`.
@@ -31,27 +33,28 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     /// values under a different domain, so a word reading the wrong column or
     /// row is caught.
     function testWordsReadTheirCell() external view {
+        bytes32 poolDomain = keccak256("st0x.test.pool-domain");
         bytes32 otherPoolDomain = keccak256("st0x.test.other-pool-domain");
         SignedContextV2[] memory attestations = new SignedContextV2[](3);
         attestations[0] = attestRows(
-            LEAD_KEY, LEAD_DOMAIN, [symbol("AAPL"), float(150), float(1000), symbol("alpaca"), symbol("USD")]
+            LEAD_KEY, priceDomain(), [symbol("AAPL"), float(150), float(1000), symbol("alpaca"), symbol("USD")]
         );
         attestations[1] = attestRows(
-            OPERATOR_KEY_0, POOL_DOMAIN, [symbol("AAPL-0"), float(151), float(1001), symbol("yahoo"), symbol("EUR")]
+            OPERATOR_KEY_0, poolDomain, [symbol("AAPL-0"), float(151), float(1001), symbol("yahoo"), symbol("EUR")]
         );
         attestations[2] = attestRows(
             OPERATOR_KEY_0 + 1,
             otherPoolDomain,
             [symbol("AAPL-1"), float(152), float(1002), symbol("euronext"), symbol("GBP")]
         );
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("MINT"), float(10), attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(MINT_TOKEN), float(10), attestations);
 
         checkWord("lead()", context, signer(vm.addr(LEAD_KEY)));
         checkWord("attestor<0>()", context, signer(vm.addr(OPERATOR_KEY_0)));
         checkWord("attestor<1>()", context, signer(vm.addr(OPERATOR_KEY_0 + 1)));
 
-        checkWord("lead-domain()", context, LEAD_DOMAIN);
-        checkWord("attestor-domain<0>()", context, POOL_DOMAIN);
+        checkWord("lead-domain()", context, priceDomain());
+        checkWord("attestor-domain<0>()", context, poolDomain);
         checkWord("attestor-domain<1>()", context, otherPoolDomain);
 
         checkWord("lead-symbol()", context, symbol("AAPL"));
@@ -72,7 +75,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord("attested-source<1>()", context, symbol("euronext"));
         checkWord("attested-currency<1>()", context, symbol("GBP"));
 
-        checkWord("mint-symbol()", context, symbol("MINT"));
+        checkWord("mint-token()", context, tokenWord(MINT_TOKEN));
         checkWord("mint-amount()", context, float(10));
     }
 
@@ -80,7 +83,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     /// domain they were signed under, come back untouched, for any pool size
     /// the operand can address in a test.
     function testWordsFuzz(
-        bytes32 mintSymbol,
+        bytes32 mintToken,
         bytes32 mintAmount,
         bytes32 leadDomain,
         bytes32 poolDomain,
@@ -104,7 +107,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
             }
             attestations[i + 1] = attestRows(OPERATOR_KEY_0 + i, poolDomain ^ bytes32(i), values);
         }
-        bytes32[][] memory context = LibSt0xAttestContext.build(mintSymbol, mintAmount, attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(mintToken, mintAmount, attestations);
 
         checkWord("lead()", context, signer(vm.addr(LEAD_KEY)));
         checkWord("lead-domain()", context, leadDomain);
@@ -113,7 +116,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWord("lead-time()", context, leadValues[2]);
         checkWord("lead-source()", context, leadValues[3]);
         checkWord("lead-currency()", context, leadValues[4]);
-        checkWord("mint-symbol()", context, mintSymbol);
+        checkWord("mint-token()", context, mintToken);
         checkWord("mint-amount()", context, mintAmount);
 
         string memory operand = string.concat("<", uint256(n).toString(), ">()");
@@ -131,7 +134,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     function testMissingPoolAttestorReverts(uint8 poolSize) external {
         poolSize = uint8(bound(poolSize, 0, 4));
         bytes32[][] memory context =
-            uniformGrid(symbol("AAPL"), float(1), symbol("AAPL"), float(150), float(1000), poolSize);
+            uniformGrid(tokenWord(MINT_TOKEN), float(1), symbol("AAPL"), float(150), float(1000), poolSize);
         string memory operand = string.concat("<", uint256(poolSize).toString(), ">()");
 
         checkWordReverts(string.concat("attestor", operand), context, stdError.indexOOBError);
@@ -147,9 +150,10 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
     /// separators column and no lead column, so every attestation word
     /// reverts, the lead's included.
     function testNoAttestationsReverts() external {
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("AAPL"), float(1), new SignedContextV2[](0));
+        bytes32[][] memory context =
+            LibSt0xAttestContext.build(tokenWord(MINT_TOKEN), float(1), new SignedContextV2[](0));
 
-        checkWord("mint-symbol()", context, symbol("AAPL"));
+        checkWord("mint-token()", context, tokenWord(MINT_TOKEN));
         checkWord("mint-amount()", context, float(1));
 
         checkWordReverts("lead()", context, stdError.indexOOBError);
@@ -178,10 +182,10 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         twoValues[1] = float(150);
         attestations[0] = sign(LEAD_KEY, twoValues);
         attestations[1] = sign(OPERATOR_KEY_0, new bytes32[](0));
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("AAPL"), float(1), attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(MINT_TOKEN), float(1), attestations);
 
         checkWord("lead()", context, signer(vm.addr(LEAD_KEY)));
-        checkWord("lead-domain()", context, LEAD_DOMAIN);
+        checkWord("lead-domain()", context, priceDomain());
         checkWord("lead-symbol()", context, symbol("AAPL"));
         checkWord("lead-price()", context, float(150));
         checkWordReverts("lead-time()", context, stdError.indexOOBError);
@@ -189,7 +193,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         checkWordReverts("lead-currency()", context, stdError.indexOOBError);
 
         checkWord("attestor<0>()", context, signer(vm.addr(OPERATOR_KEY_0)));
-        checkWord("attestor-domain<0>()", context, POOL_DOMAIN);
+        checkWord("attestor-domain<0>()", context, priceDomain());
         checkWordReverts("attested-symbol<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-price<0>()", context, stdError.indexOOBError);
         checkWordReverts("attested-time<0>()", context, stdError.indexOOBError);
@@ -214,7 +218,7 @@ contract St0xAttestSubParserWordsTest is St0xAttestSubParserTest {
         SignedContextV2[] memory attestations = new SignedContextV2[](2);
         attestations[0] = sign(LEAD_KEY, threeValues);
         attestations[1] = sign(OPERATOR_KEY_0, fourValues);
-        bytes32[][] memory context = LibSt0xAttestContext.build(symbol("AAPL"), float(1), attestations);
+        bytes32[][] memory context = LibSt0xAttestContext.build(tokenWord(MINT_TOKEN), float(1), attestations);
 
         checkWord("lead-time()", context, float(1000));
         checkWordReverts("lead-source()", context, stdError.indexOOBError);

@@ -47,7 +47,7 @@ import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistr
 import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
 import {LibFs} from "rain-sol-codegen-0.1.39/src/lib/LibFs.sol";
 import {LibCodeGen} from "rain-sol-codegen-0.1.39/src/lib/LibCodeGen.sol";
-import {LibGenParseMeta} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
+import {LibGenParseMeta} from "rainlang-0.2.41/src/lib/codegen/LibGenParseMeta.sol";
 
 contract Build is Script, StoxDeploySuites {
     /// @notice The rolling "current source" snapshot tag — always `candidate`,
@@ -218,12 +218,14 @@ contract Build is Script, StoxDeploySuites {
             subParser,
             "St0xAttestSubParserPointers",
             string.concat(
-                LibCodeGen.describedByMetaHashConstantString(vm, "St0xAttestSubParser"),
-                LibGenParseMeta.parseMetaConstantString(
-                    vm, LibSt0xAttestSubParser.authoringMetaV2(), PARSE_META_BUILD_DEPTH
+                string.concat(
+                    LibCodeGen.describedByMetaHashConstantString(vm, "St0xAttestSubParser"),
+                    LibGenParseMeta.parseMetaConstantString(
+                        vm, LibSt0xAttestSubParser.authoringMetaV2(), PARSE_META_BUILD_DEPTH
+                    ),
+                    LibCodeGen.subParserWordParsersConstantString(vm, St0xAttestSubParser(subParser)),
+                    LibCodeGen.operandHandlerFunctionPointersConstantString(vm, St0xAttestSubParser(subParser))
                 ),
-                LibCodeGen.subParserWordParsersConstantString(vm, St0xAttestSubParser(subParser)),
-                LibCodeGen.operandHandlerFunctionPointersConstantString(vm, St0xAttestSubParser(subParser)),
                 LibCodeGen.literalParserFunctionPointersConstantString(vm, St0xAttestSubParser(subParser))
             )
         );

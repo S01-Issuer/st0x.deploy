@@ -7,7 +7,6 @@ import {EIP712Upgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/utils
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {ReentrancyGuardTransient} from "@openzeppelin-contracts-5.7.0/utils/ReentrancyGuardTransient.sol";
 import {IERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/IERC20.sol";
-import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin-contracts-5.7.0/token/ERC20/utils/SafeERC20.sol";
 import {IERC1155} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155.sol";
 import {IERC1155Receiver} from "@openzeppelin-contracts-5.7.0/token/ERC1155/IERC1155Receiver.sol";
@@ -21,20 +20,19 @@ import {ReceiptVault} from "rain-vats-0.2.25/src/abstract/ReceiptVault.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {LibLeakyBucket, LeakyBucket} from "rain-lib-leakybucket-0.5.5/src/lib/LibLeakyBucket.sol";
 import {LibTOFUTokenDecimals} from "rain-tofu-erc20-decimals-0.1.5/src/lib/LibTOFUTokenDecimals.sol";
-import {LibIntOrAString, IntOrAString, LENGTH_MASK_V3} from "rain-intorastring-0.1.5/src/lib/LibIntOrAString.sol";
 import {
     IInterpreterCallerV5,
     EvaluableV4,
     SignedContextV2
-} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
+} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 import {
     EvalV4,
     SourceIndexV2,
     StackItem,
     StateNamespace,
     DEFAULT_STATE_NAMESPACE
-} from "rainlang-0.2.40/src/interface/IInterpreterV4.sol";
-import {LibNamespace} from "rainlang-0.2.40/src/lib/ns/LibNamespace.sol";
+} from "rainlang-0.2.41/src/interface/IInterpreterV4.sol";
+import {LibNamespace} from "rainlang-0.2.41/src/lib/ns/LibNamespace.sol";
 
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {IMintRecipient} from "../interface/IMintRecipient.sol";
@@ -130,7 +128,7 @@ bytes32 constant ORCHESTRATOR_EMERGENCY_ADMIN_ROLE = keccak256("EMERGENCY_ADMIN"
 /// **Mint weighting.** One Rainlang expression, set by `MINT_ADMIN_ROLE` and
 /// global across every token, minter and recipient, converts each mint into
 /// the charge. `mint` builds the context grid of `LibSt0xAttestContext` (the
-/// token's symbol, the amount as a `Float` of whole tokens, then the signed
+/// token's address, the amount as a `Float` of whole tokens, then the signed
 /// context the minter passed, every signature verified) and evaluates the
 /// expression over it. The last output is the charge on both buckets. What
 /// the signed context must contain is the expression's to check and revert
@@ -357,13 +355,12 @@ contract ST0xOrchestrator is
 
     /// @dev Evaluate the mint weighting over this mint and its signed context
     /// and return the charge. Reverts `MintWeightingUnset` if no expression
-    /// has been set, `MintSymbolTooLong` if the token's symbol is longer
-    /// than the 31 bytes an `IntOrAString` holds,
-    /// `UnsupportedMintWeightingOutputs` if the expression left nothing on its
-    /// stack, and with whatever the expression itself reverts with.
+    /// has been set, `UnsupportedMintWeightingOutputs` if the expression left
+    /// nothing on its stack, and with whatever the expression itself reverts
+    /// with.
     ///
-    /// The context is the grid of `LibSt0xAttestContext`: the token's symbol
-    /// as an `IntOrAString`, and the amount as a `Float` in whole tokens per
+    /// The context is the grid of `LibSt0xAttestContext`: the token's
+    /// address, and the amount as a `Float` in whole tokens per
     /// the token's decimals as the TOFU singleton first read them. Building the grid verifies every
     /// signed context entry's signature and reverts `InvalidSignature(i)` on the first
     /// that fails.
@@ -378,12 +375,9 @@ contract ST0xOrchestrator is
         EvaluableV4 memory evaluable = $.mintWeighting;
         if (address(evaluable.interpreter) == address(0)) revert MintWeightingUnset();
 
-        string memory symbol = IERC20Metadata(token).symbol();
-        // `fromStringV3` keeps the length mod 32, so a longer symbol would alias a shorter one.
-        if (bytes(symbol).length > LENGTH_MASK_V3) revert MintSymbolTooLong(token, bytes(symbol).length);
         uint8 decimals = LibTOFUTokenDecimals.safeDecimalsForToken(token);
         bytes32[][] memory context = LibSt0xAttestContext.build(
-            bytes32(IntOrAString.unwrap(LibIntOrAString.fromStringV3(symbol))),
+            bytes32(uint256(uint160(token))),
             Float.unwrap(LibDecimalFloat.fromFixedDecimalLosslessPacked(amount, decimals)),
             signedContext
         );

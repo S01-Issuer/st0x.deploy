@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: LicenseRef-DCL-1.0
+# SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
+---
+#st0x-attest-subparser !St0xAttestSubParser address.
+
+#lead-signer !Lead signer.
+#lead-source !Lead price source.
+
+#max-time-spread !Max time spread in seconds.
+#min-price !Min lead price in USD, inclusive.
+#max-price !Max lead price in USD, inclusive.
+
+#weighting
+using-words-from st0x-attest-subparser
+
+:ensure(
+  binary-equal-to(lead() lead-signer)
+  "Lead attestation missing"
+),
+
+symbol: underlying-symbol(mint-token()),
+price-domain: [eip712-domain-separator name "prices" version "1"],
+:ensure(
+  binary-equal-to(lead-domain() price-domain)
+  "Lead domain mismatch"
+),
+
+:ensure(
+  binary-equal-to(lead-source() lead-source)
+  "Lead source mismatch"
+),
+
+:ensure(
+  binary-equal-to(lead-symbol() symbol)
+  "Attestation for another token"
+),
+
+:ensure(
+  binary-equal-to(lead-currency() "USD")
+  "Price not in USD"
+),
+
+:ensure(
+  agree(
+    max-time-spread 0
+    now() lead-time()
+  )
+  "Times disagree"
+),
+
+lead-time-key: hash("lead-time" mint-token()),
+:ensure(
+  greater-than-or-equal-to(lead-time() get(lead-time-key))
+  "Lead time went backwards"
+),
+:set(lead-time-key lead-time()),
+
+:ensure(
+  less-than-or-equal-to(min-price lead-price() max-price)
+  "Price outside bounds"
+),
+
+value: mul(mint-amount() lead-price());

@@ -2,9 +2,9 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {AuthoringMetaV2} from "rainlang-0.2.40/src/interface/ISubParserV4.sol";
-import {OperandV2} from "rainlang-0.2.40/src/interface/IInterpreterV4.sol";
-import {LibSubParse} from "rainlang-0.2.40/src/lib/parse/LibSubParse.sol";
+import {AuthoringMetaV2} from "rainlang-0.2.41/src/interface/ISubParserV4.sol";
+import {OperandV2} from "rainlang-0.2.41/src/interface/IInterpreterV4.sol";
+import {LibSubParse} from "rainlang-0.2.41/src/lib/parse/LibSubParse.sol";
 
 import {
     CONTEXT_ATTESTATION_ROW_CURRENCY,
@@ -17,7 +17,7 @@ import {
     CONTEXT_LEAD_COLUMN,
     CONTEXT_MINT_COLUMN,
     CONTEXT_MINT_ROW_AMOUNT,
-    CONTEXT_MINT_ROW_SYMBOL,
+    CONTEXT_MINT_ROW_TOKEN,
     CONTEXT_SIGNERS_COLUMN,
     CONTEXT_SIGNERS_ROW_ATTESTOR_0,
     CONTEXT_SIGNERS_ROW_LEAD
@@ -43,8 +43,8 @@ uint256 constant SUB_PARSER_WORD_ATTESTED_SYMBOL = 5;
 uint256 constant SUB_PARSER_WORD_ATTESTED_PRICE = 6;
 /// @dev Index of `attested-time` in the word list.
 uint256 constant SUB_PARSER_WORD_ATTESTED_TIME = 7;
-/// @dev Index of `mint-symbol` in the word list.
-uint256 constant SUB_PARSER_WORD_MINT_SYMBOL = 8;
+/// @dev Index of `mint-token` in the word list.
+uint256 constant SUB_PARSER_WORD_MINT_TOKEN = 8;
 /// @dev Index of `mint-amount` in the word list.
 uint256 constant SUB_PARSER_WORD_MINT_AMOUNT = 9;
 /// @dev Index of `lead-domain` in the word list.
@@ -59,11 +59,16 @@ uint256 constant SUB_PARSER_WORD_LEAD_CURRENCY = 13;
 uint256 constant SUB_PARSER_WORD_ATTESTED_SOURCE = 14;
 /// @dev Index of `attested-currency` in the word list.
 uint256 constant SUB_PARSER_WORD_ATTESTED_CURRENCY = 15;
+/// @dev Index of `underlying-symbol` in the word list.
+uint256 constant SUB_PARSER_WORD_UNDERLYING_SYMBOL = 16;
 
 /// @dev The number of words. The parse meta, the word parsers and the operand
 /// handlers are all indexed by the constants above, so all three are this
 /// long.
-uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 16;
+uint256 constant SUB_PARSER_WORD_PARSERS_LENGTH = 17;
+
+/// @dev The number of extern opcodes.
+uint256 constant EXTERN_OPCODES_LENGTH = 1;
 
 /// @title LibSt0xAttestSubParser
 /// @notice The words of `St0xAttestSubParser`. Each one names a cell of the
@@ -199,18 +204,18 @@ library LibSt0xAttestSubParser {
         );
     }
 
-    /// @notice `mint-symbol`: the symbol of the token being minted.
+    /// @notice `mint-token`: the address of the token being minted.
     /// @return Whether the sub parse succeeded.
     /// @return The bytecode for the context opcode.
     /// @return The constants for the context opcode, always empty.
     //slither-disable-next-line dead-code
-    function subParserMintSymbol(uint256, uint256, OperandV2)
+    function subParserMintToken(uint256, uint256, OperandV2)
         internal
         pure
         returns (bool, bytes memory, bytes32[] memory)
     {
         //slither-disable-next-line unused-return
-        return LibSubParse.subParserContext(CONTEXT_MINT_COLUMN, CONTEXT_MINT_ROW_SYMBOL);
+        return LibSubParse.subParserContext(CONTEXT_MINT_COLUMN, CONTEXT_MINT_ROW_TOKEN);
     }
 
     /// @notice `mint-amount`: the amount the mint is requesting.
@@ -359,9 +364,9 @@ library LibSt0xAttestSubParser {
             "attested-time",
             "The time pool attestor N attested, as a Rain Float in seconds comparable against now(). N is the operand and is required. Reverts at eval if fewer than N+1 pool attestations were provided."
         );
-        meta[SUB_PARSER_WORD_MINT_SYMBOL] = AuthoringMetaV2(
-            "mint-symbol",
-            "The symbol of the token the mint is requested for, as an IntOrAString bytes32. Check every attested symbol against it so an attestation for one token cannot be used for a mint of another. No operand. A string: compare it with binary-equal-to, never numerically."
+        meta[SUB_PARSER_WORD_MINT_TOKEN] = AuthoringMetaV2(
+            "mint-token",
+            "The address of the token the mint is requested for. No operand. An identity: compare it with binary-equal-to, never numerically."
         );
         meta[SUB_PARSER_WORD_MINT_AMOUNT] = AuthoringMetaV2(
             "mint-amount", "The amount of the token being requested for the mint, as a Rain Float. No operand."
@@ -389,6 +394,10 @@ library LibSt0xAttestSubParser {
         meta[SUB_PARSER_WORD_ATTESTED_CURRENCY] = AuthoringMetaV2(
             "attested-currency",
             "The currency pool attestor N attested its price in, as an IntOrAString bytes32, so a Rainlang string literal compares equal to it. N is the operand and is required. A string: compare it with binary-equal-to, never numerically. Reverts at eval if fewer than N+1 pool attestations were provided."
+        );
+        meta[SUB_PARSER_WORD_UNDERLYING_SYMBOL] = AuthoringMetaV2(
+            "underlying-symbol",
+            "The underlyingSymbol() of the token address input, read at eval, as an IntOrAString bytes32 so it compares binary-equal to the attested symbols. One input, one output, no operand. Reverts at eval if the symbol is empty or longer than 31 bytes. A string: compare it with binary-equal-to, never numerically."
         );
         return abi.encode(meta);
     }

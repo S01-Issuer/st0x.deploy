@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {AuthoringMetaV2} from "rainlang-0.2.40/src/interface/ISubParserV4.sol";
-import {LibGenParseMeta} from "rainlang-0.2.40/src/lib/codegen/LibGenParseMeta.sol";
+import {AuthoringMetaV2} from "rainlang-0.2.41/src/interface/ISubParserV4.sol";
+import {LibGenParseMeta} from "rainlang-0.2.41/src/lib/codegen/LibGenParseMeta.sol";
 
 import {St0xAttestSubParser} from "src/concrete/St0xAttestSubParser.sol";
 import {
@@ -21,9 +21,8 @@ import {
     LITERAL_PARSER_FUNCTION_POINTERS
 } from "src/generated/St0xAttestSubParserPointers.sol";
 
-/// Every table the subparser dispatches on is a committed constant. These
-/// tests prove the constants are what `script/Build.sol` generates
-/// from the current source.
+/// The committed constants are what `script/Build.sol` generates from the
+/// current source.
 contract St0xAttestSubParserPointersTest is Test {
     function testBytecodeHash() external {
         St0xAttestSubParser subParser = new St0xAttestSubParser();
@@ -60,7 +59,7 @@ contract St0xAttestSubParserPointersTest is Test {
     function testWordList() external pure {
         AuthoringMetaV2[] memory authoringMeta =
             abi.decode(LibSt0xAttestSubParser.authoringMetaV2(), (AuthoringMetaV2[]));
-        string[16] memory expected = [
+        string[17] memory expected = [
             "lead",
             "attestor",
             "lead-symbol",
@@ -69,14 +68,15 @@ contract St0xAttestSubParserPointersTest is Test {
             "attested-symbol",
             "attested-price",
             "attested-time",
-            "mint-symbol",
+            "mint-token",
             "mint-amount",
             "lead-domain",
             "attestor-domain",
             "lead-source",
             "lead-currency",
             "attested-source",
-            "attested-currency"
+            "attested-currency",
+            "underlying-symbol"
         ];
         assertEq(authoringMeta.length, expected.length);
         for (uint256 i = 0; i < expected.length; i++) {

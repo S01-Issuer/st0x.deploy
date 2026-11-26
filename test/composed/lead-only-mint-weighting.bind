@@ -1,0 +1,6 @@
+st0x-attest-subparser=0xd88B84a6471f5d21212C614945321f73e4b35919
+lead-signer=0xB05Da3f2e145C6b156D97872386Bc8645B34b668
+lead-source="alpaca"
+max-time-spread=600
+min-price=100
+max-price=1000

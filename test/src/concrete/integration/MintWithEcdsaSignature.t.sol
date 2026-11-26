@@ -8,7 +8,7 @@ import {Unauthorized} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {ST0xOrchestrator} from "../../../../src/concrete/ST0xOrchestrator.sol";
 import {IST0xOrchestratorV2, MintAuthV1, MintCapKind, Digest} from "../../../../src/interface/IST0xOrchestratorV2.sol";
 import {OrchestratorIntegrationTest} from "./OrchestratorIntegrationTest.sol";
-import {SignedContextV2} from "rainlang-0.2.40/src/interface/IInterpreterCallerV5.sol";
+import {SignedContextV2} from "rainlang-0.2.41/src/interface/IInterpreterCallerV5.sol";
 
 /// @title MintWithEcdsaSignatureTest
 /// @notice Workflow: an EOA recipient authorises a mint with an ECDSA
