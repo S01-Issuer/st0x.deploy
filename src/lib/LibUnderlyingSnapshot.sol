@@ -2,7 +2,6 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {LibParseMeta} from "rainlang-0.2.40/src/lib/parse/LibParseMeta.sol";
 import {MalformedUnderlyingSnapshot} from "../error/ErrUnderlying.sol";
 import {LibDataContract} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 
@@ -11,10 +10,10 @@ bytes4 constant UNDERLYING_SNAPSHOT_SHARD_MAGIC = bytes4(keccak256("st0x.underly
 
 /// @dev Root data: magic, asOf (32), K (2), then K shard addresses.
 uint256 constant UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH = 38;
-/// @dev Shard data: magic, n (2), meta length (2), meta, n row offsets (2
-/// each, absolute in the data), then rows of token (20), ticker length (1),
-/// ticker, name length (1), name, ISIN length (1), ISIN.
-uint256 constant UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH = 8;
+/// @dev Shard data: magic, n (2), B (2), m (2), B displacements (1 each), m
+/// slot offsets (2 each, absolute in the data, 0 empty), then rows of token
+/// (20), ticker length (1), ticker, name length (1), name, ISIN length (1), ISIN.
+uint256 constant UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH = 10;
 
 /// @title LibUnderlyingSnapshot
 /// @notice Reads the (token -> ticker, name, ISIN) snapshot held as pure data
@@ -30,6 +29,7 @@ library LibUnderlyingSnapshot {
 
     function lookup(address root, address token) internal view returns (Lookup memory) {
         uint256 asOf;
+        uint256 shardCount;
         address shard;
         {
             uint256 rootLength = dataLength(root);
@@ -41,7 +41,7 @@ library LibUnderlyingSnapshot {
                 revert MalformedUnderlyingSnapshot(root);
             }
             asOf = readUint256(header, 4);
-            uint256 shardCount = readUint16(header, 36);
+            shardCount = readUint16(header, 36);
             if (shardCount == 0 || rootLength != UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH + 20 * shardCount) {
                 revert MalformedUnderlyingSnapshot(root);
             }
@@ -52,11 +52,12 @@ library LibUnderlyingSnapshot {
                 0
             );
         }
-        (bool found, string memory ticker, string memory name, string memory isin) = lookupShard(shard, token);
+        (bool found, string memory ticker, string memory name, string memory isin) =
+            lookupShard(shard, token, shardCount);
         return Lookup(asOf, found, ticker, name, isin);
     }
 
-    function lookupShard(address shard, address token)
+    function lookupShard(address shard, address token, uint256 shardCount)
         internal
         view
         returns (bool, string memory, string memory, string memory)
@@ -64,7 +65,7 @@ library LibUnderlyingSnapshot {
         bytes memory rowData;
         {
             uint256 length = dataLength(shard);
-            (bool hit, uint256 row) = rowOffset(shard, token, length);
+            (bool hit, uint256 row) = rowOffset(shard, token, shardCount, length);
             if (!hit) {
                 // The literal is this function's found/not-found return value, not a condition operand.
                 // forge-lint: disable-next-line(boolean-cst)
@@ -73,7 +74,7 @@ library LibUnderlyingSnapshot {
             uint256 rowEnd = row + 23 + 3 * uint256(type(uint8).max);
             rowData = LibDataContract.readSlice(shard, row, (rowEnd < length ? rowEnd : length) - row);
         }
-        // A fingerprint hit on a non-member lands on another member's row.
+        // A non-member can hash to a member's slot.
         if (readAddress(rowData, 0) != token) {
             // forge-lint: disable-next-line(boolean-cst)
             return (false, "", "", "");
@@ -81,42 +82,35 @@ library LibUnderlyingSnapshot {
         return decodeRow(shard, rowData);
     }
 
-    function rowOffset(address shard, address token, uint256 length) internal view returns (bool, uint256) {
+    function rowOffset(address shard, address token, uint256 shardCount, uint256 length)
+        internal
+        view
+        returns (bool, uint256)
+    {
         if (length < UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 n;
-        uint256 offsetsStart;
-        {
-            bytes memory header = LibDataContract.readSlice(shard, 0, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH);
-            if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_SHARD_MAGIC) {
-                revert MalformedUnderlyingSnapshot(shard);
-            }
-            n = readUint16(header, 4);
-            offsetsStart = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + readUint16(header, 6);
-        }
-        uint256 rowsStart = offsetsStart + 2 * n;
-        if (rowsStart > length) {
+        bytes memory header = LibDataContract.readSlice(shard, 0, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH);
+        if (readBytes4(header, 0) != UNDERLYING_SNAPSHOT_SHARD_MAGIC) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 index;
-        {
-            bytes memory meta = LibDataContract.readSlice(
-                shard, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH, offsetsStart - UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH
-            );
-            // lookupWord is UB on malformed meta.
-            LibParseMeta.checkParseMetaStructure(meta);
-            bool hit;
-            (hit, index) = LibParseMeta.lookupWord(meta, bytes32(uint256(uint160(token))));
-            if (!hit) {
-                // forge-lint: disable-next-line(boolean-cst)
-                return (false, 0);
-            }
-        }
-        if (index >= n) {
+        uint256 bucketCount = readUint16(header, 6);
+        uint256 slotCount = readUint16(header, 8);
+        uint256 rowsStart = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + bucketCount + 2 * slotCount;
+        if (bucketCount == 0 || slotCount == 0 || rowsStart > length) {
             revert MalformedUnderlyingSnapshot(shard);
         }
-        uint256 row = readUint16(LibDataContract.readSlice(shard, offsetsStart + 2 * index, 2), 0);
+        bytes1 displacement = LibDataContract.readSlice(
+            shard, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + (uint256(uint160(token)) / shardCount) % bucketCount, 1
+        )[0];
+        uint256 slot = uint256(keccak256(abi.encodePacked(token, displacement))) % slotCount;
+        uint256 row = readUint16(
+            LibDataContract.readSlice(shard, UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + bucketCount + 2 * slot, 2), 0
+        );
+        if (row == 0) {
+            // forge-lint: disable-next-line(boolean-cst)
+            return (false, 0);
+        }
         if (row < rowsStart || row + 21 > length) {
             revert MalformedUnderlyingSnapshot(shard);
         }

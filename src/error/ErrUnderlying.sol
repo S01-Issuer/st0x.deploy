@@ -12,7 +12,6 @@ error EmptyUnderlyingSymbol();
 error EmptyUnderlyingName();
 
 /// Thrown when an underlying snapshot root or shard has no code, or its header
-/// or row bytes do not match the snapshot format. A malformed shard parse meta
-/// reverts `InvalidParseMeta` instead.
+/// or row bytes do not match the snapshot format.
 /// @param account The snapshot contract whose code was refused.
 error MalformedUnderlyingSnapshot(address account);
