@@ -53,6 +53,9 @@ fs_permissions = [
 # whole bytecode constants, which exceeds the default script gas limit.
 gas_limit = "18446744073709551615"
 
+# The second expected-state render in `testRunWritesTheRender` passes the default 128 MiB memory limit.
+memory_limit = 268435456
+
 # `LibSecurity.isinWellFormed` tests run the flake's `isin-oracle` through `vm.ffi`.
 ffi = true
 
