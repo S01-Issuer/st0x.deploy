@@ -44,12 +44,161 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
-import {LibTokenMetadata} from "../../src/lib/LibTokenMetadata.sol";
+import {LibTokenMetadata, TokenMetadataState} from "../../src/lib/LibTokenMetadata.sol";
+import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
 /// @notice No `zoltu` row carries the key.
 error ZoltuRowMissing(string key);
+
+// Fields in key order, the order `parseJsonType` decodes into; the type names are no struct's, so forge keeps it.
+string constant TOKEN_JSON = "TokenJson(string assetId,address authoriser,uint256 decimals,string listingName,"
+    "string listingTicker,string name,address owner,address receipt,address receiptBeacon,bytes32 receiptCodehash,"
+    "address receiptManager,address receiptVault,address receiptVaultBeacon,bytes32 receiptVaultCodehash,"
+    "address receiptVaultReceipt,string region,string renamedName,string symbol,string underlying,"
+    "address wrappedTokenVault,address wrappedTokenVaultAsset,address wrappedTokenVaultBeacon,"
+    "bytes32 wrappedTokenVaultCodehash,uint256 wrappedTokenVaultDecimals,string wrappedTokenVaultName,"
+    "string wrappedTokenVaultRenamedName,string wrappedTokenVaultRenamedSymbol,string wrappedTokenVaultSymbol)";
+string constant TOKEN_METADATA_JSON = "TokenMetadataJson(string name,string renamedName,string symbol,"
+    "string wrappedTokenVaultName,string wrappedTokenVaultRenamedName,string wrappedTokenVaultRenamedSymbol,"
+    "string wrappedTokenVaultSymbol)";
+string constant QSEP_JSON = "QsepJson(address authoriser,address owner,address receipt,address receiptBeacon,"
+    "bytes32 receiptCodehash,address receiptManager,address receiptVault,address receiptVaultBeacon,"
+    "bytes32 receiptVaultCodehash,address receiptVaultReceipt,address wrappedTokenVault,address wrappedTokenVaultAsset,"
+    "address wrappedTokenVaultBeacon,bytes32 wrappedTokenVaultCodehash)";
+string constant BEACON_JSON = "BeaconJson(address beacon,bytes32 codehash,address implementation,address owner,"
+    "address renamedImplementation)";
+string constant DEPLOYMENT_JSON = "DeploymentJson(address address,bytes32 codehash,string key)";
+string constant SAFE_JSON = "SafeJson(address address,address fallbackHandler,bytes32 fallbackHandlerCodehash,"
+    "address guard,address[] modules,address[] owners,bytes32[] proxyCodehashes,bytes32[] singletonCodehashes,"
+    "address[] singletons,uint256 threshold,string version)";
+string constant TIMELOCK_JSON = "TimelockJson(address address,bytes32 codehash,uint256 minDelay)";
+string constant ORCHESTRATOR_JSON = "OrchestratorJson(address beacon,bytes32 beaconCodehash,address implementation,"
+    "address instance,address owner,address setDeployer)";
+string constant AUTHORISER_JSON = "AuthoriserJson(address address,bytes32 codehash)";
+string constant REGISTRY_DELEGATE_JSON =
+    "RegistryDelegateJson(address account,address delegate,address registry,bool unscoped)";
+string constant V2_BEACON_JSON = "V2BeaconJson(address beacon,address implementation,address owner)";
+
+struct ExpectedToken {
+    string assetId;
+    address authoriser;
+    uint256 decimals;
+    string listingName;
+    string listingTicker;
+    string name;
+    address owner;
+    address receipt;
+    address receiptBeacon;
+    bytes32 receiptCodehash;
+    address receiptManager;
+    address receiptVault;
+    address receiptVaultBeacon;
+    bytes32 receiptVaultCodehash;
+    address receiptVaultReceipt;
+    string region;
+    string renamedName;
+    string symbol;
+    string underlying;
+    address wrappedTokenVault;
+    address wrappedTokenVaultAsset;
+    address wrappedTokenVaultBeacon;
+    bytes32 wrappedTokenVaultCodehash;
+    uint256 wrappedTokenVaultDecimals;
+    string wrappedTokenVaultName;
+    string wrappedTokenVaultRenamedName;
+    string wrappedTokenVaultRenamedSymbol;
+    string wrappedTokenVaultSymbol;
+}
+
+struct ExpectedTokenMetadata {
+    string name;
+    string renamedName;
+    string symbol;
+    string wrappedTokenVaultName;
+    string wrappedTokenVaultRenamedName;
+    string wrappedTokenVaultRenamedSymbol;
+    string wrappedTokenVaultSymbol;
+}
+
+struct ExpectedQsep {
+    address authoriser;
+    address owner;
+    address receipt;
+    address receiptBeacon;
+    bytes32 receiptCodehash;
+    address receiptManager;
+    address receiptVault;
+    address receiptVaultBeacon;
+    bytes32 receiptVaultCodehash;
+    address receiptVaultReceipt;
+    address wrappedTokenVault;
+    address wrappedTokenVaultAsset;
+    address wrappedTokenVaultBeacon;
+    bytes32 wrappedTokenVaultCodehash;
+}
+
+struct ExpectedBeacon {
+    address beacon;
+    bytes32 codehash;
+    address implementation;
+    address owner;
+    address renamedImplementation;
+}
+
+struct ExpectedDeployment {
+    address addr;
+    bytes32 codehash;
+    string key;
+}
+
+struct ExpectedSafe {
+    address addr;
+    address fallbackHandler;
+    bytes32 fallbackHandlerCodehash;
+    address guard;
+    address[] modules;
+    address[] owners;
+    bytes32[] proxyCodehashes;
+    bytes32[] singletonCodehashes;
+    address[] singletons;
+    uint256 threshold;
+    string version;
+}
+
+struct ExpectedTimelock {
+    address addr;
+    bytes32 codehash;
+    uint256 minDelay;
+}
+
+struct ExpectedOrchestrator {
+    address beacon;
+    bytes32 beaconCodehash;
+    address implementation;
+    address instance;
+    address owner;
+    address setDeployer;
+}
+
+struct ExpectedAuthoriser {
+    address addr;
+    bytes32 codehash;
+}
+
+struct ExpectedRegistryDelegate {
+    address account;
+    address delegate;
+    address registry;
+    bool unscoped;
+}
+
+struct ExpectedV2Beacon {
+    address beacon;
+    address implementation;
+    address owner;
+}
 
 contract BuildExpectedStateTest is Test {
     BuildExpectedState internal build = new BuildExpectedState();
@@ -126,18 +275,14 @@ contract BuildExpectedStateTest is Test {
             address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(id);
             bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(id);
             uint256 inUse = 4;
-            string memory list = string.concat(chain(nets[c]), ".beacons");
-            assertFalse(vm.keyExistsJson(json, index(list, inUse)));
+            ExpectedBeacon[] memory rows = beaconRows(json, chain(nets[c]));
+            assertEq(rows.length, inUse);
             for (uint256 i = 0; i < inUse; i++) {
-                string memory row = index(list, i);
                 assertNotEq(resolved[i], address(0));
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), resolved[i]);
-                assertEq(vm.parseJsonBytes32(json, string.concat(row, ".codehash")), codehashes[i]);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".implementation")), impls[i]);
-                assertEq(
-                    vm.parseJsonAddress(json, string.concat(row, ".owner")),
-                    LibTimelockInvariants.timelockForChainId(id)
-                );
+                assertEq(rows[i].beacon, resolved[i]);
+                assertEq(rows[i].codehash, codehashes[i]);
+                assertEq(rows[i].implementation, impls[i]);
+                assertEq(rows[i].owner, LibTimelockInvariants.timelockForChainId(id));
             }
         }
     }
@@ -157,12 +302,10 @@ contract BuildExpectedStateTest is Test {
                     ? LibProdDeployV1.OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER
                     : LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
             );
+            ExpectedBeacon[] memory beacons = beaconRows(json, at);
+            assertEq(beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX].beacon, vm.computeCreateAddress(setDeployer, 1));
             assertEq(
-                beaconRow(json, at, LibBeaconInvariants.RECEIPT_BEACON_INDEX), vm.computeCreateAddress(setDeployer, 1)
-            );
-            assertEq(
-                beaconRow(json, at, LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX),
-                vm.computeCreateAddress(setDeployer, 2)
+                beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX].beacon, vm.computeCreateAddress(setDeployer, 2)
             );
         }
     }
@@ -176,10 +319,10 @@ contract BuildExpectedStateTest is Test {
             IST0xVaultBeaconSet(LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1)
                 .iReceiptBeacon()
         );
-        string memory row = ".chains.1.beacons[0]";
+        ExpectedBeacon memory row = beaconRows(json, ".chains.1")[0];
         assertNotEq(expected, address(0));
-        assertEq(vm.parseJsonAddress(json, string.concat(row, ".beacon")), expected);
-        assertEq(vm.parseJsonAddress(json, string.concat(row, ".implementation")), LibProdDeployV4.STOX_RECEIPT_0_1_30);
+        assertEq(row.beacon, expected);
+        assertEq(row.implementation, LibProdDeployV4.STOX_RECEIPT_0_1_30);
         assertEq(
             vm.parseJsonAddress(json, ".chains.1.beaconSetDeployer"),
             LibProdDeployV4.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER_0_1_1
@@ -199,33 +342,30 @@ contract BuildExpectedStateTest is Test {
             (address[] memory targets,, bytes[] memory payloads) =
                 LibUnderlyingNamingRollout.beaconBatch(nets[c].chainId);
             vm.revertToState(snapshot);
-            string memory list = string.concat(chain(nets[c]), ".beacons");
+            ExpectedBeacon[] memory rows = beaconRows(json, chain(nets[c]));
             uint256 upgraded = 0;
             for (uint256 i = 0; i < 4; i++) {
-                upgraded += assertRenamedImplementation(json, index(list, i), targets, payloads);
+                upgraded += assertRenamedImplementation(rows[i], targets, payloads);
             }
             assertEq(upgraded, 2);
         }
     }
 
     /// The number of beacon batch calls that upgrade the row's beacon, each to its `renamedImplementation`.
-    function assertRenamedImplementation(
-        string memory json,
-        string memory row,
-        address[] memory targets,
-        bytes[] memory payloads
-    ) internal pure returns (uint256) {
-        address beacon = vm.parseJsonAddress(json, string.concat(row, ".beacon"));
-        address renamed = vm.parseJsonAddress(json, string.concat(row, ".renamedImplementation"));
+    function assertRenamedImplementation(ExpectedBeacon memory row, address[] memory targets, bytes[] memory payloads)
+        internal
+        pure
+        returns (uint256)
+    {
         uint256 upgrades = 0;
         for (uint256 k = 0; k < targets.length; k++) {
-            if (targets[k] == beacon) {
-                assertEq(payloads[k], abi.encodeCall(UpgradeableBeacon.upgradeTo, (renamed)));
+            if (targets[k] == row.beacon) {
+                assertEq(payloads[k], abi.encodeCall(UpgradeableBeacon.upgradeTo, (row.renamedImplementation)));
                 upgrades++;
             }
         }
         if (upgrades == 0) {
-            assertEq(renamed, vm.parseJsonAddress(json, string.concat(row, ".implementation")));
+            assertEq(row.renamedImplementation, row.implementation);
         }
         return upgrades;
     }
@@ -240,21 +380,10 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
-            string memory at = string.concat(chain(nets[i]), ".safe");
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(at, ".address")),
-                LibSafeInvariants.safeForChainId(nets[i].chainId)
-            );
-            assertEq(
-                vm.parseJsonUint(json, string.concat(at, ".threshold")),
-                LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD
-            );
-            address[] memory owners = LibSafeInvariants.expectedOwners();
-            string memory list = string.concat(at, ".owners");
-            assertFalse(vm.keyExistsJson(json, index(list, owners.length)));
-            for (uint256 j = 0; j < owners.length; j++) {
-                assertEq(vm.parseJsonAddress(json, index(list, j)), owners[j]);
-            }
+            ExpectedSafe memory safe = safeOf(json, chain(nets[i]));
+            assertEq(safe.addr, LibSafeInvariants.safeForChainId(nets[i].chainId));
+            assertEq(safe.threshold, LibSafeInvariants.STOX_TOKEN_OWNER_SAFE_THRESHOLD);
+            assertEq(safe.owners, LibSafeInvariants.expectedOwners());
         }
     }
 
@@ -264,16 +393,16 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
-            string memory at = string.concat(chain(nets[i]), ".safe");
-            bytes32[] memory proxies = vm.parseJsonBytes32Array(json, string.concat(at, ".proxyCodehashes"));
+            ExpectedSafe memory safe = safeOf(json, chain(nets[i]));
+            bytes32[] memory proxies = safe.proxyCodehashes;
             assertEq(proxies.length, 2);
             assertEq(proxies[0], keccak256(LibSafe.SAFE_V1_4_1_PROXY_RUNTIME_CODE));
             assertEq(proxies[0], LibSafe.SAFE_V1_4_1_PROXY_CODEHASH);
             assertEq(proxies[1], keccak256(LibSafe.SAFE_V1_3_0_PROXY_RUNTIME_CODE));
             assertEq(proxies[1], LibSafe.SAFE_V1_3_0_PROXY_CODEHASH);
 
-            address[] memory singletons = vm.parseJsonAddressArray(json, string.concat(at, ".singletons"));
-            bytes32[] memory singletonHashes = vm.parseJsonBytes32Array(json, string.concat(at, ".singletonCodehashes"));
+            address[] memory singletons = safe.singletons;
+            bytes32[] memory singletonHashes = safe.singletonCodehashes;
             assertEq(singletons.length, 2);
             assertEq(singletonHashes.length, 2);
             assertEq(singletons[0], LibSafe.SAFE_V1_4_1_L1_SINGLETON);
@@ -283,14 +412,11 @@ contract BuildExpectedStateTest is Test {
             assertEq(singletonHashes[1], keccak256(LibSafe.SAFE_V1_4_1_L2_SINGLETON_RUNTIME_CODE));
             assertEq(singletonHashes[1], LibSafe.SAFE_V1_4_1_L2_SINGLETON_CODEHASH);
 
-            assertEq(vm.parseJsonString(json, string.concat(at, ".version")), LibSafe.SAFE_V1_4_1_VERSION);
-            assertEq(vm.parseJsonAddressArray(json, string.concat(at, ".modules")).length, 0);
-            assertEq(vm.parseJsonAddress(json, string.concat(at, ".guard")), address(0));
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(at, ".fallbackHandler")),
-                LibSafe.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER
-            );
-            bytes32 handlerHash = vm.parseJsonBytes32(json, string.concat(at, ".fallbackHandlerCodehash"));
+            assertEq(safe.version, LibSafe.SAFE_V1_4_1_VERSION);
+            assertEq(safe.modules.length, 0);
+            assertEq(safe.guard, address(0));
+            assertEq(safe.fallbackHandler, LibSafe.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER);
+            bytes32 handlerHash = safe.fallbackHandlerCodehash;
             assertEq(handlerHash, keccak256(LibSafe.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER_RUNTIME_CODE));
             assertEq(handlerHash, LibSafe.SAFE_V1_4_1_COMPATIBILITY_FALLBACK_HANDLER_CODEHASH);
         }
@@ -301,11 +427,10 @@ contract BuildExpectedStateTest is Test {
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
             uint256 id = nets[i].chainId;
-            string memory at = string.concat(chain(nets[i]), ".timelock");
-            address timelock = vm.parseJsonAddress(json, string.concat(at, ".address"));
-            assertEq(timelock, LibTimelockInvariants.timelockForChainId(id));
-            assertEq(timelock, LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.safeForChainId(id)));
-            assertEq(vm.parseJsonUint(json, string.concat(at, ".minDelay")), LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+            ExpectedTimelock memory timelock = timelockOf(json, chain(nets[i]));
+            assertEq(timelock.addr, LibTimelockInvariants.timelockForChainId(id));
+            assertEq(timelock.addr, LibTimelockInvariants.expectedTimelockAddress(LibSafeInvariants.safeForChainId(id)));
+            assertEq(timelock.minDelay, LibTimelockInvariants.TIMELOCK_MIN_DELAY);
         }
     }
 
@@ -315,11 +440,10 @@ contract BuildExpectedStateTest is Test {
         SupportedNetwork[] memory nets = networks();
         bool sawPerSafe;
         for (uint256 i = 0; i < nets.length; i++) {
-            string memory at = string.concat(chain(nets[i]), ".timelock");
-            address timelock = vm.parseJsonAddress(json, string.concat(at, ".address"));
-            bytes32 codehash = vm.parseJsonBytes32(json, string.concat(at, ".codehash"));
-            assertEq(codehash, LibTimelockInvariants.timelockCodehash(timelock));
-            if (timelock == LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
+            ExpectedTimelock memory timelock = timelockOf(json, chain(nets[i]));
+            bytes32 codehash = timelock.codehash;
+            assertEq(codehash, LibTimelockInvariants.timelockCodehash(timelock.addr));
+            if (timelock.addr == LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK) {
                 assertEq(codehash, LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK_CODEHASH);
                 assertEq(codehash, keccak256(SUITE_TIMELOCK_RUNTIME_CODE));
             } else {
@@ -341,27 +465,16 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
-            string memory at = string.concat(chain(nets[i]), ".orchestrator");
-            address setDeployer = vm.parseJsonAddress(json, string.concat(at, ".setDeployer"));
-            address beacon = vm.parseJsonAddress(json, string.concat(at, ".beacon"));
-            address instance = vm.parseJsonAddress(json, string.concat(at, ".instance"));
+            ExpectedOrchestrator memory orchestrator = orchestratorOf(json, chain(nets[i]));
+            address setDeployer = orchestrator.setDeployer;
             assertEq(setDeployer, LibProdDeployV4.ST0X_ORCHESTRATOR_BEACON_SET_DEPLOYER_0_1_30);
-            assertEq(beacon, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON);
-            assertEq(beacon, vm.computeCreateAddress(setDeployer, 1));
-            assertEq(instance, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
-            assertEq(instance, vm.computeCreateAddress(setDeployer, 2));
-            assertEq(
-                vm.parseJsonBytes32(json, string.concat(at, ".beaconCodehash")),
-                LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30
-            );
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(at, ".implementation")),
-                LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30
-            );
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(at, ".owner")),
-                LibTimelockInvariants.timelockForChainId(nets[i].chainId)
-            );
+            assertEq(orchestrator.beacon, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_BEACON);
+            assertEq(orchestrator.beacon, vm.computeCreateAddress(setDeployer, 1));
+            assertEq(orchestrator.instance, LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
+            assertEq(orchestrator.instance, vm.computeCreateAddress(setDeployer, 2));
+            assertEq(orchestrator.beaconCodehash, LibBeaconInvariants.UPGRADEABLE_BEACON_CODEHASH_0_1_30);
+            assertEq(orchestrator.implementation, LibProdDeployV4.ST0X_ORCHESTRATOR_0_1_30);
+            assertEq(orchestrator.owner, LibTimelockInvariants.timelockForChainId(nets[i].chainId));
         }
     }
 
@@ -371,14 +484,10 @@ contract BuildExpectedStateTest is Test {
         SupportedNetwork[] memory nets = networks();
         for (uint256 i = 0; i < nets.length; i++) {
             string memory at = chain(nets[i]);
-            assertEq(
-                zoltuAddress(json, at, "stox-orchestrator@0_1_30"),
-                vm.parseJsonAddress(json, string.concat(at, ".orchestrator.implementation"))
-            );
-            assertEq(
-                zoltuAddress(json, at, "stox-orchestrator-beacon-set-deployer@0_1_30"),
-                vm.parseJsonAddress(json, string.concat(at, ".orchestrator.setDeployer"))
-            );
+            ExpectedDeployment[] memory zoltu = deploymentRows(json, string.concat(at, ".zoltu"));
+            ExpectedOrchestrator memory orchestrator = orchestratorOf(json, at);
+            assertEq(zoltuAddress(zoltu, "stox-orchestrator@0_1_30"), orchestrator.implementation);
+            assertEq(zoltuAddress(zoltu, "stox-orchestrator-beacon-set-deployer@0_1_30"), orchestrator.setDeployer);
         }
     }
 
@@ -388,21 +497,13 @@ contract BuildExpectedStateTest is Test {
         for (uint256 i = 0; i < nets.length; i++) {
             uint256 id = nets[i].chainId;
             string memory at = chain(nets[i]);
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(at, ".authoriser.address")),
-                LibAuthoriserInvariants.authoriserForChainId(id)
-            );
-            assertEq(
-                vm.parseJsonBytes32(json, string.concat(at, ".authoriser.codehash")),
-                LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH
-            );
-            address eu = vm.parseJsonAddress(json, string.concat(at, ".euAuthoriser.address"));
-            assertEq(eu, LibAuthoriserInvariants.euAuthoriserForChainId(id));
-            assertEq(eu, LibEuAuthoriserClone.cloneDeployedAddress(id));
-            assertEq(
-                vm.parseJsonBytes32(json, string.concat(at, ".euAuthoriser.codehash")),
-                keccak256(LibEuAuthoriserClone.cloneRuntimeCode())
-            );
+            ExpectedAuthoriser memory authoriser = authoriserOf(json, string.concat(at, ".authoriser"));
+            assertEq(authoriser.addr, LibAuthoriserInvariants.authoriserForChainId(id));
+            assertEq(authoriser.codehash, LibProdDeployV4.STOX_PROD_AUTHORISER_V4_CLONE_CODEHASH);
+            ExpectedAuthoriser memory eu = authoriserOf(json, string.concat(at, ".euAuthoriser"));
+            assertEq(eu.addr, LibAuthoriserInvariants.euAuthoriserForChainId(id));
+            assertEq(eu.addr, LibEuAuthoriserClone.cloneDeployedAddress(id));
+            assertEq(eu.codehash, keccak256(LibEuAuthoriserClone.cloneRuntimeCode()));
         }
     }
 
@@ -412,45 +513,38 @@ contract BuildExpectedStateTest is Test {
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 id = nets[c].chainId;
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(id);
-            string memory list = string.concat(chain(nets[c]), ".tokens");
-            assertFalse(vm.keyExistsJson(json, index(list, tokens.length)));
+            ExpectedToken[] memory rows = tokenRows(json, chain(nets[c]));
+            assertEq(rows.length, tokens.length);
             for (uint256 i = 0; i < tokens.length; i++) {
-                string memory row = index(list, i);
+                ExpectedToken memory row = rows[i];
                 TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
-                assertEq(vm.parseJsonString(json, string.concat(row, ".underlying")), tokens[i].underlying);
-                assertEq(vm.parseJsonString(json, string.concat(row, ".assetId")), config.assetId);
-                assertEq(vm.parseJsonString(json, string.concat(row, ".listingTicker")), config.listingTicker);
-                assertEq(vm.parseJsonString(json, string.concat(row, ".listingName")), config.listingName);
-                assertEq(vm.parseJsonString(json, string.concat(row, ".name")), config.name);
-                assertEq(vm.parseJsonString(json, string.concat(row, ".symbol")), config.symbol);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptVault")), tokens[i].receiptVault);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".receipt")), tokens[i].receipt);
-                assertEq(
-                    vm.parseJsonAddress(json, string.concat(row, ".wrappedTokenVault")), tokens[i].wrappedTokenVault
-                );
-                assertEq(
-                    vm.parseJsonAddress(json, string.concat(row, ".owner")),
-                    LibTimelockInvariants.timelockForChainId(id)
-                );
+                assertEq(row.underlying, tokens[i].underlying);
+                assertEq(row.assetId, config.assetId);
+                assertEq(row.listingTicker, config.listingTicker);
+                assertEq(row.listingName, config.listingName);
+                assertEq(row.name, config.name);
+                assertEq(row.symbol, config.symbol);
+                assertEq(row.receiptVault, tokens[i].receiptVault);
+                assertEq(row.receipt, tokens[i].receipt);
+                assertEq(row.wrappedTokenVault, tokens[i].wrappedTokenVault);
+                assertEq(row.owner, LibTimelockInvariants.timelockForChainId(id));
                 address expected = config.region == Region.EU
                     ? LibAuthoriserInvariants.euAuthoriserForChainId(id)
                     : LibAuthoriserInvariants.authoriserForChainId(id);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".authoriser")), expected);
+                assertEq(row.authoriser, expected);
             }
         }
     }
 
     /// Fixed examples on Base: tMC is the EU token, on the EU clone; tMSTR is US, on the V4 clone.
     function testBaseMcIsOnTheEuCloneAndMstrOnTheV4Clone() external {
-        string memory json = build.render();
-        string memory list = ".chains.8453.tokens";
+        ExpectedToken[] memory rows = tokenRows(build.render(), ".chains.8453");
         uint256 n = LibTokenInvariants.productionTokensBase().length;
         bool sawMc;
         bool sawMstr;
         for (uint256 i = 0; i < n; i++) {
-            string memory row = index(list, i);
-            bytes32 underlying = keccak256(bytes(vm.parseJsonString(json, string.concat(row, ".underlying"))));
-            address authoriser = vm.parseJsonAddress(json, string.concat(row, ".authoriser"));
+            bytes32 underlying = keccak256(bytes(rows[i].underlying));
+            address authoriser = rows[i].authoriser;
             if (underlying == keccak256("MC")) {
                 assertEq(authoriser, 0xDB9152e46c1D140DB6a6f814461f21c571F3275e);
                 sawMc = true;
@@ -464,19 +558,17 @@ contract BuildExpectedStateTest is Test {
 
     /// Fixed examples on Base: tMC is EU, tMSTR is US.
     function testBaseMcRegionIsEuAndMstrRegionIsUs() external {
-        string memory json = build.render();
-        string memory list = ".chains.8453.tokens";
+        ExpectedToken[] memory rows = tokenRows(build.render(), ".chains.8453");
         uint256 n = LibTokenInvariants.productionTokensBase().length;
         bool sawMc;
         bool sawMstr;
         for (uint256 i = 0; i < n; i++) {
-            string memory row = index(list, i);
-            bytes32 underlying = keccak256(bytes(field(json, row, "underlying")));
+            bytes32 underlying = keccak256(bytes(rows[i].underlying));
             if (underlying == keccak256("MC")) {
-                assertEq(field(json, row, "region"), "EU");
+                assertEq(rows[i].region, "EU");
                 sawMc = true;
             } else if (underlying == keccak256("MSTR")) {
-                assertEq(field(json, row, "region"), "US");
+                assertEq(rows[i].region, "US");
                 sawMstr = true;
             }
         }
@@ -490,58 +582,71 @@ contract BuildExpectedStateTest is Test {
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[c].chainId);
-            string memory list = string.concat(chain(nets[c]), ".tokens");
+            ExpectedTokenMetadata[] memory rows = abi.decode(
+                vm.parseJsonTypeArray(json, string.concat(chain(nets[c]), ".tokens"), TOKEN_METADATA_JSON),
+                (ExpectedTokenMetadata[])
+            );
             // 0G has no rename migration (`testZerogHasNoRenameMigration`).
             bool chainRenames = LibRainDeploy.hasChainId(
                 LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
             );
             for (uint256 i = 0; i < tokens.length; i++) {
+                TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
+                TokenMetadataState state = tokens[i].receiptVault == LibProdTokenParams.tokenAddress(config)
+                    ? TokenMetadataState.Listed
+                    : TokenMetadataState.Initialized;
                 assertTokenMetadata(
-                    json,
-                    index(list, i),
-                    LibProdTokenConfig.configOf(tokens[i].underlying),
-                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i)
+                    rows[i],
+                    config,
+                    state,
+                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i) ? TokenMetadataState.Renamed : state
                 );
             }
         }
     }
 
-    function assertTokenMetadata(string memory json, string memory row, TokenConfig memory config, bool renames)
-        internal
-        pure
-    {
-        string memory symbol = field(json, row, "symbol");
+    function assertTokenMetadata(
+        ExpectedTokenMetadata memory metadata,
+        TokenConfig memory config,
+        TokenMetadataState state,
+        TokenMetadataState renamedState
+    ) internal pure {
         assertMetadataState(
             config,
-            false,
-            field(json, row, "name"),
-            symbol,
-            field(json, row, "wrappedTokenVaultName"),
-            field(json, row, "wrappedTokenVaultSymbol")
+            state,
+            metadata.name,
+            metadata.symbol,
+            metadata.wrappedTokenVaultName,
+            metadata.wrappedTokenVaultSymbol
         );
-        string memory renamedName = field(json, row, "renamedName");
         assertMetadataState(
             config,
-            renames,
-            renamedName,
-            symbol,
-            field(json, row, "wrappedTokenVaultRenamedName"),
-            field(json, row, "wrappedTokenVaultRenamedSymbol")
+            renamedState,
+            metadata.renamedName,
+            metadata.symbol,
+            metadata.wrappedTokenVaultRenamedName,
+            metadata.wrappedTokenVaultRenamedSymbol
         );
-        assertEq(LibTestTokenMetadata.vaultRenamed(config, renamedName), renames);
+        if (state == TokenMetadataState.Initialized) {
+            assertEq(
+                LibTestTokenMetadata.vaultRenamed(config, metadata.renamedName),
+                renamedState == TokenMetadataState.Renamed
+            );
+        }
     }
 
     function assertMetadataState(
         TokenConfig memory config,
-        bool renamed,
+        TokenMetadataState state,
         string memory name,
         string memory symbol,
         string memory wrappedName,
         string memory wrappedSymbol
     ) internal pure {
-        assertEq(name, LibTokenMetadata.vaultName(config, renamed));
-        assertEq(wrappedName, LibTokenMetadata.wrappedName(config, renamed));
-        assertEq(wrappedSymbol, LibTokenMetadata.wrappedSymbol(config, renamed));
+        assertEq(name, LibTokenMetadata.vaultName(config, state));
+        assertEq(symbol, LibTokenMetadata.vaultSymbol(config, state));
+        assertEq(wrappedName, LibTokenMetadata.wrappedName(config, state));
+        assertEq(wrappedSymbol, LibTokenMetadata.wrappedSymbol(config, state));
         assertTrue(LibTestTokenMetadata.consistent(config, name, symbol, wrappedName, wrappedSymbol));
     }
 
@@ -549,17 +654,11 @@ contract BuildExpectedStateTest is Test {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
-            string memory list = string.concat(chain(nets[c]), ".tokens");
+            ExpectedToken[] memory rows = tokenRows(json, chain(nets[c]));
             uint256 n = LibTokenInvariants.productionTokensForChainId(nets[c].chainId).length;
             for (uint256 i = 0; i < n; i++) {
-                string memory row = index(list, i);
-                assertEq(
-                    vm.parseJsonUint(json, string.concat(row, ".decimals")), LibTokenMetadata.RECEIPT_VAULT_DECIMALS
-                );
-                assertEq(
-                    vm.parseJsonUint(json, string.concat(row, ".wrappedTokenVaultDecimals")),
-                    LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS
-                );
+                assertEq(rows[i].decimals, LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
+                assertEq(rows[i].wrappedTokenVaultDecimals, LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
             }
         }
     }
@@ -569,14 +668,11 @@ contract BuildExpectedStateTest is Test {
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(nets[c].chainId);
-            string memory list = string.concat(chain(nets[c]), ".tokens");
+            ExpectedToken[] memory rows = tokenRows(json, chain(nets[c]));
             for (uint256 i = 0; i < tokens.length; i++) {
-                string memory row = index(list, i);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptVaultReceipt")), tokens[i].receipt);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptManager")), tokens[i].receiptVault);
-                assertEq(
-                    vm.parseJsonAddress(json, string.concat(row, ".wrappedTokenVaultAsset")), tokens[i].receiptVault
-                );
+                assertEq(rows[i].receiptVaultReceipt, tokens[i].receipt);
+                assertEq(rows[i].receiptManager, tokens[i].receiptVault);
+                assertEq(rows[i].wrappedTokenVaultAsset, tokens[i].receiptVault);
             }
         }
     }
@@ -589,41 +685,32 @@ contract BuildExpectedStateTest is Test {
             uint256 id = nets[c].chainId;
             string memory at = chain(nets[c]);
             address[4] memory resolved = resolvedBeacons(id);
-            address receiptBeacon = beaconRow(json, at, LibBeaconInvariants.RECEIPT_BEACON_INDEX);
-            address vaultBeacon = beaconRow(json, at, LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX);
-            address wrapperBeacon = beaconRow(json, at, LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX);
+            ExpectedBeacon[] memory beacons = beaconRows(json, at);
+            address receiptBeacon = beacons[LibBeaconInvariants.RECEIPT_BEACON_INDEX].beacon;
+            address vaultBeacon = beacons[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX].beacon;
+            address wrapperBeacon = beacons[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX].beacon;
             assertEq(receiptBeacon, resolved[LibBeaconInvariants.RECEIPT_BEACON_INDEX]);
             assertEq(vaultBeacon, resolved[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]);
             assertEq(wrapperBeacon, resolved[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]);
-            string memory list = string.concat(at, ".tokens");
+            ExpectedToken[] memory rows = tokenRows(json, at);
             uint256 n = LibTokenInvariants.productionTokensForChainId(id).length;
             for (uint256 i = 0; i < n; i++) {
-                string memory row = index(list, i);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptBeacon")), receiptBeacon);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".receiptVaultBeacon")), vaultBeacon);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".wrappedTokenVaultBeacon")), wrapperBeacon);
+                assertEq(rows[i].receiptBeacon, receiptBeacon);
+                assertEq(rows[i].receiptVaultBeacon, vaultBeacon);
+                assertEq(rows[i].wrappedTokenVaultBeacon, wrapperBeacon);
             }
         }
     }
 
     /// Base's token proxies are the V1 build, pinned by codehash.
     function testBaseTokenLegCodehashesAreTheV1ProxyPins() external {
-        string memory json = build.render();
-        string memory list = ".chains.8453.tokens";
+        ExpectedToken[] memory rows = tokenRows(build.render(), ".chains.8453");
         uint256 n = LibTokenInvariants.productionTokensBase().length;
         for (uint256 i = 0; i < n; i++) {
-            string memory row = index(list, i);
+            assertEq(rows[i].receiptCodehash, LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1);
+            assertEq(rows[i].receiptVaultCodehash, LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1);
             assertEq(
-                vm.parseJsonBytes32(json, string.concat(row, ".receiptCodehash")),
-                LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1
-            );
-            assertEq(
-                vm.parseJsonBytes32(json, string.concat(row, ".receiptVaultCodehash")),
-                LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1
-            );
-            assertEq(
-                vm.parseJsonBytes32(json, string.concat(row, ".wrappedTokenVaultCodehash")),
-                LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1
+                rows[i].wrappedTokenVaultCodehash, LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1
             );
         }
     }
@@ -640,53 +727,39 @@ contract BuildExpectedStateTest is Test {
             assertEq(vm.keyExistsJson(json, string.concat(chain(nets[c]), ".qsep")), isBase, nets[c].name);
         }
         assertTrue(sawBase);
-        string memory at = ".chains.8453.qsep";
+        ExpectedQsep memory qsep = abi.decode(vm.parseJsonType(json, ".chains.8453.qsep", QSEP_JSON), (ExpectedQsep));
         address vault = LibTokenInvariants.QSEP_RECEIPT_VAULT;
         address receipt = LibTokenInvariants.QSEP_RECEIPT;
-        assertEq(vm.parseJsonAddress(json, string.concat(at, ".receiptVault")), vault);
-        assertEq(vm.parseJsonAddress(json, string.concat(at, ".receipt")), receipt);
-        assertEq(
-            vm.parseJsonAddress(json, string.concat(at, ".wrappedTokenVault")),
-            LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT
-        );
-        assertEq(vm.parseJsonAddress(json, string.concat(at, ".receiptVaultReceipt")), receipt);
-        assertEq(vm.parseJsonAddress(json, string.concat(at, ".receiptManager")), vault);
-        assertEq(vm.parseJsonAddress(json, string.concat(at, ".wrappedTokenVaultAsset")), vault);
-        assertQsepBeacons(json, at);
-        assertEq(
-            vm.parseJsonBytes32(json, string.concat(at, ".receiptCodehash")),
-            LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1
-        );
-        assertEq(
-            vm.parseJsonBytes32(json, string.concat(at, ".receiptVaultCodehash")),
-            LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1
-        );
-        assertEq(
-            vm.parseJsonBytes32(json, string.concat(at, ".wrappedTokenVaultCodehash")),
-            LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1
-        );
-        address owner = vm.parseJsonAddress(json, string.concat(at, ".owner"));
-        assertEq(owner, LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID));
-        assertEq(owner, vm.parseJsonAddress(json, ".chains.8453.timelock.address"));
-        address authoriser = vm.parseJsonAddress(json, string.concat(at, ".authoriser"));
-        assertEq(authoriser, LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
-        assertEq(authoriser, vm.parseJsonAddress(json, ".chains.8453.authoriser.address"));
+        assertEq(qsep.receiptVault, vault);
+        assertEq(qsep.receipt, receipt);
+        assertEq(qsep.wrappedTokenVault, LibTokenInvariants.QSEP_WRAPPED_TOKEN_VAULT);
+        assertEq(qsep.receiptVaultReceipt, receipt);
+        assertEq(qsep.receiptManager, vault);
+        assertEq(qsep.wrappedTokenVaultAsset, vault);
+        assertQsepBeacons(json, qsep);
+        assertEq(qsep.receiptCodehash, LibProdDeployV1.PROD_STOX_RECEIPT_PROXY_BASE_CODEHASH_V1);
+        assertEq(qsep.receiptVaultCodehash, LibProdDeployV1.PROD_STOX_RECEIPT_VAULT_PROXY_BASE_CODEHASH_V1);
+        assertEq(qsep.wrappedTokenVaultCodehash, LibProdDeployV1.PROD_STOX_WRAPPED_TOKEN_VAULT_PROXY_BASE_CODEHASH_V1);
+        assertEq(qsep.owner, LibTimelockInvariants.timelockForChainId(LibSafeInvariants.BASE_CHAIN_ID));
+        assertEq(qsep.owner, vm.parseJsonAddress(json, ".chains.8453.timelock.address"));
+        assertEq(qsep.authoriser, LibAuthoriserInvariants.STOX_PROD_AUTHORISER);
+        assertEq(qsep.authoriser, vm.parseJsonAddress(json, ".chains.8453.authoriser.address"));
     }
 
     /// Each tQSEP leg's beacon is Base's beacon row for that leg, as Base's set deployer getters resolve it.
-    function assertQsepBeacons(string memory json, string memory at) internal {
+    function assertQsepBeacons(string memory json, ExpectedQsep memory qsep) internal {
         address[4] memory resolved = resolvedBeacons(LibSafeInvariants.BASE_CHAIN_ID);
-        string memory base = ".chains.8453";
+        ExpectedBeacon[] memory base = beaconRows(json, ".chains.8453");
         uint256[3] memory legs = [
             LibBeaconInvariants.RECEIPT_BEACON_INDEX,
             LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX,
             LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX
         ];
+        address[3] memory beacons = [qsep.receiptBeacon, qsep.receiptVaultBeacon, qsep.wrappedTokenVaultBeacon];
         string[3] memory keys = ["receiptBeacon", "receiptVaultBeacon", "wrappedTokenVaultBeacon"];
         for (uint256 i = 0; i < legs.length; i++) {
-            address beacon = vm.parseJsonAddress(json, string.concat(at, ".", keys[i]));
-            assertEq(beacon, beaconRow(json, base, legs[i]), keys[i]);
-            assertEq(beacon, resolved[legs[i]], keys[i]);
+            assertEq(beacons[i], base[legs[i]].beacon, keys[i]);
+            assertEq(beacons[i], resolved[legs[i]], keys[i]);
         }
     }
 
@@ -713,15 +786,15 @@ contract BuildExpectedStateTest is Test {
         assertNotEq(setDeployer, address(0));
         bytes32 receiptHash = registryBeaconProxyCodehash(vm.computeCreateAddress(setDeployer, 1));
         bytes32 vaultHash = registryBeaconProxyCodehash(vm.computeCreateAddress(setDeployer, 2));
-        bytes32 wrapperHash =
-            registryBeaconProxyCodehash(beaconRow(json, at, LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX));
-        string memory list = string.concat(at, ".tokens");
+        bytes32 wrapperHash = registryBeaconProxyCodehash(
+            beaconRows(json, at)[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX].beacon
+        );
+        ExpectedToken[] memory rows = tokenRows(json, at);
         uint256 n = LibTokenInvariants.productionTokensForChainId(network.chainId).length;
         for (uint256 i = 0; i < n; i++) {
-            string memory row = index(list, i);
-            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".receiptCodehash")), receiptHash);
-            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".receiptVaultCodehash")), vaultHash);
-            assertEq(vm.parseJsonBytes32(json, string.concat(row, ".wrappedTokenVaultCodehash")), wrapperHash);
+            assertEq(rows[i].receiptCodehash, receiptHash);
+            assertEq(rows[i].receiptVaultCodehash, vaultHash);
+            assertEq(rows[i].wrappedTokenVaultCodehash, wrapperHash);
         }
     }
 
@@ -741,24 +814,40 @@ contract BuildExpectedStateTest is Test {
     /// The underlying naming's batches were cut for the networks before 0G only: on 0G each beacon's
     /// `renamedImplementation` is its implementation, and a token's renamed metadata is its current metadata.
     function testZerogRenamesNothing() external {
-        string memory json = build.render();
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
-        string memory at = string.concat(".chains.", vm.toString(id));
-        string memory list = string.concat(at, ".beacons");
+        ExpectedBeacon[] memory beacons = beaconRows(build.render(), string.concat(".chains.", vm.toString(id)));
         for (uint256 i = 0; i < 4; i++) {
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(index(list, i), ".renamedImplementation")),
-                vm.parseJsonAddress(json, string.concat(index(list, i), ".implementation"))
-            );
+            assertEq(beacons[i].renamedImplementation, beacons[i].implementation);
         }
 
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         assertTrue(LibUnderlyingNamingRollout.renamesRow(0), "row 0 renames on a full line");
+        TokenInstance memory token = LibTokenInvariants.productionTokensForChainId(id)[0];
+        assertEq(token.underlying, "MSTR");
         TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
-        string memory zerog = harness.tokenMetadata(id, 0, "MSTR");
-        assertTokenMetadata(zerog, "", config, false);
-        string memory base = harness.tokenMetadata(LibSafeInvariants.BASE_CHAIN_ID, 0, "MSTR");
-        assertTokenMetadata(base, "", config, true);
+        string memory zerog = harness.tokenMetadata(id, 0, token);
+        assertTokenMetadata(
+            tokenMetadataOf(zerog), config, TokenMetadataState.Initialized, TokenMetadataState.Initialized
+        );
+        string memory base = harness.tokenMetadata(LibSafeInvariants.BASE_CHAIN_ID, 0, token);
+        assertTokenMetadata(tokenMetadataOf(base), config, TokenMetadataState.Initialized, TokenMetadataState.Renamed);
+    }
+
+    /// A token at its suite's address was initialized from the row's listing, so its metadata is the
+    /// listed state.
+    function testATokenAtItsSuiteAddressIsListed() external {
+        BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
+        TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
+        TokenInstance memory token = TokenInstance({
+            underlying: "MSTR",
+            receipt: address(0),
+            receiptVault: LibProdTokenParams.tokenAddress(config),
+            wrappedTokenVault: address(0)
+        });
+        ExpectedTokenMetadata memory zerog =
+            tokenMetadataOf(harness.tokenMetadata(LibSafeInvariants.ZEROG_CHAIN_ID, 0, token));
+        assertTokenMetadata(zerog, config, TokenMetadataState.Listed, TokenMetadataState.Listed);
+        assertEq(zerog.symbol, string.concat("t", config.listingTicker));
     }
 
     function testV2IsTheV2NetworksKeyedByChainId() external {
@@ -804,13 +893,12 @@ contract BuildExpectedStateTest is Test {
         codehashes[8] = LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_PAYMENT_MINT_AUTHORIZER_V1_CODEHASH;
         SupportedNetwork[] memory v2 = v2Networks();
         for (uint256 c = 0; c < v2.length; c++) {
-            string memory list = string.concat(v2Chain(v2[c]), ".deployments");
-            assertFalse(vm.keyExistsJson(json, index(list, keys.length)));
+            ExpectedDeployment[] memory rows = deploymentRows(json, string.concat(v2Chain(v2[c]), ".deployments"));
+            assertEq(rows.length, keys.length);
             for (uint256 i = 0; i < keys.length; i++) {
-                string memory row = index(list, i);
-                assertEq(vm.parseJsonString(json, string.concat(row, ".key")), keys[i]);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".address")), addresses[i]);
-                assertEq(vm.parseJsonBytes32(json, string.concat(row, ".codehash")), codehashes[i]);
+                assertEq(rows[i].key, keys[i]);
+                assertEq(rows[i].addr, addresses[i]);
+                assertEq(rows[i].codehash, codehashes[i]);
             }
         }
     }
@@ -840,33 +928,29 @@ contract BuildExpectedStateTest is Test {
             bool isBase = v2[c].chainId == LibSafeInvariants.BASE_CHAIN_ID;
             sawBase = sawBase || isBase;
             address setDeployer = vm.parseJsonAddress(json, string.concat(at, ".beaconSetDeployer"));
+            ExpectedDeployment[] memory deployments = deploymentRows(json, string.concat(at, ".deployments"));
             assertEq(setDeployer, LibProdDeployV2.STOX_OFFCHAIN_ASSET_RECEIPT_VAULT_BEACON_SET_DEPLOYER);
-            assertEq(setDeployer, vm.parseJsonAddress(json, string.concat(at, ".deployments[5].address")));
+            assertEq(setDeployer, deployments[5].addr);
             assertV2Beacon(
-                json,
-                string.concat(at, ".receiptBeacon"),
+                v2BeaconOf(json, string.concat(at, ".receiptBeacon")),
                 receiptBeacon,
                 isBase ? LibProdDeployV2BaseOverrides.RECEIPT_BEACON_IMPLEMENTATION : LibProdDeployV2.STOX_RECEIPT,
                 isBase ? LibProdDeployV2BaseOverrides.RECEIPT_BEACON_OWNER : LibProdDeployV2.BEACON_INITIAL_OWNER
             );
             assertV2Beacon(
-                json,
-                string.concat(at, ".receiptVaultBeacon"),
+                v2BeaconOf(json, string.concat(at, ".receiptVaultBeacon")),
                 vaultBeacon,
                 isBase ? LibProdDeployV2BaseOverrides.VAULT_BEACON_IMPLEMENTATION : LibProdDeployV2.STOX_RECEIPT_VAULT,
                 isBase ? LibProdDeployV2BaseOverrides.VAULT_BEACON_OWNER : LibProdDeployV2.BEACON_INITIAL_OWNER
             );
+            ExpectedV2Beacon memory wrapper = v2BeaconOf(json, string.concat(at, ".wrappedTokenVaultBeacon"));
             assertV2Beacon(
-                json,
-                string.concat(at, ".wrappedTokenVaultBeacon"),
-                vm.parseJsonAddress(json, string.concat(at, ".deployments[4].address")),
+                wrapper,
+                deployments[4].addr,
                 LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT,
                 LibProdDeployV2.BEACON_INITIAL_OWNER
             );
-            assertEq(
-                vm.parseJsonAddress(json, string.concat(at, ".wrappedTokenVaultBeacon.beacon")),
-                LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON
-            );
+            assertEq(wrapper.beacon, LibProdDeployV2.STOX_WRAPPED_TOKEN_VAULT_BEACON);
         }
         assertTrue(sawBase);
     }
@@ -879,15 +963,13 @@ contract BuildExpectedStateTest is Test {
         for (uint256 c = 0; c < nets.length; c++) {
             DeploySuite[] memory suites = expectedZoltu(nets[c]);
             assertGt(suites.length, 0);
-            string memory list = string.concat(chain(nets[c]), ".zoltu");
-            assertFalse(vm.keyExistsJson(json, index(list, suites.length)));
+            ExpectedDeployment[] memory rows = deploymentRows(json, string.concat(chain(nets[c]), ".zoltu"));
+            assertEq(rows.length, suites.length);
             for (uint256 i = 0; i < suites.length; i++) {
-                string memory row = index(list, i);
-                assertEq(vm.parseJsonString(json, string.concat(row, ".key")), suites[i].suite);
-                assertEq(vm.parseJsonAddress(json, string.concat(row, ".address")), suites[i].storedDeployedAddress);
-                bytes32 codehash = vm.parseJsonBytes32(json, string.concat(row, ".codehash"));
-                assertEq(codehash, suites[i].storedBytecodeHash);
-                assertEq(codehash, keccak256(suites[i].storedRuntimeCode));
+                assertEq(rows[i].key, suites[i].suite);
+                assertEq(rows[i].addr, suites[i].storedDeployedAddress);
+                assertEq(rows[i].codehash, suites[i].storedBytecodeHash);
+                assertEq(rows[i].codehash, keccak256(suites[i].storedRuntimeCode));
             }
         }
     }
@@ -899,41 +981,44 @@ contract BuildExpectedStateTest is Test {
             uint256 id = nets[c].chainId;
             address safe = LibSafeInvariants.safeForChainId(id);
             string memory list = string.concat(chain(nets[c]), ".registryDelegates");
-            assertFalse(vm.keyExistsJson(json, index(list, 3)));
+            ExpectedRegistryDelegate[] memory rows =
+                abi.decode(vm.parseJsonTypeArray(json, list, REGISTRY_DELEGATE_JSON), (ExpectedRegistryDelegate[]));
+            assertEq(rows.length, 3);
+            assertRegistryDelegate(rows[0], LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, safe, true);
             assertRegistryDelegate(
-                json, index(list, 0), LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, safe, true
-            );
-            assertRegistryDelegate(
-                json,
-                index(list, 1),
+                rows[1],
                 LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS,
                 LibTimelockInvariants.timelockForChainId(id),
                 false
             );
             assertEq(vm.parseJsonBytes32(json, string.concat(index(list, 1), ".scope")), LibStoxMigrations.NAMESPACE);
-            assertRegistryDelegate(
-                json, index(list, 2), LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, safe, true
-            );
+            assertRegistryDelegate(rows[2], LibConfigRegistryDeploy.CONFIG_REGISTRY_DEPLOYED_ADDRESS, safe, true);
         }
     }
 
     function assertRegistryDelegate(
-        string memory json,
-        string memory row,
+        ExpectedRegistryDelegate memory row,
         address registry,
         address delegate,
         bool unscoped
     ) internal pure {
-        assertEq(vm.parseJsonAddress(json, string.concat(row, ".registry")), registry);
-        assertEq(vm.parseJsonAddress(json, string.concat(row, ".account")), LibRegistryAuthority.ROOT_AUTHORITY);
-        assertEq(vm.parseJsonAddress(json, string.concat(row, ".delegate")), delegate);
-        assertEq(vm.parseJsonBool(json, string.concat(row, ".unscoped")), unscoped);
+        assertEq(row.registry, registry);
+        assertEq(row.account, LibRegistryAuthority.ROOT_AUTHORITY);
+        assertEq(row.delegate, delegate);
+        assertEq(row.unscoped, unscoped);
     }
 
     function testUnknownUnderlyingRevertsTyped() external {
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
-        harness.callTokenMetadataJson(LibSafeInvariants.BASE_CHAIN_ID, "row", 0, "NOPE");
+        harness.callTokenMetadataJson(
+            LibSafeInvariants.BASE_CHAIN_ID,
+            "row",
+            0,
+            TokenInstance({
+                underlying: "NOPE", receipt: address(0), receiptVault: address(0), wrappedTokenVault: address(0)
+            })
+        );
     }
 
     function testRunWritesTheRender() external {
@@ -975,26 +1060,34 @@ contract BuildExpectedStateTest is Test {
         return false;
     }
 
-    function zoltuAddressOf(string memory json, string memory at, string memory key) external view returns (address) {
-        return zoltuAddress(json, at, key);
+    function zoltuAddressOf(ExpectedDeployment[] memory rows, string memory key) external pure returns (address) {
+        return zoltuAddress(rows, key);
     }
 
-    function zoltuAddress(string memory json, string memory at, string memory key) internal view returns (address) {
-        string memory list = string.concat(at, ".zoltu");
-        for (uint256 i = 0; vm.keyExistsJson(json, index(list, i)); i++) {
-            string memory row = index(list, i);
-            if (keccak256(bytes(vm.parseJsonString(json, string.concat(row, ".key")))) == keccak256(bytes(key))) {
-                return vm.parseJsonAddress(json, string.concat(row, ".address"));
+    function zoltuAddress(ExpectedDeployment[] memory rows, string memory key) internal pure returns (address) {
+        for (uint256 i = 0; i < rows.length; i++) {
+            if (keccak256(bytes(rows[i].key)) == keccak256(bytes(key))) {
+                return rows[i].addr;
             }
         }
         revert ZoltuRowMissing(key);
     }
 
-    function assertKeys(string memory json, string memory at, string[] memory expected) internal view {
-        assertEq(vm.parseJsonKeys(json, bytes(at).length == 0 ? "$" : at).length, expected.length, at);
+    function assertKeys(string memory json, string memory at, string[] memory expected) internal pure {
+        string[] memory keys = vm.parseJsonKeys(json, bytes(at).length == 0 ? "$" : at);
+        assertEq(keys.length, expected.length, at);
         for (uint256 i = 0; i < expected.length; i++) {
-            assertTrue(vm.keyExistsJson(json, string.concat(at, ".", expected[i])), string.concat(at, ".", expected[i]));
+            assertTrue(contains(keys, expected[i]), string.concat(at, ".", expected[i]));
         }
+    }
+
+    function contains(string[] memory keys, string memory key) internal pure returns (bool) {
+        for (uint256 i = 0; i < keys.length; i++) {
+            if (keccak256(bytes(keys[i])) == keccak256(bytes(key))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     function assertRowKeys(string memory json, string memory list, uint256 rows, string[] memory expected)
@@ -1007,8 +1100,46 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    function field(string memory json, string memory row, string memory key) internal pure returns (string memory) {
-        return vm.parseJsonString(json, string.concat(row, ".", key));
+    function tokenRows(string memory json, string memory at) internal pure returns (ExpectedToken[] memory) {
+        return abi.decode(vm.parseJsonTypeArray(json, string.concat(at, ".tokens"), TOKEN_JSON), (ExpectedToken[]));
+    }
+
+    function tokenMetadataOf(string memory json) internal pure returns (ExpectedTokenMetadata memory) {
+        return abi.decode(vm.parseJsonType(json, TOKEN_METADATA_JSON), (ExpectedTokenMetadata));
+    }
+
+    function beaconRows(string memory json, string memory at) internal pure returns (ExpectedBeacon[] memory) {
+        return abi.decode(vm.parseJsonTypeArray(json, string.concat(at, ".beacons"), BEACON_JSON), (ExpectedBeacon[]));
+    }
+
+    function deploymentRows(string memory json, string memory list)
+        internal
+        pure
+        returns (ExpectedDeployment[] memory)
+    {
+        return abi.decode(vm.parseJsonTypeArray(json, list, DEPLOYMENT_JSON), (ExpectedDeployment[]));
+    }
+
+    function safeOf(string memory json, string memory at) internal pure returns (ExpectedSafe memory) {
+        return abi.decode(vm.parseJsonType(json, string.concat(at, ".safe"), SAFE_JSON), (ExpectedSafe));
+    }
+
+    function timelockOf(string memory json, string memory at) internal pure returns (ExpectedTimelock memory) {
+        return abi.decode(vm.parseJsonType(json, string.concat(at, ".timelock"), TIMELOCK_JSON), (ExpectedTimelock));
+    }
+
+    function orchestratorOf(string memory json, string memory at) internal pure returns (ExpectedOrchestrator memory) {
+        return abi.decode(
+            vm.parseJsonType(json, string.concat(at, ".orchestrator"), ORCHESTRATOR_JSON), (ExpectedOrchestrator)
+        );
+    }
+
+    function authoriserOf(string memory json, string memory key) internal pure returns (ExpectedAuthoriser memory) {
+        return abi.decode(vm.parseJsonType(json, key, AUTHORISER_JSON), (ExpectedAuthoriser));
+    }
+
+    function v2BeaconOf(string memory json, string memory key) internal pure returns (ExpectedV2Beacon memory) {
+        return abi.decode(vm.parseJsonType(json, key, V2_BEACON_JSON), (ExpectedV2Beacon));
     }
 
     /// The chain's beacons as its set deployer getters resolve them on a local build of the chain's beacons.
@@ -1018,10 +1149,6 @@ contract BuildExpectedStateTest is Test {
         address[4] memory resolved = LibBeaconInvariants.prodBeaconsForChainId(chainId);
         vm.revertToState(snapshot);
         return resolved;
-    }
-
-    function beaconRow(string memory json, string memory at, uint256 i) internal pure returns (address) {
-        return vm.parseJsonAddress(json, string.concat(index(string.concat(at, ".beacons"), i), ".beacon"));
     }
 
     /// The codehash of a `RegistryBeaconProxy` over `beacon`, its code checked to be one by extrospection.
@@ -1035,13 +1162,13 @@ contract BuildExpectedStateTest is Test {
         return keccak256(code);
     }
 
-    function assertV2Beacon(string memory json, string memory at, address beacon, address implementation, address owner)
+    function assertV2Beacon(ExpectedV2Beacon memory row, address beacon, address implementation, address owner)
         internal
         pure
     {
-        assertEq(vm.parseJsonAddress(json, string.concat(at, ".beacon")), beacon);
-        assertEq(vm.parseJsonAddress(json, string.concat(at, ".implementation")), implementation);
-        assertEq(vm.parseJsonAddress(json, string.concat(at, ".owner")), owner);
+        assertEq(row.beacon, beacon);
+        assertEq(row.implementation, implementation);
+        assertEq(row.owner, owner);
     }
 
     function chainFields(uint256 chainId) internal pure returns (string[] memory) {

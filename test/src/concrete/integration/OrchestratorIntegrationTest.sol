@@ -108,7 +108,7 @@ abstract contract OrchestratorIntegrationTest is St0xAttestSubParserTest {
         // the beacon the guard version-locks against.
         vault = LibTestDeploy.newVault(
             LibRegistryAuthority.ROOT_AUTHORITY,
-            LibTestDeploy.vaultData("Test tStock", "tTEST", LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME)
+            LibTestDeploy.vaultData("US0378331005", "TEST", "Test", LibRegistryAuthority.ROOT_AUTHORITY, RBAC_NAME)
         );
         receipt = IERC1155(address(vault.receipt()));
 

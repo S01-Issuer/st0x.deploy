@@ -25,6 +25,7 @@ import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
 import {LibStoxConfig} from "../src/lib/LibStoxConfig.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
+import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 
 error TimelockInitialProposerMismatch(address bound, address expected);
 error BeaconInitialOwnerMismatch(address bound, address expected);
@@ -39,8 +40,11 @@ error RbacAuthorizerMismatch(bytes32 name, address bound, address expected);
 /// `DEPLOYMENT_SUITE` names to every network it is declared on. Before each
 /// network it refuses unless every registry binding the suite's construction or
 /// initialisation resolves is bound to this repo's pin for that chain (an
-/// unbound name reverts in the registry), and, for beacon and token suites,
-/// unless the governance timelock that owns them is in its pinned state.
+/// unbound name reverts in the registry), and, for beacon, token and wrapper
+/// suites, unless the governance timelock that owns them is in its pinned
+/// state, and, for token and wrapper suites, unless the bound vault, receipt or
+/// wrapper beacon is owned by the governance timelock and serves its pinned
+/// implementation and code.
 contract Deploy is StoxDeploySuites, RainDeployBroadcast {
     /// @notice `StoxDeploySuites.declaration`, with the run's networks narrowed
     /// to those the suite `requestedSuite` names is declared on. A run
@@ -121,6 +125,14 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         if (wrapperBeacon != LibProdTokenParams.wrapperBeacon()) {
             revert WrapperBeaconMismatch(wrapperBeacon, LibProdTokenParams.wrapperBeacon());
         }
+        // Whoever owns the wrapper beacon upgrades every wrapper behind it.
+        LibBeaconInvariants.assertBeaconInvariants(
+            wrapperBeacon,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT,
+            LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT_BEACON_CODEHASH
+        );
+        checkGovernanceTimelock();
     }
 
     function checkToken(Region region) internal view {
@@ -128,10 +140,24 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
         if (vaultBeacon != LibProdTokenParams.vaultBeacon()) {
             revert VaultBeaconMismatch(vaultBeacon, LibProdTokenParams.vaultBeacon());
         }
+        // Whoever owns the vault beacon upgrades every vault behind it.
+        LibBeaconInvariants.assertBeaconInvariants(
+            vaultBeacon,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT,
+            LibProdDeployCurrent.STOX_RECEIPT_VAULT_BEACON_CODEHASH
+        );
         address receiptBeacon = boundAddress(LibStoxConfig.RECEIPT_BEACON_NAME);
         if (receiptBeacon != LibProdDeployCurrent.STOX_RECEIPT_BEACON) {
             revert ReceiptBeaconMismatch(receiptBeacon, LibProdDeployCurrent.STOX_RECEIPT_BEACON);
         }
+        // Whoever owns the receipt beacon upgrades every receipt behind it.
+        LibBeaconInvariants.assertBeaconInvariants(
+            receiptBeacon,
+            LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK,
+            LibProdDeployCurrent.STOX_RECEIPT,
+            LibProdDeployCurrent.STOX_RECEIPT_BEACON_CODEHASH
+        );
         bytes32 rbacName = region == Region.US ? LibStoxConfig.RBAC_US_NAME : LibStoxConfig.RBAC_EU_NAME;
         address expectedAuthorizer = region == Region.US
             ? LibAuthoriserInvariants.authoriserForChainId(block.chainid)
@@ -156,6 +182,8 @@ contract Deploy is StoxDeploySuites, RainDeployBroadcast {
 
     /// @notice Reverts unless the governance timelock that owns the beacons and token RBACs has its pinned code,
     /// delay and roles, with the chain's pinned Safe address as proposer; the Safe's own policy is not checked here.
+    /// @dev `AccessControl` cannot list a role's members, so this proves the Safe holds its roles, not that no other
+    /// account holds them.
     function checkGovernanceTimelock() internal view {
         LibTimelockInvariants.assertTimelockState(
             LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, LibSafeInvariants.safeForChainId(block.chainid)

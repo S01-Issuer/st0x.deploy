@@ -3,10 +3,10 @@
 pragma solidity ^0.8.25;
 
 import {TokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
-import {LibTokenMetadata} from "../../src/lib/LibTokenMetadata.sol";
+import {LibTokenMetadata, TokenMetadataState} from "../../src/lib/LibTokenMetadata.sol";
 
 /// @title LibTestTokenMetadata
-/// @notice Judges live name/symbol values against the two states
+/// @notice Judges live name/symbol values against the states
 /// `LibTokenMetadata` derives.
 library LibTestTokenMetadata {
     /// @notice Whether the receipt vault's name is the renamed one. In the
@@ -19,8 +19,9 @@ library LibTestTokenMetadata {
         return eq(liveVaultName, LibTokenMetadata.renamedName(config));
     }
 
-    /// @notice Whether the four live values are exactly one of the two
-    /// states, with the receipt vault and the wrapper in the same state.
+    /// @notice Whether the four live values are one
+    /// `TokenMetadataState`, with the receipt vault and the wrapper in the
+    /// same state.
     /// @param config The token's row.
     /// @param liveVaultName The receipt vault's live `name()`.
     /// @param liveVaultSymbol The receipt vault's live `symbol()`.
@@ -34,11 +35,16 @@ library LibTestTokenMetadata {
         string memory liveWrappedName,
         string memory liveWrappedSymbol
     ) internal pure returns (bool) {
-        if (!eq(liveVaultSymbol, config.symbol)) return false;
-        bool renamed = vaultRenamed(config, liveVaultName);
-        return eq(liveVaultName, LibTokenMetadata.vaultName(config, renamed))
-            && eq(liveWrappedName, LibTokenMetadata.wrappedName(config, renamed))
-            && eq(liveWrappedSymbol, LibTokenMetadata.wrappedSymbol(config, renamed));
+        for (uint256 stateIndex = 0; stateIndex <= uint256(type(TokenMetadataState).max); stateIndex++) {
+            TokenMetadataState state = TokenMetadataState(stateIndex);
+            if (
+                eq(liveVaultName, LibTokenMetadata.vaultName(config, state))
+                    && eq(liveVaultSymbol, LibTokenMetadata.vaultSymbol(config, state))
+                    && eq(liveWrappedName, LibTokenMetadata.wrappedName(config, state))
+                    && eq(liveWrappedSymbol, LibTokenMetadata.wrappedSymbol(config, state))
+            ) return true;
+        }
+        return false;
     }
 
     /// @notice String equality.

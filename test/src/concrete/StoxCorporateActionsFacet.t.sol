@@ -185,31 +185,23 @@ contract StoxCorporateActionsFacetTest is Test {
     // `FacetMustBeDelegatecalled` when invoked directly on the standalone
     // facet deployment (i.e. not via the vault's delegatecall).
 
-    /// Every entry point, views included, reverts with
+    /// Every entry point in the facet's ABI, views included, reverts with
     /// `FacetMustBeDelegatecalled` on the standalone facet, before any
     /// authorizer lookup.
     function testEveryEntryPointDirectCallReverts() external {
-        bytes[9] memory calls = [
-            abi.encodeWithSelector(StoxCorporateActionsFacet.completedActionCount.selector),
-            abi.encodeCall(
-                StoxCorporateActionsFacet.scheduleCorporateAction,
-                (STOCK_SPLIT_V1_TYPE_HASH, uint64(block.timestamp + 1), bytes(""))
-            ),
-            abi.encodeCall(StoxCorporateActionsFacet.cancelCorporateAction, (1)),
-            abi.encodeCall(StoxCorporateActionsFacet.latestActionOfType, (type(uint256).max, CompletionFilter.ALL)),
-            abi.encodeCall(StoxCorporateActionsFacet.earliestActionOfType, (type(uint256).max, CompletionFilter.ALL)),
-            abi.encodeCall(StoxCorporateActionsFacet.nextOfType, (NODE_NONE, type(uint256).max, CompletionFilter.ALL)),
-            abi.encodeCall(StoxCorporateActionsFacet.prevOfType, (NODE_NONE, type(uint256).max, CompletionFilter.ALL)),
-            abi.encodeCall(StoxCorporateActionsFacet.getActionParameters, (1)),
-            abi.encodeWithSelector(StoxCorporateActionsFacet.cumulativeBalanceMultiplierSinceGenesis.selector)
-        ];
-        for (uint256 i = 0; i < calls.length; i++) {
-            (bool success, bytes memory returnData) = address(facetImpl).call(calls[i]);
-            assertFalse(success, vm.toString(i));
+        string[] memory signatures = vm.parseJsonKeys(
+            vm.readFile("out/StoxCorporateActionsFacet.sol/StoxCorporateActionsFacet.json"), ".methodIdentifiers"
+        );
+        assertGt(signatures.length, 0);
+        for (uint256 i = 0; i < signatures.length; i++) {
+            // Zeroed arguments decode for every signature: each dynamic offset points at a zero length.
+            (bool success, bytes memory returnData) =
+                address(facetImpl).call(abi.encodePacked(bytes4(keccak256(bytes(signatures[i]))), new bytes(0x100)));
+            assertFalse(success, signatures[i]);
             assertEq(
                 returnData,
                 abi.encodeWithSelector(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector),
-                vm.toString(i)
+                signatures[i]
             );
         }
     }
