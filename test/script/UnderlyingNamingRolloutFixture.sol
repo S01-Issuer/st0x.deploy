@@ -9,19 +9,29 @@ import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
+import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 
-import {ExecuteUnderlyingNaming} from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
+    ExecuteUnderlyingNaming,
+    NoUnderlyingNamingOperationReady,
+    UnderlyingNamingNotExecuted
+} from "../../script/20261021-execute-underlying-naming.s.sol";
+import {
+    ImplementationNotDeployed,
     scheduleUnderlyingNamingBeaconsDeclaration
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
+import {ExecuteUnderlyingNamingHarness} from "./ExecuteUnderlyingNamingHarness.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
+import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {HandSafeOwnedBaseVaultsToTimelockHarness} from "./HandSafeOwnedBaseVaultsToTimelockHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
-import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
@@ -105,6 +115,124 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
         LibSafeFork.executeBundle(
             vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), beacons.callAuthorBundle()
         );
+    }
+
+    /// @notice From the line at the beacon onto: authors, verifies and
+    /// executes both batches on `network` as the Safe and a roleless key
+    /// would, checking each step's refusals and the result.
+    function assertRolloutFromTheBeaconOnto(string memory network) internal {
+        uint256 chainId = block.chainid;
+        address timelock = LibTimelockInvariants.timelockForChainId(chainId);
+        TimelockController controller = TimelockController(payable(timelock));
+        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, chainId);
+        bytes32 renameId = LibUnderlyingNamingRollout.renameOperationId(timelock, chainId);
+        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness(network);
+        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness(network);
+        ExecuteUnderlyingNamingHarness execution = new ExecuteUnderlyingNamingHarness(network);
+
+        assertBeaconBatchExact(chainId, network);
+        // Before step 1 the beacon batch refuses, and the rename refuses the
+        // line until the beacon record lands.
+        vm.expectPartialRevert(ImplementationNotDeployed.selector);
+        beacons.callPreflight();
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UnexpectedMigrationLine.selector, LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
+            )
+        );
+        rename.callPreflight();
+        plantImplementations();
+        authorVerifyExecute(address(beacons), beacons.callArtifactPath());
+        assertEq(
+            LibStoxMigrations.head(),
+            LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+            string.concat(network, ": beacon record")
+        );
+        authorVerifyExecute(address(rename), rename.callArtifactPath());
+        assertEq(
+            LibStoxMigrations.head(),
+            LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
+            string.concat(network, ": rename record")
+        );
+
+        // forge-lint: disable-next-line(block-timestamp)
+        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
+        execution.execute();
+        assertEq(
+            IBeacon(LibUnderlyingNamingRollout.receiptVaultBeacon(chainId)).implementation(),
+            LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION,
+            string.concat(network, ": vault beacon upgraded")
+        );
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotExecuted.selector, renameId));
+        execution.callPreflight();
+        logRenameExecutionGas(controller, chainId, beaconId);
+        execution.execute();
+        assertTrue(controller.isOperationDone(renameId), string.concat(network, ": rename executed"));
+        rename.callAssertRenamed(chainId);
+
+        vm.expectPartialRevert(NoUnderlyingNamingOperationReady.selector);
+        execution.execute();
+
+        authorVerifyExecute(address(execution), execution.callArtifactPath());
+        assertEq(
+            LibStoxMigrations.head(),
+            LibStoxMigrations.EXECUTE_UNDERLYING_NAMING,
+            string.concat(network, ": line at the execution")
+        );
+    }
+
+    /// @notice The beacon batch is exactly: the wrapper beacon upgrade, the
+    /// vault beacon upgrade, then the facet probe on the first production
+    /// vault.
+    function assertBeaconBatchExact(uint256 chainId, string memory network) internal view {
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            LibUnderlyingNamingRollout.beaconBatch(chainId);
+        assertEq(targets.length, 3, string.concat(network, ": beacon batch length"));
+        assertEq(
+            targets[0],
+            LibUnderlyingNamingRollout.wrappedTokenVaultBeacon(chainId),
+            string.concat(network, ": wrapper beacon")
+        );
+        assertEq(
+            payloads[0],
+            abi.encodeCall(
+                UpgradeableBeacon.upgradeTo, (LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION)
+            ),
+            string.concat(network, ": beacon upgrade 0")
+        );
+        assertEq(
+            targets[1], LibUnderlyingNamingRollout.receiptVaultBeacon(chainId), string.concat(network, ": vault beacon")
+        );
+        assertEq(
+            payloads[1],
+            abi.encodeCall(UpgradeableBeacon.upgradeTo, (LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION)),
+            string.concat(network, ": beacon upgrade 1")
+        );
+        assertEq(
+            targets[2],
+            LibUnderlyingNamingRollout.tokens(chainId)[0].receiptVault,
+            string.concat(network, ": probe vault")
+        );
+        assertEq(
+            payloads[2],
+            abi.encodeCall(ICorporateActionsV1.completedActionCount, ()),
+            string.concat(network, ": probe call")
+        );
+        for (uint256 callIndex = 0; callIndex < values.length; callIndex++) {
+            assertEq(values[callIndex], 0, string.concat(network, ": value"));
+        }
+    }
+
+    /// @notice Logs the gas the rename batch's `executeBatch` alone takes, on a
+    /// snapshot: what the executing key must fit in one block.
+    function logRenameExecutionGas(TimelockController controller, uint256 chainId, bytes32 beaconId) internal {
+        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+            LibUnderlyingNamingRollout.renameBatch(chainId);
+        uint256 snapshot = vm.snapshotState();
+        uint256 gasBefore = gasleft();
+        controller.executeBatch(targets, values, payloads, beaconId, LibUnderlyingNamingRollout.RENAME_SALT);
+        console2.log("Rename batch executeBatch gas:", gasBefore - gasleft());
+        vm.revertToState(snapshot);
     }
 
     /// @notice Runs the rollout on the fork through to the executed rename
