@@ -127,11 +127,14 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         // Both parities, so neither two-shard member's calldata is the mocked one-shard call.
         rows[0].token = address(uint160(rows[0].token) | 1);
         rows[1].token = address(uint160(rows[1].token) & ~uint160(1));
+        address encoder = vm.computeCreateAddress(address(this), vm.getNonce(address(this)));
         vm.mockCallRevert(
-            vm.computeCreateAddress(address(this), vm.getNonce(address(this))),
+            encoder,
             abi.encodeCall(UnderlyingSnapshotShardEncoder.shardData, (rows)),
             abi.encodeWithSelector(MaxDepthExceeded.selector, UNDERLYING_SNAPSHOT_META_DEPTH)
         );
+        // mockCallRevert etches placeholder code there, which build's `new` would collide with.
+        vm.etch(encoder, "");
         (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
         assertEq(shardCodes.length, 2, "shard count");
         address root = LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes);
