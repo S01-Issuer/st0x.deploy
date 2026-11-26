@@ -230,12 +230,12 @@ library LibUnderlyingNamingRollout {
         bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
         uint256 count = onBase ? 1 : 0;
         for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
-            if (!renamesRow(tokenIndex)) count++;
+            if (!renamesRow(chainId, tokenIndex)) count++;
         }
         TokenInstance[] memory chainTokens = new TokenInstance[](count);
         uint256 next = 0;
         for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
-            if (!renamesRow(tokenIndex)) chainTokens[next++] = table[tokenIndex];
+            if (!renamesRow(chainId, tokenIndex)) chainTokens[next++] = table[tokenIndex];
         }
         if (onBase) chainTokens[next] = LibTokenInvariants.qsepToken();
         return chainTokens;
