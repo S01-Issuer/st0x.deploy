@@ -1060,10 +1060,6 @@ contract BuildExpectedStateTest is Test {
         return false;
     }
 
-    function zoltuAddressOf(ExpectedDeployment[] memory rows, string memory key) external pure returns (address) {
-        return zoltuAddress(rows, key);
-    }
-
     function zoltuAddress(ExpectedDeployment[] memory rows, string memory key) internal pure returns (address) {
         for (uint256 i = 0; i < rows.length; i++) {
             if (keccak256(bytes(rows[i].key)) == keccak256(bytes(key))) {
