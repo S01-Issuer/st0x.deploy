@@ -1979,14 +1979,14 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x52174538a83b18462c5cF898016539B086c920C7"
+          "renamedImplementation": "0xa3652A136A53105CCa6070F0D1145F32f13051DC"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x0D99e0174DbF885ceD6AE8dEb939b0F890450099"
+          "renamedImplementation": "0x8e3cf25BcaF9837Cf1cA9A88A589F0baa0De59c1"
         },
         {
           "beacon": "0xb9DCd744b0413Dff0EDC70A5B229c7aa03734613",
@@ -2083,7 +2083,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763",
           "region": "US",
-          "renamedName": "MicroStrategy Incorporated ST0x",
+          "renamedName": "Strategy Inc (ST0x)",
           "symbol": "tMSTR",
           "underlying": "MSTR",
           "wrappedTokenVault": "0xd9fE7488B86D3aEaf457b181C744BD1A5a120833",
@@ -2092,8 +2092,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped MicroStrategy Incorporated ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped MicroStrategy Incorporated ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtMSTR",
+          "wrappedTokenVaultRenamedName": "Strategy Inc (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "MSTRs",
           "wrappedTokenVaultSymbol": "wtMSTR"
         },
         {
@@ -2113,7 +2113,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x3a3E00d6fb65E686941f77DD375ca677Ad7772c2",
           "region": "US",
-          "renamedName": "Tesla Inc ST0x",
+          "renamedName": "Tesla Inc (ST0x)",
           "symbol": "tTSLA",
           "underlying": "TSLA",
           "wrappedTokenVault": "0x550499e28A3CE8cb1dB3e3Db23fDD0357eD3ff48",
@@ -2122,8 +2122,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Tesla Inc ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Tesla Inc ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtTSLA",
+          "wrappedTokenVaultRenamedName": "Tesla Inc (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "TSLAs",
           "wrappedTokenVaultSymbol": "wtTSLA"
         },
         {
@@ -2143,7 +2143,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x5cF43A3fFd5B979C36B6512800cdAa6A2EF4f352",
           "region": "US",
-          "renamedName": "Coinbase Global Inc ST0x",
+          "renamedName": "Coinbase Global Inc (ST0x)",
           "symbol": "tCOIN",
           "underlying": "COIN",
           "wrappedTokenVault": "0xa3d1be1Ab9F4E72309Cb9Bfeaa14aFe46D012e36",
@@ -2152,8 +2152,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Coinbase Global Inc ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Coinbase Global Inc ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtCOIN",
+          "wrappedTokenVaultRenamedName": "Coinbase Global Inc (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "COINs",
           "wrappedTokenVaultSymbol": "wtCOIN"
         },
         {
@@ -2173,7 +2173,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xB023d277f4a50cE056Dd921C28fF7e27F56B3445",
           "region": "US",
-          "renamedName": "State Street SPDR Portfolio S&P 500 ETF ST0x",
+          "renamedName": "State Street SPDR Portfolio S&P 500 ETF (ST0x)",
           "symbol": "tSPYM",
           "underlying": "SPYM",
           "wrappedTokenVault": "0x7dF3ad1ECC10DBF0296D05F91a697e4A059771c2",
@@ -2182,8 +2182,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped State Street SPDR Portfolio S&P 500 ETF ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped State Street SPDR Portfolio S&P 500 ETF ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSPYM",
+          "wrappedTokenVaultRenamedName": "State Street SPDR Portfolio S&P 500 ETF (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SPYMs",
           "wrappedTokenVaultSymbol": "wtSPYM"
         },
         {
@@ -2203,7 +2203,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x89dC2d5B33e8DcbD24A2e4A07f7B06f55b5bb24e",
           "region": "US",
-          "renamedName": "abrdn Physical Silver Shares ETF ST0x",
+          "renamedName": "abrdn Physical Silver Shares ETF (ST0x)",
           "symbol": "tSIVR",
           "underlying": "SIVR",
           "wrappedTokenVault": "0x2B310218001C38cf82816c2098AedDCE22D3Df27",
@@ -2212,8 +2212,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped abrdn Physical Silver Shares ETF ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped abrdn Physical Silver Shares ETF ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSIVR",
+          "wrappedTokenVaultRenamedName": "abrdn Physical Silver Shares ETF (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SIVRs",
           "wrappedTokenVaultSymbol": "wtSIVR"
         },
         {
@@ -2233,7 +2233,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xDf228279B380e8445970a3B4162B9509D4339520",
           "region": "US",
-          "renamedName": "Circle Internet Group Inc ST0x",
+          "renamedName": "Circle Internet Group Inc (ST0x)",
           "symbol": "tCRCL",
           "underlying": "CRCL",
           "wrappedTokenVault": "0x25Ab6926BA171e1618b214cda774104B2f6ec884",
@@ -2242,8 +2242,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Circle Internet Group Inc ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Circle Internet Group Inc ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtCRCL",
+          "wrappedTokenVaultRenamedName": "Circle Internet Group Inc (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "CRCLs",
           "wrappedTokenVaultSymbol": "wtCRCL"
         },
         {
@@ -2263,7 +2263,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xA26C89357e6cb53Bf670db2e0e939f5489Ba26A8",
           "region": "US",
-          "renamedName": "NVIDIA Corporation ST0x",
+          "renamedName": "NVIDIA Corporation (ST0x)",
           "symbol": "tNVDA",
           "underlying": "NVDA",
           "wrappedTokenVault": "0xa3947d2A74F5a3A7135A9d0c66B28fC7315f30Da",
@@ -2272,8 +2272,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped NVIDIA Corporation ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped NVIDIA Corporation ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtNVDA",
+          "wrappedTokenVaultRenamedName": "NVIDIA Corporation (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "NVDAs",
           "wrappedTokenVaultSymbol": "wtNVDA"
         },
         {
@@ -2293,7 +2293,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x9003CAc529d1299891C2aaa08b4c810b81F49488",
           "region": "US",
-          "renamedName": "iShares Gold Trust ST0x",
+          "renamedName": "iShares Gold Trust (ST0x)",
           "symbol": "tIAU",
           "underlying": "IAU",
           "wrappedTokenVault": "0x33f3a6401ce08f705eE4B8a03fc37F298395b720",
@@ -2302,8 +2302,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped iShares Gold Trust ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped iShares Gold Trust ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtIAU",
+          "wrappedTokenVaultRenamedName": "iShares Gold Trust (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "IAUs",
           "wrappedTokenVaultSymbol": "wtIAU"
         },
         {
@@ -2323,7 +2323,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x216cbEeC16cF7e4dBd53e6e3D8B54b7dA23BE146",
           "region": "US",
-          "renamedName": "abrdn Physical Platinum Shares ETF ST0x",
+          "renamedName": "abrdn Physical Platinum Shares ETF (ST0x)",
           "symbol": "tPPLT",
           "underlying": "PPLT",
           "wrappedTokenVault": "0xCbD06C802BFe993de94d0d635AB5B1fa764519D8",
@@ -2332,8 +2332,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped abrdn Physical Platinum Shares ETF ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped abrdn Physical Platinum Shares ETF ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtPPLT",
+          "wrappedTokenVaultRenamedName": "abrdn Physical Platinum Shares ETF (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "PPLTs",
           "wrappedTokenVaultSymbol": "wtPPLT"
         },
         {
@@ -2353,7 +2353,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xA583addaA69142E8588D9ffE3767Dbb0F23fd516",
           "region": "US",
-          "renamedName": "Amazon.com Inc ST0x",
+          "renamedName": "Amazon.com Inc (ST0x)",
           "symbol": "tAMZN",
           "underlying": "AMZN",
           "wrappedTokenVault": "0x4404E24629a33b85FC1E2D7beA673Cd283054594",
@@ -2362,8 +2362,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Amazon.com Inc ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Amazon.com Inc ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtAMZN",
+          "wrappedTokenVaultRenamedName": "Amazon.com Inc (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "AMZNs",
           "wrappedTokenVaultSymbol": "wtAMZN"
         },
         {
@@ -2383,7 +2383,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x34BF824C28121EbD421026D70a03A7Ec9Ee5a0d4",
           "region": "US",
-          "renamedName": "Bitmine Immersion Technologies, Inc ST0x",
+          "renamedName": "Bitmine Immersion Technologies, Inc (ST0x)",
           "symbol": "tBMNR",
           "underlying": "BMNR",
           "wrappedTokenVault": "0x35e1D3d3Fa6D43438641d2b8f63cBf84C84435c0",
@@ -2392,8 +2392,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Bitmine Immersion Technologies, Inc ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Bitmine Immersion Technologies, Inc ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtBMNR",
+          "wrappedTokenVaultRenamedName": "Bitmine Immersion Technologies, Inc (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "BMNRs",
           "wrappedTokenVaultSymbol": "wtBMNR"
         },
         {
@@ -2413,7 +2413,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x8e05CB17994Ee9B207e87993717F6Fb2ee7D0bD3",
           "region": "US",
-          "renamedName": "iShares iBonds 2027 Term High Yield and Income ETF ST0x",
+          "renamedName": "iShares iBonds 2027 Term High Yield and Income ETF (ST0x)",
           "symbol": "tIBHG",
           "underlying": "IBHG",
           "wrappedTokenVault": "0x03bBb4148ba82d63993D32fB8E6Eff8Cc51A56f2",
@@ -2422,8 +2422,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped iShares iBonds 2027 Term High Yield and Income ETF ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped iShares iBonds 2027 Term High Yield and Income ETF ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtIBHG",
+          "wrappedTokenVaultRenamedName": "iShares iBonds 2027 Term High Yield and Income ETF (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "IBHGs",
           "wrappedTokenVaultSymbol": "wtIBHG"
         },
         {
@@ -2443,7 +2443,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xE4B5Af0bAc3dC97b77d6eE4E95F59c74c679ee5c",
           "region": "US",
-          "renamedName": " iShares 0-3 Month Treasury Bond ETF ST0x",
+          "renamedName": "iShares 0-3 Month Treasury Bond ETF (ST0x)",
           "symbol": "tSGOV",
           "underlying": "SGOV",
           "wrappedTokenVault": "0x06b17E431a957Dd8522Bf106653BAc6B39F437E6",
@@ -2452,8 +2452,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped  iShares 0-3 Month Treasury Bond ETF ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped  iShares 0-3 Month Treasury Bond ETF ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSGOV",
+          "wrappedTokenVaultRenamedName": "iShares 0-3 Month Treasury Bond ETF (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SGOVs",
           "wrappedTokenVaultSymbol": "wtSGOV"
         },
         {
@@ -2473,7 +2473,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x1Eb9583d1BB2b00B3CB5ead921d021b445F77dBc",
           "region": "US",
-          "renamedName": "Invesco NASDAQ 100 ETF ST0x",
+          "renamedName": "Invesco NASDAQ 100 ETF (ST0x)",
           "symbol": "tQQQM",
           "underlying": "QQQM",
           "wrappedTokenVault": "0x63fDfe9cf53cB1FD5d98fE7537B881B86aE04A31",
@@ -2482,8 +2482,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Invesco NASDAQ 100 ETF ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Invesco NASDAQ 100 ETF ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtQQQM",
+          "wrappedTokenVaultRenamedName": "Invesco NASDAQ 100 ETF (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "QQQMs",
           "wrappedTokenVaultSymbol": "wtQQQM"
         },
         {
@@ -2503,7 +2503,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x1A09A154E2ae3890d1e18507a37bC3e2FCfA10cc",
           "region": "US",
-          "renamedName": "Vanguard Emerging Markets Stock Index Fund ST0x",
+          "renamedName": "Vanguard Emerging Markets Stock Index Fund (ST0x)",
           "symbol": "tVWO",
           "underlying": "VWO",
           "wrappedTokenVault": "0x01EE8b582147D1Aa8A8f2Adc2EBB91fA60082AB0",
@@ -2512,8 +2512,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Vanguard Emerging Markets Stock Index Fund ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Vanguard Emerging Markets Stock Index Fund ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtVWO",
+          "wrappedTokenVaultRenamedName": "Vanguard Emerging Markets Stock Index Fund (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "VWOs",
           "wrappedTokenVaultSymbol": "wtVWO"
         },
         {
@@ -2533,7 +2533,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xF1E5f11e7fAA40b2C2CEdfAD825D81207f793862",
           "region": "US",
-          "renamedName": "ARK Innovation ETF ST0x",
+          "renamedName": "ARK Innovation ETF (ST0x)",
           "symbol": "tARKK",
           "underlying": "ARKK",
           "wrappedTokenVault": "0x5D80cAcaABCe0ab4C1541493ceB25D97970D250a",
@@ -2542,8 +2542,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped ARK Innovation ETF ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped ARK Innovation ETF ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtARKK",
+          "wrappedTokenVaultRenamedName": "ARK Innovation ETF (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "ARKKs",
           "wrappedTokenVaultSymbol": "wtARKK"
         },
         {
@@ -2563,7 +2563,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x46dC08972b1d5D5876d244292c551dbbbC7d7e80",
           "region": "US",
-          "renamedName": "Space Exploration Technologies Corp. ST0x",
+          "renamedName": "Space Exploration Technologies Corp. (ST0x)",
           "symbol": "tSPCX",
           "underlying": "SPCX",
           "wrappedTokenVault": "0xC32C8166164E2cA18BB5fbf3E82CB776943d97FB",
@@ -2572,8 +2572,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Space Exploration Technologies Corp. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Space Exploration Technologies Corp. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSPCX",
+          "wrappedTokenVaultRenamedName": "Space Exploration Technologies Corp. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SPCXs",
           "wrappedTokenVaultSymbol": "wtSPCX"
         },
         {
@@ -2593,7 +2593,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x99Ffbf38E7c0D9C440BA629D0108E7d0E96cB710",
           "region": "US",
-          "renamedName": "Constellation Energy Corporation ST0x",
+          "renamedName": "Constellation Energy Corporation (ST0x)",
           "symbol": "tCEG",
           "underlying": "CEG",
           "wrappedTokenVault": "0xc842fC56Dd39B62357d027a0F3B3266353cac991",
@@ -2602,8 +2602,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Constellation Energy Corporation ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Constellation Energy Corporation ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtCEG",
+          "wrappedTokenVaultRenamedName": "Constellation Energy Corporation (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "CEGs",
           "wrappedTokenVaultSymbol": "wtCEG"
         },
         {
@@ -2623,7 +2623,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xbD4Fa8Fd2643b46eADC499b5A468108817988830",
           "region": "US",
-          "renamedName": "Roundhill Memory ETF ST0x",
+          "renamedName": "Roundhill Memory ETF (ST0x)",
           "symbol": "tDRAM",
           "underlying": "DRAM",
           "wrappedTokenVault": "0x7e1263f1e1EeF7eCe7fA7e568842f213a6CEa956",
@@ -2632,8 +2632,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Roundhill Memory ETF ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Roundhill Memory ETF ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtDRAM",
+          "wrappedTokenVaultRenamedName": "Roundhill Memory ETF (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "DRAMs",
           "wrappedTokenVaultSymbol": "wtDRAM"
         },
         {
@@ -2653,7 +2653,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x2Ce6A6B9E573ec0444C00103ACEee9dC23223621",
           "region": "US",
-          "renamedName": "Taiwan Semiconductor Manufacturing Company Limited ADR ST0x",
+          "renamedName": "Taiwan Semiconductor Manufacturing Company Limited ADR (ST0x)",
           "symbol": "tTSM",
           "underlying": "TSM",
           "wrappedTokenVault": "0x050dB961D36DC2047c779798694AeE455CD40BE6",
@@ -2662,8 +2662,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Taiwan Semiconductor Manufacturing Company Limited ADR ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Taiwan Semiconductor Manufacturing Company Limited ADR ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtTSM",
+          "wrappedTokenVaultRenamedName": "Taiwan Semiconductor Manufacturing Company Limited ADR (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "TSMs",
           "wrappedTokenVaultSymbol": "wtTSM"
         },
         {
@@ -2683,7 +2683,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xd3150728FFDb338eFd9b07ae90A7D5e688bc3B20",
           "region": "US",
-          "renamedName": "SK hynix Inc. ADR ST0x",
+          "renamedName": "SK hynix Inc. ADR (ST0x)",
           "symbol": "tSKHY",
           "underlying": "SKHY",
           "wrappedTokenVault": "0xD13bBc46C4582246656868d32227A99A538D97E1",
@@ -2692,8 +2692,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped SK hynix Inc. ADR ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped SK hynix Inc. ADR ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSKHY",
+          "wrappedTokenVaultRenamedName": "SK hynix Inc. ADR (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SKHYs",
           "wrappedTokenVaultSymbol": "wtSKHY"
         },
         {
@@ -2713,7 +2713,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x6AEBd84df448d2E25080590797075b399Ca43549",
           "region": "US",
-          "renamedName": "ASML Holding N.V. ST0x",
+          "renamedName": "ASML Holding N.V. (ST0x)",
           "symbol": "tASML",
           "underlying": "ASML",
           "wrappedTokenVault": "0xb8605a64B57E7A8631c87F3187c783493231bdD9",
@@ -2722,8 +2722,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped ASML Holding N.V. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped ASML Holding N.V. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtASML",
+          "wrappedTokenVaultRenamedName": "ASML Holding N.V. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "ASMLs",
           "wrappedTokenVaultSymbol": "wtASML"
         },
         {
@@ -2743,7 +2743,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x98A3887f51AA93079978D265Cb20E215AfEB8b0f",
           "region": "US",
-          "renamedName": "Micron Technology, Inc. ST0x",
+          "renamedName": "Micron Technology, Inc. (ST0x)",
           "symbol": "tMU",
           "underlying": "MU",
           "wrappedTokenVault": "0xF01523C4ca52dF88f07938D4Fb32FCBb6b159867",
@@ -2752,8 +2752,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Micron Technology, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Micron Technology, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtMU",
+          "wrappedTokenVaultRenamedName": "Micron Technology, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "MUs",
           "wrappedTokenVaultSymbol": "wtMU"
         },
         {
@@ -2773,7 +2773,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x0e257A952817ef779407aA27E5CD5F27863883Aa",
           "region": "US",
-          "renamedName": "Advanced Micro Devices, Inc. ST0x",
+          "renamedName": "Advanced Micro Devices, Inc. (ST0x)",
           "symbol": "tAMD",
           "underlying": "AMD",
           "wrappedTokenVault": "0xb904955bC71FE6c8e6aBE676ACca640Abc771622",
@@ -2782,8 +2782,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Advanced Micro Devices, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Advanced Micro Devices, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtAMD",
+          "wrappedTokenVaultRenamedName": "Advanced Micro Devices, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "AMDs",
           "wrappedTokenVaultSymbol": "wtAMD"
         },
         {
@@ -2803,7 +2803,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x607991FE92F9476eBedA4761295E5E2cc37e2834",
           "region": "US",
-          "renamedName": "Broadcom Inc. ST0x",
+          "renamedName": "Broadcom Inc. (ST0x)",
           "symbol": "tAVGO",
           "underlying": "AVGO",
           "wrappedTokenVault": "0xCee4981Fc273C105e2b9eA1fD19031Aa9a6cf113",
@@ -2812,8 +2812,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Broadcom Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Broadcom Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtAVGO",
+          "wrappedTokenVaultRenamedName": "Broadcom Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "AVGOs",
           "wrappedTokenVaultSymbol": "wtAVGO"
         },
         {
@@ -2833,7 +2833,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x8C8810F83a0F5a8C1A3D541411100DBFB68C5b0c",
           "region": "US",
-          "renamedName": "Applied Materials, Inc. ST0x",
+          "renamedName": "Applied Materials, Inc. (ST0x)",
           "symbol": "tAMAT",
           "underlying": "AMAT",
           "wrappedTokenVault": "0x44DE27A07B33CD708A49fa79629fAC1df03C56d3",
@@ -2842,8 +2842,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Applied Materials, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Applied Materials, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtAMAT",
+          "wrappedTokenVaultRenamedName": "Applied Materials, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "AMATs",
           "wrappedTokenVaultSymbol": "wtAMAT"
         },
         {
@@ -2863,7 +2863,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x2630CA3D952b265F88C189f3679FA985dF34A93D",
           "region": "US",
-          "renamedName": "Lam Research Corporation ST0x",
+          "renamedName": "Lam Research Corporation (ST0x)",
           "symbol": "tLRCX",
           "underlying": "LRCX",
           "wrappedTokenVault": "0xD1c1D974837d3f79A92E14048993AD28a6228831",
@@ -2872,8 +2872,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Lam Research Corporation ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Lam Research Corporation ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtLRCX",
+          "wrappedTokenVaultRenamedName": "Lam Research Corporation (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "LRCXs",
           "wrappedTokenVaultSymbol": "wtLRCX"
         },
         {
@@ -2893,7 +2893,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x47E3487B12272Bb1F933452F855CEb1C5e27204E",
           "region": "US",
-          "renamedName": "Take-Two Interactive Software, Inc. ST0x",
+          "renamedName": "Take-Two Interactive Software, Inc. (ST0x)",
           "symbol": "tTTWO",
           "underlying": "TTWO",
           "wrappedTokenVault": "0x1D6F0763e58FA6d472d470Eaaef0a4C08080d208",
@@ -2902,8 +2902,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Take-Two Interactive Software, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Take-Two Interactive Software, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtTTWO",
+          "wrappedTokenVaultRenamedName": "Take-Two Interactive Software, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "TTWOs",
           "wrappedTokenVaultSymbol": "wtTTWO"
         },
         {
@@ -2923,7 +2923,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xFf5b15a4f478F296893b0b244D9b118Be87bCda2",
           "region": "US",
-          "renamedName": "Rocket Lab USA Inc ST0x",
+          "renamedName": "Rocket Lab Corporation (ST0x)",
           "symbol": "tRKLB",
           "underlying": "RKLB",
           "wrappedTokenVault": "0x8FC87Be766C0cB6f254F1FDc9351D4B85B560FB3",
@@ -2932,8 +2932,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Rocket Lab USA Inc ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Rocket Lab USA Inc ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtRKLB",
+          "wrappedTokenVaultRenamedName": "Rocket Lab Corporation (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "RKLBs",
           "wrappedTokenVaultSymbol": "wtRKLB"
         },
         {
@@ -2953,7 +2953,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x9e2C9bE59aEB0D9ea7bF070B37fc02AF8a5af239",
           "region": "US",
-          "renamedName": "Robinhood Markets, Inc. ST0x",
+          "renamedName": "Robinhood Markets, Inc. (ST0x)",
           "symbol": "tHOOD",
           "underlying": "HOOD",
           "wrappedTokenVault": "0x3209384FB852E7D0510aFa896236f3f866c3876f",
@@ -2962,8 +2962,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Robinhood Markets, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Robinhood Markets, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtHOOD",
+          "wrappedTokenVaultRenamedName": "Robinhood Markets, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "HOODs",
           "wrappedTokenVaultSymbol": "wtHOOD"
         },
         {
@@ -2983,7 +2983,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xE3D23D83a750789D6c4150B70013D896e623c948",
           "region": "US",
-          "renamedName": "Oracle Corporation ST0x",
+          "renamedName": "Oracle Corporation (ST0x)",
           "symbol": "tORCL",
           "underlying": "ORCL",
           "wrappedTokenVault": "0x1B2A2C8c3621642c64cf1245016488fA0f76da78",
@@ -2992,8 +2992,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Oracle Corporation ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Oracle Corporation ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtORCL",
+          "wrappedTokenVaultRenamedName": "Oracle Corporation (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "ORCLs",
           "wrappedTokenVaultSymbol": "wtORCL"
         },
         {
@@ -3013,7 +3013,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x1B5df34bD6397Ba7d9A365263692A006e7a2972a",
           "region": "US",
-          "renamedName": "Super Micro Computer, Inc. ST0x",
+          "renamedName": "Super Micro Computer, Inc. (ST0x)",
           "symbol": "tSMCI",
           "underlying": "SMCI",
           "wrappedTokenVault": "0x8DdAEC53399E5324BbC60a368eA853c713629B1d",
@@ -3022,8 +3022,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Super Micro Computer, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Super Micro Computer, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSMCI",
+          "wrappedTokenVaultRenamedName": "Super Micro Computer, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SMCIs",
           "wrappedTokenVaultSymbol": "wtSMCI"
         },
         {
@@ -3043,7 +3043,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xB7D42b94A8E51b098270ac92ceD23fDC8042FDB3",
           "region": "US",
-          "renamedName": "Alibaba Group Holding Limited ADR ST0x",
+          "renamedName": "Alibaba Group Holding Limited ADR (ST0x)",
           "symbol": "tBABA",
           "underlying": "BABA",
           "wrappedTokenVault": "0x908266E3C3bFBb603d2EdF295deBE37C88985239",
@@ -3052,8 +3052,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Alibaba Group Holding Limited ADR ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Alibaba Group Holding Limited ADR ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtBABA",
+          "wrappedTokenVaultRenamedName": "Alibaba Group Holding Limited ADR (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "BABAs",
           "wrappedTokenVaultSymbol": "wtBABA"
         },
         {
@@ -3073,7 +3073,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x58916AC4e186ad201376288a6655Ea46b55b8ac5",
           "region": "US",
-          "renamedName": "ProShares UltraPro QQQ ST0x",
+          "renamedName": "ProShares UltraPro QQQ (ST0x)",
           "symbol": "tTQQQ",
           "underlying": "TQQQ",
           "wrappedTokenVault": "0x04eE4ED5FF6643eA955503f966012b684f479966",
@@ -3082,8 +3082,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped ProShares UltraPro QQQ ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped ProShares UltraPro QQQ ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtTQQQ",
+          "wrappedTokenVaultRenamedName": "ProShares UltraPro QQQ (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "TQQQs",
           "wrappedTokenVaultSymbol": "wtTQQQ"
         },
         {
@@ -3103,7 +3103,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x5f1DBfBf9345f3185C52aC3c080a0EDDb4f540c2",
           "region": "US",
-          "renamedName": "Apple Inc. ST0x",
+          "renamedName": "Apple Inc. (ST0x)",
           "symbol": "tAAPL",
           "underlying": "AAPL",
           "wrappedTokenVault": "0x4E3600f48C61eF4513c72923ab50851bD546FFA9",
@@ -3112,8 +3112,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Apple Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Apple Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtAAPL",
+          "wrappedTokenVaultRenamedName": "Apple Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "AAPLs",
           "wrappedTokenVaultSymbol": "wtAAPL"
         },
         {
@@ -3133,7 +3133,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xdC29d07D2125699FA44cAB7e940542b526dB0abd",
           "region": "US",
-          "renamedName": "Alphabet Inc. Class A ST0x",
+          "renamedName": "Alphabet Inc. Class A (ST0x)",
           "symbol": "tGOOGL",
           "underlying": "GOOGL",
           "wrappedTokenVault": "0xca678d0d69F9E815d1A4f4dF05C904b2DDE017f8",
@@ -3142,8 +3142,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Alphabet Inc. Class A ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Alphabet Inc. Class A ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtGOOGL",
+          "wrappedTokenVaultRenamedName": "Alphabet Inc. Class A (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "GOOGLs",
           "wrappedTokenVaultSymbol": "wtGOOGL"
         },
         {
@@ -3163,7 +3163,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x8CF3E580465e8DFaE05FF42BbFCe0d98BfF79580",
           "region": "US",
-          "renamedName": "Intel Corporation ST0x",
+          "renamedName": "Intel Corporation (ST0x)",
           "symbol": "tINTC",
           "underlying": "INTC",
           "wrappedTokenVault": "0xd702276d50fdCf58b0E41b3f1f9651faBC1141f4",
@@ -3172,8 +3172,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Intel Corporation ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Intel Corporation ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtINTC",
+          "wrappedTokenVaultRenamedName": "Intel Corporation (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "INTCs",
           "wrappedTokenVaultSymbol": "wtINTC"
         },
         {
@@ -3193,7 +3193,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x9a288A27a9898f145AF9575b46617bB1DF705106",
           "region": "US",
-          "renamedName": "Eli Lilly and Company ST0x",
+          "renamedName": "Eli Lilly and Company (ST0x)",
           "symbol": "tLLY",
           "underlying": "LLY",
           "wrappedTokenVault": "0xa6890e89D99Fd4F275c016d89A28ec24A428846D",
@@ -3202,8 +3202,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Eli Lilly and Company ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Eli Lilly and Company ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtLLY",
+          "wrappedTokenVaultRenamedName": "Eli Lilly and Company (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "LLYs",
           "wrappedTokenVaultSymbol": "wtLLY"
         },
         {
@@ -3223,7 +3223,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x824eA918F35821a72E34b4eaD257AF60603cb20C",
           "region": "US",
-          "renamedName": "Microsoft Corporation ST0x",
+          "renamedName": "Microsoft Corporation (ST0x)",
           "symbol": "tMSFT",
           "underlying": "MSFT",
           "wrappedTokenVault": "0xAbb2641950C7dE9D3ec9AA05668e112E1DB701F6",
@@ -3232,8 +3232,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Microsoft Corporation ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Microsoft Corporation ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtMSFT",
+          "wrappedTokenVaultRenamedName": "Microsoft Corporation (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "MSFTs",
           "wrappedTokenVaultSymbol": "wtMSFT"
         },
         {
@@ -3253,7 +3253,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x7b66449B3d7cD6569F1e235f6E4A664C24538EA8",
           "region": "US",
-          "renamedName": "PIMCO Corporate & Income Opportunity Fund ST0x",
+          "renamedName": "PIMCO Corporate & Income Opportunity Fund (ST0x)",
           "symbol": "tPTY",
           "underlying": "PTY",
           "wrappedTokenVault": "0xc80730995D2C53114BAaFd2736E02f4E274D5B83",
@@ -3262,8 +3262,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped PIMCO Corporate & Income Opportunity Fund ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped PIMCO Corporate & Income Opportunity Fund ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtPTY",
+          "wrappedTokenVaultRenamedName": "PIMCO Corporate & Income Opportunity Fund (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "PTYs",
           "wrappedTokenVaultSymbol": "wtPTY"
         },
         {
@@ -3283,7 +3283,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x05215bE061F61d341703a6b63AcFDFf396965425",
           "region": "US",
-          "renamedName": "Franklin Limited Duration Income Trust ST0x",
+          "renamedName": "Franklin Limited Duration Income Trust (ST0x)",
           "symbol": "tFTF",
           "underlying": "FTF",
           "wrappedTokenVault": "0x710A14a41a8Ea2e25376124C48bf9cAdc1E69be5",
@@ -3292,8 +3292,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Franklin Limited Duration Income Trust ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Franklin Limited Duration Income Trust ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtFTF",
+          "wrappedTokenVaultRenamedName": "Franklin Limited Duration Income Trust (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "FTFs",
           "wrappedTokenVaultSymbol": "wtFTF"
         },
         {
@@ -3313,7 +3313,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8",
           "region": "US",
-          "renamedName": "Cerebras Systems Inc. ST0x",
+          "renamedName": "Cerebras Systems Inc. (ST0x)",
           "symbol": "tCBRS",
           "underlying": "CBRS",
           "wrappedTokenVault": "0x15925E1c19c0F0d392F6FCb40FdE9144Dd823962",
@@ -3322,8 +3322,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Cerebras Systems Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Cerebras Systems Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtCBRS",
+          "wrappedTokenVaultRenamedName": "Cerebras Systems Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "CBRSs",
           "wrappedTokenVaultSymbol": "wtCBRS"
         },
         {
@@ -3343,7 +3343,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x9452c603A552f35003206f9001C51007C36F530F",
           "region": "US",
-          "renamedName": "Airbus SE ST0x",
+          "renamedName": "Airbus SE (ST0x)",
           "symbol": "tAIR.PA",
           "underlying": "AIR.PA",
           "wrappedTokenVault": "0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c",
@@ -3352,8 +3352,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Airbus SE ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Airbus SE ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtAIR.PA",
+          "wrappedTokenVaultRenamedName": "Airbus SE (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "AIR.PAs",
           "wrappedTokenVaultSymbol": "wtAIR.PA"
         },
         {
@@ -3373,7 +3373,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C",
           "region": "US",
-          "renamedName": "Bayerische Motoren Werke Aktiengesellschaft ST0x",
+          "renamedName": "Bayerische Motoren Werke Aktiengesellschaft (ST0x)",
           "symbol": "tBMW.DE",
           "underlying": "BMW.DE",
           "wrappedTokenVault": "0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8",
@@ -3382,8 +3382,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Bayerische Motoren Werke Aktiengesellschaft ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Bayerische Motoren Werke Aktiengesellschaft ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtBMW.DE",
+          "wrappedTokenVaultRenamedName": "Bayerische Motoren Werke Aktiengesellschaft (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "BMW.DEs",
           "wrappedTokenVaultSymbol": "wtBMW.DE"
         },
         {
@@ -3403,7 +3403,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F",
           "region": "US",
-          "renamedName": "LVMH Moët Hennessy Louis Vuitton SE ST0x",
+          "renamedName": "LVMH Moët Hennessy Louis Vuitton SE (ST0x)",
           "symbol": "tMC.PA",
           "underlying": "MC.PA",
           "wrappedTokenVault": "0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a",
@@ -3412,8 +3412,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped LVMH Moët Hennessy Louis Vuitton SE ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped LVMH Moët Hennessy Louis Vuitton SE ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtMC.PA",
+          "wrappedTokenVaultRenamedName": "LVMH Moët Hennessy Louis Vuitton SE (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "MC.PAs",
           "wrappedTokenVaultSymbol": "wtMC.PA"
         },
         {
@@ -3433,7 +3433,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xee6F971a9Bf473355286749b52Bfe614Df5fC129",
           "region": "US",
-          "renamedName": "Siemens Aktiengesellschaft ST0x",
+          "renamedName": "Siemens Aktiengesellschaft (ST0x)",
           "symbol": "tSIE.DE",
           "underlying": "SIE.DE",
           "wrappedTokenVault": "0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054",
@@ -3442,8 +3442,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Siemens Aktiengesellschaft ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Siemens Aktiengesellschaft ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSIE.DE",
+          "wrappedTokenVaultRenamedName": "Siemens Aktiengesellschaft (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SIE.DEs",
           "wrappedTokenVaultSymbol": "wtSIE.DE"
         },
         {
@@ -3463,7 +3463,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4",
           "region": "US",
-          "renamedName": "Mercedes-Benz Group AG ST0x",
+          "renamedName": "Mercedes-Benz Group AG (ST0x)",
           "symbol": "tMBG.DE",
           "underlying": "MBG.DE",
           "wrappedTokenVault": "0x6a73364EaE305199B62585C4486C24f3b72b2C72",
@@ -3472,8 +3472,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Mercedes-Benz Group AG ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Mercedes-Benz Group AG ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtMBG.DE",
+          "wrappedTokenVaultRenamedName": "Mercedes-Benz Group AG (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "MBG.DEs",
           "wrappedTokenVaultSymbol": "wtMBG.DE"
         },
         {
@@ -3493,7 +3493,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xbf56725da5a71B3111C660c2279ADA6D1270772E",
           "region": "US",
-          "renamedName": "Rheinmetall AG ST0x",
+          "renamedName": "Rheinmetall AG (ST0x)",
           "symbol": "tRHM.DE",
           "underlying": "RHM.DE",
           "wrappedTokenVault": "0x24ae429A29882b06898afCBAef20BfDb93f67e20",
@@ -3502,8 +3502,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Rheinmetall AG ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Rheinmetall AG ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtRHM.DE",
+          "wrappedTokenVaultRenamedName": "Rheinmetall AG (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "RHM.DEs",
           "wrappedTokenVaultSymbol": "wtRHM.DE"
         },
         {
@@ -3523,7 +3523,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x37BbE0cd96266CFc10960521EfB32A822ef780E0",
           "region": "US",
-          "renamedName": "McDonald's Corporation ST0x",
+          "renamedName": "McDonald's Corporation (ST0x)",
           "symbol": "tMCD",
           "underlying": "MCD",
           "wrappedTokenVault": "0xe26b53fb8B0819682432d27C88D6505883cabafF",
@@ -3532,8 +3532,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped McDonald's Corporation ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped McDonald's Corporation ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtMCD",
+          "wrappedTokenVaultRenamedName": "McDonald's Corporation (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "MCDs",
           "wrappedTokenVaultSymbol": "wtMCD"
         },
         {
@@ -3553,7 +3553,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x6884986776e2e221B7Cd5c566bBD9338051F24fB",
           "region": "US",
-          "renamedName": "NIKE, Inc. ST0x",
+          "renamedName": "NIKE, Inc. (ST0x)",
           "symbol": "tNKE",
           "underlying": "NKE",
           "wrappedTokenVault": "0x8fe134109A9Eb38D3f071a9Df4911081B4aa0814",
@@ -3562,8 +3562,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped NIKE, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped NIKE, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtNKE",
+          "wrappedTokenVaultRenamedName": "NIKE, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "NKEs",
           "wrappedTokenVaultSymbol": "wtNKE"
         },
         {
@@ -3583,7 +3583,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x9765A993735a639191ea2AAd2ac92eb122Bd394c",
           "region": "US",
-          "renamedName": "Grindr Inc. ST0x",
+          "renamedName": "Grindr Inc. (ST0x)",
           "symbol": "tGRND",
           "underlying": "GRND",
           "wrappedTokenVault": "0xB80Bd4D599EeBBF2851d4E7F5594918B82FF1823",
@@ -3592,8 +3592,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Grindr Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Grindr Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtGRND",
+          "wrappedTokenVaultRenamedName": "Grindr Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "GRNDs",
           "wrappedTokenVaultSymbol": "wtGRND"
         },
         {
@@ -3613,7 +3613,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x0eE9d8bB4D7d035b5Dc33937573Cc03BDb419c6e",
           "region": "US",
-          "renamedName": "Krispy Kreme, Inc. ST0x",
+          "renamedName": "Krispy Kreme, Inc. (ST0x)",
           "symbol": "tDNUT",
           "underlying": "DNUT",
           "wrappedTokenVault": "0xb7fC2b7881cceeB73D8DEccf69B6AcB8aC2E0826",
@@ -3622,8 +3622,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Krispy Kreme, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Krispy Kreme, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtDNUT",
+          "wrappedTokenVaultRenamedName": "Krispy Kreme, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "DNUTs",
           "wrappedTokenVaultSymbol": "wtDNUT"
         },
         {
@@ -3643,7 +3643,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xea8AF911CE3582d8fB5d6F1cd4695Ba115d1BdCA",
           "region": "US",
-          "renamedName": "Playboy, Inc. ST0x",
+          "renamedName": "Playboy, Inc. (ST0x)",
           "symbol": "tPLBY",
           "underlying": "PLBY",
           "wrappedTokenVault": "0xBe127eeD812DC1F622227FAdc8639d4138B47b2e",
@@ -3652,8 +3652,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Playboy, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Playboy, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtPLBY",
+          "wrappedTokenVaultRenamedName": "Playboy, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "PLBYs",
           "wrappedTokenVaultSymbol": "wtPLBY"
         },
         {
@@ -3673,7 +3673,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xEb36fc7B191b8358c0Cc839A873fCe1108fc36d1",
           "region": "US",
-          "renamedName": "Tootsie Roll Industries, Inc. ST0x",
+          "renamedName": "Tootsie Roll Industries, Inc. (ST0x)",
           "symbol": "tTR",
           "underlying": "TR",
           "wrappedTokenVault": "0x1abADE2601DA2617f441e2c2B3Fff870445FEfd1",
@@ -3682,8 +3682,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Tootsie Roll Industries, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Tootsie Roll Industries, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtTR",
+          "wrappedTokenVaultRenamedName": "Tootsie Roll Industries, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "TRs",
           "wrappedTokenVaultSymbol": "wtTR"
         },
         {
@@ -3703,7 +3703,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x8231910EA52Ce2753C70D07545cEBfe476a609bA",
           "region": "US",
-          "renamedName": "The Wendy's Company ST0x",
+          "renamedName": "The Wendy's Company (ST0x)",
           "symbol": "tWEN",
           "underlying": "WEN",
           "wrappedTokenVault": "0x441Eaae749B7BA0C4462F2b19a47fBe8De0DFac2",
@@ -3712,8 +3712,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped The Wendy's Company ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped The Wendy's Company ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtWEN",
+          "wrappedTokenVaultRenamedName": "The Wendy's Company (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "WENs",
           "wrappedTokenVaultSymbol": "wtWEN"
         },
         {
@@ -3733,7 +3733,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x7B3aA82Ca4Ef0eE146C32183366f3dED77400E0c",
           "region": "US",
-          "renamedName": "FGI Industries Ltd. ST0x",
+          "renamedName": "FGI Industries Ltd. (ST0x)",
           "symbol": "tFGI",
           "underlying": "FGI",
           "wrappedTokenVault": "0x685DFd386968B58D895F934485820C479C79a8bB",
@@ -3742,8 +3742,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped FGI Industries Ltd. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped FGI Industries Ltd. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtFGI",
+          "wrappedTokenVaultRenamedName": "FGI Industries Ltd. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "FGIs",
           "wrappedTokenVaultSymbol": "wtFGI"
         },
         {
@@ -3763,7 +3763,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x34a8386fd0a943D4c1F182e9eb6b5e125509dFF2",
           "region": "US",
-          "renamedName": "Smartbird, Inc. ST0x",
+          "renamedName": "Smartbird, Inc. (ST0x)",
           "symbol": "tBIRD",
           "underlying": "BIRD",
           "wrappedTokenVault": "0xe93A1Bb48e797dDa936f405A7A253f55040584D5",
@@ -3772,8 +3772,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Smartbird, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Smartbird, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtBIRD",
+          "wrappedTokenVaultRenamedName": "Smartbird, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "BIRDs",
           "wrappedTokenVaultSymbol": "wtBIRD"
         },
         {
@@ -3793,7 +3793,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xc3f3EAfCc5927C645cdb22CEEB68844D53AA7C7C",
           "region": "US",
-          "renamedName": "State Street SPDR S&P 500 ETF Trust ST0x",
+          "renamedName": "State Street SPDR S&P 500 ETF Trust (ST0x)",
           "symbol": "tSPY",
           "underlying": "SPY",
           "wrappedTokenVault": "0xfBA650082205E5807a5eAF28BdcC8E851bB2f753",
@@ -3802,8 +3802,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped State Street SPDR S&P 500 ETF Trust ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped State Street SPDR S&P 500 ETF Trust ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSPY",
+          "wrappedTokenVaultRenamedName": "State Street SPDR S&P 500 ETF Trust (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SPYs",
           "wrappedTokenVaultSymbol": "wtSPY"
         },
         {
@@ -3823,7 +3823,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x4ed13d2C1f545FA73f53bE8c0BB82D279738C10f",
           "region": "US",
-          "renamedName": "SenesTech, Inc. ST0x",
+          "renamedName": "SenesTech, Inc. (ST0x)",
           "symbol": "tSNES",
           "underlying": "SNES",
           "wrappedTokenVault": "0x06096908dBC38fc54509024674E4fd1891B5F7CA",
@@ -3832,8 +3832,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped SenesTech, Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped SenesTech, Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSNES",
+          "wrappedTokenVaultRenamedName": "SenesTech, Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SNESs",
           "wrappedTokenVaultSymbol": "wtSNES"
         },
         {
@@ -3853,7 +3853,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x395717EE8201419b21B40A400ea959a7D7d43A36",
           "region": "US",
-          "renamedName": "Walmart Inc. ST0x",
+          "renamedName": "Walmart Inc. (ST0x)",
           "symbol": "tWMT",
           "underlying": "WMT",
           "wrappedTokenVault": "0x23A0944e82766242dA76cb0f77e0b7812e5487EA",
@@ -3862,8 +3862,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Walmart Inc. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Walmart Inc. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtWMT",
+          "wrappedTokenVaultRenamedName": "Walmart Inc. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "WMTs",
           "wrappedTokenVaultSymbol": "wtWMT"
         },
         {
@@ -3883,7 +3883,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x9835e52FAFA9A92678C8A9420034706B1edD431e",
           "region": "EU",
-          "renamedName": "LVMH Moët Hennessy Louis Vuitton SE ST0x",
+          "renamedName": "LVMH Moët Hennessy Louis Vuitton SE (ST0x)",
           "symbol": "tMC",
           "underlying": "MC",
           "wrappedTokenVault": "0x5Ce8b84756dDdE011734F04dC4bA2930C981B443",
@@ -3892,8 +3892,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped LVMH Moët Hennessy Louis Vuitton SE ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped LVMH Moët Hennessy Louis Vuitton SE ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtMC",
+          "wrappedTokenVaultRenamedName": "LVMH Moët Hennessy Louis Vuitton SE (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "MCs",
           "wrappedTokenVaultSymbol": "wtMC"
         },
         {
@@ -3913,7 +3913,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x29e7fe750DFffd4D7C8e907C126324B8a5A9AdB7",
           "region": "US",
-          "renamedName": "The Walt Disney Company ST0x",
+          "renamedName": "The Walt Disney Company (ST0x)",
           "symbol": "tDIS",
           "underlying": "DIS",
           "wrappedTokenVault": "0x81f40cbCFAE7A1aD1f4474eD95A210DfA3B90B0f",
@@ -3922,8 +3922,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped The Walt Disney Company ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped The Walt Disney Company ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtDIS",
+          "wrappedTokenVaultRenamedName": "The Walt Disney Company (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "DISs",
           "wrappedTokenVaultSymbol": "wtDIS"
         },
         {
@@ -3943,7 +3943,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xe509C440B68c4FBf95e24d7476d3e5Bc8b25a8BB",
           "region": "EU",
-          "renamedName": "Infineon Technologies AG ST0x",
+          "renamedName": "Infineon Technologies AG (ST0x)",
           "symbol": "tIFX",
           "underlying": "IFX",
           "wrappedTokenVault": "0x88c10BEcFf283c21e9253d688ec06804359cF795",
@@ -3952,8 +3952,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Infineon Technologies AG ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Infineon Technologies AG ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtIFX",
+          "wrappedTokenVaultRenamedName": "Infineon Technologies AG (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "IFXs",
           "wrappedTokenVaultSymbol": "wtIFX"
         },
         {
@@ -3973,7 +3973,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0x7e26dE68d52b54f9CBc8D64833c1fEDA82C36A92",
           "region": "EU",
-          "renamedName": "Soitec SA ST0x",
+          "renamedName": "Soitec SA (ST0x)",
           "symbol": "tSOI",
           "underlying": "SOI",
           "wrappedTokenVault": "0xE828671B6EDd47122e4AcDE7aba6D12c58F244A3",
@@ -3982,8 +3982,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Soitec SA ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Soitec SA ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtSOI",
+          "wrappedTokenVaultRenamedName": "Soitec SA (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "SOIs",
           "wrappedTokenVaultSymbol": "wtSOI"
         },
         {
@@ -4003,7 +4003,7 @@
           "receiptVaultCodehash": "0x7551bff3fdfe5de3ee54be83a012a92d8380d601405a63c494d0b7ae3d670d2e",
           "receiptVaultReceipt": "0xe26C011A6dcFd8286a3Cf47718F14299d33f9478",
           "region": "EU",
-          "renamedName": "Technoprobe S.p.A. ST0x",
+          "renamedName": "Technoprobe S.p.A. (ST0x)",
           "symbol": "tTPRO",
           "underlying": "TPRO",
           "wrappedTokenVault": "0x5d6775Cb5b22faF47471986e99265C1a4846d845",
@@ -4012,8 +4012,8 @@
           "wrappedTokenVaultCodehash": "0xac684843cc8b4f414e3516779bbcbdc1118a997b4125320c6b7192015e645548",
           "wrappedTokenVaultDecimals": 18,
           "wrappedTokenVaultName": "Wrapped Technoprobe S.p.A. ST0x",
-          "wrappedTokenVaultRenamedName": "Wrapped Technoprobe S.p.A. ST0x",
-          "wrappedTokenVaultRenamedSymbol": "wtTPRO",
+          "wrappedTokenVaultRenamedName": "Technoprobe S.p.A. (ST0x)",
+          "wrappedTokenVaultRenamedSymbol": "TPROs",
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
