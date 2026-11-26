@@ -39,6 +39,7 @@ import {LibStoxMigrations, UnexpectedMigrationLine} from "../../src/lib/LibStoxM
 
 import {ICorporateActionsV1} from "../../src/interface/ICorporateActionsV1.sol";
 import {IStoxUnderlyingV2} from "../../src/interface/IStoxUnderlyingV2.sol";
+import {IStoxAssetIdV1} from "../../src/interface/IStoxAssetIdV1.sol";
 import {ST0xOrchestrator} from "../../src/concrete/ST0xOrchestrator.sol";
 import {MintAuthV1, Digest} from "../../src/interface/IST0xOrchestratorV2.sol";
 import {IST0xOrchestratorV1} from "../../src/interface/deprecated/IST0xOrchestratorV1.sol";
@@ -745,7 +746,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         bytes4[5] memory selectors = [
             IERC20Metadata.symbol.selector,
             IERC20Metadata.name.selector,
-            IStoxUnderlyingV2.underlyingIsin.selector,
+            IStoxAssetIdV1.assetId.selector,
             IERC20Metadata.symbol.selector,
             IERC20Metadata.name.selector
         ];

@@ -16,6 +16,7 @@ import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../../src/concrete/StoxWrappedTokenVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
+import {IStoxAssetIdV1} from "../../../src/interface/IStoxAssetIdV1.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
@@ -90,7 +91,7 @@ contract StoxUnderlyingIntegrationTest is Test {
         IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings", NEW_ISIN);
         assertEq(IStoxUnderlyingV2(address(sVault)).underlyingSymbol(), "NVDX");
         assertEq(IStoxUnderlyingV2(address(sVault)).underlyingName(), "NVIDIA Holdings");
-        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingIsin(), NEW_ISIN);
+        assertEq(IStoxAssetIdV1(address(sVault)).assetId(), NEW_ISIN);
         assertEq(sWrapper.symbol(), "NVDXs");
         assertEq(sWrapper.name(), "NVIDIA Holdings (ST0x)");
 
@@ -113,7 +114,7 @@ contract StoxUnderlyingIntegrationTest is Test {
     }
 
     function testUnsetIsinFallsBackToTheAssetId() external view {
-        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingIsin(), NVDA_ISIN);
+        assertEq(IStoxAssetIdV1(address(sVault)).assetId(), NVDA_ISIN);
     }
 
     /// Set: both tokens carry the names built from the underlying ticker and
@@ -185,7 +186,7 @@ contract StoxUnderlyingIntegrationTest is Test {
         vm.etch(facet, "");
         assertEq(IStoxUnderlyingV2(address(sVault)).underlyingSymbol(), "NVDA", "underlying symbol moved");
         assertEq(IStoxUnderlyingV2(address(sVault)).underlyingName(), "NVIDIA Corporation", "underlying name moved");
-        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingIsin(), NEW_ISIN, "underlying isin moved");
+        assertEq(IStoxAssetIdV1(address(sVault)).assetId(), NEW_ISIN, "asset id moved");
         assertEq(sVault.symbol(), "tNVDA", "symbol moved");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)", "name moved");
 
@@ -198,7 +199,7 @@ contract StoxUnderlyingIntegrationTest is Test {
         );
         assertEq(IStoxUnderlyingV2(address(sVault)).underlyingSymbol(), "NVDA", "underlying symbol back");
         assertEq(IStoxUnderlyingV2(address(sVault)).underlyingName(), "NVIDIA Corporation", "underlying name back");
-        assertEq(IStoxUnderlyingV2(address(sVault)).underlyingIsin(), NEW_ISIN, "underlying isin back");
+        assertEq(IStoxAssetIdV1(address(sVault)).assetId(), NEW_ISIN, "asset id back");
         assertEq(sVault.symbol(), "tNVDA", "symbol back");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)", "name back");
     }

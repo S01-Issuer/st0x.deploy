@@ -7,6 +7,7 @@ import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/acce
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
+import {IStoxAssetIdV1} from "../../../src/interface/IStoxAssetIdV1.sol";
 import {
     MalformedUnderlyingSymbol,
     MalformedUnderlyingName,
@@ -41,6 +42,10 @@ contract StoxReceiptVaultUnderlyingTest is Test {
 
     function underlying() internal view returns (IStoxUnderlyingV2) {
         return IStoxUnderlyingV2(address(sVault));
+    }
+
+    function asset() internal view returns (IStoxAssetIdV1) {
+        return IStoxAssetIdV1(address(sVault));
     }
 
     function storedIsin() internal view returns (bytes32) {
@@ -118,7 +123,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
     function testGettersUnset() external view {
         assertEq(underlying().underlyingSymbol(), "");
         assertEq(underlying().underlyingName(), "");
-        assertEq(underlying().underlyingIsin(), "");
+        assertEq(asset().assetId(), "");
         assertEq(storedIsin(), bytes32(0));
         assertEq(storedTimestamp(), 0);
     }
@@ -143,7 +148,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         underlying().setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
         assertEq(underlying().underlyingSymbol(), "NVDA");
         assertEq(underlying().underlyingName(), "NVIDIA Corporation");
-        assertEq(underlying().underlyingIsin(), NVDA_ISIN);
+        assertEq(asset().assetId(), NVDA_ISIN);
         assertEq(storedIsin(), NVDA_ISIN_WORD);
     }
 
@@ -210,7 +215,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
 
         assertEq(underlying().underlyingSymbol(), "META");
         assertEq(underlying().underlyingName(), "Meta Platforms Inc");
-        assertEq(underlying().underlyingIsin(), NVDA_ISIN);
+        assertEq(asset().assetId(), NVDA_ISIN);
         assertEq(storedIsin(), NVDA_ISIN_WORD);
         assertEq(sVault.symbol(), "tMETA");
         assertEq(sVault.name(), "Meta Platforms Inc (ST0x)");
@@ -244,7 +249,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         underlying().setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
         assertEq(underlying().underlyingSymbol(), "");
         assertEq(underlying().underlyingName(), "");
-        assertEq(underlying().underlyingIsin(), "");
+        assertEq(asset().assetId(), "");
     }
 
     /// A ticker init would refuse as a listing is rejected, the empty one included.
@@ -296,7 +301,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
             vm.prank(OWNER);
             underlying().setUnderlying("NVDA", "NVIDIA Corporation", isins[i]);
         }
-        assertEq(underlying().underlyingIsin(), "");
+        assertEq(asset().assetId(), "");
     }
 
     /// The checks run ticker, then name, then ISIN.
@@ -340,7 +345,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         underlying().underlyingName();
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
-        underlying().underlyingIsin();
+        asset().assetId();
     }
 
     function testFacetDirectCallsRevert() external {
@@ -351,7 +356,7 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facet.underlyingName();
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facet.underlyingIsin();
+        facet.assetId();
         vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
         facet.setUnderlying("NVDA", "NVIDIA Corporation", NVDA_ISIN);
     }
