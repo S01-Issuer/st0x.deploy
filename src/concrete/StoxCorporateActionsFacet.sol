@@ -272,9 +272,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (!LibSecurity.nameWellFormed(bytes(newName))) revert MalformedUnderlyingName(newName);
         if (!LibSecurity.isinWellFormed(newIsin)) revert MalformedUnderlyingIsin(newIsin);
 
-        emit UnderlyingSet(
-            msg.sender, underlyingSymbol(), underlyingName(), assetId(), newSymbol, newName, newIsin
-        );
+        emit UnderlyingSet(msg.sender, underlyingSymbol(), underlyingName(), assetId(), newSymbol, newName, newIsin);
         LibSecurity.UnderlyingStorage storage underlyingStorage = LibSecurity.getStorage();
         underlyingStorage.symbol = newSymbol;
         underlyingStorage.name = newName;
