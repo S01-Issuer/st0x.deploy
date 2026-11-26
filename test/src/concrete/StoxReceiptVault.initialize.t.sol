@@ -23,7 +23,10 @@ import {StoxReceipt} from "../../../src/concrete/StoxReceipt.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
-import {AuthorizerMissingCorporateActionAdmin} from "../../../src/error/ErrCorporateAction.sol";
+import {
+    AuthorizerMissingCorporateActionAdmin,
+    CorporateActionsFacetNotDeployed
+} from "../../../src/error/ErrCorporateAction.sol";
 import {
     IOffchainAssetReceiptVaultV1,
     OffchainAssetReceiptVaultConfigV3
@@ -108,6 +111,17 @@ contract StoxReceiptVaultInitializeTest is Test {
         StoxReceiptVault vault = LibTestDeploy.newVault(AUTHORITY, _data());
         assertEq(address(vault.authorizer()), address(authorizer));
         assertEq(vault.owner(), OWNER);
+    }
+
+    /// A delegatecall into empty code succeeds, so the missing facet is
+    /// named instead of failing the decode without a reason.
+    function testInitializeRevertsWithoutFacet() external {
+        LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
+        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
+        vm.etch(facet, "");
+        StoxReceiptVault vault = _uninitializedVault();
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        vault.initialize(_data());
     }
 
     /// An RBAC authorizer without a corporate-action admin is refused at

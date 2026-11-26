@@ -10,7 +10,6 @@ import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
-import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
@@ -248,13 +247,14 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         vm.revertToState(postBundle);
     }
 
-    /// @notice The execution proof `assertReversible` runs. It records every
-    /// production vault's and wrapper's `name()` and `symbol()` before the
-    /// batch and requires them unchanged after it: the beacon batch must not
-    /// rename anything, that is the rename batch's job.
+    /// @notice The execution proof `assertReversible` runs. It records the
+    /// `name()` and `symbol()` of every vault and wrapper behind the two
+    /// beacons, the token table and tQSEP on Base, the rows the rename skips
+    /// included, before the batch and requires them unchanged after it: the
+    /// beacon batch must not rename anything, that is the rename batch's job.
     function proveExecution() internal {
-        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
-        string[] memory before = metadata(chainTokens);
+        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.beaconTokens(block.chainid);
+        string[] memory before = LibUnderlyingNamingRollout.metadata(chainTokens);
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
             LibUnderlyingNamingRollout.beaconBatch(block.chainid);
         // forge-lint: disable-next-line(block-timestamp)
@@ -271,39 +271,17 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
             LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid),
             LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION
         );
-        string[] memory afterUpgrade = metadata(chainTokens);
+        string[] memory afterUpgrade = LibUnderlyingNamingRollout.metadata(chainTokens);
         for (uint256 i = 0; i < before.length; i++) {
             if (keccak256(bytes(before[i])) != keccak256(bytes(afterUpgrade[i]))) {
-                revert BeaconUpgradeMovedMetadata(metadataToken(chainTokens, i), before[i], afterUpgrade[i]);
+                revert BeaconUpgradeMovedMetadata(
+                    LibUnderlyingNamingRollout.metadataToken(chainTokens, i), before[i], afterUpgrade[i]
+                );
             }
         }
         console2.log(
             "Execution proven: both beacons upgraded by a roleless executor after 48h, no name or symbol moved"
         );
-    }
-
-    /// @notice Every vault's and wrapper's name and symbol, in a fixed order:
-    /// vault name, vault symbol, wrapper name, wrapper symbol, per token.
-    /// @param chainTokens The chain's tokens.
-    /// @return The values read.
-    function metadata(TokenInstance[] memory chainTokens) internal view returns (string[] memory) {
-        string[] memory values = new string[](chainTokens.length * 4);
-        for (uint256 i = 0; i < chainTokens.length; i++) {
-            values[i * 4] = IERC20Metadata(chainTokens[i].receiptVault).name();
-            values[i * 4 + 1] = IERC20Metadata(chainTokens[i].receiptVault).symbol();
-            values[i * 4 + 2] = IERC20Metadata(chainTokens[i].wrappedTokenVault).name();
-            values[i * 4 + 3] = IERC20Metadata(chainTokens[i].wrappedTokenVault).symbol();
-        }
-        return values;
-    }
-
-    /// @notice The token `metadata` read at `index`.
-    /// @param chainTokens The chain's tokens.
-    /// @param index The index into `metadata`.
-    /// @return The vault or wrapper read there.
-    function metadataToken(TokenInstance[] memory chainTokens, uint256 index) internal pure returns (address) {
-        TokenInstance memory token = chainTokens[index / 4];
-        return index % 4 < 2 ? token.receiptVault : token.wrappedTokenVault;
     }
 
     /// @notice Reverts unless `beacon` points at `expected`.

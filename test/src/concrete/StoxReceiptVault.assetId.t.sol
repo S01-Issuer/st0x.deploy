@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.14/src/concrete/CloneFactory.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
@@ -122,6 +122,42 @@ contract StoxReceiptVaultAssetIdTest is Test {
         plantSnapshotWithoutRow(AS_OF);
         setOverrideAt(timestamp);
         assertEq(assetIdOf(sVault), OVERRIDE_ISIN);
+    }
+
+    /// `assetId()` reports each `setUnderlying` ISIN, and only on the vault it was set on.
+    function testAssetIdFollowsSetUnderlyingIsin() external {
+        StoxReceiptVault aapl = newVault("US0378331005", "AAPL", "Apple Inc.");
+        plantSnapshotWithoutRow(AS_OF);
+        vm.prank(OWNER);
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDQ", "NVIDIA Corp", OVERRIDE_ISIN);
+        assertEq(assetIdOf(sVault), OVERRIDE_ISIN, "first set");
+        vm.prank(OWNER);
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDQ", "NVIDIA Corp", INIT_ISIN);
+        assertEq(assetIdOf(sVault), INIT_ISIN, "second set");
+        assertEq(assetIdOf(aapl), "US0378331005", "other vault");
+    }
+
+    /// `UnderlyingSet`'s old ISIN is `assetId()` before the update: the snapshot row's on the first set, the previous
+    /// override after.
+    function testUnderlyingSetOldIsinIsThePriorAssetId() external {
+        plantSnapshotWithRow(AS_OF);
+        vm.warp(AS_OF + 1);
+        string[2] memory newIsins = [OVERRIDE_ISIN, INIT_ISIN];
+        string[2] memory priors = [ROW_ISIN, OVERRIDE_ISIN];
+        for (uint256 i = 0; i < newIsins.length; i++) {
+            string memory prior = assetIdOf(sVault);
+            assertEq(prior, priors[i]);
+            vm.recordLogs();
+            vm.prank(OWNER);
+            IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation", newIsins[i]);
+            Vm.Log[] memory logs = vm.getRecordedLogs();
+            assertEq(logs.length, 1);
+            assertEq(logs[0].topics[0], IStoxUnderlyingV2.UnderlyingSet.selector);
+            (,, string memory oldIsin,,, string memory newIsin) =
+                abi.decode(logs[0].data, (string, string, string, string, string, string));
+            assertEq(oldIsin, prior);
+            assertEq(newIsin, newIsins[i]);
+        }
     }
 
     function testMissingRootRevertsLikeName() external {
