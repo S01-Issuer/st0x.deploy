@@ -30,6 +30,7 @@ library LibUnderlyingSnapshotBuilder {
     function shardData(UnderlyingSnapshotRow[] memory rows, uint256 k) internal pure returns (bool, bytes memory) {
         // Equal tokens share every slot, so no displacement or slot count separates them.
         if (hasDuplicate(rows)) {
+            // forge-lint: disable-next-line(boolean-cst)
             return (false, "");
         }
         (bytes memory body, uint256[] memory rowStarts) = encodeRows(rows);
@@ -37,8 +38,10 @@ library LibUnderlyingSnapshotBuilder {
         (bool fits, bytes memory displacements, uint256[] memory slotRows) =
             index(rows, rowBuckets, order, body.length);
         if (!fits) {
+            // forge-lint: disable-next-line(boolean-cst)
             return (false, "");
         }
+        // forge-lint: disable-next-line(boolean-cst)
         return (true, encodeShard(rows.length, displacements, slotRows, rowStarts, body));
     }
 
@@ -115,9 +118,11 @@ library LibUnderlyingSnapshotBuilder {
             (bool placed, bytes memory displacements, uint256[] memory slotRows) =
                 place(rows, rowBuckets, order, slotCount);
             if (placed) {
+                // forge-lint: disable-next-line(boolean-cst)
                 return (true, displacements, slotRows);
             }
         }
+        // forge-lint: disable-next-line(boolean-cst)
         return (false, "", new uint256[](0));
     }
 
@@ -141,9 +146,11 @@ library LibUnderlyingSnapshotBuilder {
                 }
             }
             if (!placed) {
+                // forge-lint: disable-next-line(boolean-cst)
                 return (false, displacements, slotRows);
             }
         }
+        // forge-lint: disable-next-line(boolean-cst)
         return (true, displacements, slotRows);
     }
 
