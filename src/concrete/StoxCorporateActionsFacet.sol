@@ -21,6 +21,7 @@ import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {OffchainAssetReceiptVault} from "rain-vats-0.2.25/src/abstract/OffchainAssetReceiptVault.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
+import {IStoxAssetIdV1} from "../interface/IStoxAssetIdV1.sol";
 import {IOwnable} from "../interface/IOwnable.sol";
 import {LibSecurity} from "../lib/LibSecurity.sol";
 import {LibERC20Storage} from "../lib/LibERC20Storage.sol";
@@ -64,7 +65,7 @@ import {
 /// vault's OZ `Initializable` slot (see `LibInitializableStorage`). Any future external
 /// entry points added here (e.g. list traversal) must also carry
 /// `onlyDelegatecalled`.
-contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IStoxTokenConfigV1 {
+contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IStoxTokenConfigV1, IStoxAssetIdV1 {
     /// @notice Thrown when a function is called directly on the standalone
     /// facet deployment rather than via delegatecall from the vault.
     error FacetMustBeDelegatecalled();
@@ -240,8 +241,8 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         return underlying;
     }
 
-    /// @inheritdoc IStoxUnderlyingV2
-    function underlyingIsin() external view override onlyDelegatecalled returns (string memory) {
+    /// @inheritdoc IStoxAssetIdV1
+    function assetId() external view override onlyDelegatecalled returns (string memory) {
         (,, string memory isin) = resolveUnderlying();
         return isin;
     }

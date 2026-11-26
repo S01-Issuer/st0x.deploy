@@ -27,6 +27,7 @@ import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
 import {IAuthorizableV1} from "rain-vats-0.2.25/src/interface/IAuthorizableV1.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {ICertifiableV1} from "rain-vats-0.2.25/src/interface/ICertifiableV1.sol";
+import {IStoxAssetIdV1} from "../../../../src/interface/IStoxAssetIdV1.sol";
 import {ERC1967_BEACON_SLOT} from "rain-extrospection-0.1.31/src/lib/LibExtrospectERC1967BeaconProxy.sol";
 
 /// @dev A Base block after the governance-timelock migration, so the receipt
@@ -210,6 +211,11 @@ contract V3UpgradeShadowForkTest is Test {
             ICertifiableV1(LIVE_RECEIPT_VAULT).isCertificationExpired(),
             "live vault still within certification window post-upgrade"
         );
+    }
+
+    /// @notice A live vault initialized before init data V1 has no asset id.
+    function testLiveVaultAssetIdIsEmpty() external view {
+        assertEq(IStoxAssetIdV1(LIVE_RECEIPT_VAULT).assetId(), "");
     }
 
     /// @notice The wrapped token vault wiring survives the upgrade: it still

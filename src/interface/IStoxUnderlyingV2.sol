@@ -10,7 +10,7 @@ interface IStoxUnderlyingV2 {
     /// @param sender The caller that set the values.
     /// @param oldSymbol `underlyingSymbol()` before the update.
     /// @param oldName `underlyingName()` before the update.
-    /// @param oldIsin `underlyingIsin()` before the update.
+    /// @param oldIsin `assetId()` before the update.
     /// @param newSymbol The override ticker after the update.
     /// @param newName The override name after the update.
     /// @param newIsin The override ISIN after the update.
@@ -31,10 +31,6 @@ interface IStoxUnderlyingV2 {
     /// @notice The underlying asset's name, e.g. "NVIDIA Corporation".
     /// @return The name.
     function underlyingName() external view returns (string memory);
-
-    /// @notice The underlying asset's current ISIN.
-    /// @return The ISIN.
-    function underlyingIsin() external view returns (string memory);
 
     /// @notice Sets this token's underlying ticker, name and ISIN override,
     /// stamped with `block.timestamp`. Callable by the vault owner only.
