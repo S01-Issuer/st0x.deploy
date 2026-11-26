@@ -3033,11 +3033,7 @@ library LibTokenInvariants {
     /// @param usAuthoriser The authoriser every US receipt vault on the chain shares.
     /// @param chainId The chain id.
     /// @return The expected authoriser.
-    function expectedAuthoriser(Region region, address usAuthoriser, uint256 chainId)
-        internal
-        pure
-        returns (address)
-    {
+    function expectedAuthoriser(Region region, address usAuthoriser, uint256 chainId) internal pure returns (address) {
         return region == Region.EU ? LibAuthoriserInvariants.euAuthoriserForChainId(chainId) : usAuthoriser;
     }
 

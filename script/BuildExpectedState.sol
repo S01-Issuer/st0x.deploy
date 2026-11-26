@@ -206,9 +206,8 @@ contract BuildExpectedState is Script {
         returns (string memory)
     {
         vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
-        return vm.serializeAddress(
-            row, "authoriser", LibTokenInvariants.expectedAuthoriser(region, usAuthoriser, chainId)
-        );
+        return
+            vm.serializeAddress(row, "authoriser", LibTokenInvariants.expectedAuthoriser(region, usAuthoriser, chainId));
     }
 
     function tokensJson(uint256 chainId, string memory key, TokenConfig[] memory configs)

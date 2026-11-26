@@ -893,11 +893,7 @@ library LibProdTokenConfig {
     /// @param table The table searched, e.g. one `canonicalTokenConfigs()`
     /// build shared across many lookups.
     /// @return The row. Reverts `UnknownUnderlying` when there is none.
-    function configOf(string memory underlying, TokenConfig[] memory table)
-        internal
-        pure
-        returns (TokenConfig memory)
-    {
+    function configOf(string memory underlying, TokenConfig[] memory table) internal pure returns (TokenConfig memory) {
         return rowIn(underlying, table, new TokenConfig[](0));
     }
 
