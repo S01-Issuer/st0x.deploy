@@ -20,7 +20,6 @@ import {
 import {UnderlyingSnapshotShardEncoder} from "./UnderlyingSnapshotShardEncoder.sol";
 
 uint8 constant UNDERLYING_SNAPSHOT_META_DEPTH = 3;
-uint256 constant UNDERLYING_SNAPSHOT_MAX_SHARD_ROWS = 256;
 uint256 constant EIP170_MAX_RUNTIME = 24576;
 
 /// @notice No shard count whose root fits EIP-170 fits every shard.
@@ -93,10 +92,6 @@ library LibUnderlyingSnapshotBuilder {
             bool fits = true;
             for (uint256 s = 0; s < k && fits; s++) {
                 UnderlyingSnapshotRow[] memory member = shardRows(rows, k, s);
-                if (member.length > UNDERLYING_SNAPSHOT_MAX_SHARD_ROWS) {
-                    fits = false;
-                    break;
-                }
                 // A meta build revert (depth, duplicate fingerprint, size) means try the next K.
                 bytes memory data;
                 try encoder.shardData(member) returns (bytes memory encoded) {
