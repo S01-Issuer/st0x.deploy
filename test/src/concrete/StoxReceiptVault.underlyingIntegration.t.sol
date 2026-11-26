@@ -171,7 +171,7 @@ contract StoxUnderlyingIntegrationTest is Test {
     }
 
     /// The underlying ticker, name and ISIN and the ERC-20 name and symbol survive a beacon upgrade to an
-    /// implementation whose fallback delegatecalls a facet at another address, with the pinned facet gone, and the
+    /// implementation that delegatecalls a facet at another address, with the pinned facet gone, and the
     /// upgrade back.
     function testUnderlyingAndMetadataSurviveABeaconUpgradeToAMovedFacet() external {
         IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation", NEW_ISIN);
