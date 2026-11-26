@@ -793,7 +793,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     /// A token at its suite's address was initialized from the row's listing, so its metadata is the
-    /// listed state. Its row is past 0G's renamed ones, so its renamed metadata is the listed state too.
+    /// listed state. Its row is past Base's renamed ones, so its renamed metadata is the listed state too.
     function testATokenAtItsSuiteAddressIsListed() external {
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
@@ -803,10 +803,12 @@ contract BuildExpectedStateTest is Test {
             receiptVault: LibProdTokenParams.tokenAddress(config),
             wrappedTokenVault: address(0)
         });
-        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
-        string memory zerog = harness.tokenMetadata(id, LibUnderlyingNamingRollout.tokenCount(id), token);
-        assertTokenMetadata(zerog, "", config, TokenMetadataState.Listed, TokenMetadataState.Listed);
-        assertEq(vm.parseJsonString(zerog, ".symbol"), string.concat("t", config.listingTicker));
+        uint256 id = LibSafeInvariants.BASE_CHAIN_ID;
+        uint256 row = LibUnderlyingNamingRollout.tokenCount(id);
+        assertGt(LibTokenInvariants.productionTokensForChainId(id).length, row);
+        string memory base = harness.tokenMetadata(id, row, token);
+        assertTokenMetadata(base, "", config, TokenMetadataState.Listed, TokenMetadataState.Listed);
+        assertEq(vm.parseJsonString(base, ".symbol"), string.concat("t", config.listingTicker));
     }
 
     function testV2IsTheV2NetworksKeyedByChainId() external {
