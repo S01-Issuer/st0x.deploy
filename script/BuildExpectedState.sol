@@ -201,6 +201,16 @@ contract BuildExpectedState is Script {
         );
     }
 
+    function tokenAuthorityJson(uint256 chainId, string memory row, Region region, address usAuthoriser)
+        internal
+        returns (string memory)
+    {
+        vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
+        return vm.serializeAddress(
+            row, "authoriser", LibTokenInvariants.expectedAuthoriser(region, usAuthoriser, chainId)
+        );
+    }
+
     function tokensJson(uint256 chainId, string memory key, TokenConfig[] memory configs)
         internal
         returns (string[] memory)
@@ -215,10 +225,7 @@ contract BuildExpectedState is Script {
             TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying, configs);
             tokenMetadataJson(chainId, row, i, tokens[i], config);
             tokenLegsJson(row, tokens[i], beacons, proxyCodehashes);
-            vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
-            rows[i] = vm.serializeAddress(
-                row, "authoriser", LibTokenInvariants.expectedAuthoriser(config.region, usAuthoriser, chainId)
-            );
+            rows[i] = tokenAuthorityJson(chainId, row, config.region, usAuthoriser);
         }
         return rows;
     }
