@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
+import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 
 import {bindBeaconInitialOwnerDeclaration} from "../../script/20261022-bind-beacon-initial-owner.s.sol";
@@ -10,10 +11,7 @@ import {orchestratorAdminToTimelockDeclaration} from "../../script/20261006-orch
 import {
     handSafeOwnedBaseVaultsToTimelockDeclaration
 } from "../../script/20261103-hand-safe-owned-base-vaults-to-timelock.s.sol";
-import {
-    ExecuteUnderlyingNaming,
-    executeUnderlyingNamingDeclaration
-} from "../../script/20261021-execute-underlying-naming.s.sol";
+import {executeUnderlyingNamingDeclaration} from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
     scheduleUnderlyingNamingBeaconsDeclaration
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
@@ -35,22 +33,19 @@ import {LibOrchestratorInvariants} from "../../src/lib/LibOrchestratorInvariants
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibServiceSignerRevoke} from "../../src/lib/LibServiceSignerRevoke.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
-import {LibStoxMigrations, ZerogArmPendingDecision} from "../../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants} from "../../src/lib/LibTokenInvariants.sol";
+import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 import {LibZerogOrchestratorRoles} from "../../src/lib/LibZerogOrchestratorRoles.sol";
-import {ExecuteUnderlyingNamingHarness} from "./ExecuteUnderlyingNamingHarness.sol";
-import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
 import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
 import {ZerogRootLineFixture} from "./ZerogRootLineFixture.sol";
 
 /// @title ZerogRootLineTest
-/// @notice 0G's root line past the token creation: the fixture's line is the declared one, the migrations whose 0G arm
-/// waits on a decision refuse 0G loudly at their onto, and the whole line walks through the orchestrator roles and every
-/// other 0G arm as the record alone, changing nothing the roles batch does not.
+/// @notice 0G's root line past the token creation: the fixture's line is the declared one, and the whole line walks
+/// through the orchestrator roles, the underlying naming and every other 0G arm as the record alone, changing nothing
+/// the roles batch and the naming do not.
 contract ZerogRootLineTest is ZerogRootLineFixture {
-    string internal constant NAMING_DECISION = "whether the underlying naming applies on 0G";
-
     function setUp() public {
         forkZerogAtTheTokenRecord();
     }
@@ -111,56 +106,39 @@ contract ZerogRootLineTest is ZerogRootLineFixture {
         }
     }
 
-    function expectPending(bytes32 migration, string memory decision) internal {
-        vm.expectRevert(abi.encodeWithSelector(ZerogArmPendingDecision.selector, migration, decision));
-    }
-
-    function testNamingBeaconsWaitOnTheNamingDecision() external {
-        landZerogLineThrough(LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK);
-        // The harness takes the release as frozen, so only the 0G refusal stands in the way.
-        ScheduleUnderlyingNamingBeaconsHarness script = new ScheduleUnderlyingNamingBeaconsHarness("zerog-pending");
-        expectPending(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS, NAMING_DECISION);
-        script.callPreflight();
-    }
-
-    function testNamingRenameWaitsOnTheNamingDecision() external {
-        landZerogLineThrough(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
-        ScheduleUnderlyingNamingRenameHarness script = new ScheduleUnderlyingNamingRenameHarness("zerog-pending");
-        expectPending(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME, NAMING_DECISION);
-        script.callPreflight();
-    }
-
-    function testNamingExecutionWaitsOnTheNamingDecision() external {
-        landZerogLineThrough(LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
-        ExecuteUnderlyingNamingHarness script = new ExecuteUnderlyingNamingHarness("zerog-pending");
-        expectPending(LibStoxMigrations.EXECUTE_UNDERLYING_NAMING, NAMING_DECISION);
-        script.callPreflight();
-        ExecuteUnderlyingNaming execution = new ExecuteUnderlyingNaming();
-        expectPending(LibStoxMigrations.EXECUTE_UNDERLYING_NAMING, NAMING_DECISION);
-        execution.execute();
-    }
-
-    /// The orchestrator roles land as the signers and a stranger land them, every later 0G arm as the record alone,
-    /// one Safe transaction each, and nothing else changes: the authoriser grants and the orchestrator roles as the
-    /// batch leaves them, the beacons, the vault owners and the unbound config names.
+    /// The orchestrator roles land as the signers and a stranger land them, the underlying naming as the Safe and a
+    /// roleless key land it, every other later 0G arm as the record alone, one Safe transaction each, and nothing else
+    /// changes: the authoriser grants and the orchestrator roles as the batch leaves them, the beacons on the naming's
+    /// implementations, every 0G vault renamed, the vault owners and the unbound config names.
     function testZerogLineWalksPastTheTokenCreation() external {
         Safe safe = zerogSafe();
         uint256 nonce = safe.nonce();
         landZerogLineThrough(LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG);
 
         bytes32[12] memory line = zerogLine();
-        uint256 bundles = 0;
-        for (uint256 i = 0; i < line.length; i++) {
-            // The schedule is recorded before the delay the execution waits out.
-            uint256 recordedAt = line[i] == LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES
-                ? block.timestamp - LibTimelockInvariants.TIMELOCK_MIN_DELAY
-                : block.timestamp;
-            assertEq(LibStoxMigrations.applied(line[i]), recordedAt, "recorded");
-            if (!zerogPendingDecision(line[i])) bundles++;
+        uint256 recordedAt = block.timestamp;
+        for (uint256 i = line.length; i > 0; i--) {
+            assertEq(LibStoxMigrations.applied(line[i - 1]), recordedAt, "recorded");
+            // An execution is recorded after the delay its schedule waited out.
+            if (
+                line[i - 1] == LibStoxMigrations.EXECUTE_ZEROG_ORCHESTRATOR_ROLES
+                    || line[i - 1] == LibStoxMigrations.EXECUTE_UNDERLYING_NAMING
+            ) recordedAt -= LibTimelockInvariants.TIMELOCK_MIN_DELAY;
         }
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.BIND_ORCHESTRATOR_CONFIG, "line at its end");
-        // The stand-in records are pranked writes, not Safe transactions.
-        assertEq(safe.nonce(), nonce + bundles, "one Safe transaction per 0G arm");
+        assertEq(safe.nonce(), nonce + line.length, "one Safe transaction per 0G arm");
+
+        assertEq(
+            IBeacon(LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid)).implementation(),
+            LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION,
+            "vault beacon on the naming's implementation"
+        );
+        assertEq(
+            IBeacon(LibUnderlyingNamingRollout.wrappedTokenVaultBeacon(block.chainid)).implementation(),
+            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
+            "wrapper beacon on the naming's implementation"
+        );
+        new ScheduleUnderlyingNamingRenameHarness("zerog-walk").callAssertRenamed(block.chainid);
 
         address us = LibAuthoriserInvariants.authoriserForChainId(block.chainid);
         LibAuthoriserInvariants.assertExpectedGrants(us, address(safe), zerogTimelock());

@@ -14,7 +14,6 @@ import {
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
-import {ZerogArmPendingDecision} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
@@ -61,13 +60,7 @@ contract LibUnderlyingNamingRolloutTest is Test {
 
     /// Every row each chain's rename sets has a well-formed ticker and name.
     function testEveryChainsRowsAreWellFormed() external view {
-        uint256[5] memory chainIds = [
-            LibSafeInvariants.BASE_CHAIN_ID,
-            LibSafeInvariants.ETHEREUM_CHAIN_ID,
-            LibSafeInvariants.HYPEREVM_CHAIN_ID,
-            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
-        ];
+        uint256[6] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
             this.externalAssertUnderlyingsWellFormed(chainIds[chainIndex]);
             TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainIds[chainIndex]);
@@ -173,86 +166,108 @@ contract LibUnderlyingNamingRolloutTest is Test {
         return LibUnderlyingNamingRollout.tokens(chainId);
     }
 
-    /// 0G's leading `TOKEN_COUNT` rows hold a token Base's leading rows do
-    /// not, so the rollout refuses 0G.
-    function testTokensRefusesZerog() external {
-        TokenInstance[] memory zerog = LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.ZEROG_CHAIN_ID);
-        TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
-        uint256 count = LibUnderlyingNamingRollout.TOKEN_COUNT;
-        bool foundForeign = false;
-        for (uint256 zerogRowIndex = 0; zerogRowIndex < count; zerogRowIndex++) {
-            bool inBase = false;
-            for (uint256 baseRowIndex = 0; baseRowIndex < count; baseRowIndex++) {
-                if (
-                    keccak256(bytes(zerog[zerogRowIndex].underlying)) == keccak256(bytes(base[baseRowIndex].underlying))
-                ) inBase = true;
-            }
-            if (!inBase) foundForeign = true;
-        }
-        assertTrue(foundForeign, "0G's leading rows hold a token Base's do not");
-        vm.expectRevert(
-            abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, LibSafeInvariants.ZEROG_CHAIN_ID)
-        );
-        this.externalTokens(LibSafeInvariants.ZEROG_CHAIN_ID);
+    function externalTokenCount(uint256 chainId) external pure returns (uint256) {
+        return LibUnderlyingNamingRollout.tokenCount(chainId);
     }
 
-    /// `cutForChain` holds for exactly the five networks before 0G, on any
-    /// chain id: not for 0G, a chain with no deployment, or an id no chain has.
-    function testCutForChainIsExactlyTheNetworksBeforeZerog(uint256 chainId) external pure {
-        bool historical = chainId == LibSafeInvariants.BASE_CHAIN_ID || chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID
+    function externalRenamesRow(uint256 chainId, uint256 tokenIndex) external pure returns (bool) {
+        return LibUnderlyingNamingRollout.renamesRow(chainId, tokenIndex);
+    }
+
+    /// On 0G the rollout renames 0G's own table, every row of its token
+    /// creation, in its own order.
+    function testZerogTokensAreItsWholeTable() external pure {
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensZerog();
+        TokenInstance[] memory zerog = LibUnderlyingNamingRollout.tokens(LibSafeInvariants.ZEROG_CHAIN_ID);
+        assertEq(table.length, LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT, "0G table");
+        assertEq(zerog.length, table.length, "every 0G row");
+        for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
+            assertSameToken(zerog[rowIndex], table[rowIndex]);
+        }
+    }
+
+    /// `cutForChain` holds for exactly the deployment networks, on any chain
+    /// id: not for a chain with no deployment, or an id no chain has.
+    function testCutForChainIsExactlyTheDeploymentNetworks(uint256 chainId) external pure {
+        bool deployed = chainId == LibSafeInvariants.BASE_CHAIN_ID || chainId == LibSafeInvariants.ETHEREUM_CHAIN_ID
             || chainId == LibSafeInvariants.HYPEREVM_CHAIN_ID || chainId == LibSafeInvariants.ROBINHOOD_CHAIN_ID
-            || chainId == LibSafeInvariants.BSC_CHAIN_ID;
-        assertEq(LibUnderlyingNamingRollout.cutForChain(chainId), historical);
-        assertFalse(LibUnderlyingNamingRollout.cutForChain(LibSafeInvariants.ZEROG_CHAIN_ID), "0G");
+            || chainId == LibSafeInvariants.BSC_CHAIN_ID || chainId == LibSafeInvariants.ZEROG_CHAIN_ID;
+        assertEq(LibUnderlyingNamingRollout.cutForChain(chainId), deployed);
+        SupportedNetwork[] memory all = LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        assertEq(all.length, 6, "six deployment networks");
+        for (uint256 networkIndex = 0; networkIndex < all.length; networkIndex++) {
+            assertTrue(LibUnderlyingNamingRollout.cutForChain(all[networkIndex].chainId), all[networkIndex].name);
+        }
         assertFalse(LibUnderlyingNamingRollout.cutForChain(0), "no chain");
         assertFalse(LibUnderlyingNamingRollout.cutForChain(137), "Polygon");
         assertFalse(LibUnderlyingNamingRollout.cutForChain(type(uint256).max), "max id");
-        assertEq(LibStoxDeployNetworks.networksBeforeZerog().length, 5, "five networks before 0G");
     }
 
-    /// The rollout serves exactly the networks its batches were cut for: each
-    /// one before 0G resolves its rows, and every other deployment network
-    /// with a table refuses.
-    function testTokensServesOnlyTheNetworksBeforeZerog() external view {
+    /// `tokenCount` is 65 on 0G and 56 on every network before it, on any
+    /// chain id, and refuses every chain the rollout was not cut for.
+    function testTokenCountIsPerCutChain(uint256 chainId) external {
+        assertEq(this.externalTokenCount(LibSafeInvariants.ZEROG_CHAIN_ID), 65, "0G");
         SupportedNetwork[] memory before =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 networkIndex = 0; networkIndex < before.length; networkIndex++) {
-            assertEq(this.externalTokens(before[networkIndex].chainId).length, LibUnderlyingNamingRollout.TOKEN_COUNT);
+            assertEq(this.externalTokenCount(before[networkIndex].chainId), 56, before[networkIndex].name);
         }
-        SupportedNetwork[] memory all = LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
-        uint256 refused = 0;
-        for (uint256 networkIndex = 0; networkIndex < all.length; networkIndex++) {
-            if (LibRainDeploy.hasChainId(before, all[networkIndex].chainId)) continue;
-            try this.externalTokens(all[networkIndex].chainId) {
-                revert(string.concat(all[networkIndex].name, " resolved"));
-            } catch (bytes memory reason) {
-                assertEq(
-                    reason,
-                    abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, all[networkIndex].chainId),
-                    all[networkIndex].name
-                );
-            }
-            refused++;
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            assertEq(this.externalTokenCount(chainId), LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT);
+        } else if (LibRainDeploy.hasChainId(before, chainId)) {
+            assertEq(this.externalTokenCount(chainId), LibUnderlyingNamingRollout.TOKEN_COUNT);
+        } else {
+            vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, chainId));
+            this.externalTokenCount(chainId);
         }
-        assertEq(refused, all.length - before.length, "every later network refuses");
-        assertGt(refused, 0, "0G is a later network");
     }
 
-    /// A table longer than `TOKEN_COUNT` is cut to its leading rows, so a
-    /// token appended later does not move the rename; a shorter one refuses.
-    function testLeadingRowsCutsALongerTableAndRefusesAShorterOne() external {
-        uint256 count = LibUnderlyingNamingRollout.TOKEN_COUNT;
-        TokenInstance[] memory longer = new TokenInstance[](count + 1);
-        for (uint256 rowIndex = 0; rowIndex < longer.length; rowIndex++) {
-            longer[rowIndex].underlying = vm.toString(rowIndex);
+    /// The rollout serves every deployment network: each resolves the leading
+    /// `tokenCount` rows of its own table.
+    function testTokensServesEveryDeploymentNetwork() external view {
+        SupportedNetwork[] memory all = LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        for (uint256 networkIndex = 0; networkIndex < all.length; networkIndex++) {
+            uint256 chainId = all[networkIndex].chainId;
+            TokenInstance[] memory chainTokens = this.externalTokens(chainId);
+            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+            assertEq(chainTokens.length, this.externalTokenCount(chainId), all[networkIndex].name);
+            for (uint256 rowIndex = 0; rowIndex < chainTokens.length; rowIndex++) {
+                assertSameToken(chainTokens[rowIndex], table[rowIndex]);
+            }
         }
-        TokenInstance[] memory cut = this.externalLeadingRows(1, longer);
-        assertEq(cut.length, count, "cut length");
-        assertEq(cut[count - 1].underlying, vm.toString(count - 1), "last kept row");
+    }
 
-        TokenInstance[] memory shorter = new TokenInstance[](count - 1);
-        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingTokenTableShort.selector, uint256(1), count, count - 1));
-        this.externalLeadingRows(1, shorter);
+    /// A table longer than the chain's count is cut to its leading rows, so a
+    /// token appended later does not move the rename; a shorter one refuses,
+    /// on 0G with its own count as on the networks before it.
+    function testLeadingRowsCutsALongerTableAndRefusesAShorterOne() external {
+        uint256[2] memory chainIds = [LibSafeInvariants.ETHEREUM_CHAIN_ID, LibSafeInvariants.ZEROG_CHAIN_ID];
+        uint256[2] memory counts = [LibUnderlyingNamingRollout.TOKEN_COUNT, LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT];
+        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
+            uint256 chainId = chainIds[chainIndex];
+            uint256 count = counts[chainIndex];
+            TokenInstance[] memory longer = new TokenInstance[](count + 1);
+            for (uint256 rowIndex = 0; rowIndex < longer.length; rowIndex++) {
+                longer[rowIndex].underlying = vm.toString(rowIndex);
+            }
+            TokenInstance[] memory cut = this.externalLeadingRows(chainId, longer);
+            assertEq(cut.length, count, "cut length");
+            assertEq(cut[count - 1].underlying, vm.toString(count - 1), "last kept row");
+
+            TokenInstance[] memory shorter = new TokenInstance[](count - 1);
+            vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingTokenTableShort.selector, chainId, count, count - 1));
+            this.externalLeadingRows(chainId, shorter);
+        }
+    }
+
+    /// `leadingRows` and `renamesRow` refuse a chain the rollout was not cut
+    /// for rather than cutting its table to another chain's count.
+    function testLeadingRowsAndRenamesRowRefuseAnUncutChain() external {
+        TokenInstance[] memory table = new TokenInstance[](LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT);
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, uint256(137)));
+        this.externalLeadingRows(137, table);
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotCutForChain.selector, uint256(137)));
+        this.externalRenamesRow(137, 0);
     }
 
     function externalBeaconTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
@@ -270,25 +285,36 @@ contract LibUnderlyingNamingRolloutTest is Test {
         assertEq(actual.wrappedTokenVault, expected.wrappedTokenVault, string.concat(expected.underlying, " wrapper"));
     }
 
-    function rolloutChainIds() internal pure returns (uint256[5] memory) {
+    function rolloutChainIds() internal pure returns (uint256[6] memory) {
         return [
             LibSafeInvariants.BASE_CHAIN_ID,
             LibSafeInvariants.ETHEREUM_CHAIN_ID,
             LibSafeInvariants.HYPEREVM_CHAIN_ID,
             LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
+            LibSafeInvariants.BSC_CHAIN_ID,
+            LibSafeInvariants.ZEROG_CHAIN_ID
         ];
+    }
+
+    /// The rename skips the trailing rows of each table before 0G, and none of
+    /// 0G's.
+    function assertRenameCoverage(uint256 chainId, uint256 tableLength) internal pure {
+        if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+            assertEq(tableLength, LibUnderlyingNamingRollout.ZEROG_TOKEN_COUNT, "0G renames its whole table");
+        } else {
+            assertGt(tableLength, LibUnderlyingNamingRollout.TOKEN_COUNT, "table has rows the rename skips");
+        }
     }
 
     /// `beaconTokens` is the chain's whole table, rows the rename skips
     /// included, then tQSEP on Base and nothing more elsewhere.
     function testBeaconTokensAreTheTableThenTqsepOnBase() external pure {
-        uint256[5] memory chainIds = rolloutChainIds();
+        uint256[6] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
             uint256 chainId = chainIds[chainIndex];
             TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
             TokenInstance[] memory beaconTokens = LibUnderlyingNamingRollout.beaconTokens(chainId);
-            assertGt(table.length, LibUnderlyingNamingRollout.TOKEN_COUNT, "table has rows the rename skips");
+            assertRenameCoverage(chainId, table.length);
             bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
             assertEq(beaconTokens.length, table.length + (onBase ? 1 : 0), "length");
             for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
@@ -299,9 +325,10 @@ contract LibUnderlyingNamingRolloutTest is Test {
     }
 
     /// `unrenamedTokens` is `beaconTokens` without the vaults the rename batch
-    /// targets, in order: the rows the rename skips, then tQSEP on Base.
+    /// targets, in order: the rows the rename skips, then tQSEP on Base. On 0G
+    /// the rename targets every vault, so it is empty.
     function testUnrenamedTokensAreTheBeaconTokensTheRenameSkips() external pure {
-        uint256[5] memory chainIds = rolloutChainIds();
+        uint256[6] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
             uint256 chainId = chainIds[chainIndex];
             (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainId);
@@ -317,7 +344,11 @@ contract LibUnderlyingNamingRolloutTest is Test {
             }
             assertEq(unrenamed.length, next, "length");
             bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-            assertGt(unrenamed.length, onBase ? 1 : 0, "table rows the rename skips");
+            if (chainId == LibSafeInvariants.ZEROG_CHAIN_ID) {
+                assertEq(unrenamed.length, 0, "0G leaves no vault unrenamed");
+            } else {
+                assertGt(unrenamed.length, onBase ? 1 : 0, "table rows the rename skips");
+            }
             if (onBase) assertSameToken(unrenamed[unrenamed.length - 1], LibTokenInvariants.qsepToken());
         }
     }
@@ -329,48 +360,26 @@ contract LibUnderlyingNamingRolloutTest is Test {
         this.externalBeaconTokens(137);
         vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, uint256(137)));
         this.externalUnrenamedTokens(137);
+        vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, uint256(137)));
+        this.externalTokens(137);
     }
 
-    /// `renamesRow` holds for exactly the table rows whose vault the rename batch targets.
+    /// `renamesRow` holds for exactly the table rows whose vault the rename
+    /// batch targets, and for no index past the table.
     function testRenamesRowIsTheRenameBatchTargets() external pure {
-        uint256[5] memory chainIds = [
-            LibSafeInvariants.BASE_CHAIN_ID,
-            LibSafeInvariants.ETHEREUM_CHAIN_ID,
-            LibSafeInvariants.HYPEREVM_CHAIN_ID,
-            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
-        ];
+        uint256[6] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
-            (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainIds[chainIndex]);
-            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainIds[chainIndex]);
+            uint256 chainId = chainIds[chainIndex];
+            (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainId);
+            TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
             for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
                 bool targeted = false;
                 for (uint256 targetIndex = 0; targetIndex < targets.length; targetIndex++) {
                     if (targets[targetIndex] == table[rowIndex].receiptVault) targeted = true;
                 }
-                assertEq(LibUnderlyingNamingRollout.renamesRow(rowIndex), targeted, table[rowIndex].underlying);
+                assertEq(LibUnderlyingNamingRollout.renamesRow(chainId, rowIndex), targeted, table[rowIndex].underlying);
             }
+            assertFalse(LibUnderlyingNamingRollout.renamesRow(chainId, table.length), "past the table");
         }
-    }
-
-    function externalRefuseZerog(bytes32 migration) external view {
-        LibUnderlyingNamingRollout.refuseZerog(migration);
-    }
-
-    function testFuzzRefuseZerogRefusesOnZerog(bytes32 migration) external {
-        vm.chainId(LibSafeInvariants.ZEROG_CHAIN_ID);
-        vm.expectRevert(
-            abi.encodeWithSelector(
-                ZerogArmPendingDecision.selector, migration, "whether the underlying naming applies on 0G"
-            )
-        );
-        this.externalRefuseZerog(migration);
-    }
-
-    function testFuzzRefuseZerogPassesOffZerog(uint256 chainId, bytes32 migration) external {
-        chainId = bound(chainId, 1, type(uint64).max - 1);
-        vm.assume(chainId != LibSafeInvariants.ZEROG_CHAIN_ID);
-        vm.chainId(chainId);
-        this.externalRefuseZerog(migration);
     }
 }
