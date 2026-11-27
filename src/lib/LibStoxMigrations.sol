@@ -125,12 +125,10 @@ library LibStoxMigrations {
         keccak256("script/20260813-execute-timelock-operations.s.sol");
 
     /// @notice `script/20261021-schedule-beacon-upgrade.s.sol`.
-    bytes32 internal constant SCHEDULE_BEACON_UPGRADE =
-        keccak256("script/20261021-schedule-beacon-upgrade.s.sol");
+    bytes32 internal constant SCHEDULE_BEACON_UPGRADE = keccak256("script/20261021-schedule-beacon-upgrade.s.sol");
 
     /// @notice `script/20261021-execute-beacon-upgrade.s.sol`.
-    bytes32 internal constant EXECUTE_BEACON_UPGRADE =
-        keccak256("script/20261021-execute-beacon-upgrade.s.sol");
+    bytes32 internal constant EXECUTE_BEACON_UPGRADE = keccak256("script/20261021-execute-beacon-upgrade.s.sol");
 
     /// @notice `script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol`.
     bytes32 internal constant SCHEDULE_REVOKE_SERVICE_SIGNER =

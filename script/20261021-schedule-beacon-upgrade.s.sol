@@ -135,12 +135,9 @@ contract ScheduleBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
         assertDeployed(LibBeaconUpgrade.FACET, LibBeaconUpgrade.FACET_CODEHASH);
+        assertDeployed(LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION, LibBeaconUpgrade.RECEIPT_VAULT_CODEHASH);
         assertDeployed(
-            LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION, LibBeaconUpgrade.RECEIPT_VAULT_CODEHASH
-        );
-        assertDeployed(
-            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
-            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_CODEHASH
+            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION, LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_CODEHASH
         );
 
         address vaultBeacon = LibBeaconUpgrade.receiptVaultBeacon(block.chainid);
@@ -220,13 +217,9 @@ contract ScheduleBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
             .executeBatch(targets, values, payloads, bytes32(0), LibBeaconUpgrade.BEACON_SALT);
 
         assertBeacon(
-            LibBeaconUpgrade.wrappedTokenVaultBeacon(block.chainid),
-            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
+            LibBeaconUpgrade.wrappedTokenVaultBeacon(block.chainid), LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
         );
-        assertBeacon(
-            LibBeaconUpgrade.receiptVaultBeacon(block.chainid),
-            LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION
-        );
+        assertBeacon(LibBeaconUpgrade.receiptVaultBeacon(block.chainid), LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION);
         string[] memory afterUpgrade = LibBeaconUpgrade.metadata(chainTokens);
         for (uint256 i = 0; i < before.length; i++) {
             if (keccak256(bytes(before[i])) != keccak256(bytes(afterUpgrade[i]))) {

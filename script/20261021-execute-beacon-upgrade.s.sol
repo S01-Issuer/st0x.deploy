@@ -44,9 +44,7 @@ error ExecuteBeaconUpgradeRecorded(bytes32 id);
 /// @return The declaration.
 function executeBeaconUpgradeDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: LibStoxMigrations.EXECUTE_BEACON_UPGRADE,
-        onto: LibStoxMigrations.SCHEDULE_BEACON_UPGRADE,
-        history: false
+        id: LibStoxMigrations.EXECUTE_BEACON_UPGRADE, onto: LibStoxMigrations.SCHEDULE_BEACON_UPGRADE, history: false
     });
 }
 
@@ -99,9 +97,7 @@ contract ExecuteBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
 
     /// @inheritdoc SafeBundleScript
     function artifactPath() internal view virtual override returns (string memory) {
-        return string.concat(
-            "out/20261021-execute-beacon-upgrade-record-", vm.toString(block.chainid), ".json"
-        );
+        return string.concat("out/20261021-execute-beacon-upgrade-record-", vm.toString(block.chainid), ".json");
     }
 
     /// @inheritdoc SafeBundleScript
