@@ -245,31 +245,31 @@
       "chains": {
         "1": {
           "executedAt": 0,
-          "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
+          "onto": "0x658f9693ac8eb5f49ca60195a35ea49b0c20fc815f4296363a23115ed3bcbddf"
         },
         "16661": {
           "executedAt": 0,
-          "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
+          "onto": "0x658f9693ac8eb5f49ca60195a35ea49b0c20fc815f4296363a23115ed3bcbddf"
         },
         "4663": {
           "executedAt": 0,
-          "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
+          "onto": "0x658f9693ac8eb5f49ca60195a35ea49b0c20fc815f4296363a23115ed3bcbddf"
         },
         "56": {
           "executedAt": 0,
-          "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
+          "onto": "0x658f9693ac8eb5f49ca60195a35ea49b0c20fc815f4296363a23115ed3bcbddf"
         },
         "8453": {
           "executedAt": 0,
-          "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
+          "onto": "0x658f9693ac8eb5f49ca60195a35ea49b0c20fc815f4296363a23115ed3bcbddf"
         },
         "999": {
           "executedAt": 0,
-          "onto": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a"
+          "onto": "0x658f9693ac8eb5f49ca60195a35ea49b0c20fc815f4296363a23115ed3bcbddf"
         }
       },
-      "id": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
-      "script": "script/20261021-execute-underlying-naming.s.sol"
+      "id": "0x5b76811a7d2110838beae13dcb77a478e54f591fa1e2ef18bf7e615313967db1",
+      "script": "script/20261021-execute-beacon-upgrade.s.sol"
     },
     {
       "chains": {
@@ -298,38 +298,8 @@
           "onto": "0x0f02a904a527c04adbf4e86c5cc75178f1fef739875facc7df3b8c32addab3ad"
         }
       },
-      "id": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
-      "script": "script/20261021-schedule-underlying-naming-beacons.s.sol"
-    },
-    {
-      "chains": {
-        "1": {
-          "executedAt": 0,
-          "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
-        },
-        "16661": {
-          "executedAt": 0,
-          "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
-        },
-        "4663": {
-          "executedAt": 0,
-          "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
-        },
-        "56": {
-          "executedAt": 0,
-          "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
-        },
-        "8453": {
-          "executedAt": 0,
-          "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
-        },
-        "999": {
-          "executedAt": 0,
-          "onto": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61"
-        }
-      },
-      "id": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
-      "script": "script/20261021-schedule-underlying-naming-rename.s.sol"
+      "id": "0x658f9693ac8eb5f49ca60195a35ea49b0c20fc815f4296363a23115ed3bcbddf",
+      "script": "script/20261021-schedule-beacon-upgrade.s.sol"
     },
     {
       "chains": {
@@ -455,27 +425,27 @@
       "chains": {
         "1": {
           "executedAt": 0,
-          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+          "onto": "0x5b76811a7d2110838beae13dcb77a478e54f591fa1e2ef18bf7e615313967db1"
         },
         "16661": {
           "executedAt": 0,
-          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+          "onto": "0x5b76811a7d2110838beae13dcb77a478e54f591fa1e2ef18bf7e615313967db1"
         },
         "4663": {
           "executedAt": 0,
-          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+          "onto": "0x5b76811a7d2110838beae13dcb77a478e54f591fa1e2ef18bf7e615313967db1"
         },
         "56": {
           "executedAt": 0,
-          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+          "onto": "0x5b76811a7d2110838beae13dcb77a478e54f591fa1e2ef18bf7e615313967db1"
         },
         "8453": {
           "executedAt": 0,
-          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+          "onto": "0x5b76811a7d2110838beae13dcb77a478e54f591fa1e2ef18bf7e615313967db1"
         },
         "999": {
           "executedAt": 0,
-          "onto": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2"
+          "onto": "0x5b76811a7d2110838beae13dcb77a478e54f591fa1e2ef18bf7e615313967db1"
         }
       },
       "id": "0xfa3139c03ee72aab437e45a5c62dfb83fcdb9b467702bf96050df31f4de23070",

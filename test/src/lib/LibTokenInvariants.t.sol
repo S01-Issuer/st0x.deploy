@@ -116,7 +116,6 @@ contract LibTokenInvariantsTest is Test {
         assertBaseRowsPlusTheSix(LibTokenInvariants.productionTokensBsc(), "BNB Smart Chain");
     }
 
-    /// The rename rollout pairs rows by index.
     function assertBaseRowsThenTheSixByIndex(TokenInstance[] memory table, string memory chain) internal pure {
         TokenInstance[] memory base = LibTokenInvariants.productionTokensBase();
         TokenConfig[] memory six = LibProdTokenConfig.offBaseTokenConfigs();
