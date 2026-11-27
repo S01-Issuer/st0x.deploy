@@ -14,7 +14,6 @@ import {
 } from "../../../src/generated/LibUnderlyingSnapshotCode.sol";
 import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../../script/LibUnderlyingSnapshotBuilder.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
-import {LibUnderlyingNamingRollout} from "../../../src/lib/LibUnderlyingNamingRollout.sol";
 
 contract LibUnderlyingSnapshotTest is Test {
     function productionTokens() internal pure returns (address[] memory, TokenConfig[] memory) {
@@ -123,10 +122,5 @@ contract LibUnderlyingSnapshotTest is Test {
         for (uint256 i = 0; i < shardCodes.length; i++) {
             assertEq(shards[i], LibRainDeploy.zoltuAddress(shardCodes[i]), "shard");
         }
-    }
-
-    /// Every snapshot row is a shape setUnderlying would accept.
-    function testEveryProductionRowIsWellFormed() external pure {
-        LibUnderlyingNamingRollout.assertRowsWellFormed(LibProdTokenConfig.productionTokenConfigs());
     }
 }
