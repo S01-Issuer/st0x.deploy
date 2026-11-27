@@ -60,8 +60,9 @@
 
 - **Tokens initialize from the listing facts.** Init data is
   `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the token's
-  starting ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC
-  and receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
+  starting asset id (`AssetId`: an `AssetIdKind`, only `ISIN`, and the id),
+  ticker and name, the region, the ConfigRegistry authority, RBAC and
+  receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
   delegatecalls the facet's `initializeStoxToken`, which refuses
   `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,
   `MalformedAssetId`, `MalformedListingTicker`, `MalformedListingName` and

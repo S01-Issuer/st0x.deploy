@@ -41,6 +41,7 @@ import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
 import {
     IStoxTokenConfigV1,
     StoxTokenConfigV1,
+    AssetId,
     AssetIdKind,
     STOX_TOKEN_CONFIG_V1_TAG
 } from "../../../src/interface/IStoxTokenConfigV1.sol";
@@ -212,16 +213,14 @@ contract StoxReceiptVaultInitializeTest is Test {
     function testInitializeStoresAndEmitsTheIsinKind() external {
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
         StoxReceiptVault vault = _uninitializedVault();
-        bytes32 regionAndKindSlot = bytes32(uint256(STOX_TOKEN_CONFIG_STORAGE_LOCATION) + 3);
-        vm.store(address(vault), regionAndKindSlot, bytes32(uint256(0xff) << 8));
+        bytes32 kindSlot = STOX_TOKEN_CONFIG_STORAGE_LOCATION;
+        vm.store(address(vault), kindSlot, bytes32(uint256(0xff)));
 
         vm.recordLogs();
         vault.initialize(_data());
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(
-            uint8(uint256(vm.load(address(vault), regionAndKindSlot)) >> 8), uint8(AssetIdKind.ISIN), "stored kind"
-        );
+        assertEq(uint8(uint256(vm.load(address(vault), kindSlot))), uint8(AssetIdKind.ISIN), "stored kind");
         uint256 count = 0;
         for (uint256 i = 0; i < logs.length; i++) {
             if (
@@ -229,7 +228,7 @@ contract StoxReceiptVaultInitializeTest is Test {
                     && logs[i].topics[0] == IStoxTokenConfigV1.StoxTokenInitialized.selector
             ) {
                 StoxTokenConfigV1 memory config = abi.decode(logs[i].data, (StoxTokenConfigV1));
-                assertEq(uint8(config.assetIdKind), uint8(AssetIdKind.ISIN), "emitted kind");
+                assertEq(uint8(config.assetId.kind), uint8(AssetIdKind.ISIN), "emitted kind");
                 count++;
             }
         }
@@ -243,12 +242,18 @@ contract StoxReceiptVaultInitializeTest is Test {
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
         StoxReceiptVault vault = _uninitializedVault();
         bytes memory data = _data();
-        // Tag, config offset, then the config head: assetId offset, kind.
+        // Tag, config offset, then the config head of eight words; the
+        // assetId tuple heads the tail and its first word is the kind.
+        uint256 assetIdOffset;
         uint256 isinWord;
         assembly ("memory-safe") {
-            isinWord := mload(add(data, 0x80))
-            mstore(add(data, 0x80), kind)
+            let config := add(data, 0x60)
+            assetIdOffset := mload(config)
+            let kindPointer := add(config, assetIdOffset)
+            isinWord := mload(kindPointer)
+            mstore(kindPointer, kind)
         }
+        assertEq(assetIdOffset, 0x100, "assetId offset");
         assertEq(isinWord, uint256(AssetIdKind.ISIN), "kind word");
 
         // abi.decode's enum check reverts without data.
@@ -265,12 +270,12 @@ contract StoxReceiptVaultInitializeTest is Test {
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, _newCorporateActionsAuthorizer());
         StoxReceiptVault vault = _uninitializedVault();
         bytes memory data = _data();
-        // Tag, config offset, then the config head: assetId offset, kind,
+        // Tag, config offset, then the config head: assetId offset,
         // listingTicker offset, listingName offset, region.
         uint256 regionWord;
         assembly ("memory-safe") {
-            regionWord := mload(add(data, 0xe0))
-            mstore(add(data, 0xe0), region)
+            regionWord := mload(add(data, 0xc0))
+            mstore(add(data, 0xc0), region)
         }
         assertEq(regionWord, uint256(Region.US), "region word");
 
@@ -319,8 +324,7 @@ contract StoxReceiptVaultInitializeTest is Test {
         returns (StoxTokenConfigV1 memory)
     {
         return StoxTokenConfigV1({
-            assetId: assetId,
-            assetIdKind: AssetIdKind.ISIN,
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: assetId}),
             listingTicker: listingTicker,
             listingName: listingName,
             region: region,
@@ -352,16 +356,16 @@ contract StoxReceiptVaultInitializeTest is Test {
     function _assertInitializeStoresAndEmits(StoxTokenConfigV1 memory config) internal {
         StoxReceiptVault vault = _uninitializedVault();
         uint256 location = uint256(STOX_TOKEN_CONFIG_STORAGE_LOCATION);
-        vm.store(address(vault), bytes32(location + 3), bytes32(uint256(0xff)));
+        vm.store(address(vault), bytes32(location + 4), bytes32(uint256(0xff)));
 
         vm.recordLogs();
         vault.initialize(abi.encode(STOX_TOKEN_CONFIG_V1_TAG, config));
         Vm.Log[] memory logs = vm.getRecordedLogs();
 
-        assertEq(_loadString(address(vault), location), config.assetId, "stored assetId");
-        assertEq(_loadString(address(vault), location + 1), config.listingTicker, "stored listingTicker");
-        assertEq(_loadString(address(vault), location + 2), config.listingName, "stored listingName");
-        assertEq(uint8(uint256(vm.load(address(vault), bytes32(location + 3)))), uint8(config.region), "stored region");
+        assertEq(_loadString(address(vault), location + 1), config.assetId.id, "stored assetId");
+        assertEq(_loadString(address(vault), location + 2), config.listingTicker, "stored listingTicker");
+        assertEq(_loadString(address(vault), location + 3), config.listingName, "stored listingName");
+        assertEq(uint8(uint256(vm.load(address(vault), bytes32(location + 4)))), uint8(config.region), "stored region");
         uint256 count = 0;
         for (uint256 i = 0; i < logs.length; i++) {
             if (

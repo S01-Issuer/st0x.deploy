@@ -521,7 +521,7 @@ contract BuildExpectedStateTest is Test {
                 ExpectedToken memory row = rows[i];
                 TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
                 assertEq(row.underlying, tokens[i].underlying);
-                assertEq(row.assetId, config.assetId);
+                assertEq(row.assetId, config.assetId.id);
                 assertEq(row.listingTicker, config.listingTicker);
                 assertEq(row.listingName, config.listingName);
                 assertEq(row.name, config.name);

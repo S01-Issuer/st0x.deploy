@@ -174,7 +174,7 @@ contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
             if (logs[i].emitter == token && logs[i].topics[0] == IStoxTokenConfigV1.StoxTokenInitialized.selector) {
                 StoxTokenConfigV1 memory emitted = abi.decode(logs[i].data, (StoxTokenConfigV1));
                 assertEq(abi.encode(STOX_TOKEN_CONFIG_V1_TAG, emitted), data, config.underlying);
-                assertEq(emitted.assetId, config.assetId, config.underlying);
+                assertEq(abi.encode(emitted.assetId), abi.encode(config.assetId), config.underlying);
                 count++;
             }
         }

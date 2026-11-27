@@ -40,7 +40,7 @@ contract StoxReceiptVaultNonCanonicalStoxTokenConfigTest is StoxReceiptVaultUnin
         bytes memory data = canonical();
         assembly ("memory-safe") {
             let config := add(data, 0x60)
-            let tickerContent := add(add(config, mload(add(config, 0x40))), 0x20)
+            let tickerContent := add(add(config, mload(add(config, 0x20))), 0x20)
             mstore(tickerContent, or(mload(tickerContent), dirt))
         }
         return data;

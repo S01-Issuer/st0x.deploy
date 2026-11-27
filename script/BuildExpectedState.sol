@@ -148,10 +148,15 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(at, "instance", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
     }
 
-    function tokenMetadataJson(uint256 chainId, string memory row, uint256 i, TokenInstance memory token) internal {
-        TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
+    function tokenMetadataJson(
+        uint256 chainId,
+        string memory row,
+        uint256 i,
+        TokenInstance memory token,
+        TokenConfig memory config
+    ) internal {
         vm.serializeString(row, "underlying", token.underlying);
-        vm.serializeString(row, "assetId", config.assetId);
+        vm.serializeString(row, "assetId", config.assetId.id);
         vm.serializeString(row, "listingTicker", config.listingTicker);
         vm.serializeString(row, "listingName", config.listingName);
         vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
@@ -199,7 +204,19 @@ contract BuildExpectedState is Script {
         );
     }
 
-    function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
+    function tokenAuthorityJson(uint256 chainId, string memory row, Region region, address usAuthoriser)
+        internal
+        returns (string memory)
+    {
+        vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
+        return
+            vm.serializeAddress(row, "authoriser", LibTokenInvariants.expectedAuthoriser(region, usAuthoriser, chainId));
+    }
+
+    function tokensJson(uint256 chainId, string memory key, TokenConfig[] memory configs)
+        internal
+        returns (string[] memory)
+    {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
         address[4] memory beacons = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId);
@@ -207,12 +224,10 @@ contract BuildExpectedState is Script {
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
-            tokenMetadataJson(chainId, row, i, tokens[i]);
+            TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying, configs);
+            tokenMetadataJson(chainId, row, i, tokens[i], config);
             tokenLegsJson(row, tokens[i], beacons, proxyCodehashes);
-            vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
-            rows[i] = vm.serializeAddress(
-                row, "authoriser", LibTokenInvariants.expectedAuthoriser(tokens[i].underlying, usAuthoriser, chainId)
-            );
+            rows[i] = tokenAuthorityJson(chainId, row, config.region, usAuthoriser);
         }
         return rows;
     }
@@ -316,7 +331,7 @@ contract BuildExpectedState is Script {
             : LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId);
     }
 
-    function chainJson(SupportedNetwork memory network) internal returns (string memory) {
+    function chainJson(SupportedNetwork memory network, TokenConfig[] memory configs) internal returns (string memory) {
         uint256 chainId = network.chainId;
         string memory key = vm.toString(chainId);
         vm.serializeString(key, "network", network.name);
@@ -350,7 +365,7 @@ contract BuildExpectedState is Script {
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
         }
-        return vm.serializeString(key, "tokens", tokensJson(chainId, key));
+        return vm.serializeString(key, "tokens", tokensJson(chainId, key, configs));
     }
 
     function v2DeploymentJson(string memory key, uint256 i, string memory name, address deployed, bytes32 codehash)
@@ -475,9 +490,10 @@ contract BuildExpectedState is Script {
     function render() public returns (string memory) {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
         string memory chains;
         for (uint256 i = 0; i < networks.length; i++) {
-            chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i]));
+            chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i], configs));
         }
         SupportedNetwork[] memory v2 = LibRainDeploy.declaredNetworkConfigs(LibProdDeployV2.deployedNetworks());
         string memory v2Chains;
