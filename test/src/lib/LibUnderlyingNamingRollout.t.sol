@@ -3,45 +3,22 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     LibUnderlyingNamingRollout,
-    MalformedUnderlying,
-    DownstreamNotReadyForRename,
     UnderlyingNamingNotCutForChain,
-    UnderlyingNamingTokenTableShort,
-    TickerNotBoundToVault,
-    IsinNotBoundToAssetId
+    UnderlyingNamingTokenTableShort
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
-import {AssetId, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
-import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
-import {MalformedUnderlyingIsin} from "../../../src/error/ErrUnderlying.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
 import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
 import {LibTestRootLine} from "../../lib/LibTestRootLine.sol";
 import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
-import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
-import {FrozenReleaseRenameHarness} from "../../script/FrozenReleaseRenameHarness.sol";
-import {ScheduleUnderlyingNamingRenameHarness} from "../../script/ScheduleUnderlyingNamingRenameHarness.sol";
 
 contract LibUnderlyingNamingRolloutTest is Test {
-    function externalAssertUnderlyingsWellFormed(uint256 chainId) external pure {
-        LibUnderlyingNamingRollout.assertUnderlyingsWellFormed(chainId);
-    }
-
-    function externalAssertUnderlyingWellFormed(TokenConfig memory config) external pure {
-        LibUnderlyingNamingRollout.assertUnderlyingWellFormed(config);
-    }
-
-    function externalAssertRowsWellFormed(TokenConfig[] memory rows) external pure {
-        LibUnderlyingNamingRollout.assertRowsWellFormed(rows);
-    }
-
     function externalLeadingRows(uint256 chainId, TokenInstance[] memory table)
         external
         pure
@@ -50,121 +27,6 @@ contract LibUnderlyingNamingRolloutTest is Test {
         return LibUnderlyingNamingRollout.leadingRows(chainId, table);
     }
 
-    function row(string memory isin, string memory ticker, string memory underlyingName)
-        internal
-        pure
-        returns (TokenConfig memory)
-    {
-        return TokenConfig({
-            assetId: AssetId({kind: AssetIdKind.ISIN, id: isin}),
-            listingTicker: ticker,
-            listingName: underlyingName,
-            underlying: ticker,
-            ticker: ticker,
-            name: string.concat(underlyingName, " ST0x"),
-            symbol: string.concat("t", ticker),
-            region: Region.US,
-            underlyingName: underlyingName,
-            isin: isin
-        });
-    }
-
-    /// Every row each chain's rename sets has a well-formed ticker and name.
-    function testEveryChainsRowsAreWellFormed() external view {
-        uint256[5] memory chainIds = [
-            LibSafeInvariants.BASE_CHAIN_ID,
-            LibSafeInvariants.ETHEREUM_CHAIN_ID,
-            LibSafeInvariants.HYPEREVM_CHAIN_ID,
-            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
-        ];
-        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
-            this.externalAssertUnderlyingsWellFormed(chainIds[chainIndex]);
-            TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(chainIds[chainIndex]);
-            TokenConfig[] memory rows = new TokenConfig[](chainTokens.length);
-            for (uint256 rowIndex = 0; rowIndex < chainTokens.length; rowIndex++) {
-                rows[rowIndex] = LibProdTokenConfig.configOf(chainTokens[rowIndex].underlying);
-            }
-            this.externalAssertRowsWellFormed(rows);
-        }
-    }
-
-    /// The row check refuses a malformed ticker or name, naming the row, and
-    /// accepts a well-formed one.
-    function testRowCheckRefusesEachMalformedField() external {
-        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA Corporation"));
-
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "tNVDA", "NVIDIA Corporation"));
-        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "tNVDA", "NVIDIA Corporation"));
-
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA Corporation ST0x"));
-        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA Corporation ST0x"));
-
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA \"Corp\""));
-        this.externalAssertUnderlyingWellFormed(row("US67066G1040", "NVDA", "NVIDIA \"Corp\""));
-    }
-
-    /// The row check refuses a malformed current ISIN, naming it.
-    function testRowCheckRefusesAMalformedIsin() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "US67066G1041"));
-        this.externalAssertUnderlyingWellFormed(row("US67066G1041", "NVDA", "NVIDIA Corporation"));
-
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, ""));
-        this.externalAssertUnderlyingWellFormed(row("", "NVDA", "NVIDIA Corporation"));
-
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "us67066g1040"));
-        this.externalAssertUnderlyingWellFormed(row("us67066g1040", "NVDA", "NVIDIA Corporation"));
-    }
-
-    /// The current ISIN is checked, not the frozen listing `assetId`.
-    function testRowCheckReadsTheCurrentIsin() external {
-        TokenConfig memory config = row("US67066G1040", "NVDA", "NVIDIA Corporation");
-        config.isin = "US67066G1041";
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "US67066G1041"));
-        this.externalAssertUnderlyingWellFormed(config);
-    }
-
-    /// A malformed ticker is reported before a malformed ISIN on the same row.
-    function testRowCheckReportsTickerBeforeIsin() external {
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "nvda", "NVIDIA Corporation"));
-        this.externalAssertUnderlyingWellFormed(row("US67066G1041", "nvda", "NVIDIA Corporation"));
-    }
-
-    /// The row loop refuses a malformed ISIN on a row after well-formed ones.
-    function testRowsCheckRefusesAMalformedIsinAmongGoodOnes() external {
-        TokenConfig[] memory rows = new TokenConfig[](3);
-        rows[0] = row("US67066G1040", "NVDA", "NVIDIA Corporation");
-        rows[1] = row("US0378331005", "AAPL", "Apple Inc.");
-        rows[2] = row("US5949181046", "MSFT", "Microsoft Corporation");
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingIsin.selector, "US5949181046"));
-        this.externalAssertRowsWellFormed(rows);
-    }
-
-    /// With the release frozen but the downstream flag unset, the rename
-    /// script refuses before it reads any chain state.
-    function testRenameRefusesUntilDownstreamIsReady() external {
-        DownstreamNotReadyRenameHarness rename = new DownstreamNotReadyRenameHarness();
-        vm.expectRevert(DownstreamNotReadyForRename.selector);
-        rename.callPreflight();
-    }
-
-    /// The repo sets the downstream flag (RAI-4172), so once the release is
-    /// frozen the rename script passes the downstream gate and goes on to the
-    /// row check, which refuses here on a chain with no token table.
-    function testRenamePassesTheDownstreamGateAsTheRepoSetsIt() external {
-        assertTrue(LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS);
-        FrozenReleaseRenameHarness rename = new FrozenReleaseRenameHarness();
-        vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, block.chainid));
-        rename.callPreflight();
-    }
-
-    /// With both flags set, the pre-flight checks the rows before any chain
-    /// read: on a chain with no token table, the row check is what refuses.
-    function testRenamePreflightChecksRowsBeforeChainState() external {
-        ScheduleUnderlyingNamingRenameHarness rename = new ScheduleUnderlyingNamingRenameHarness("offline");
-        vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, block.chainid));
-        rename.callPreflight();
-    }
 
     /// The receipt-vault implementation the rollout upgrades to delegatecalls
     /// the facet the beacon pre-flight checks: its pinned runtime code has the
@@ -183,36 +45,6 @@ contract LibUnderlyingNamingRolloutTest is Test {
             found = window == facet;
         }
         assertTrue(found, "facet address in vault code");
-    }
-
-    /// The row loop refuses the first malformed row, after well-formed ones.
-    function testRowsCheckRefusesAMalformedRowAmongGoodOnes() external {
-        TokenConfig[] memory rows = new TokenConfig[](3);
-        rows[0] = row("US67066G1040", "NVDA", "NVIDIA Corporation");
-        rows[1] = row("US0378331005", "AAPL", "Apple Inc. ST0x");
-        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation");
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "AAPL", "Apple Inc. ST0x"));
-        this.externalAssertRowsWellFormed(rows);
-        rows[1] = row("US0378331005", "AAPL", "Apple Inc.");
-        this.externalAssertRowsWellFormed(rows);
-    }
-
-    /// The row loop checks the first and the last row: each one, as the only
-    /// bad row, refuses. An empty list passes.
-    function testRowsCheckCoversTheEndRows() external {
-        TokenConfig[] memory rows = new TokenConfig[](3);
-        rows[0] = row("US67066G1040", "NVDA", "NVIDIA \"Corp\"");
-        rows[1] = row("US0378331005", "AAPL", "Apple Inc.");
-        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation");
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "NVDA", "NVIDIA \"Corp\""));
-        this.externalAssertRowsWellFormed(rows);
-
-        rows[0] = row("US67066G1040", "NVDA", "NVIDIA Corporation");
-        rows[2] = row("US5949181045", "MSFT", "Microsoft Corporation (ST0x)");
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlying.selector, "MSFT", "Microsoft Corporation (ST0x)"));
-        this.externalAssertRowsWellFormed(rows);
-
-        this.externalAssertRowsWellFormed(new TokenConfig[](0));
     }
 
     function externalTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
@@ -301,16 +133,14 @@ contract LibUnderlyingNamingRolloutTest is Test {
         this.externalLeadingRows(1, shorter);
     }
 
-    /// Each batch's last call writes its root-line record on every chain it was cut for: the beacon batch onto
-    /// the Safe-owned Base vault handover, the rename batch onto the beacon batch's record.
-    function testEachBatchEndsWithItsRootLineRecord() external {
-        LibTestRootLine.etchRegistry(vm);
+    /// The beacon batch's last call writes its root-line record onto the Safe-owned Base vault handover on every
+    /// chain it was cut for, and no earlier call reaches the registry.
+    function testBeaconBatchEndsWithItsRootLineRecord() external {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         assertEq(networks.length, 5, "five chains");
         for (uint256 networkIndex = 0; networkIndex < networks.length; networkIndex++) {
             uint256 chainId = networks[networkIndex].chainId;
-            string memory network = networks[networkIndex].name;
             uint256 snapshot = vm.snapshotState();
             LibLocalProdState.beacons(vm, chainId);
             (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
@@ -324,18 +154,7 @@ contract LibUnderlyingNamingRolloutTest is Test {
                     LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
                     LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
                 ),
-                string.concat(network, ": beacon batch")
-            );
-            (targets, values, payloads) = LibUnderlyingNamingRollout.renameBatch(chainId);
-            assertRecordLast(
-                targets,
-                values,
-                payloads,
-                LibTestRootLine.recordCalldata(
-                    LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
-                    LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
-                ),
-                string.concat(network, ": rename batch")
+                string.concat(networks[networkIndex].name, ": beacon batch")
             );
         }
     }
@@ -358,10 +177,6 @@ contract LibUnderlyingNamingRolloutTest is Test {
 
     function externalBeaconTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
         return LibUnderlyingNamingRollout.beaconTokens(chainId);
-    }
-
-    function externalUnrenamedTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
-        return LibUnderlyingNamingRollout.unrenamedTokens(chainId);
     }
 
     function assertSameToken(TokenInstance memory actual, TokenInstance memory expected) internal pure {
@@ -399,101 +214,24 @@ contract LibUnderlyingNamingRolloutTest is Test {
         }
     }
 
-    /// `unrenamedTokens` is `beaconTokens` without the vaults the rename batch
-    /// targets, in order: the rows the rename skips, then tQSEP on Base.
-    function testUnrenamedTokensAreTheBeaconTokensTheRenameSkips() external {
-        LibTestRootLine.etchRegistry(vm);
-        uint256[5] memory chainIds = rolloutChainIds();
-        for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
-            uint256 chainId = chainIds[chainIndex];
-            (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainId);
-            TokenInstance[] memory beaconTokens = LibUnderlyingNamingRollout.beaconTokens(chainId);
-            TokenInstance[] memory unrenamed = LibUnderlyingNamingRollout.unrenamedTokens(chainId);
-            uint256 next = 0;
-            for (uint256 tokenIndex = 0; tokenIndex < beaconTokens.length; tokenIndex++) {
-                bool targeted = false;
-                for (uint256 targetIndex = 0; targetIndex < targets.length; targetIndex++) {
-                    if (targets[targetIndex] == beaconTokens[tokenIndex].receiptVault) targeted = true;
-                }
-                if (!targeted) assertSameToken(unrenamed[next++], beaconTokens[tokenIndex]);
-            }
-            assertEq(unrenamed.length, next, "length");
-            bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-            assertGt(unrenamed.length, onBase ? 1 : 0, "table rows the rename skips");
-            if (onBase) assertSameToken(unrenamed[unrenamed.length - 1], LibTokenInvariants.qsepToken());
-        }
-    }
-
-    /// Both token sets refuse a chain with no table rather than returning
+    /// `beaconTokens` refuses a chain with no table rather than returning
     /// nothing.
-    function testBeaconAndUnrenamedTokensRefuseAChainWithNoTable() external {
+    function testBeaconTokensRefuseAChainWithNoTable() external {
         vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, uint256(137)));
         this.externalBeaconTokens(137);
-        vm.expectRevert(abi.encodeWithSelector(NoTokenTableForChain.selector, uint256(137)));
-        this.externalUnrenamedTokens(137);
     }
 
-    /// `renamesRow` holds for exactly the table rows whose vault the rename batch targets.
-    function testRenamesRowIsTheRenameBatchTargets() external {
-        LibTestRootLine.etchRegistry(vm);
+    /// `renamedAfterUpgrade` holds for exactly the table rows `tokens` returns: the leading `TOKEN_COUNT`.
+    function testRenamedAfterUpgradeIsTheRolloutsRows() external pure {
         uint256[5] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
-            (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainIds[chainIndex]);
+            TokenInstance[] memory rows = LibUnderlyingNamingRollout.tokens(chainIds[chainIndex]);
             TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainIds[chainIndex]);
+            assertGt(table.length, rows.length, "the table has rows past the rollout's");
             for (uint256 rowIndex = 0; rowIndex < table.length; rowIndex++) {
-                bool targeted = false;
-                for (uint256 targetIndex = 0; targetIndex < targets.length; targetIndex++) {
-                    if (targets[targetIndex] == table[rowIndex].receiptVault) targeted = true;
-                }
-                assertEq(LibUnderlyingNamingRollout.renamesRow(rowIndex), targeted, table[rowIndex].underlying);
+                bool inRows = rowIndex < rows.length && rows[rowIndex].receiptVault == table[rowIndex].receiptVault;
+                assertEq(LibUnderlyingNamingRollout.renamedAfterUpgrade(rowIndex), inRows, table[rowIndex].underlying);
             }
         }
-    }
-
-    function externalAssertIsinBound(TokenConfig memory config) external pure {
-        LibUnderlyingNamingRollout.assertIsinBound(config);
-    }
-
-    function externalAssertTickerBound(TokenInstance memory token, TokenConfig memory config) external view {
-        LibUnderlyingNamingRollout.assertTickerBound(token, config);
-    }
-
-    /// A row keyed by its listing-time ticker `FB` whose rename writes `META`.
-    function tickerChangedRow() internal pure returns (TokenConfig memory) {
-        TokenConfig memory config = row("US30303M1027", "META", "Meta Platforms Inc");
-        config.underlying = "FB";
-        config.listingTicker = "FB";
-        config.symbol = "tFB";
-        return config;
-    }
-
-    /// The ISIN check passes a row whose ISIN is its asset id and refuses
-    /// another, naming the row's underlying, ISIN and asset id.
-    function testIsinBindingRefusesAnIsinThatIsNotTheAssetId() external {
-        TokenConfig memory config = tickerChangedRow();
-        this.externalAssertIsinBound(config);
-
-        config.isin = "US0378331005";
-        vm.expectRevert(abi.encodeWithSelector(IsinNotBoundToAssetId.selector, "FB", "US0378331005", "US30303M1027"));
-        this.externalAssertIsinBound(config);
-    }
-
-    /// The ticker check binds the vault's live symbol to `"t"` + the ticker
-    /// the rename writes, not the underlying key or listing symbol.
-    function testTickerBindingReadsTheWrittenTickerNotTheUnderlying() external {
-        TokenConfig memory config = tickerChangedRow();
-        TokenInstance memory token = TokenInstance({
-            underlying: "FB",
-            receipt: makeAddr("receipt"),
-            receiptVault: makeAddr("receiptVault"),
-            wrappedTokenVault: makeAddr("wrappedTokenVault")
-        });
-
-        vm.mockCall(token.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode("tMETA"));
-        this.externalAssertTickerBound(token, config);
-
-        vm.mockCall(token.receiptVault, abi.encodeWithSelector(IERC20Metadata.symbol.selector), abi.encode("tFB"));
-        vm.expectRevert(abi.encodeWithSelector(TickerNotBoundToVault.selector, "META", token.receiptVault, "tFB"));
-        this.externalAssertTickerBound(token, config);
     }
 }

@@ -35,7 +35,7 @@ contract ScheduleRevokeServiceSignerDepositWithdrawRootLineTest is
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.EXECUTE_UNDERLYING_NAMING;
+        return LibStoxMigrations.EXECUTE_UNDERLYING_NAMING_BEACONS;
     }
 
     function landBeforeOnto() internal override {

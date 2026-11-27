@@ -330,8 +330,8 @@ contract BuildExpectedStateTest is Test {
         );
     }
 
-    /// `renamedImplementation` is what the rename migration's beacon batch upgrades the row's beacon to, and the row's
-    /// `implementation` where the batch leaves the beacon alone. Checked on the networks the rename's beacon batch was
+    /// `renamedImplementation` is what the beacon batch upgrades the row's beacon to, and the row's
+    /// `implementation` where the batch leaves the beacon alone. Checked on the networks the beacon batch was
     /// cut for: every one before 0G.
     function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
         string memory json = build.render();
@@ -577,8 +577,8 @@ contract BuildExpectedStateTest is Test {
         assertTrue(sawMc && sawMstr);
     }
 
-    /// The unprefixed fields are the initialized metadata, the `renamed` fields the metadata once the rename batch has
-    /// run, which renames only its leading rows; each set is one consistent state of the vault and wrapper.
+    /// The unprefixed fields are the initialized metadata, the `renamed` fields the metadata after the beacon upgrade,
+    /// which renames only the leading rows; each set is one consistent state of the vault and wrapper.
     function testTokenMetadataIsTheInitializedAndRenamedStates() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
@@ -601,7 +601,9 @@ contract BuildExpectedStateTest is Test {
                     rows[i],
                     config,
                     state,
-                    chainRenames && LibUnderlyingNamingRollout.renamesRow(i) ? TokenMetadataState.Renamed : state
+                    chainRenames && LibUnderlyingNamingRollout.renamedAfterUpgrade(i)
+                        ? TokenMetadataState.Renamed
+                        : state
                 );
             }
         }
@@ -813,19 +815,6 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The rename migration is the rename batch's record, the id of the script that schedules it.
-    function testRenameMigrationIsTheRenameBatchRecord() external {
-        string memory json = build.render();
-        string memory script = "script/20261021-schedule-underlying-naming-rename.s.sol";
-        assertTrue(vm.exists(script));
-        SupportedNetwork[] memory nets = networks();
-        for (uint256 c = 0; c < nets.length; c++) {
-            bytes32 id = vm.parseJsonBytes32(json, string.concat(chain(nets[c]), ".renameMigration"));
-            assertEq(id, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
-            assertEq(id, keccak256(bytes(script)));
-        }
-    }
-
     /// The underlying naming's batches were cut for the networks before 0G only: on 0G each beacon's
     /// `renamedImplementation` is its implementation, and a token's renamed metadata is its current metadata.
     function testZerogRenamesNothing() external {
@@ -836,7 +825,7 @@ contract BuildExpectedStateTest is Test {
         }
 
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
-        assertTrue(LibUnderlyingNamingRollout.renamesRow(0), "row 0 renames on a full line");
+        assertTrue(LibUnderlyingNamingRollout.renamedAfterUpgrade(0), "row 0 is renamed after the upgrade");
         TokenInstance memory token = LibTokenInvariants.productionTokensForChainId(id)[0];
         assertEq(token.underlying, "MSTR");
         TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
@@ -1185,7 +1174,7 @@ contract BuildExpectedStateTest is Test {
 
     function chainFields(uint256 chainId) internal pure returns (string[] memory) {
         bool isBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-        string[] memory fields = new string[](isBase ? 14 : 13);
+        string[] memory fields = new string[](isBase ? 13 : 12);
         fields[0] = "network";
         fields[1] = "beaconSetDeployer";
         fields[2] = "beacons";
@@ -1196,11 +1185,10 @@ contract BuildExpectedStateTest is Test {
         fields[7] = "euAuthoriser";
         fields[8] = "zoltu";
         fields[9] = "upgradeMigration";
-        fields[10] = "renameMigration";
-        fields[11] = "registryDelegates";
-        fields[12] = "tokens";
+        fields[10] = "registryDelegates";
+        fields[11] = "tokens";
         if (isBase) {
-            fields[13] = "qsep";
+            fields[12] = "qsep";
         }
         return fields;
     }
