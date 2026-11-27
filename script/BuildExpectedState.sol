@@ -5,13 +5,12 @@ pragma solidity =0.8.25;
 import {Script} from "forge-std-1.17.0/src/Script.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
 import {LibSafe} from "rain-deploy-0.1.41/src/lib/LibSafe.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
+import {DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.41/src/lib/LibRainDeployDeclaration.sol";
 import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.41/src/lib/LibRainDeployZoltuMechanism.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
 import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.41/src/lib/LibMigrationRegistryDeploy.sol";
 import {LibConfigRegistryDeploy} from "rain-deploy-0.1.41/src/lib/LibConfigRegistryDeploy.sol";
-import {LibStoxReleasedNetworks} from "../src/lib/LibStoxReleasedNetworks.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
@@ -29,6 +28,7 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
+import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
@@ -55,7 +55,7 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// Under `v2`, per network V2 was checked on: `network`, `deployments` (each `LibProdDeployV2` key, address,
 /// codehash), `beaconSetDeployer`, and `receiptBeacon`, `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon,
 /// implementation, owner).
-contract BuildExpectedState is Script {
+contract BuildExpectedState is Script, StoxDeploySuites {
     string internal constant PATH = "expected-state.json";
 
     /// The implementations `upgradeMigration`'s beacon batch moves the beacons to; the current ones where the batch was
@@ -231,10 +231,7 @@ contract BuildExpectedState is Script {
     }
 
     function releasedSuites() internal view returns (DeploySuite[] memory) {
-        DeployDeclaration memory declared;
-        LibRainDeployDeclaration.setNetworks(declared, LibStoxDeployNetworks.deploymentNetworks());
-        LibRainDeployDeclaration.addReleased(declared, LibStoxReleasedNetworks.releasedSuites());
-        return declared.released;
+        return declaration().released;
     }
 
     function zoltuOn(DeploySuite memory suite, uint256 chainId) internal pure returns (bool) {
