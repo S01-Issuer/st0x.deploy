@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibDataContract, PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {Bytes} from "@openzeppelin-contracts-5.7.0/utils/Bytes.sol";
 import {
     LibUnderlyingSnapshot,
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,
@@ -378,14 +379,6 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         return value;
     }
 
-    function slice(bytes memory data, uint256 start, uint256 length) internal pure returns (bytes memory) {
-        bytes memory out = new bytes(length);
-        for (uint256 i = 0; i < length; i++) {
-            out[i] = data[start + i];
-        }
-        return out;
-    }
-
     /// Asserts a one-byte length then `field` at `at`; returns the next position.
     function assertFieldAt(bytes memory data, uint256 at, string memory field, string memory label)
         internal
@@ -394,7 +387,7 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
     {
         uint256 length = bytes(field).length;
         assertEq(readUint(data, at, 1), length, label);
-        assertEq(slice(data, at + 1, length), bytes(field), label);
+        assertEq(Bytes.slice(data, at + 1, at + 1 + length), bytes(field), label);
         return at + 1 + length;
     }
 
@@ -509,7 +502,9 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         uint256 slotCount = readUint(data, 8, 2);
         assertEq(bucketCount, rows.length == 0 ? 1 : (rows.length + 3) / 4, "bucket count");
         assertEq(
-            slice(data, 10, bucketCount), firstPlacingDisplacements(rows, k, bucketCount, slotCount), "displacements"
+            Bytes.slice(data, 10, 10 + bucketCount),
+            firstPlacingDisplacements(rows, k, bucketCount, slotCount),
+            "displacements"
         );
         assertSlotsOwnTheirRows(rows, k, data, bucketCount, slotCount);
         return slotCount;
