@@ -12,6 +12,8 @@ import {
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.38/src/lib/LibRainDeployDeclaration.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
 import {CloneDeploy} from "rain-factory-0.2.18/src/lib/LibRainDeployClone.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.18/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.18/src/lib/LibRainDeployCloneMechanism.sol";
 import {
@@ -47,6 +49,7 @@ import {LibStoxTokenProxy} from "../generated/LibStoxTokenProxy.sol";
 import {LibStoxWrapperProxy} from "../generated/LibStoxWrapperProxy.sol";
 import {LibProdOrchestratorParams} from "../lib/LibProdOrchestratorParams.sol";
 import {LibST0xOrchestratorProxy} from "../generated/LibST0xOrchestratorProxy.sol";
+import {LibUnderlyingSnapshotCode} from "../generated/LibUnderlyingSnapshotCode.sol";
 
 /// @title StoxDeploySuites
 /// @notice Every deterministic deployment this repo makes, declared once for
@@ -77,6 +80,14 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
     string constant TOKEN_PREFIX = "stox-token-";
     string constant WRAPPER_SUFFIX = "-wrapper";
     string constant GOVERNANCE_TIMELOCK = "stox-governance-timelock";
+    string constant UNDERLYING_SNAPSHOT_ROOT = "stox-underlying-snapshot-root";
+    string constant UNDERLYING_SNAPSHOT_SHARD_PREFIX = "stox-underlying-snapshot-shard-";
+    string constant UNDERLYING_SNAPSHOT_ROOT_PATH =
+        "src/generated/LibUnderlyingSnapshotCode.sol:UnderlyingSnapshotRoot";
+    string constant UNDERLYING_SNAPSHOT_SHARD_PATH =
+        "src/generated/LibUnderlyingSnapshotCode.sol:UnderlyingSnapshotShard";
+    string constant UNDERLYING_SNAPSHOT_UNANCHORABLE_REASON =
+        "A data contract assembled from generated tables; no compiler produces its bytes.";
 
     string constant FACET_PATH = "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet";
     string constant RECEIPT_PATH = "src/concrete/StoxReceipt.sol:StoxReceipt";
@@ -111,6 +122,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         LibRainDeployCloneMechanism.extend(declared);
         LibRainDeployDeclaration.addReleased(declared, LibStoxReleasedNetworks.releasedSuites());
         LibRainDeployDeclaration.addCandidates(declared, candidateSuites());
+        LibRainDeployDeclaration.addCandidates(declared, underlyingSnapshotSuites());
         LibCloneCandidates.addClones(declared, authoriserClones());
         addTokenSuites(declared, LibProdTokenConfig.productionTokenConfigs());
         addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
@@ -323,6 +335,72 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         return candidates;
     }
 
+    /// The underlying snapshot root and shards: pure data, Zoltu-deployed, no source artifact.
+    function underlyingSnapshotSuites() internal pure returns (DeployCandidate[] memory) {
+        DeploySuite[] memory shards = underlyingSnapshotShardSuites();
+        DeployCandidate[] memory candidates = new DeployCandidate[](shards.length + 1);
+        candidates[0] = unanchored(underlyingSnapshotRootSuite(), UNDERLYING_SNAPSHOT_UNANCHORABLE_REASON);
+        for (uint256 i = 0; i < shards.length; i++) {
+            candidates[i + 1] = unanchored(shards[i], UNDERLYING_SNAPSHOT_UNANCHORABLE_REASON);
+        }
+        return candidates;
+    }
+
+    function underlyingSnapshotShardSuites() internal pure returns (DeploySuite[] memory) {
+        bytes[] memory codes = LibUnderlyingSnapshotCode.shardCreationCodes();
+        DeploySuite[] memory shards = new DeploySuite[](codes.length);
+        for (uint256 i = 0; i < codes.length; i++) {
+            shards[i] = dataZoltu(
+                underlyingSnapshotShardSuite(i), codes[i], UNDERLYING_SNAPSHOT_SHARD_PATH, new DeployDependency[](0)
+            );
+        }
+        return shards;
+    }
+
+    /// The shard addresses in the root's data sit after its RETURN, so its code reaches none of them.
+    function underlyingSnapshotRootSuite() internal pure returns (DeploySuite memory) {
+        return dataZoltu(
+            UNDERLYING_SNAPSHOT_ROOT,
+            LibUnderlyingSnapshotCode.ROOT_CREATION_CODE,
+            UNDERLYING_SNAPSHOT_ROOT_PATH,
+            new DeployDependency[](0)
+        );
+    }
+
+    /// Suite keys allow only lowercase letters and hyphens, so the shard index is base-26 in a-z.
+    function underlyingSnapshotShardSuite(uint256 index) internal pure returns (string memory) {
+        // 0x61 + index % 26 is at most 0x7a.
+        // forge-lint: disable-next-line(unsafe-typecast)
+        bytes memory key = abi.encodePacked(bytes1(uint8(0x61 + index % 26)));
+        for (index /= 26; index > 0; index /= 26) {
+            // forge-lint: disable-next-line(unsafe-typecast)
+            key = abi.encodePacked(bytes1(uint8(0x61 + index % 26)), key);
+        }
+        return string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, string(key));
+    }
+
+    /// Zoltu suite for a LibDataContract creation code; its runtime is the prefix's trailing 0x00 then the data.
+    function dataZoltu(
+        string memory suite,
+        bytes memory creationCode,
+        string memory artifactPath,
+        DeployDependency[] memory dependencies
+    ) internal pure returns (DeploySuite memory) {
+        bytes memory runtimeCode = new bytes(creationCode.length - (PREFIX_BYTES_LENGTH - 1));
+        for (uint256 i = 0; i < runtimeCode.length; i++) {
+            runtimeCode[i] = creationCode[i + (PREFIX_BYTES_LENGTH - 1)];
+        }
+        return zoltu(
+            suite,
+            creationCode,
+            LibRainDeploy.zoltuAddress(creationCode),
+            keccak256(runtimeCode),
+            runtimeCode,
+            artifactPath,
+            dependencies
+        );
+    }
+
     /// The EU and US assets authorisers: clones of the 0.1.1 authoriser whose
     /// init data names each chain's token-owner Safe, so each address is per
     /// network. The US clone is only 0G's (`setCandidateNetworks`): every
@@ -489,6 +567,14 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     function anchored(DeploySuite memory snapshot) internal pure returns (DeployCandidate memory) {
         return DeployCandidate({snapshot: snapshot, unanchorableReason: ""});
+    }
+
+    function unanchored(DeploySuite memory snapshot, string memory reason)
+        internal
+        pure
+        returns (DeployCandidate memory)
+    {
+        return DeployCandidate({snapshot: snapshot, unanchorableReason: reason});
     }
 
     function one(address deployedAddress, bytes memory runtimeCode) internal pure returns (DeployDependency[] memory) {
