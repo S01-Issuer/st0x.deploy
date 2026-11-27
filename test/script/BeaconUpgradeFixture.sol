@@ -21,6 +21,7 @@ import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibBeaconUpgrade} from "../../src/lib/LibBeaconUpgrade.sol";
+import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 
 /// @title BeaconUpgradeFixture
 /// @notice Brings a forked deployment network through the beacon upgrade's
@@ -72,9 +73,11 @@ abstract contract BeaconUpgradeFixture is Test {
         LibSafeFork.executeBundle(vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), prefix);
     }
 
-    /// @notice Plants the three implementations at their pinned addresses,
-    /// running their constructors there (the facet's `_SELF`).
+    /// @notice Deploys the underlying snapshot and plants the three
+    /// implementations at their pinned addresses, running their constructors
+    /// there (the facet's `_SELF`).
     function plantImplementations() internal {
+        LibTestDeploy.deployUnderlyingSnapshot(vm);
         deployCodeTo("src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet", LibBeaconUpgrade.FACET);
         deployCodeTo(
             "src/concrete/StoxReceiptVault.sol:StoxReceiptVault", LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION
