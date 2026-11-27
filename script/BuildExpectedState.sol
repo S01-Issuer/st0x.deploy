@@ -230,7 +230,7 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(row, "authoriser", LibAuthoriserInvariants.authoriserForChainId(chainId));
     }
 
-    function releasedSuites() internal pure returns (DeploySuite[] memory) {
+    function releasedSuites() internal view returns (DeploySuite[] memory) {
         DeployDeclaration memory declared;
         LibRainDeployDeclaration.setNetworks(declared, LibStoxDeployNetworks.deploymentNetworks());
         LibRainDeployDeclaration.addReleased(declared, LibStoxReleasedNetworks.releasedSuites());
