@@ -48,7 +48,7 @@ import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariant
 import {LibTokenMetadata, TokenMetadataState} from "../../src/lib/LibTokenMetadata.sol";
 import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
-import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibBeaconUpgrade} from "../../src/lib/LibBeaconUpgrade.sol";
 
 /// @notice No `zoltu` row carries the key.
 error ZoltuRowMissing(string key);
@@ -68,7 +68,7 @@ string constant QSEP_JSON = "QsepJson(address authoriser,address owner,address r
     "bytes32 receiptVaultCodehash,address receiptVaultReceipt,address wrappedTokenVault,address wrappedTokenVaultAsset,"
     "address wrappedTokenVaultBeacon,bytes32 wrappedTokenVaultCodehash)";
 string constant BEACON_JSON = "BeaconJson(address beacon,bytes32 codehash,address implementation,address owner,"
-    "address renamedImplementation)";
+    "address upgradeImplementation)";
 string constant DEPLOYMENT_JSON = "DeploymentJson(address address,bytes32 codehash,string key)";
 string constant SAFE_JSON = "SafeJson(address address,address fallbackHandler,bytes32 fallbackHandlerCodehash,"
     "address guard,address[] modules,address[] owners,bytes32[] proxyCodehashes,bytes32[] singletonCodehashes,"
@@ -138,7 +138,7 @@ struct ExpectedBeacon {
     bytes32 codehash;
     address implementation;
     address owner;
-    address renamedImplementation;
+    address upgradeImplementation;
 }
 
 struct ExpectedDeployment {
@@ -323,31 +323,30 @@ contract BuildExpectedStateTest is Test {
         );
     }
 
-    /// `renamedImplementation` is what the beacon batch upgrades the row's beacon to, and the row's
-    /// `implementation` where the batch leaves the beacon alone. Checked on the networks the beacon batch was
-    /// cut for: every one before 0G.
-    function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
+    /// `upgradeImplementation` is what the beacon batch upgrades the row's beacon to, and the row's
+    /// `implementation` where the batch leaves the beacon alone, on every deployment network, 0G included.
+    function testUpgradeImplementationsAreTheBeaconBatchsUpgrades() external {
         string memory json = build.render();
         LibTestRootLine.etchRegistry(vm);
-        SupportedNetwork[] memory nets =
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        SupportedNetwork[] memory nets = networks();
+        assertEq(nets[nets.length - 1].chainId, LibSafeInvariants.ZEROG_CHAIN_ID, "0G is a deployment network");
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 snapshot = vm.snapshotState();
             LibLocalProdState.beacons(vm, nets[c].chainId);
             (address[] memory targets,, bytes[] memory payloads) =
-                LibUnderlyingNamingRollout.beaconBatch(nets[c].chainId);
+                LibBeaconUpgrade.beaconBatch(nets[c].chainId);
             vm.revertToState(snapshot);
             ExpectedBeacon[] memory rows = beaconRows(json, chain(nets[c]));
             uint256 upgraded = 0;
             for (uint256 i = 0; i < 4; i++) {
-                upgraded += assertRenamedImplementation(rows[i], targets, payloads);
+                upgraded += assertUpgradeImplementation(rows[i], targets, payloads);
             }
-            assertEq(upgraded, 2);
+            assertEq(upgraded, 2, nets[c].name);
         }
     }
 
-    /// The number of beacon batch calls that upgrade the row's beacon, each to its `renamedImplementation`.
-    function assertRenamedImplementation(ExpectedBeacon memory row, address[] memory targets, bytes[] memory payloads)
+    /// The number of beacon batch calls that upgrade the row's beacon, each to its `upgradeImplementation`.
+    function assertUpgradeImplementation(ExpectedBeacon memory row, address[] memory targets, bytes[] memory payloads)
         internal
         pure
         returns (uint256)
@@ -355,12 +354,12 @@ contract BuildExpectedStateTest is Test {
         uint256 upgrades = 0;
         for (uint256 k = 0; k < targets.length; k++) {
             if (targets[k] == row.beacon) {
-                assertEq(payloads[k], abi.encodeCall(UpgradeableBeacon.upgradeTo, (row.renamedImplementation)));
+                assertEq(payloads[k], abi.encodeCall(UpgradeableBeacon.upgradeTo, (row.upgradeImplementation)));
                 upgrades++;
             }
         }
         if (upgrades == 0) {
-            assertEq(row.renamedImplementation, row.implementation);
+            assertEq(row.upgradeImplementation, row.implementation);
         }
         return upgrades;
     }
@@ -758,7 +757,7 @@ contract BuildExpectedStateTest is Test {
     /// The upgrade migration is the beacon batch's record, the id of the script that schedules it.
     function testUpgradeMigrationIsTheBeaconBatchRecord() external {
         string memory json = build.render();
-        string memory script = "script/20261021-schedule-underlying-naming-beacons.s.sol";
+        string memory script = "script/20261021-schedule-beacon-upgrade.s.sol";
         assertTrue(vm.exists(script));
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -768,15 +767,6 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The beacon batch was cut for the networks before 0G only: on 0G each beacon's `renamedImplementation` is its
-    /// implementation.
-    function testZerogUpgradesNoBeacon() external {
-        uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
-        ExpectedBeacon[] memory beacons = beaconRows(build.render(), string.concat(".chains.", vm.toString(id)));
-        for (uint256 i = 0; i < 4; i++) {
-            assertEq(beacons[i].renamedImplementation, beacons[i].implementation);
-        }
-    }
 
     /// A token at its suite's address was initialized from the row's listing, so its metadata is the
     /// listed state.
@@ -1148,7 +1138,7 @@ contract BuildExpectedStateTest is Test {
         fields[0] = "beacon";
         fields[1] = "codehash";
         fields[2] = "implementation";
-        fields[3] = "renamedImplementation";
+        fields[3] = "upgradeImplementation";
         fields[4] = "owner";
         return fields;
     }

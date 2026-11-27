@@ -10,26 +10,26 @@ import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
 import {
-    ExecuteUnderlyingNamingBeacons,
-    ExecuteUnderlyingNamingBeaconsRecorded,
-    UnderlyingNamingBeaconsNotExecuted
-} from "../../script/20261021-execute-underlying-naming-beacons.s.sol";
-import {ExecuteUnderlyingNamingBeaconsHarness} from "./ExecuteUnderlyingNamingBeaconsHarness.sol";
-import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.sol";
+    ExecuteBeaconUpgrade,
+    ExecuteBeaconUpgradeRecorded,
+    BeaconUpgradeNotExecuted
+} from "../../script/20261021-execute-beacon-upgrade.s.sol";
+import {ExecuteBeaconUpgradeHarness} from "./ExecuteBeaconUpgradeHarness.sol";
+import {BeaconUpgradeFixture} from "./BeaconUpgradeFixture.sol";
 import {LibTestPreBackfillFork} from "../lib/LibTestPreBackfillFork.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {IRecordScriptHooks, RootLineRecordScriptTest} from "../lib/RootLineRecordScriptTest.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibBeaconUpgrade} from "../../src/lib/LibBeaconUpgrade.sol";
 
-/// @title ExecuteUnderlyingNamingBeaconsRootLineTest
+/// @title ExecuteBeaconUpgradeRootLineTest
 /// @notice The beacon execution record on Base, onto the beacon batch's
 /// record, from the beacon batch scheduled and past its delay.
-contract ExecuteUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFixture, RootLineRecordScriptTest {
+contract ExecuteBeaconUpgradeRootLineTest is BeaconUpgradeFixture, RootLineRecordScriptTest {
     function newScript() internal override returns (IRecordScriptHooks) {
-        return IRecordScriptHooks(address(new ExecuteUnderlyingNamingBeaconsHarness("root-line")));
+        return IRecordScriptHooks(address(new ExecuteBeaconUpgradeHarness("root-line")));
     }
 
     function declaredId() internal pure override returns (bytes32) {
@@ -50,21 +50,21 @@ contract ExecuteUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFi
 
     /// @dev The beacon batch, whose last call writes the onto.
     function landOnto() internal override {
-        new ExecuteUnderlyingNamingBeacons().execute();
+        new ExecuteBeaconUpgrade().execute();
     }
 
     function beaconOperationId() internal view returns (bytes32) {
-        return LibUnderlyingNamingRollout.beaconOperationId(
+        return LibBeaconUpgrade.beaconOperationId(
             LibTimelockInvariants.timelockForChainId(block.chainid), block.chainid
         );
     }
 
     function beforeOntoPreflightRefusal(bytes32) internal view override returns (bytes memory) {
-        return abi.encodeWithSelector(UnderlyingNamingBeaconsNotExecuted.selector, beaconOperationId());
+        return abi.encodeWithSelector(BeaconUpgradeNotExecuted.selector, beaconOperationId());
     }
 
     function ownRecordPreflightRefusal() internal pure override returns (bytes memory) {
-        return abi.encodeWithSelector(ExecuteUnderlyingNamingBeaconsRecorded.selector, declaredId());
+        return abi.encodeWithSelector(ExecuteBeaconUpgradeRecorded.selector, declaredId());
     }
 
     function testBundleIsTheRecordOntoTheBeaconRecord() external view {
@@ -94,7 +94,7 @@ contract ExecuteUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFi
             LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
         );
         assertEq(LibStoxMigrations.head(), declaredOnto(), "line at the onto");
-        vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingBeaconsNotExecuted.selector, beaconOperationId()));
+        vm.expectRevert(abi.encodeWithSelector(BeaconUpgradeNotExecuted.selector, beaconOperationId()));
         sScript.callPreflight();
     }
 
@@ -102,7 +102,7 @@ contract ExecuteUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFi
         executeBundle();
         vm.expectRevert(
             abi.encodeWithSelector(
-                ExecuteUnderlyingNamingBeaconsRecorded.selector, LibStoxMigrations.EXECUTE_BEACON_UPGRADE
+                ExecuteBeaconUpgradeRecorded.selector, LibStoxMigrations.EXECUTE_BEACON_UPGRADE
             )
         );
         sScript.callPreflight();

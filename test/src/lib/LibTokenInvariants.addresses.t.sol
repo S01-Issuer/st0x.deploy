@@ -38,8 +38,8 @@ contract LibTokenInvariantsAddressesTest is Test {
         return address(uint160(uint256(vm.load(proxy, ERC1967_BEACON_SLOT))));
     }
 
-    /// The wrapped vault's symbol once the underlying-naming rename has set
-    /// the receipt vault's ticker: `"wtMSTR"` becomes `"MSTRs"`.
+    /// The wrapped vault's symbol once `setUnderlying` has set the receipt
+    /// vault's ticker: `"wtMSTR"` becomes `"MSTRs"`.
     /// @param initialWrappedSymbol The initialized `"wt" + ticker` symbol.
     /// @return renamed `ticker + "s"`.
     function renamedWrappedSymbol(string memory initialWrappedSymbol) internal pure returns (string memory renamed) {
@@ -82,8 +82,8 @@ contract LibTokenInvariantsAddressesTest is Test {
     /// Verify a token set (receipt, receipt vault, wrapped vault) is deployed,
     /// wired correctly, and behind the expected beacons on the current fork.
     /// The receipt vault's symbol is `t<TICKER>`; the wrapped vault's is
-    /// accepted as the initialized `wt<TICKER>` or, once the underlying-naming
-    /// rename has run, `<TICKER>s`.
+    /// accepted as the initialized `wt<TICKER>` or, once `setUnderlying` has
+    /// run, `<TICKER>s`.
     function checkTokenSet(TokenInstance memory token) internal view {
         address receipt = token.receipt;
         address receiptVault = token.receiptVault;
