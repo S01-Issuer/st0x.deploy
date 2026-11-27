@@ -265,6 +265,25 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         override
         onlyDelegatecalled
     {
+        _setUnderlying(newSymbol, newName, newIsin);
+    }
+
+    /// @inheritdoc IStoxUnderlyingV2
+    function setUnderlyingSymbol(string calldata newSymbol) external override onlyDelegatecalled {
+        _setUnderlying(newSymbol, underlyingName(), assetId());
+    }
+
+    /// @inheritdoc IStoxUnderlyingV2
+    function setUnderlyingName(string calldata newName) external override onlyDelegatecalled {
+        _setUnderlying(underlyingSymbol(), newName, assetId());
+    }
+
+    /// @inheritdoc IStoxUnderlyingV2
+    function setUnderlyingIsin(string calldata newIsin) external override onlyDelegatecalled {
+        _setUnderlying(underlyingSymbol(), underlyingName(), newIsin);
+    }
+
+    function _setUnderlying(string memory newSymbol, string memory newName, string memory newIsin) internal {
         if (msg.sender != IOwnable(address(this)).owner()) {
             revert OwnableUpgradeable.OwnableUnauthorizedAccount(msg.sender);
         }

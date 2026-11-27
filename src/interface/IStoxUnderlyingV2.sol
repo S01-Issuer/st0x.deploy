@@ -42,4 +42,20 @@ interface IStoxUnderlyingV2 {
     /// @param newName The underlying asset's name, e.g. "NVIDIA Corporation".
     /// @param newIsin The underlying asset's current ISIN.
     function setUnderlying(string calldata newSymbol, string calldata newName, string calldata newIsin) external;
+
+    /// @notice Sets this token's underlying ticker override, keeping the
+    /// current `underlyingName()` and `assetId()`, as `setUnderlying` does.
+    /// @param newSymbol The underlying ticker, e.g. "NVDA".
+    function setUnderlyingSymbol(string calldata newSymbol) external;
+
+    /// @notice Sets this token's underlying name override, keeping the
+    /// current `underlyingSymbol()` and `assetId()`, as `setUnderlying` does.
+    /// @param newName The underlying asset's name, e.g. "NVIDIA Corporation".
+    function setUnderlyingName(string calldata newName) external;
+
+    /// @notice Sets this token's underlying ISIN override, keeping the
+    /// current `underlyingSymbol()` and `underlyingName()`, as
+    /// `setUnderlying` does.
+    /// @param newIsin The underlying asset's current ISIN.
+    function setUnderlyingIsin(string calldata newIsin) external;
 }
