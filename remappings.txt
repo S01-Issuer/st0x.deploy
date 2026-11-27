@@ -1,6 +1,7 @@
 @openzeppelin-contracts-5.7.0/=dependencies/@openzeppelin-contracts-5.7.0/
 @openzeppelin-contracts-upgradeable-5.7.0/=dependencies/@openzeppelin-contracts-upgradeable-5.7.0/
 forge-std-1.17.0/=dependencies/forge-std-1.17.0/
+rain-datacontract-0.2.1/=dependencies/rain-datacontract-0.2.1/
 rain-deploy-0.1.43/=dependencies/rain-deploy-0.1.43/
 rain-extrospection-0.1.31/=dependencies/rain-extrospection-0.1.31/
 rain-extrospection-deploy-0.1.6/=dependencies/rain-extrospection-deploy-0.1.6/

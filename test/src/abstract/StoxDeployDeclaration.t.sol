@@ -3,7 +3,13 @@
 pragma solidity =0.8.25;
 
 import {RainDeployVerifyDeclaration} from "rain-deploy-0.1.43/src/abstract/RainDeployVerifyDeclaration.sol";
-import {DeployDeclaration, RainDeploySuitesBase} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
+import {UndeclaredDependency} from "rain-deploy-0.1.43/src/abstract/RainDeployDeclarationChecks.sol";
+import {
+    DeployDeclaration,
+    DeployDependency,
+    DeploySuite,
+    RainDeploySuitesBase
+} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
@@ -56,5 +62,26 @@ contract StoxDeployDeclarationTest is StoxDeploySuites, RainDeployVerifyDeclarat
         if (key == keccak256(bytes(ATTEST_SUB_PARSER))) return type(St0xAttestSubParser).creationCode;
         if (key == keccak256(bytes(GOVERNANCE_TIMELOCK))) return type(StoxGovernanceTimelock).creationCode;
         revert(string.concat("no source for suite: ", suite));
+    }
+
+    function testCodeCandidateWithoutItsDependencyReverts() external {
+        (DeploySuite memory timelock,) = candidateOf(declaration(), GOVERNANCE_TIMELOCK);
+        assertEq(timelock.dependencies.length, 1);
+        vm.expectRevert(
+            abi.encodeWithSelector(
+                UndeclaredDependency.selector, GOVERNANCE_TIMELOCK, timelock.dependencies[0].deployedAddress
+            )
+        );
+        this.checkDeclarationWithoutDependenciesOf(GOVERNANCE_TIMELOCK);
+    }
+
+    function checkDeclarationWithoutDependenciesOf(string memory suite) external view {
+        DeployDeclaration memory d = declaration();
+        for (uint256 i = 0; i < d.candidates.length; i++) {
+            if (keccak256(bytes(d.candidates[i].snapshot.suite)) == keccak256(bytes(suite))) {
+                d.candidates[i].snapshot.dependencies = new DeployDependency[](0);
+            }
+        }
+        checkDependenciesAreTheEmbeddedDeployments(d);
     }
 }

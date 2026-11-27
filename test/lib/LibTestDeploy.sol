@@ -39,6 +39,7 @@ import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {StoxReceipt} from "../../src/concrete/StoxReceipt.sol";
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 import {StoxWrappedTokenVault} from "../../src/concrete/StoxWrappedTokenVault.sol";
+import {LibUnderlyingSnapshotCode, UNDERLYING_SNAPSHOT_ROOT} from "../../src/generated/LibUnderlyingSnapshotCode.sol";
 
 /// @title LibTestDeploy
 /// @notice The production token set on the local EVM: the candidate
@@ -56,6 +57,29 @@ library LibTestDeploy {
         require(receiptVault == LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE, "StoxReceiptVault address mismatch");
         address wrapper = LibRainDeploy.deployZoltu(type(StoxWrappedTokenVault).creationCode);
         require(wrapper == LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_CANDIDATE, "StoxWrappedTokenVault address mismatch");
+    }
+
+    /// Zoltu-deploys the generated underlying snapshot shards and root,
+    /// refusing a root that lands off its constant address.
+    function deployUnderlyingSnapshot(Vm vm) internal {
+        address root = deployUnderlyingSnapshot(
+            vm, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE, LibUnderlyingSnapshotCode.shardCreationCodes()
+        );
+        require(root == UNDERLYING_SNAPSHOT_ROOT, "underlying snapshot root address mismatch");
+    }
+
+    /// Zoltu-deploys snapshot shards and root, skipping any already deployed.
+    function deployUnderlyingSnapshot(Vm vm, bytes memory rootCode, bytes[] memory shardCodes)
+        internal
+        returns (address)
+    {
+        LibRainDeploy.etchZoltuFactory(vm);
+        for (uint256 i = 0; i < shardCodes.length; i++) {
+            if (LibRainDeploy.zoltuAddress(shardCodes[i]).code.length == 0) LibRainDeploy.deployZoltu(shardCodes[i]);
+        }
+        address root = LibRainDeploy.zoltuAddress(rootCode);
+        if (root.code.length == 0) LibRainDeploy.deployZoltu(rootCode);
+        return root;
     }
 
     /// Places an `UpgradeableBeacon` serving `implementation`, owned by

@@ -101,6 +101,7 @@ rain-tofu-erc20-decimals-deploy = "0.1.9"
 "rain-string" = "0.3.11"
 rainlang = "0.2.40"
 rainlang-deploy = "0.1.15"
+rain-datacontract = "0.2.1"
 
 [soldeer]
 recursive_deps = false
