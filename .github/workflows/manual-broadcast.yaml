@@ -26,7 +26,7 @@ on:
           # record, not this list. `WorkflowChoicesTest` requires every entry
           # to name a script that is not history-only, and every script to be
           # listed here, in `run-script.yaml`, or as history-only.
-          - 20261021-execute-underlying-naming-beacons
+          - 20261021-execute-beacon-upgrade
           - 20261109-execute-revoke-service-signer-deposit-withdraw
           - 20261123-execute-zerog-orchestrator-roles
       sig:

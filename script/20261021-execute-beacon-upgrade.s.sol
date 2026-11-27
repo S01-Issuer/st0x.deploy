@@ -12,7 +12,7 @@ import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibBeaconUpgrade} from "../src/lib/LibBeaconUpgrade.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -20,52 +20,52 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 /// prove nothing about permissionless execution.
 /// @param timelock The timelock.
 /// @param executor The broadcasting key.
-error UnderlyingNamingBeaconsExecutorHoldsRole(address timelock, address executor);
+error BeaconUpgradeExecutorHoldsRole(address timelock, address executor);
 
 /// @notice The beacon batch is not ready on this chain.
 /// @param id The operation id.
 /// @param pending Whether the operation is pending.
 /// @param done Whether the operation has executed.
-error UnderlyingNamingBeaconsNotReady(bytes32 id, bool pending, bool done);
+error BeaconUpgradeNotReady(bytes32 id, bool pending, bool done);
 
 /// @notice The executed operation is not done afterwards.
 /// @param id The operation id.
-error UnderlyingNamingBeaconsNotDone(bytes32 id);
+error BeaconUpgradeNotDone(bytes32 id);
 
 /// @notice The beacon batch has not executed, so there is nothing to record.
 /// @param id The operation id.
-error UnderlyingNamingBeaconsNotExecuted(bytes32 id);
+error BeaconUpgradeNotExecuted(bytes32 id);
 
 /// @notice The root line already holds this script's record.
 /// @param id The migration id.
-error ExecuteUnderlyingNamingBeaconsRecorded(bytes32 id);
+error ExecuteBeaconUpgradeRecorded(bytes32 id);
 
 /// @notice This script's declaration on the root line: after the beacon batch's record.
 /// @return The declaration.
-function executeUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
+function executeBeaconUpgradeDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
-        id: LibStoxMigrations.EXECUTE_UNDERLYING_NAMING_BEACONS,
-        onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+        id: LibStoxMigrations.EXECUTE_BEACON_UPGRADE,
+        onto: LibStoxMigrations.SCHEDULE_BEACON_UPGRADE,
         history: false
     });
 }
 
-/// @title ExecuteUnderlyingNamingBeacons
-/// @notice `execute()` executes the underlying-naming beacon batch on the
+/// @title ExecuteBeaconUpgrade
+/// @notice `execute()` executes the beacon upgrade batch on the
 /// active chain from the CI deploy key, which holds no role. The batch is
-/// reconstructed by `LibUnderlyingNamingRollout`, the same library the
+/// reconstructed by `LibBeaconUpgrade`, the same library the
 /// scheduling script uses, and its last call writes its root-line record.
 ///
 /// `run()` authors the record-only Safe bundle that writes this script's
 /// record on the root line once the batch has executed.
 ///
 /// @dev Dispatch `execute()` via `Actions → manual-broadcast` with
-/// `script = 20261021-execute-underlying-naming-beacons`, `sig = execute()`
+/// `script = 20261021-execute-beacon-upgrade`, `sig = execute()`
 /// per chain, and `run()` via `Actions → run-script` with the same `script`.
-contract ExecuteUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
+contract ExecuteBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
-        return executeUnderlyingNamingBeaconsDeclaration();
+        return executeBeaconUpgradeDeclaration();
     }
 
     /// @notice Execute the beacon batch.
@@ -74,33 +74,33 @@ contract ExecuteUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock, safeAddress);
         if (IAccessControl(timelock).hasRole(LibTimelockInvariants.TIMELOCK_EXECUTOR_ROLE, msg.sender)) {
-            revert UnderlyingNamingBeaconsExecutorHoldsRole(timelock, msg.sender);
+            revert BeaconUpgradeExecutorHoldsRole(timelock, msg.sender);
         }
 
         TimelockController controller = TimelockController(payable(timelock));
-        bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 id = LibBeaconUpgrade.beaconOperationId(timelock, block.chainid);
         if (!controller.isOperationReady(id)) {
-            revert UnderlyingNamingBeaconsNotReady(id, controller.isOperationPending(id), controller.isOperationDone(id));
+            revert BeaconUpgradeNotReady(id, controller.isOperationPending(id), controller.isOperationDone(id));
         }
 
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
-            LibUnderlyingNamingRollout.beaconBatch(block.chainid);
+            LibBeaconUpgrade.beaconBatch(block.chainid);
         console2.log("Executing the beacon batch:", vm.toString(id));
         vm.startBroadcast();
-        controller.executeBatch(targets, values, payloads, bytes32(0), LibUnderlyingNamingRollout.BEACON_SALT);
+        controller.executeBatch(targets, values, payloads, bytes32(0), LibBeaconUpgrade.BEACON_SALT);
         vm.stopBroadcast();
-        if (!controller.isOperationDone(id)) revert UnderlyingNamingBeaconsNotDone(id);
+        if (!controller.isOperationDone(id)) revert BeaconUpgradeNotDone(id);
     }
 
     /// @inheritdoc SafeBundleScript
     function bundleName() internal pure override returns (string memory) {
-        return "ST0x migration record: execute-underlying-naming-beacons";
+        return "ST0x migration record: execute-beacon-upgrade";
     }
 
     /// @inheritdoc SafeBundleScript
     function artifactPath() internal view virtual override returns (string memory) {
         return string.concat(
-            "out/20261021-execute-underlying-naming-beacons-record-", vm.toString(block.chainid), ".json"
+            "out/20261021-execute-beacon-upgrade-record-", vm.toString(block.chainid), ".json"
         );
     }
 
@@ -113,24 +113,24 @@ contract ExecuteUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     function preflight() internal view override {
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock, block.chainid);
+        bytes32 beaconId = LibBeaconUpgrade.beaconOperationId(timelock, block.chainid);
         if (!TimelockController(payable(timelock)).isOperationDone(beaconId)) {
-            revert UnderlyingNamingBeaconsNotExecuted(beaconId);
+            revert BeaconUpgradeNotExecuted(beaconId);
         }
-        bytes32 id = LibStoxMigrations.EXECUTE_UNDERLYING_NAMING_BEACONS;
-        if (LibStoxMigrations.applied(id) != 0) revert ExecuteUnderlyingNamingBeaconsRecorded(id);
-        LibStoxMigrations.assertNext(executeUnderlyingNamingBeaconsDeclaration(), chainSafe);
+        bytes32 id = LibStoxMigrations.EXECUTE_BEACON_UPGRADE;
+        if (LibStoxMigrations.applied(id) != 0) revert ExecuteBeaconUpgradeRecorded(id);
+        LibStoxMigrations.assertNext(executeBeaconUpgradeDeclaration(), chainSafe);
     }
 
     /// @inheritdoc SafeBundleScript
     function authorBundle() internal view override returns (SafeTx[] memory) {
         SafeTx[] memory txs = new SafeTx[](1);
-        txs[0] = LibStoxMigrations.recordTx(executeUnderlyingNamingBeaconsDeclaration());
+        txs[0] = LibStoxMigrations.recordTx(executeBeaconUpgradeDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
     function assertPostState() internal view override {
-        LibStoxMigrations.assertRecorded(executeUnderlyingNamingBeaconsDeclaration());
+        LibStoxMigrations.assertRecorded(executeBeaconUpgradeDeclaration());
     }
 }

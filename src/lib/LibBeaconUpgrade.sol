@@ -20,24 +20,24 @@ import {ScriptDeclaration} from "../interface/IStoxScript.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
-error UnderlyingNamingReleaseNotFrozen();
+error BeaconUpgradeReleaseNotFrozen();
 
 /// @notice The chain's production token table is shorter than the token set
 /// this rollout was written for.
 /// @param chainId The chain id.
 /// @param expected The rollout's token count for the chain.
 /// @param actual The table's length.
-error UnderlyingNamingTokenTableShort(uint256 chainId, uint256 expected, uint256 actual);
+error BeaconUpgradeTokenTableShort(uint256 chainId, uint256 expected, uint256 actual);
 
 /// @notice The rollout was cut for the networks before 0G
 /// (`LibStoxDeployNetworks.networksBeforeZerog`), whose tables share Base's row
 /// order. Any other chain's leading `TOKEN_COUNT` rows can be another token
 /// set (0G's follow Ethereum's creation order), so the rollout refuses it.
 /// @param chainId The chain id.
-error UnderlyingNamingNotCutForChain(uint256 chainId);
+error BeaconUpgradeNotCutForChain(uint256 chainId);
 
-/// @title LibUnderlyingNamingRollout
-/// @notice The beacon batch that rolls out the underlying naming on a chain,
+/// @title LibBeaconUpgrade
+/// @notice The beacon batch that upgrades the wrapper and receipt-vault beacons on a chain,
 /// reconstructed from repo state so the script that schedules it and the
 /// tests cannot drift onto a different operation id: the chain's in-use
 /// wrapped-token-vault beacon and receipt-vault beacon move to the
@@ -51,9 +51,9 @@ error UnderlyingNamingNotCutForChain(uint256 chainId);
 /// one place this rollout names its bytecode; a rollout is dispatched only
 /// against a frozen, audited release, so these move to that release's pins
 /// before any dispatch.
-library LibUnderlyingNamingRollout {
+library LibBeaconUpgrade {
     /// @notice Salt of the beacon batch.
-    bytes32 internal constant BEACON_SALT = keccak256("st0x.underlying-naming.beacons.1");
+    bytes32 internal constant BEACON_SALT = keccak256("st0x.beacon-upgrade.1");
 
     /// @notice The corporate-actions facet the new vault implementation pins.
     address internal constant FACET = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
@@ -94,13 +94,13 @@ library LibUnderlyingNamingRollout {
     /// @notice The production tokens this rollout covers on the chain: the
     /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
     /// `NoTokenTableForChain` on a chain with no table and
-    /// `UnderlyingNamingNotCutForChain` on a chain with a table that the
+    /// `BeaconUpgradeNotCutForChain` on a chain with a table that the
     /// rollout was not cut for, 0G included.
     /// @param chainId The chain id.
     /// @return The chain's token instances.
     function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
         TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
-        if (!cutForChain(chainId)) revert UnderlyingNamingNotCutForChain(chainId);
+        if (!cutForChain(chainId)) revert BeaconUpgradeNotCutForChain(chainId);
         return leadingRows(chainId, table);
     }
 
@@ -115,13 +115,13 @@ library LibUnderlyingNamingRollout {
     }
 
     /// @notice The leading `TOKEN_COUNT` rows of `table`. Reverts
-    /// `UnderlyingNamingTokenTableShort` when it has fewer.
+    /// `BeaconUpgradeTokenTableShort` when it has fewer.
     /// @param chainId The chain id, for the error.
     /// @param table The chain's token table.
     /// @return The leading rows.
     function leadingRows(uint256 chainId, TokenInstance[] memory table) internal pure returns (TokenInstance[] memory) {
         uint256 count = TOKEN_COUNT;
-        if (table.length < count) revert UnderlyingNamingTokenTableShort(chainId, count, table.length);
+        if (table.length < count) revert BeaconUpgradeTokenTableShort(chainId, count, table.length);
         // The table's leading `count` rows: shorten the array in place.
         assembly ("memory-safe") {
             mstore(table, count)
@@ -208,7 +208,7 @@ library LibUnderlyingNamingRollout {
     /// @return The declaration.
     function beaconDeclaration() internal pure returns (ScriptDeclaration memory) {
         return ScriptDeclaration({
-            id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+            id: LibStoxMigrations.SCHEDULE_BEACON_UPGRADE,
             onto: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
             history: false
         });

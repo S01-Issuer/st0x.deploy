@@ -24,7 +24,7 @@ import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.s
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibTokenMetadata, TokenMetadataState} from "../src/lib/LibTokenMetadata.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
-import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibBeaconUpgrade} from "../src/lib/LibBeaconUpgrade.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../src/lib/LibProdDeployV2BaseOverrides.sol";
@@ -33,11 +33,11 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
 /// `network`, `beaconSetDeployer`, `beacons` (the four in-use beacons: beacon,
-/// codehash, implementation, renamedImplementation once `upgradeMigration` is recorded, owner), the token-owner `safe`
+/// codehash, implementation, upgradeImplementation once `upgradeMigration` is recorded, owner), the token-owner `safe`
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `upgradeMigration` (the beacon batch's record,
-/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS`, on every network),
+/// `LibStoxMigrations.SCHEDULE_BEACON_UPGRADE`, on every network),
 /// `registryDelegates` (each delegation the root is expected to have approved in a
 /// registry it writes through: `registry`, `account`, `delegate`, `unscoped`; an unscoped one carries no `scope`, a
 /// scoped one its non-zero `scope`), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
@@ -55,13 +55,13 @@ contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
     /// The implementations `upgradeMigration`'s beacon batch moves the beacons to; the current ones where the batch was
-    /// not cut (`LibUnderlyingNamingRollout.cutForChain`).
-    function renamedImplementations(uint256 chainId) internal pure returns (address[4] memory) {
+    /// not cut (`LibBeaconUpgrade.cutForChain`).
+    function upgradeImplementations(uint256 chainId) internal pure returns (address[4] memory) {
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
-        if (!LibUnderlyingNamingRollout.cutForChain(chainId)) return impls;
-        impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION;
+        if (!LibBeaconUpgrade.cutForChain(chainId)) return impls;
+        impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION;
         impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX] =
-        LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
+        LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
         return impls;
     }
 
@@ -69,7 +69,7 @@ contract BuildExpectedState is Script {
         address[4] memory derived = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId);
         address[4] memory implementations = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
         bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(chainId);
-        address[4] memory renamed = renamedImplementations(chainId);
+        address[4] memory upgraded = upgradeImplementations(chainId);
         address owner = LibTimelockInvariants.timelockForChainId(chainId);
         string[] memory rows = new string[](derived.length);
         for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
@@ -77,7 +77,7 @@ contract BuildExpectedState is Script {
             vm.serializeAddress(row, "beacon", derived[rowIndex]);
             vm.serializeBytes32(row, "codehash", codehashes[rowIndex]);
             vm.serializeAddress(row, "implementation", implementations[rowIndex]);
-            vm.serializeAddress(row, "renamedImplementation", renamed[rowIndex]);
+            vm.serializeAddress(row, "upgradeImplementation", upgraded[rowIndex]);
             rows[rowIndex] = vm.serializeAddress(row, "owner", owner);
         }
         return rows;
@@ -342,7 +342,7 @@ contract BuildExpectedState is Script {
             )
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
-        vm.serializeBytes32(key, "upgradeMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
+        vm.serializeBytes32(key, "upgradeMigration", LibStoxMigrations.SCHEDULE_BEACON_UPGRADE);
         vm.serializeString(key, "registryDelegates", registryDelegatesJson(chainId, key));
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));

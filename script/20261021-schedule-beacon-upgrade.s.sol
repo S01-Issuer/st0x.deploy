@@ -15,7 +15,7 @@ import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
 import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
-import {LibUnderlyingNamingRollout, UnderlyingNamingReleaseNotFrozen} from "../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibBeaconUpgrade, BeaconUpgradeReleaseNotFrozen} from "../src/lib/LibBeaconUpgrade.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 
@@ -56,43 +56,43 @@ error BeaconUpgradeMovedMetadata(address token, string before, string afterUpgra
 /// @notice This script's declaration: the beacon batch's own record, written
 /// by the timelock at execution, after the Safe-owned Base vault handover.
 /// @return The declaration.
-function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
-    return LibUnderlyingNamingRollout.beaconDeclaration();
+function scheduleBeaconUpgradeDeclaration() pure returns (ScriptDeclaration memory) {
+    return LibBeaconUpgrade.beaconDeclaration();
 }
 
-/// @title ScheduleUnderlyingNamingBeacons
+/// @title ScheduleBeaconUpgrade
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the
-/// underlying-naming beacon batch on the chain's governance timelock (see
-/// `LibUnderlyingNamingRollout` for the calls). One Safe call:
+/// beacon upgrade batch on the chain's governance timelock (see
+/// `LibBeaconUpgrade` for the calls). One Safe call:
 /// `timelock.scheduleBatch(...)`, with the pinned 48h delay. The batch's last
 /// call writes its root-line record.
 ///
 /// Execution is not a Safe action: the timelock lets anyone execute a ready
-/// operation (`20261021-execute-underlying-naming-beacons` does it from the CI deploy
+/// operation (`20261021-execute-beacon-upgrade` does it from the CI deploy
 /// key). The batch ends with a read-only facet call, so it reverts as a whole,
 /// and stays Ready, if the facet has no code at execution.
 ///
-/// Pre-flight refuses while `LibUnderlyingNamingRollout.RELEASE_FROZEN` is
+/// Pre-flight refuses while `LibBeaconUpgrade.RELEASE_FROZEN` is
 /// false: the implementations must be a frozen, audited release before a
 /// beacon is scheduled onto them.
 ///
 /// @dev Dispatch via `Actions → run-script` with
-/// `script = 20261021-schedule-underlying-naming-beacons` per chain, after the
+/// `script = 20261021-schedule-beacon-upgrade` per chain, after the
 /// implementations are deployed there.
-contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
+contract ScheduleBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
-        return scheduleUnderlyingNamingBeaconsDeclaration();
+        return scheduleBeaconUpgradeDeclaration();
     }
 
     /// @inheritdoc SafeBundleScript
     function bundleName() internal pure override returns (string memory) {
-        return "ST0x underlying naming: schedule the wrapper and receipt-vault beacon upgrades";
+        return "ST0x beacon upgrade: schedule the wrapper and receipt-vault beacon upgrades";
     }
 
     /// @inheritdoc SafeBundleScript
     function artifactPath() internal view virtual override returns (string memory) {
-        return string.concat("out/20261021-schedule-underlying-naming-beacons-", vm.toString(block.chainid), ".json");
+        return string.concat("out/20261021-schedule-beacon-upgrade-", vm.toString(block.chainid), ".json");
     }
 
     /// @inheritdoc SafeBundleScript
@@ -107,9 +107,9 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     }
 
     /// @notice Whether the implementations are a frozen, audited release.
-    /// @return `LibUnderlyingNamingRollout.RELEASE_FROZEN`.
+    /// @return `LibBeaconUpgrade.RELEASE_FROZEN`.
     function releaseFrozen() internal pure virtual returns (bool) {
-        return LibUnderlyingNamingRollout.RELEASE_FROZEN;
+        return LibBeaconUpgrade.RELEASE_FROZEN;
     }
 
     /// @notice Reverts unless `implementation` carries `codehash`.
@@ -128,27 +128,27 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     /// the operation is not registered, and the root line is at this
     /// migration's `onto` and the timelock may write the batch's record.
     function preflight() internal view override {
-        if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
+        if (!releaseFrozen()) revert BeaconUpgradeReleaseNotFrozen();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), timelock());
+        LibStoxMigrations.assertNext(scheduleBeaconUpgradeDeclaration(), timelock());
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
-        assertDeployed(LibUnderlyingNamingRollout.FACET, LibUnderlyingNamingRollout.FACET_CODEHASH);
+        assertDeployed(LibBeaconUpgrade.FACET, LibBeaconUpgrade.FACET_CODEHASH);
         assertDeployed(
-            LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION, LibUnderlyingNamingRollout.RECEIPT_VAULT_CODEHASH
+            LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION, LibBeaconUpgrade.RECEIPT_VAULT_CODEHASH
         );
         assertDeployed(
-            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
-            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_CODEHASH
+            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION,
+            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_CODEHASH
         );
 
-        address vaultBeacon = LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid);
-        if (IBeacon(vaultBeacon).implementation() == LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION) {
+        address vaultBeacon = LibBeaconUpgrade.receiptVaultBeacon(block.chainid);
+        if (IBeacon(vaultBeacon).implementation() == LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION) {
             revert BeaconAlreadyUpgraded(vaultBeacon);
         }
-        address wrapperBeacon = LibUnderlyingNamingRollout.wrappedTokenVaultBeacon(block.chainid);
-        if (IBeacon(wrapperBeacon).implementation() == LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION) {
+        address wrapperBeacon = LibBeaconUpgrade.wrappedTokenVaultBeacon(block.chainid);
+        if (IBeacon(wrapperBeacon).implementation() == LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION) {
             revert BeaconAlreadyUpgraded(wrapperBeacon);
         }
         // Each beacon must still serve the implementation this batch moves it
@@ -158,17 +158,17 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         LibBeaconInvariants.assertBeaconInvariants(
             vaultBeacon,
             timelock(),
-            LibUnderlyingNamingRollout.RECEIPT_VAULT_FROM_IMPLEMENTATION,
+            LibBeaconUpgrade.RECEIPT_VAULT_FROM_IMPLEMENTATION,
             codehashes[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX]
         );
         LibBeaconInvariants.assertBeaconInvariants(
             wrapperBeacon,
             timelock(),
-            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION,
+            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION,
             codehashes[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX]
         );
 
-        bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
+        bytes32 id = LibBeaconUpgrade.beaconOperationId(timelock(), block.chainid);
         if (TimelockController(payable(timelock())).isOperation(id)) revert OperationAlreadyScheduled(id);
     }
 
@@ -179,7 +179,7 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
-            data: LibUnderlyingNamingRollout.scheduleBeaconCalldata(block.chainid),
+            data: LibBeaconUpgrade.scheduleBeaconCalldata(block.chainid),
             operation: Enum.Operation.Call
         });
         return txs;
@@ -189,7 +189,7 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     /// @dev Scheduled, pending and not ready inside the delay.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
-        bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
+        bytes32 id = LibBeaconUpgrade.beaconOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert OperationNotPendingInsideDelay(id);
         }
@@ -209,29 +209,29 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     /// beacons, the token table and tQSEP on Base, before the batch and
     /// requires them unchanged after it.
     function proveExecution() internal {
-        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.beaconTokens(block.chainid);
-        string[] memory before = LibUnderlyingNamingRollout.metadata(chainTokens);
+        TokenInstance[] memory chainTokens = LibBeaconUpgrade.beaconTokens(block.chainid);
+        string[] memory before = LibBeaconUpgrade.metadata(chainTokens);
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
-            LibUnderlyingNamingRollout.beaconBatch(block.chainid);
+            LibBeaconUpgrade.beaconBatch(block.chainid);
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
         vm.prank(address(0xdead));
         TimelockController(payable(timelock()))
-            .executeBatch(targets, values, payloads, bytes32(0), LibUnderlyingNamingRollout.BEACON_SALT);
+            .executeBatch(targets, values, payloads, bytes32(0), LibBeaconUpgrade.BEACON_SALT);
 
         assertBeacon(
-            LibUnderlyingNamingRollout.wrappedTokenVaultBeacon(block.chainid),
-            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
+            LibBeaconUpgrade.wrappedTokenVaultBeacon(block.chainid),
+            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
         );
         assertBeacon(
-            LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid),
-            LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION
+            LibBeaconUpgrade.receiptVaultBeacon(block.chainid),
+            LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION
         );
-        string[] memory afterUpgrade = LibUnderlyingNamingRollout.metadata(chainTokens);
+        string[] memory afterUpgrade = LibBeaconUpgrade.metadata(chainTokens);
         for (uint256 i = 0; i < before.length; i++) {
             if (keccak256(bytes(before[i])) != keccak256(bytes(afterUpgrade[i]))) {
                 revert BeaconUpgradeMovedMetadata(
-                    LibUnderlyingNamingRollout.metadataToken(chainTokens, i), before[i], afterUpgrade[i]
+                    LibBeaconUpgrade.metadataToken(chainTokens, i), before[i], afterUpgrade[i]
                 );
             }
         }
