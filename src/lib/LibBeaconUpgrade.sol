@@ -5,14 +5,12 @@ pragma solidity ^0.8.25;
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
-import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 import {LibStoxMigrations} from "./LibStoxMigrations.sol";
@@ -21,20 +19,6 @@ import {ScriptDeclaration} from "../interface/IStoxScript.sol";
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
 error BeaconUpgradeReleaseNotFrozen();
-
-/// @notice The chain's production token table is shorter than the token set
-/// this rollout was written for.
-/// @param chainId The chain id.
-/// @param expected The rollout's token count for the chain.
-/// @param actual The table's length.
-error BeaconUpgradeTokenTableShort(uint256 chainId, uint256 expected, uint256 actual);
-
-/// @notice The rollout was cut for the networks before 0G
-/// (`LibStoxDeployNetworks.networksBeforeZerog`), whose tables share Base's row
-/// order. Any other chain's leading `TOKEN_COUNT` rows can be another token
-/// set (0G's follow Ethereum's creation order), so the rollout refuses it.
-/// @param chainId The chain id.
-error BeaconUpgradeNotCutForChain(uint256 chainId);
 
 /// @title LibBeaconUpgrade
 /// @notice The beacon batch that upgrades the wrapper and receipt-vault beacons on a chain,
@@ -86,48 +70,6 @@ library LibBeaconUpgrade {
     /// script refuses. The targets (`FACET`, `RECEIPT_VAULT_IMPLEMENTATION`, `WRAPPED_TOKEN_VAULT_IMPLEMENTATION` and
     /// their codehashes) alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
-
-    /// @notice How many leading rows of each chain's production token table
-    /// this rollout covers: tMSTR to tDIS, on every chain.
-    uint256 internal constant TOKEN_COUNT = 56;
-
-    /// @notice The production tokens this rollout covers on the chain: the
-    /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
-    /// `NoTokenTableForChain` on a chain with no table and
-    /// `BeaconUpgradeNotCutForChain` on a chain with a table that the
-    /// rollout was not cut for, 0G included.
-    /// @param chainId The chain id.
-    /// @return The chain's token instances.
-    function tokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
-        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
-        if (!cutForChain(chainId)) revert BeaconUpgradeNotCutForChain(chainId);
-        return leadingRows(chainId, table);
-    }
-
-    /// @notice Whether the rollout was cut for `chainId`: one of the networks
-    /// before 0G (`LibStoxDeployNetworks.networksBeforeZerog`).
-    /// @param chainId The chain id.
-    /// @return Whether the rollout was cut for the chain.
-    function cutForChain(uint256 chainId) internal pure returns (bool) {
-        return LibRainDeploy.hasChainId(
-            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
-        );
-    }
-
-    /// @notice The leading `TOKEN_COUNT` rows of `table`. Reverts
-    /// `BeaconUpgradeTokenTableShort` when it has fewer.
-    /// @param chainId The chain id, for the error.
-    /// @param table The chain's token table.
-    /// @return The leading rows.
-    function leadingRows(uint256 chainId, TokenInstance[] memory table) internal pure returns (TokenInstance[] memory) {
-        uint256 count = TOKEN_COUNT;
-        if (table.length < count) revert BeaconUpgradeTokenTableShort(chainId, count, table.length);
-        // The table's leading `count` rows: shorten the array in place.
-        assembly ("memory-safe") {
-            mstore(table, count)
-        }
-        return table;
-    }
 
     /// @notice Every vault and wrapper behind the two beacons on the chain:
     /// the chain's token table, then tQSEP on Base.
@@ -197,7 +139,7 @@ library LibBeaconUpgrade {
         payloads[0] = abi.encodeCall(UpgradeableBeacon.upgradeTo, (WRAPPED_TOKEN_VAULT_IMPLEMENTATION));
         targets[1] = receiptVaultBeacon(chainId);
         payloads[1] = abi.encodeCall(UpgradeableBeacon.upgradeTo, (RECEIPT_VAULT_IMPLEMENTATION));
-        targets[2] = tokens(chainId)[0].receiptVault;
+        targets[2] = LibTokenInvariants.productionTokensForChainId(chainId)[0].receiptVault;
         payloads[2] = abi.encodeCall(ICorporateActionsV1.completedActionCount, ());
         (targets[3], payloads[3]) = LibStoxMigrations.recordCall(beaconDeclaration());
         return (targets, values, payloads);

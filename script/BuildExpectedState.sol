@@ -54,11 +54,9 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
-    /// The implementations `upgradeMigration`'s beacon batch moves the beacons to; the current ones where the batch was
-    /// not cut (`LibBeaconUpgrade.cutForChain`).
+    /// The implementations `upgradeMigration`'s beacon batch moves the beacons to.
     function upgradeImplementations(uint256 chainId) internal pure returns (address[4] memory) {
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
-        if (!LibBeaconUpgrade.cutForChain(chainId)) return impls;
         impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION;
         impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX] =
         LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
