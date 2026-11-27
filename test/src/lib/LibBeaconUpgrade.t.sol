@@ -151,7 +151,7 @@ contract LibUnderlyingNamingRolloutTest is Test {
                 values,
                 payloads,
                 LibTestRootLine.recordCalldata(
-                    LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+                    LibStoxMigrations.SCHEDULE_BEACON_UPGRADE,
                     LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
                 ),
                 string.concat(networks[networkIndex].name, ": beacon batch")

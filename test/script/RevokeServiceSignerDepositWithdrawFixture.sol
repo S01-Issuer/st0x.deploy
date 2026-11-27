@@ -5,18 +5,18 @@ pragma solidity =0.8.25;
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
 import {
-    executeUnderlyingNamingBeaconsDeclaration
-} from "../../script/20261021-execute-underlying-naming-beacons.s.sol";
+    executeBeaconUpgradeDeclaration
+} from "../../script/20261021-execute-beacon-upgrade.s.sol";
 import {
-    scheduleUnderlyingNamingBeaconsDeclaration
-} from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
+    scheduleBeaconUpgradeDeclaration
+} from "../../script/20261021-schedule-beacon-upgrade.s.sol";
 import {
     scheduleRevokeServiceSignerDeclaration
 } from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
 import {
     ScheduleRevokeServiceSignerDepositWithdrawHarness
 } from "./ScheduleRevokeServiceSignerDepositWithdrawHarness.sol";
-import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.sol";
+import {BeaconUpgradeFixture} from "./BeaconUpgradeFixture.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
@@ -26,9 +26,9 @@ import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title RevokeServiceSignerDepositWithdrawFixture
 /// @notice Brings a forked deployment network to the service-signer revoke's
-/// onto. The naming records are written without their effects, which touch no
+/// onto. The beacon upgrade records are written without their effects, which touch no
 /// authoriser role.
-abstract contract RevokeServiceSignerDepositWithdrawFixture is UnderlyingNamingRolloutFixture {
+abstract contract RevokeServiceSignerDepositWithdrawFixture is BeaconUpgradeFixture {
     function writeRecord(ScriptDeclaration memory declared) internal {
         LibTestRootLine.write(vm, LibSafeInvariants.safeForChainId(block.chainid), declared.id, declared.onto);
     }
@@ -37,21 +37,21 @@ abstract contract RevokeServiceSignerDepositWithdrawFixture is UnderlyingNamingR
         LibTestRootLine.write(vm, LibTimelockInvariants.timelockForChainId(block.chainid), declared.id, declared.onto);
     }
 
-    /// @notice Lands the root line up to the naming execution's onto: the
+    /// @notice Lands the root line up to the beacon upgrade execution's onto: the
     /// beacon batch's record, as the timelock.
-    function advanceRootLineToNamingExecution() internal {
+    function advanceRootLineToBeaconUpgradeExecution() internal {
         advanceRootLineToBeaconSchedule();
-        writeTimelockRecord(scheduleUnderlyingNamingBeaconsDeclaration());
+        writeTimelockRecord(scheduleBeaconUpgradeDeclaration());
     }
 
-    function landNamingExecutionRecord() internal {
-        writeRecord(executeUnderlyingNamingBeaconsDeclaration());
+    function landBeaconUpgradeExecutionRecord() internal {
+        writeRecord(executeBeaconUpgradeDeclaration());
     }
 
     /// @notice Lands the root line up to the revoke schedule's onto.
     function advanceRootLineToRevokeSchedule() internal {
-        advanceRootLineToNamingExecution();
-        landNamingExecutionRecord();
+        advanceRootLineToBeaconUpgradeExecution();
+        landBeaconUpgradeExecutionRecord();
         assertEq(LibStoxMigrations.head(), scheduleRevokeServiceSignerDeclaration().onto, "line at the revoke onto");
     }
 

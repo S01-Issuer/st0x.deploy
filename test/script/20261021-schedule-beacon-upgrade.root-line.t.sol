@@ -24,7 +24,7 @@ contract ScheduleUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutF
     }
 
     function declaredId() internal pure override returns (bytes32) {
-        return LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS;
+        return LibStoxMigrations.SCHEDULE_BEACON_UPGRADE;
     }
 
     function declaredOnto() internal pure override returns (bytes32) {

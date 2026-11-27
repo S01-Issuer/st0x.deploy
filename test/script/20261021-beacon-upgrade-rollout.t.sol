@@ -128,7 +128,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         assertEq(
             payloads[3],
             LibTestRootLine.recordCalldata(
-                LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+                LibStoxMigrations.SCHEDULE_BEACON_UPGRADE,
                 LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
             ),
             string.concat(network, ": record call")
@@ -161,7 +161,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             payloads[chainTokens.length],
             LibTestRootLine.recordCalldata(
                 LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
-                LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
+                LibStoxMigrations.SCHEDULE_BEACON_UPGRADE
             ),
             string.concat(network, ": record call")
         );
@@ -360,7 +360,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         );
         assertEq(
             LibStoxMigrations.head(),
-            LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+            LibStoxMigrations.SCHEDULE_BEACON_UPGRADE,
             string.concat(network, ": beacon record")
         );
         vm.expectRevert(abi.encodeWithSelector(UnderlyingNamingNotExecuted.selector, renameId));
@@ -419,7 +419,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
         assertExecuteCallsTheRegistryOnlyWith(
             executor,
             LibTestRootLine.recordCalldata(
-                LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+                LibStoxMigrations.SCHEDULE_BEACON_UPGRADE,
                 LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
             )
         );
@@ -427,7 +427,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
             executor,
             LibTestRootLine.recordCalldata(
                 LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
-                LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
+                LibStoxMigrations.SCHEDULE_BEACON_UPGRADE
             )
         );
     }

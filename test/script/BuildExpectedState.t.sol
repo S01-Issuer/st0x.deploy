@@ -57,13 +57,12 @@ error ZoltuRowMissing(string key);
 string constant TOKEN_JSON = "TokenJson(string assetId,address authoriser,uint256 decimals,string listingName,"
     "string listingTicker,string name,address owner,address receipt,address receiptBeacon,bytes32 receiptCodehash,"
     "address receiptManager,address receiptVault,address receiptVaultBeacon,bytes32 receiptVaultCodehash,"
-    "address receiptVaultReceipt,string region,string renamedName,string symbol,string underlying,"
+    "address receiptVaultReceipt,string region,string symbol,string underlying,"
     "address wrappedTokenVault,address wrappedTokenVaultAsset,address wrappedTokenVaultBeacon,"
     "bytes32 wrappedTokenVaultCodehash,uint256 wrappedTokenVaultDecimals,string wrappedTokenVaultName,"
-    "string wrappedTokenVaultRenamedName,string wrappedTokenVaultRenamedSymbol,string wrappedTokenVaultSymbol)";
-string constant TOKEN_METADATA_JSON = "TokenMetadataJson(string name,string renamedName,string symbol,"
-    "string wrappedTokenVaultName,string wrappedTokenVaultRenamedName,string wrappedTokenVaultRenamedSymbol,"
     "string wrappedTokenVaultSymbol)";
+string constant TOKEN_METADATA_JSON =
+    "TokenMetadataJson(string name,string symbol,string wrappedTokenVaultName,string wrappedTokenVaultSymbol)";
 string constant QSEP_JSON = "QsepJson(address authoriser,address owner,address receipt,address receiptBeacon,"
     "bytes32 receiptCodehash,address receiptManager,address receiptVault,address receiptVaultBeacon,"
     "bytes32 receiptVaultCodehash,address receiptVaultReceipt,address wrappedTokenVault,address wrappedTokenVaultAsset,"
@@ -99,7 +98,6 @@ struct ExpectedToken {
     bytes32 receiptVaultCodehash;
     address receiptVaultReceipt;
     string region;
-    string renamedName;
     string symbol;
     string underlying;
     address wrappedTokenVault;
@@ -108,18 +106,13 @@ struct ExpectedToken {
     bytes32 wrappedTokenVaultCodehash;
     uint256 wrappedTokenVaultDecimals;
     string wrappedTokenVaultName;
-    string wrappedTokenVaultRenamedName;
-    string wrappedTokenVaultRenamedSymbol;
     string wrappedTokenVaultSymbol;
 }
 
 struct ExpectedTokenMetadata {
     string name;
-    string renamedName;
     string symbol;
     string wrappedTokenVaultName;
-    string wrappedTokenVaultRenamedName;
-    string wrappedTokenVaultRenamedSymbol;
     string wrappedTokenVaultSymbol;
 }
 
@@ -577,9 +570,9 @@ contract BuildExpectedStateTest is Test {
         assertTrue(sawMc && sawMstr);
     }
 
-    /// The unprefixed fields are the initialized metadata, the `renamed` fields the metadata after the beacon upgrade,
-    /// which renames only the leading rows; each set is one consistent state of the vault and wrapper.
-    function testTokenMetadataIsTheInitializedAndRenamedStates() external {
+    /// Each row's metadata is one consistent state of its vault and wrapper: listed at its suite's address, otherwise
+    /// initialized.
+    function testTokenMetadataIsTheRowsState() external {
         string memory json = build.render();
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
@@ -588,23 +581,12 @@ contract BuildExpectedStateTest is Test {
                 vm.parseJsonTypeArray(json, string.concat(chain(nets[c]), ".tokens"), TOKEN_METADATA_JSON),
                 (ExpectedTokenMetadata[])
             );
-            // The batches were not cut for 0G (`testZerogRenamesNothing`).
-            bool chainRenames = LibRainDeploy.hasChainId(
-                LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
-            );
             for (uint256 i = 0; i < tokens.length; i++) {
                 TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying);
                 TokenMetadataState state = tokens[i].receiptVault == LibProdTokenParams.tokenAddress(config)
                     ? TokenMetadataState.Listed
                     : TokenMetadataState.Initialized;
-                assertTokenMetadata(
-                    rows[i],
-                    config,
-                    state,
-                    chainRenames && LibUnderlyingNamingRollout.renamedAfterUpgrade(i)
-                        ? TokenMetadataState.Renamed
-                        : state
-                );
+                assertTokenMetadata(rows[i], config, state);
             }
         }
     }
@@ -612,46 +594,17 @@ contract BuildExpectedStateTest is Test {
     function assertTokenMetadata(
         ExpectedTokenMetadata memory metadata,
         TokenConfig memory config,
-        TokenMetadataState state,
-        TokenMetadataState renamedState
+        TokenMetadataState state
     ) internal pure {
-        assertMetadataState(
-            config,
-            state,
-            metadata.name,
-            metadata.symbol,
-            metadata.wrappedTokenVaultName,
-            metadata.wrappedTokenVaultSymbol
+        assertEq(metadata.name, LibTokenMetadata.vaultName(config, state));
+        assertEq(metadata.symbol, LibTokenMetadata.vaultSymbol(config, state));
+        assertEq(metadata.wrappedTokenVaultName, LibTokenMetadata.wrappedName(config, state));
+        assertEq(metadata.wrappedTokenVaultSymbol, LibTokenMetadata.wrappedSymbol(config, state));
+        assertTrue(
+            LibTestTokenMetadata.consistent(
+                config, metadata.name, metadata.symbol, metadata.wrappedTokenVaultName, metadata.wrappedTokenVaultSymbol
+            )
         );
-        assertMetadataState(
-            config,
-            renamedState,
-            metadata.renamedName,
-            metadata.symbol,
-            metadata.wrappedTokenVaultRenamedName,
-            metadata.wrappedTokenVaultRenamedSymbol
-        );
-        if (state == TokenMetadataState.Initialized) {
-            assertEq(
-                LibTestTokenMetadata.vaultRenamed(config, metadata.renamedName),
-                renamedState == TokenMetadataState.Renamed
-            );
-        }
-    }
-
-    function assertMetadataState(
-        TokenConfig memory config,
-        TokenMetadataState state,
-        string memory name,
-        string memory symbol,
-        string memory wrappedName,
-        string memory wrappedSymbol
-    ) internal pure {
-        assertEq(name, LibTokenMetadata.vaultName(config, state));
-        assertEq(symbol, LibTokenMetadata.vaultSymbol(config, state));
-        assertEq(wrappedName, LibTokenMetadata.wrappedName(config, state));
-        assertEq(wrappedSymbol, LibTokenMetadata.wrappedSymbol(config, state));
-        assertTrue(LibTestTokenMetadata.consistent(config, name, symbol, wrappedName, wrappedSymbol));
     }
 
     function testTokenDecimalsAreTheVaultAndWrapperDecimals() external {
@@ -810,31 +763,19 @@ contract BuildExpectedStateTest is Test {
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             bytes32 id = vm.parseJsonBytes32(json, string.concat(chain(nets[c]), ".upgradeMigration"));
-            assertEq(id, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
+            assertEq(id, LibStoxMigrations.SCHEDULE_BEACON_UPGRADE);
             assertEq(id, keccak256(bytes(script)));
         }
     }
 
-    /// The underlying naming's batches were cut for the networks before 0G only: on 0G each beacon's
-    /// `renamedImplementation` is its implementation, and a token's renamed metadata is its current metadata.
-    function testZerogRenamesNothing() external {
+    /// The beacon batch was cut for the networks before 0G only: on 0G each beacon's `renamedImplementation` is its
+    /// implementation.
+    function testZerogUpgradesNoBeacon() external {
         uint256 id = LibSafeInvariants.ZEROG_CHAIN_ID;
         ExpectedBeacon[] memory beacons = beaconRows(build.render(), string.concat(".chains.", vm.toString(id)));
         for (uint256 i = 0; i < 4; i++) {
             assertEq(beacons[i].renamedImplementation, beacons[i].implementation);
         }
-
-        BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
-        assertTrue(LibUnderlyingNamingRollout.renamedAfterUpgrade(0), "row 0 is renamed after the upgrade");
-        TokenInstance memory token = LibTokenInvariants.productionTokensForChainId(id)[0];
-        assertEq(token.underlying, "MSTR");
-        TokenConfig memory config = LibProdTokenConfig.configOf("MSTR");
-        string memory zerog = harness.tokenMetadata(id, 0, token);
-        assertTokenMetadata(
-            tokenMetadataOf(zerog), config, TokenMetadataState.Initialized, TokenMetadataState.Initialized
-        );
-        string memory base = harness.tokenMetadata(LibSafeInvariants.BASE_CHAIN_ID, 0, token);
-        assertTokenMetadata(tokenMetadataOf(base), config, TokenMetadataState.Initialized, TokenMetadataState.Renamed);
     }
 
     /// A token at its suite's address was initialized from the row's listing, so its metadata is the
@@ -848,10 +789,9 @@ contract BuildExpectedStateTest is Test {
             receiptVault: LibProdTokenParams.tokenAddress(config),
             wrappedTokenVault: address(0)
         });
-        ExpectedTokenMetadata memory zerog =
-            tokenMetadataOf(harness.tokenMetadata(LibSafeInvariants.ZEROG_CHAIN_ID, 0, token));
-        assertTokenMetadata(zerog, config, TokenMetadataState.Listed, TokenMetadataState.Listed);
-        assertEq(zerog.symbol, string.concat("t", config.listingTicker));
+        ExpectedTokenMetadata memory metadata = tokenMetadataOf(harness.tokenMetadata(token));
+        assertTokenMetadata(metadata, config, TokenMetadataState.Listed);
+        assertEq(metadata.symbol, string.concat("t", config.listingTicker));
     }
 
     function testV2IsTheV2NetworksKeyedByChainId() external {
@@ -1016,9 +956,7 @@ contract BuildExpectedStateTest is Test {
         BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
         vm.expectRevert(abi.encodeWithSelector(UnknownUnderlying.selector, "NOPE"));
         harness.callTokenMetadataJson(
-            LibSafeInvariants.BASE_CHAIN_ID,
             "row",
-            0,
             TokenInstance({
                 underlying: "NOPE", receipt: address(0), receiptVault: address(0), wrappedTokenVault: address(0)
             })
@@ -1258,35 +1196,32 @@ contract BuildExpectedStateTest is Test {
     }
 
     function tokenFields() internal pure returns (string[] memory) {
-        string[] memory fields = new string[](28);
+        string[] memory fields = new string[](25);
         fields[0] = "underlying";
         fields[1] = "assetId";
         fields[2] = "listingTicker";
         fields[3] = "listingName";
         fields[4] = "region";
         fields[5] = "name";
-        fields[6] = "renamedName";
-        fields[7] = "symbol";
-        fields[8] = "decimals";
-        fields[9] = "wrappedTokenVaultName";
-        fields[10] = "wrappedTokenVaultRenamedName";
-        fields[11] = "wrappedTokenVaultSymbol";
-        fields[12] = "wrappedTokenVaultRenamedSymbol";
-        fields[13] = "wrappedTokenVaultDecimals";
-        fields[14] = "receiptVault";
-        fields[15] = "receipt";
-        fields[16] = "wrappedTokenVault";
-        fields[17] = "receiptVaultReceipt";
-        fields[18] = "receiptManager";
-        fields[19] = "wrappedTokenVaultAsset";
-        fields[20] = "receiptVaultBeacon";
-        fields[21] = "receiptBeacon";
-        fields[22] = "wrappedTokenVaultBeacon";
-        fields[23] = "receiptVaultCodehash";
-        fields[24] = "receiptCodehash";
-        fields[25] = "wrappedTokenVaultCodehash";
-        fields[26] = "owner";
-        fields[27] = "authoriser";
+        fields[6] = "symbol";
+        fields[7] = "decimals";
+        fields[8] = "wrappedTokenVaultName";
+        fields[9] = "wrappedTokenVaultSymbol";
+        fields[10] = "wrappedTokenVaultDecimals";
+        fields[11] = "receiptVault";
+        fields[12] = "receipt";
+        fields[13] = "wrappedTokenVault";
+        fields[14] = "receiptVaultReceipt";
+        fields[15] = "receiptManager";
+        fields[16] = "wrappedTokenVaultAsset";
+        fields[17] = "receiptVaultBeacon";
+        fields[18] = "receiptBeacon";
+        fields[19] = "wrappedTokenVaultBeacon";
+        fields[20] = "receiptVaultCodehash";
+        fields[21] = "receiptCodehash";
+        fields[22] = "wrappedTokenVaultCodehash";
+        fields[23] = "owner";
+        fields[24] = "authoriser";
         return fields;
     }
 
@@ -1295,7 +1230,7 @@ contract BuildExpectedStateTest is Test {
         string[] memory token = tokenFields();
         string[] memory fields = new string[](14);
         for (uint256 i = 0; i < fields.length; i++) {
-            fields[i] = token[i + 14];
+            fields[i] = token[i + 11];
         }
         return fields;
     }

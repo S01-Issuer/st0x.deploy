@@ -11,9 +11,9 @@ import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJ
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 
 import {
-    scheduleUnderlyingNamingBeaconsDeclaration
-} from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
-import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
+    scheduleBeaconUpgradeDeclaration
+} from "../../script/20261021-schedule-beacon-upgrade.s.sol";
+import {ScheduleBeaconUpgradeHarness} from "./ScheduleBeaconUpgradeHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
@@ -22,12 +22,12 @@ import {HandSafeOwnedBaseVaultsToTimelockHarness} from "./HandSafeOwnedBaseVault
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
-import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibBeaconUpgrade} from "../../src/lib/LibBeaconUpgrade.sol";
 
-/// @title UnderlyingNamingRolloutFixture
-/// @notice Brings a forked deployment network through the underlying-naming
-/// rollout's steps as the Safe and the executing key would.
-abstract contract UnderlyingNamingRolloutFixture is Test {
+/// @title BeaconUpgradeFixture
+/// @notice Brings a forked deployment network through the beacon upgrade's
+/// steps as the Safe and the executing key would.
+abstract contract BeaconUpgradeFixture is Test {
     /// @notice Lands, as the Safe would, the root-line records before the
     /// beacon schedule: the V5 backfill, the 0G token creation record, the
     /// beacon-initial-owner bind, the orchestrator admin move, then the
@@ -35,19 +35,19 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
     /// which writes each batch's record.
     function advanceRootLineToBeaconSchedule() internal {
         Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
-        BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("underlying-naming");
+        BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("beacon-upgrade");
         backfill.callPreflight();
         LibSafeFork.executeBundle(vm, safe, backfill.callAuthorBundle());
-        LibTestBeaconInitialOwnerBind.execute(vm, address(safe), "underlying-naming");
-        OrchestratorAdminToTimelockHarness adminMove = new OrchestratorAdminToTimelockHarness("underlying-naming");
+        LibTestBeaconInitialOwnerBind.execute(vm, address(safe), "beacon-upgrade");
+        OrchestratorAdminToTimelockHarness adminMove = new OrchestratorAdminToTimelockHarness("beacon-upgrade");
         adminMove.callPreflight();
         LibSafeFork.executeBundle(vm, safe, adminMove.callAuthorBundle());
         HandSafeOwnedBaseVaultsToTimelockHarness handover =
-            new HandSafeOwnedBaseVaultsToTimelockHarness("underlying-naming");
+            new HandSafeOwnedBaseVaultsToTimelockHarness("beacon-upgrade");
         handover.callPreflight();
         LibSafeFork.executeBundle(vm, safe, handover.callAuthorBundle());
         LibTestRootLine.approve(vm, LibTimelockInvariants.timelockForChainId(block.chainid));
-        assertEq(LibStoxMigrations.head(), scheduleUnderlyingNamingBeaconsDeclaration().onto, "line at the beacon onto");
+        assertEq(LibStoxMigrations.head(), scheduleBeaconUpgradeDeclaration().onto, "line at the beacon onto");
     }
 
     /// @notice `run()` authors and proves the bundle on a snapshot, `verify`
@@ -78,15 +78,15 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
     /// running their constructors there (the facet's `_SELF`).
     function plantImplementations() internal {
         deployCodeTo(
-            "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet", LibUnderlyingNamingRollout.FACET
+            "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet", LibBeaconUpgrade.FACET
         );
         deployCodeTo(
             "src/concrete/StoxReceiptVault.sol:StoxReceiptVault",
-            LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION
+            LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION
         );
         deployCodeTo(
             "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
-            LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
+            LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
         );
     }
 
@@ -94,7 +94,7 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
     /// and lands the beacon bundle.
     function landBeaconSchedule() internal {
         plantImplementations();
-        ScheduleUnderlyingNamingBeaconsHarness beacons = new ScheduleUnderlyingNamingBeaconsHarness("prepare");
+        ScheduleBeaconUpgradeHarness beacons = new ScheduleBeaconUpgradeHarness("prepare");
         LibSafeFork.executeBundle(
             vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), beacons.callAuthorBundle()
         );

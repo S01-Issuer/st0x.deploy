@@ -33,11 +33,11 @@ contract ExecuteUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFi
     }
 
     function declaredId() internal pure override returns (bytes32) {
-        return LibStoxMigrations.EXECUTE_UNDERLYING_NAMING_BEACONS;
+        return LibStoxMigrations.EXECUTE_BEACON_UPGRADE;
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS;
+        return LibStoxMigrations.SCHEDULE_BEACON_UPGRADE;
     }
 
     function landBeforeOnto() internal override {
@@ -75,8 +75,8 @@ contract ExecuteUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFi
         assertEq(
             txs[0].data,
             LibTestRootLine.recordCalldata(
-                LibStoxMigrations.EXECUTE_UNDERLYING_NAMING_BEACONS,
-                LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
+                LibStoxMigrations.EXECUTE_BEACON_UPGRADE,
+                LibStoxMigrations.SCHEDULE_BEACON_UPGRADE
             ),
             "record calldata"
         );
@@ -90,7 +90,7 @@ contract ExecuteUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFi
         LibTestRootLine.write(
             vm,
             safeAddress(),
-            LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+            LibStoxMigrations.SCHEDULE_BEACON_UPGRADE,
             LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
         );
         assertEq(LibStoxMigrations.head(), declaredOnto(), "line at the onto");
@@ -102,7 +102,7 @@ contract ExecuteUnderlyingNamingBeaconsRootLineTest is UnderlyingNamingRolloutFi
         executeBundle();
         vm.expectRevert(
             abi.encodeWithSelector(
-                ExecuteUnderlyingNamingBeaconsRecorded.selector, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING_BEACONS
+                ExecuteUnderlyingNamingBeaconsRecorded.selector, LibStoxMigrations.EXECUTE_BEACON_UPGRADE
             )
         );
         sScript.callPreflight();
