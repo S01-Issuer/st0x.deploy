@@ -22,7 +22,7 @@ import {
 } from "../src/lib/LibUnderlyingNamingRollout.sol";
 import {ST0X_NAME_SUFFIX} from "../src/lib/LibSecurity.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
-import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {LibStoxMigrations, RootLineWriterNotApproved, UnexpectedMigrationLine} from "../src/lib/LibStoxMigrations.sol";
 
 /// @notice The beacon batch is not registered on this chain's timelock, so
 /// the rename batch, which names it as predecessor, could never execute.
@@ -51,23 +51,20 @@ error RenamedMetadataMismatch(address token, string expected, string actual);
 /// @param afterRename The value after it.
 error RenameMovedUnrenamedMetadata(address token, string before, string afterRename);
 
-/// @notice This script's declaration: the Safe's record, after the beacon schedule.
+/// @notice This script's declaration: the rename batch's own record, written
+/// by the timelock at execution, after the beacon batch's.
 /// @return The declaration.
 function scheduleUnderlyingNamingRenameDeclaration() pure returns (ScriptDeclaration memory) {
-    return ScriptDeclaration({
-        id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
-        onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        history: false
-    });
+    return LibUnderlyingNamingRollout.renameDeclaration();
 }
 
 /// @title ScheduleUnderlyingNamingRename
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the rename batch:
 /// `setUnderlying(ticker, underlyingName)` on every production vault of the
 /// chain, ticker from `TokenConfig.underlying` and name from
-/// `TokenConfig.underlyingName`. Two Safe calls: `timelock.scheduleBatch(...)`,
+/// `TokenConfig.underlyingName`. One Safe call: `timelock.scheduleBatch(...)`,
 /// with the beacon batch as predecessor so the timelock refuses to execute the
-/// rename first, then the Safe's root-line record.
+/// rename first. The batch's last call writes its root-line record.
 ///
 /// **The pre-flight refuses until
 /// `LibUnderlyingNamingRollout.DOWNSTREAM_ACCEPTS_NEW_SYMBOLS` is set**, which
@@ -125,22 +122,27 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The release is frozen, the downstream services accept the new
+    /// @dev The timelock may write the batch's record, and the root line is at the beacon batch's onto, or at its record
+    /// once it has executed. The release is frozen, the downstream services accept the new
     /// symbols, every row is well formed, the Safe and timelock are the pinned ones,
     /// the beacon batch is registered, the rename batch is not, every ticker
-    /// is bound to its vault, the timelock owns every vault, and the root
-    /// line is at this migration's `onto`.
+    /// is bound to its vault, and the timelock owns every vault.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         if (!downstreamReady()) revert DownstreamNotReadyForRename();
         LibUnderlyingNamingRollout.assertUnderlyingsWellFormed(block.chainid);
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        LibStoxMigrations.assertNext(scheduleUnderlyingNamingRenameDeclaration(), chainSafe);
+        if (!LibStoxMigrations.approved(timelock())) revert RootLineWriterNotApproved(timelock());
         TimelockController controller = TimelockController(payable(timelock()));
 
         bytes32 beaconId = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
         if (!controller.isOperation(beaconId)) revert BeaconBatchNotScheduled(beaconId);
+        bytes32 lineHead = LibStoxMigrations.head();
+        bytes32 expectedHead = controller.isOperationDone(beaconId)
+            ? LibUnderlyingNamingRollout.renameDeclaration().onto
+            : LibUnderlyingNamingRollout.beaconDeclaration().onto;
+        if (lineHead != expectedHead) revert UnexpectedMigrationLine(lineHead);
         bytes32 id = LibUnderlyingNamingRollout.renameOperationId(timelock(), block.chainid);
         if (controller.isOperation(id)) revert RenameAlreadyScheduled(id);
 
@@ -152,29 +154,26 @@ contract ScheduleUnderlyingNamingRename is StoxSafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The schedule, then the record.
+    /// @dev The schedule alone; the batch carries its own record.
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](2);
+        SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
             data: LibUnderlyingNamingRollout.scheduleRenameCalldata(timelock(), block.chainid),
             operation: Enum.Operation.Call
         });
-        txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingRenameDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Scheduled, pending and not ready inside the delay; the record is
-    /// this bundle's and heads the root line.
+    /// @dev Scheduled, pending and not ready inside the delay.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibUnderlyingNamingRollout.renameOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert RenameNotPendingInsideDelay(id);
         }
-        LibStoxMigrations.assertRecorded(scheduleUnderlyingNamingRenameDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript

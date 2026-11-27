@@ -47,7 +47,7 @@ error UnderlyingNamingNotExecuted(bytes32 renameId);
 /// @param id The migration id.
 error ExecuteUnderlyingNamingRecorded(bytes32 id);
 
-/// @notice This script's declaration on the root line: after the rename schedule.
+/// @notice This script's declaration on the root line: onto the rename batch's record.
 /// @return The declaration.
 function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
@@ -63,15 +63,16 @@ function executeUnderlyingNamingDeclaration() pure returns (ScriptDeclaration me
 /// batch if it is ready, otherwise the rename batch once the beacon batch is
 /// done. One operation per dispatch. Both operations are reconstructed by
 /// `LibUnderlyingNamingRollout`, the same library the scheduling scripts use,
-/// so only calldata committed in this repo can execute.
+/// so only calldata committed in this repo can execute. Each batch's last call
+/// writes that batch's root-line record.
 ///
 /// `run()` authors the record-only Safe bundle that writes this script's
-/// record on the root line once the rename batch has executed, outside any
-/// timelock batch.
+/// record on the root line once the rename batch has executed.
 ///
 /// A reverted `executeBatch` rolls back and leaves the operation Ready with
 /// its delay spent, so a failed dispatch (a missing facet, gas) is fixed and
-/// re-dispatched without rescheduling.
+/// re-dispatched without rescheduling. A batch whose record the registry
+/// refuses needs cancel and reschedule.
 ///
 /// **HyperEVM:** the rename batch needs more gas than a small block holds.
 /// Enable big blocks for the CI deploy key (`manual-hyperevm-big-blocks`)
