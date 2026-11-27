@@ -206,9 +206,8 @@ contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
 
     /// @notice The execution proof `assertReversible` runs. It records the
     /// `name()` and `symbol()` of every vault and wrapper behind the two
-    /// beacons, the token table and tQSEP on Base, the rows the rename skips
-    /// included, before the batch and requires them unchanged after it: the
-    /// beacon batch must not rename anything, that is the rename batch's job.
+    /// beacons, the token table and tQSEP on Base, before the batch and
+    /// requires them unchanged after it.
     function proveExecution() internal {
         TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.beaconTokens(block.chainid);
         string[] memory before = LibUnderlyingNamingRollout.metadata(chainTokens);

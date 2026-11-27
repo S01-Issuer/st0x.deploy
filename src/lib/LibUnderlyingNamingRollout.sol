@@ -29,7 +29,7 @@ error UnderlyingNamingReleaseNotFrozen();
 /// @param actual The table's length.
 error UnderlyingNamingTokenTableShort(uint256 chainId, uint256 expected, uint256 actual);
 
-/// @notice The rollout's batches were cut for the networks before 0G
+/// @notice The rollout was cut for the networks before 0G
 /// (`LibStoxDeployNetworks.networksBeforeZerog`), whose tables share Base's row
 /// order. Any other chain's leading `TOKEN_COUNT` rows can be another token
 /// set (0G's follow Ethereum's creation order), so the rollout refuses it.
@@ -82,19 +82,16 @@ library LibUnderlyingNamingRollout {
     /// 0.1.1 wrapper); the beacon pre-flight refuses any other.
     address internal constant WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1;
 
-    /// @notice Whether the implementation constants above alias a frozen, audited release; while false both schedule
-    /// scripts refuse. The targets (`FACET`, `RECEIPT_VAULT_IMPLEMENTATION`, `WRAPPED_TOKEN_VAULT_IMPLEMENTATION` and
+    /// @notice Whether the implementation constants above alias a frozen, audited release; while false the schedule
+    /// script refuses. The targets (`FACET`, `RECEIPT_VAULT_IMPLEMENTATION`, `WRAPPED_TOKEN_VAULT_IMPLEMENTATION` and
     /// their codehashes) alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice How many leading rows of each chain's production token table
-    /// this rollout renames: tMSTR to tDIS, on every chain. Fixed, so the
-    /// rename operation's id does not move when a table grows once the batch
-    /// is scheduled; a token added later gets its own `setUnderlying`
-    /// operation.
+    /// this rollout covers: tMSTR to tDIS, on every chain.
     uint256 internal constant TOKEN_COUNT = 56;
 
-    /// @notice The production tokens this rollout renames on the chain: the
+    /// @notice The production tokens this rollout covers on the chain: the
     /// leading `TOKEN_COUNT` rows of the chain's table. Reverts
     /// `NoTokenTableForChain` on a chain with no table and
     /// `UnderlyingNamingNotCutForChain` on a chain with a table that the
@@ -107,20 +104,18 @@ library LibUnderlyingNamingRollout {
         return leadingRows(chainId, table);
     }
 
-    /// @notice Whether the rollout's rename and beacon batches were cut for
-    /// `chainId`: one of the networks before 0G
-    /// (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
+    /// @notice Whether the rollout was cut for `chainId`: one of the networks
+    /// before 0G (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
     /// `BuildExpectedState`'s renamed fields both read this, so they agree.
     /// @param chainId The chain id.
-    /// @return Whether the batches were cut for the chain.
+    /// @return Whether the rollout was cut for the chain.
     function cutForChain(uint256 chainId) internal pure returns (bool) {
         return LibRainDeploy.hasChainId(
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), chainId
         );
     }
 
-    /// @notice The leading `TOKEN_COUNT` rows of `table`, so the rename id
-    /// does not move when the table grows. Reverts
+    /// @notice The leading `TOKEN_COUNT` rows of `table`. Reverts
     /// `UnderlyingNamingTokenTableShort` when it has fewer.
     /// @param chainId The chain id, for the error.
     /// @param table The chain's token table.
