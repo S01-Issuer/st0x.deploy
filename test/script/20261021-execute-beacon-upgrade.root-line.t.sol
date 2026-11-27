@@ -54,9 +54,8 @@ contract ExecuteBeaconUpgradeRootLineTest is BeaconUpgradeFixture, RootLineRecor
     }
 
     function beaconOperationId() internal view returns (bytes32) {
-        return LibBeaconUpgrade.beaconOperationId(
-            LibTimelockInvariants.timelockForChainId(block.chainid), block.chainid
-        );
+        return
+            LibBeaconUpgrade.beaconOperationId(LibTimelockInvariants.timelockForChainId(block.chainid), block.chainid);
     }
 
     function beforeOntoPreflightRefusal(bytes32) internal view override returns (bytes memory) {
@@ -75,8 +74,7 @@ contract ExecuteBeaconUpgradeRootLineTest is BeaconUpgradeFixture, RootLineRecor
         assertEq(
             txs[0].data,
             LibTestRootLine.recordCalldata(
-                LibStoxMigrations.EXECUTE_BEACON_UPGRADE,
-                LibStoxMigrations.SCHEDULE_BEACON_UPGRADE
+                LibStoxMigrations.EXECUTE_BEACON_UPGRADE, LibStoxMigrations.SCHEDULE_BEACON_UPGRADE
             ),
             "record calldata"
         );
@@ -101,9 +99,7 @@ contract ExecuteBeaconUpgradeRootLineTest is BeaconUpgradeFixture, RootLineRecor
     function testPreflightRefusesOnceRecorded() external {
         executeBundle();
         vm.expectRevert(
-            abi.encodeWithSelector(
-                ExecuteBeaconUpgradeRecorded.selector, LibStoxMigrations.EXECUTE_BEACON_UPGRADE
-            )
+            abi.encodeWithSelector(ExecuteBeaconUpgradeRecorded.selector, LibStoxMigrations.EXECUTE_BEACON_UPGRADE)
         );
         sScript.callPreflight();
     }

@@ -333,8 +333,7 @@ contract BuildExpectedStateTest is Test {
         for (uint256 c = 0; c < nets.length; c++) {
             uint256 snapshot = vm.snapshotState();
             LibLocalProdState.beacons(vm, nets[c].chainId);
-            (address[] memory targets,, bytes[] memory payloads) =
-                LibBeaconUpgrade.beaconBatch(nets[c].chainId);
+            (address[] memory targets,, bytes[] memory payloads) = LibBeaconUpgrade.beaconBatch(nets[c].chainId);
             vm.revertToState(snapshot);
             ExpectedBeacon[] memory rows = beaconRows(json, chain(nets[c]));
             uint256 upgraded = 0;
@@ -766,7 +765,6 @@ contract BuildExpectedStateTest is Test {
             assertEq(id, keccak256(bytes(script)));
         }
     }
-
 
     /// A token at its suite's address was initialized from the row's listing, so its metadata is the
     /// listed state.

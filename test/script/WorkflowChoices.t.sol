@@ -647,9 +647,7 @@ contract WorkflowChoicesTest is Test {
         this.externalAssertOffered(
             one("20261030-backfill-migration-registry-v5"), one("20261030-backfill-migration-registry-v5"), none
         );
-        this.externalAssertOffered(
-            one("20261021-execute-beacon-upgrade"), none, one("20261021-execute-beacon-upgrade")
-        );
+        this.externalAssertOffered(one("20261021-execute-beacon-upgrade"), none, one("20261021-execute-beacon-upgrade"));
         vm.expectRevert(bytes("no workflow offers 20261030-backfill-migration-registry-v5"));
         this.externalAssertOffered(one("20261030-backfill-migration-registry-v5"), none, none);
     }

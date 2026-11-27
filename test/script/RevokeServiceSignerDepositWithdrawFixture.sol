@@ -4,12 +4,8 @@ pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
-import {
-    executeBeaconUpgradeDeclaration
-} from "../../script/20261021-execute-beacon-upgrade.s.sol";
-import {
-    scheduleBeaconUpgradeDeclaration
-} from "../../script/20261021-schedule-beacon-upgrade.s.sol";
+import {executeBeaconUpgradeDeclaration} from "../../script/20261021-execute-beacon-upgrade.s.sol";
+import {scheduleBeaconUpgradeDeclaration} from "../../script/20261021-schedule-beacon-upgrade.s.sol";
 import {
     scheduleRevokeServiceSignerDeclaration
 } from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";

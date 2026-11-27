@@ -10,9 +10,7 @@ import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 
-import {
-    scheduleBeaconUpgradeDeclaration
-} from "../../script/20261021-schedule-beacon-upgrade.s.sol";
+import {scheduleBeaconUpgradeDeclaration} from "../../script/20261021-schedule-beacon-upgrade.s.sol";
 import {ScheduleBeaconUpgradeHarness} from "./ScheduleBeaconUpgradeHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
@@ -77,12 +75,9 @@ abstract contract BeaconUpgradeFixture is Test {
     /// @notice Plants the three implementations at their pinned addresses,
     /// running their constructors there (the facet's `_SELF`).
     function plantImplementations() internal {
+        deployCodeTo("src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet", LibBeaconUpgrade.FACET);
         deployCodeTo(
-            "src/concrete/StoxCorporateActionsFacet.sol:StoxCorporateActionsFacet", LibBeaconUpgrade.FACET
-        );
-        deployCodeTo(
-            "src/concrete/StoxReceiptVault.sol:StoxReceiptVault",
-            LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION
+            "src/concrete/StoxReceiptVault.sol:StoxReceiptVault", LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION
         );
         deployCodeTo(
             "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
