@@ -43,8 +43,7 @@ library LibUnderlyingSnapshotBuilder {
     {
         (bytes memory body, uint256[] memory rowStarts) = encodeRows(rows);
         (uint256[] memory order, uint256[][] memory bucketRows) = bucketsOf(rows, k);
-        (bool fits, bytes memory displacements, uint256[] memory slotRows) =
-            index(rows, bucketRows, order, body.length);
+        (bool fits, bytes memory displacements, uint256[] memory slotRows) = index(rows, bucketRows, order, body.length);
         if (!fits) {
             // forge-lint: disable-next-line(boolean-cst)
             return (false, "");
@@ -193,7 +192,8 @@ library LibUnderlyingSnapshotBuilder {
         uint256[] memory order,
         uint256 bodyLength
     ) internal pure returns (bool, bytes memory, uint256[] memory) {
-        uint256 fixedLength = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + order.length + bodyLength + 1;
+        uint256 fixedLength =
+            UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + order.length + bodyLength + 1;
         uint256 slotCount = minSlotCount(rows.length);
         if (fixedLength + 2 * slotCount <= EIP170_MAX_RUNTIME) {
             uint256 maxSlotCount = (EIP170_MAX_RUNTIME - fixedLength) / 2;
@@ -328,14 +328,15 @@ library LibUnderlyingSnapshotBuilder {
         pure
         returns (bytes memory, bytes[] memory)
     {
-        if (hasDuplicate(rows)) {
-            revert UnderlyingSnapshotDoesNotShard(rows.length);
-        }
         uint256[] memory rowLengths = new uint256[](rows.length);
         uint256 total = 0;
         for (uint256 i = 0; i < rows.length; i++) {
             rowLengths[i] = rowLength(rows[i]);
             total += rowLengths[i] + 2;
+        }
+        // Field validity is per row and independent of sharding, so it is checked before duplicates.
+        if (hasDuplicate(rows)) {
+            revert UnderlyingSnapshotDoesNotShard(rows.length);
         }
         // A shard holds its header, at least one bucket byte, the data prefix, and per row its bytes plus >= 2 offset bytes.
         uint256 capacity = EIP170_MAX_RUNTIME - UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH - 2;
