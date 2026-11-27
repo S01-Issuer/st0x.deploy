@@ -15,15 +15,18 @@ enum Region {
     EU
 }
 
-/// @param assetId The listing-time ISIN of the exact share line. Never
-/// follows later changes.
+struct AssetId {
+    AssetIdKind kind;
+    string id;
+}
+
+/// @param assetId The token's starting asset id.
 /// @param listingTicker The ticker at listing, e.g. "MSTR".
 /// @param listingName The issuer name at listing, without any ST0x suffix.
 /// @param metadata Opaque: committed to by the address and emitted, never
 /// stored or decoded.
 struct StoxTokenConfigV1 {
-    string assetId;
-    AssetIdKind assetIdKind;
+    AssetId assetId;
     string listingTicker;
     string listingName;
     Region region;

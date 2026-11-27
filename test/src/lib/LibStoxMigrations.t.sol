@@ -21,7 +21,7 @@ import {ScriptDeclaration} from "../../../src/interface/IStoxScript.sol";
 import {
     LibStoxMigrations,
     NoGovernanceTimelockMigrationOnChain,
-    SafeNotApprovedWriter
+    RootLineWriterNotApproved
 } from "../../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../../src/lib/LibTimelockInvariants.sol";
 import {LibStoxMigrationsHarness} from "./LibStoxMigrationsHarness.sol";
@@ -280,7 +280,7 @@ contract LibStoxMigrationsTest is Test {
     function assertRootLineWriter(address delegate, bool writes) internal {
         assertEq(LibStoxMigrations.approved(delegate), writes, "approved");
         LibStoxMigrationsHarness ext = new LibStoxMigrationsHarness();
-        if (!writes) vm.expectRevert(abi.encodeWithSelector(SafeNotApprovedWriter.selector, delegate));
+        if (!writes) vm.expectRevert(abi.encodeWithSelector(RootLineWriterNotApproved.selector, delegate));
         ext.assertNext(genesisNext(), delegate);
         (address to, bytes memory data) = LibStoxMigrations.recordCall(genesisNext());
         vm.prank(delegate);

@@ -25,7 +25,7 @@ struct EthereumSlot {
 /// must be that token: no address names one underlying on 0G and another anywhere else.
 contract CreateZerogTokensEthereumOrderTest is Test {
     /// @notice Ethereum's slots that no Base row carries.
-    uint256 internal constant FIRST_ETHEREUM_ONLY_SLOT = 42;
+    uint256 internal constant FIRST_OFF_BASE_SLOT = 42;
 
     CreateZerogTokensHarness internal sScript;
 
@@ -100,13 +100,13 @@ contract CreateZerogTokensEthereumOrderTest is Test {
         return [token.receipt, token.receiptVault, token.wrappedTokenVault];
     }
 
-    /// @notice Every 0G row whose underlying Ethereum's table carries gets Ethereum's vault and wrapper for that
-    /// underlying, and the rows Ethereum's table does not carry are exactly slots 42-47.
+    /// @notice Every 0G row gets Ethereum's vault and wrapper for its underlying, and Ethereum's table carries no
+    /// underlying the 0G rows do not.
     function testEachRowIsEthereumsTokenForItsUnderlying() external view {
         TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         TokenInstance[] memory ethereum = LibTokenInvariants.productionTokensEthereum();
         assertEq(rows.length, 65, "0G rows");
-        uint256 notOnEthereumTable = 0;
+        assertEq(ethereum.length, rows.length, "Ethereum rows");
         for (uint256 i = 0; i < rows.length; i++) {
             TokenInstance memory created = sScript.callToken(i);
             assertEq(created.underlying, rows[i].underlying, "token row underlying");
@@ -122,21 +122,17 @@ contract CreateZerogTokensEthereumOrderTest is Test {
                     string.concat(rows[i].underlying, " wrapper")
                 );
             }
-            if (!found) {
-                assertEq(i, FIRST_ETHEREUM_ONLY_SLOT + notOnEthereumTable, string.concat(rows[i].underlying, " slot"));
-                notOnEthereumTable++;
-            }
+            assertTrue(found, string.concat(rows[i].underlying, " on Ethereum"));
         }
-        assertEq(notOnEthereumTable, 6, "rows off Ethereum's table");
     }
 
-    /// @notice The six rows Ethereum's table does not carry are Ethereum's slots 42-47: the same vault, wrapper,
+    /// @notice The six rows no Base row carries are Ethereum's slots 42-47: the same vault, wrapper,
     /// symbol and name, and Ethereum's US authoriser, which their US region routes them to.
     function testOffBaseRowsAreEthereumSlots42To47() external view {
         TokenConfig[] memory rows = LibProdTokenConfig.canonicalTokenConfigs();
         EthereumSlot[6] memory slots = offBaseSlots();
         for (uint256 k = 0; k < slots.length; k++) {
-            uint256 i = FIRST_ETHEREUM_ONLY_SLOT + k;
+            uint256 i = FIRST_OFF_BASE_SLOT + k;
             EthereumSlot memory slot = slots[k];
             TokenInstance memory created = sScript.callToken(i);
             assertEq(rows[i].underlying, slot.underlying, "underlying");

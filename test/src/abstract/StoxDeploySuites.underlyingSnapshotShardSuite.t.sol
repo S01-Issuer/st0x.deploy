@@ -9,11 +9,11 @@ import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 /// @notice Shard suite keys number the shards in base 26, a to z.
 contract StoxDeploySuitesUnderlyingSnapshotShardSuiteTest is Test, StoxDeploySuites {
     function testShardSuiteKeysCountInBase26() external pure {
-        assertEq(underlyingSnapshotShardSuite(0), "stox-underlying-snapshot-shard-a");
-        assertEq(underlyingSnapshotShardSuite(25), "stox-underlying-snapshot-shard-z");
-        assertEq(underlyingSnapshotShardSuite(26), "stox-underlying-snapshot-shard-ba");
-        assertEq(underlyingSnapshotShardSuite(675), "stox-underlying-snapshot-shard-zz");
-        assertEq(underlyingSnapshotShardSuite(676), "stox-underlying-snapshot-shard-baa");
+        assertEq(underlyingSnapshotShardSuite(0), string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, "a"));
+        assertEq(underlyingSnapshotShardSuite(25), string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, "z"));
+        assertEq(underlyingSnapshotShardSuite(26), string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, "ba"));
+        assertEq(underlyingSnapshotShardSuite(675), string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, "zz"));
+        assertEq(underlyingSnapshotShardSuite(676), string.concat(UNDERLYING_SNAPSHOT_SHARD_PREFIX, "baa"));
     }
 
     function testShardSuiteKeysAreDistinct(uint256 a, uint256 b) external pure {
