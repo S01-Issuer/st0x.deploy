@@ -68,7 +68,7 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 /// call writes its root-line record.
 ///
 /// Execution is not a Safe action: the timelock lets anyone execute a ready
-/// operation (`20261021-execute-underlying-naming` does it from the CI deploy
+/// operation (`20261021-execute-underlying-naming-beacons` does it from the CI deploy
 /// key). The batch ends with a read-only facet call, so it reverts as a whole,
 /// and stays Ready, if the facet has no code at execution.
 ///

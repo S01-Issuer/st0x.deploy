@@ -35,12 +35,12 @@ error RevokeAlreadyScheduled(bytes32 id);
 /// @param id The operation id.
 error RevokeNotPendingInsideDelay(bytes32 id);
 
-/// @notice This script's declaration: the Safe's record, after the naming beacon batch.
+/// @notice This script's declaration: the Safe's record, after the naming beacon execute.
 /// @return The declaration.
 function scheduleRevokeServiceSignerDeclaration() pure returns (ScriptDeclaration memory) {
     return ScriptDeclaration({
         id: LibStoxMigrations.SCHEDULE_REVOKE_SERVICE_SIGNER,
-        onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+        onto: LibStoxMigrations.EXECUTE_UNDERLYING_NAMING_BEACONS,
         history: false
     });
 }
