@@ -7,8 +7,8 @@ import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/Upgr
 import {BeaconProxy} from "@openzeppelin-contracts-5.7.0/proxy/beacon/BeaconProxy.sol";
 import {Float, LibDecimalFloat} from "rain-math-float-0.3.13/src/lib/LibDecimalFloat.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.14/src/concrete/CloneFactory.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
 import {
     OffchainAssetReceiptVaultConfigV2,
     DEPOSIT,

@@ -6,7 +6,7 @@ import {
     NonCanonicalAuthorizerConfig,
     OFFCHAIN_ASSET_RECEIPT_VAULT_AUTHORIZER_V1_CONFIG_V2_TAG
 } from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";

@@ -3,9 +3,9 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.41/src/lib/LibConfigRegistry.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
 
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
 import {LibTestBeaconInitialOwnerBind} from "./LibTestBeaconInitialOwnerBind.sol";

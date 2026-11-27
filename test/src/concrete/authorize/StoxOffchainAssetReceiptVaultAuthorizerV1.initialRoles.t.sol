@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.18/src/interface/ICloneableV2.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.20/src/interface/ICloneableV2.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";

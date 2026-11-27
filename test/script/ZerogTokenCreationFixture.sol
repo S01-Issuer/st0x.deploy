@@ -8,12 +8,12 @@ import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {SafeProxyFactory} from "safe-global-safe-smart-account-1.4.1-3/contracts/proxies/SafeProxyFactory.sol";
-import {DeployDependency, DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.38/src/interface/IMigrationRegistryV5.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
-import {ICloneableFactoryV4} from "rain-factory-0.2.18/src/interface/deprecated/ICloneableFactoryV4.sol";
+import {DeployDependency, DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.41/src/interface/IMigrationRegistryV5.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.41/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.41/src/lib/LibSafeFork.sol";
+import {ICloneableFactoryV4} from "rain-factory-0.2.20/src/interface/deprecated/ICloneableFactoryV4.sol";
 import {
     CREATION_CODE as CLONE_FACTORY_0_1_15_CREATION_CODE,
     DEPLOYED_ADDRESS as CLONE_FACTORY_0_1_15

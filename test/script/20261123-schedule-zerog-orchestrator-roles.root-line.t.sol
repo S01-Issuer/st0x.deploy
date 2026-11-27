@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
-import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
+import {LibSafe} from "rain-deploy-0.1.41/src/lib/LibSafe.sol";
 
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";

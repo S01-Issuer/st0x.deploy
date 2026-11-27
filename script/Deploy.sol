@@ -2,16 +2,16 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity =0.8.25;
 
-import {RainDeployBroadcast} from "rain-deploy-0.1.38/src/abstract/RainDeployBroadcast.sol";
+import {RainDeployBroadcast} from "rain-deploy-0.1.41/src/abstract/RainDeployBroadcast.sol";
 import {
     DeployDeclaration,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployDeclaration} from "rain-deploy-0.1.38/src/lib/LibRainDeployDeclaration.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.41/src/lib/LibRainDeployDeclaration.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.41/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
 import {
     LibOffchainAssetReceiptVaultRbac,
     OffchainAssetReceiptVaultRbacV1,

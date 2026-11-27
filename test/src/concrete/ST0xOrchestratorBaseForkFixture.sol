@@ -3,7 +3,7 @@
 pragma solidity ^0.8.25;
 
 import {Strings} from "@openzeppelin-contracts-5.7.0/utils/Strings.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
 import {IRainlangV2} from "rainlang-0.2.40/src/interface/IRainlangV2.sol";
 import {
     EvaluableV4,
