@@ -8,19 +8,15 @@ import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensio
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 
 import {ICorporateActionsV1} from "../interface/ICorporateActionsV1.sol";
-import {IStoxUnderlyingV2} from "../interface/IStoxUnderlyingV2.sol";
 import {LibProdDeployCurrent} from "../generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4} from "../generated/LibProdDeployV4.sol";
 import {LibBeaconInvariants} from "./LibBeaconInvariants.sol";
-import {LibProdTokenConfig, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
 import {LibStoxMigrations} from "./LibStoxMigrations.sol";
 import {ScriptDeclaration} from "../interface/IStoxScript.sol";
-import {LibSecurity} from "./LibSecurity.sol";
-import {MalformedUnderlyingIsin} from "../error/ErrUnderlying.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
 /// release yet, so nothing may deploy them or schedule a beacon onto them.
@@ -33,33 +29,6 @@ error UnderlyingNamingReleaseNotFrozen();
 /// @param actual The table's length.
 error UnderlyingNamingTokenTableShort(uint256 chainId, uint256 expected, uint256 actual);
 
-/// @notice A token's live receipt-vault symbol is not `"t" + ticker` for the
-/// ticker the rename writes, so the row does not belong to that vault.
-/// @param ticker The ticker the rename writes.
-/// @param vault The token's receipt vault.
-/// @param symbol The vault's live symbol.
-error TickerNotBoundToVault(string ticker, address vault, string symbol);
-
-/// @notice A row's ISIN is not its listing-time asset id, so the ISIN the
-/// rename writes is not bound to the share line the row tracks.
-/// @param underlying The token's join key.
-/// @param isin The ISIN the rename writes.
-/// @param assetId The row's listing-time asset id.
-error IsinNotBoundToAssetId(string underlying, string isin, string assetId);
-
-/// @notice A row's ticker or underlying name is not in the shape the rename
-/// sets: the ticker is 1 to 16 of `A-Z`, `0-9` and `.`, and the name is
-/// non-empty, has no `"`, `\` or control byte (the receipt's `uri()` builds
-/// JSON from the vault symbol without escaping), and does not already carry
-/// the ST0x suffix.
-/// @param ticker The row's ticker.
-/// @param underlyingName The row's underlying name.
-error MalformedUnderlying(string ticker, string underlyingName);
-
-/// @notice The downstream services are not yet confirmed to accept the
-/// renamed wrapper symbols, so the rename may not be scheduled.
-error DownstreamNotReadyForRename();
-
 /// @notice The rollout's batches were cut for the networks before 0G
 /// (`LibStoxDeployNetworks.networksBeforeZerog`), whose tables share Base's row
 /// order. Any other chain's leading `TOKEN_COUNT` rows can be another token
@@ -68,22 +37,15 @@ error DownstreamNotReadyForRename();
 error UnderlyingNamingNotCutForChain(uint256 chainId);
 
 /// @title LibUnderlyingNamingRollout
-/// @notice The two timelock operations that roll out the underlying ticker
-/// and name on a chain, reconstructed from repo state so the scripts that
-/// schedule them, the script that executes them and the tests cannot drift
-/// onto different operation ids.
-///
-/// 1. The beacon batch: the chain's in-use wrapped-token-vault beacon and
-///    receipt-vault beacon move to the implementations below, then a
-///    read-only facet call on one production vault, then the batch's root-line
-///    record. A delegatecall into a
-///    facet address with no code reverts with `CorporateActionsFacetNotDeployed`
-///    in the new vault implementation, so the whole batch rolls back if the
-///    facet is missing at execution.
-/// 2. The rename batch: `setUnderlying(ticker, underlyingName, isin)` on
-///    every production vault of the chain, then the batch's root-line record,
-///    scheduled with the beacon batch as its
-///    predecessor, so the timelock refuses to execute it first.
+/// @notice The beacon batch that rolls out the underlying naming on a chain,
+/// reconstructed from repo state so the script that schedules it and the
+/// tests cannot drift onto a different operation id: the chain's in-use
+/// wrapped-token-vault beacon and receipt-vault beacon move to the
+/// implementations below, then a read-only facet call on one production
+/// vault, then the batch's root-line record. A delegatecall into a facet
+/// address with no code reverts with `CorporateActionsFacetNotDeployed` in the
+/// new vault implementation, so the whole batch rolls back if the facet is
+/// missing at execution.
 ///
 /// The implementations are the current-source candidate pins. They are the
 /// one place this rollout names its bytecode; a rollout is dispatched only
@@ -92,9 +54,6 @@ error UnderlyingNamingNotCutForChain(uint256 chainId);
 library LibUnderlyingNamingRollout {
     /// @notice Salt of the beacon batch.
     bytes32 internal constant BEACON_SALT = keccak256("st0x.underlying-naming.beacons.1");
-
-    /// @notice Salt of the rename batch.
-    bytes32 internal constant RENAME_SALT = keccak256("st0x.underlying-naming.rename.1");
 
     /// @notice The corporate-actions facet the new vault implementation pins.
     address internal constant FACET = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
@@ -127,21 +86,6 @@ library LibUnderlyingNamingRollout {
     /// scripts refuse. The targets (`FACET`, `RECEIPT_VAULT_IMPLEMENTATION`, `WRAPPED_TOKEN_VAULT_IMPLEMENTATION` and
     /// their codehashes) alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
-
-    /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
-    /// the st0x.registry token lists accept both `wt<TICKER>` and
-    /// `<TICKER>s` in production. The rename cannot be undone, so the rename
-    /// script refuses unless this is set. Set on this evidence (RAI-4172):
-    /// - st0x.liquidity accepts both symbols since
-    ///   ST0x-Technology/st0x.liquidity#1973 (commit b70fe2950679), live in
-    ///   production as release v1.29.0 (RAI-4168).
-    /// - st0x.pricing and st0x-oracle-server never read an on-chain
-    ///   `symbol()`, so they need no change (RAI-4169 and RAI-4170 closed as
-    ///   not needed).
-    /// - The st0x.registry token lists keep `symbol` = `wt<TICKER>` and carry
-    ///   the additive `nextSymbol` / `nextName`
-    ///   (ST0x-Technology/st0x.registry#117).
-    bool internal constant DOWNSTREAM_ACCEPTS_NEW_SYMBOLS = true;
 
     /// @notice How many leading rows of each chain's production token table
     /// this rollout renames: tMSTR to tDIS, on every chain. Fixed, so the
@@ -211,27 +155,6 @@ library LibUnderlyingNamingRollout {
             chainTokens[tokenIndex] = table[tokenIndex];
         }
         chainTokens[table.length] = LibTokenInvariants.qsepToken();
-        return chainTokens;
-    }
-
-    /// @notice Every vault and wrapper behind the two beacons on the chain
-    /// that the rename does not set: the table rows past the renamed ones,
-    /// then tQSEP on Base.
-    /// @param chainId The chain id.
-    /// @return The tokens.
-    function unrenamedTokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
-        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
-        bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-        uint256 count = onBase ? 1 : 0;
-        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
-            if (!renamesRow(tokenIndex)) count++;
-        }
-        TokenInstance[] memory chainTokens = new TokenInstance[](count);
-        uint256 next = 0;
-        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
-            if (!renamesRow(tokenIndex)) chainTokens[next++] = table[tokenIndex];
-        }
-        if (onBase) chainTokens[next] = LibTokenInvariants.qsepToken();
         return chainTokens;
     }
 
@@ -305,118 +228,6 @@ library LibUnderlyingNamingRollout {
         });
     }
 
-    /// @notice The rename batch's root-line record, its last call, onto the
-    /// beacon batch's record.
-    /// @return The declaration.
-    function renameDeclaration() internal pure returns (ScriptDeclaration memory) {
-        return ScriptDeclaration({
-            id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
-            onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-            history: false
-        });
-    }
-
-    /// @notice The rename batch's calls: `setUnderlying(ticker,
-    /// underlyingName, isin)` on every production vault of the chain, in
-    /// table order, then the batch's root-line record (`renameDeclaration`).
-    /// @param chainId The chain id.
-    /// @return The call targets.
-    /// @return The call values, all zero.
-    /// @return The calldata.
-    function renameBatch(uint256 chainId) internal view returns (address[] memory, uint256[] memory, bytes[] memory) {
-        TokenInstance[] memory chainTokens = tokens(chainId);
-        address[] memory targets = new address[](chainTokens.length + 1);
-        uint256[] memory values = new uint256[](chainTokens.length + 1);
-        bytes[] memory payloads = new bytes[](chainTokens.length + 1);
-        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
-        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying, configs);
-            targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
-            payloads[tokenIndex] =
-                abi.encodeCall(IStoxUnderlyingV2.setUnderlying, (config.ticker, config.underlyingName, config.isin));
-        }
-        (targets[chainTokens.length], payloads[chainTokens.length]) = LibStoxMigrations.recordCall(renameDeclaration());
-        return (targets, values, payloads);
-    }
-
-    /// @notice Reverts unless every production vault of the chain reports
-    /// `"t" + ticker` as its live symbol for the ticker the rename batch
-    /// writes to it, binding each row the batch sets to the vault it lands on.
-    /// @param chainId The chain id.
-    function assertTickersBound(uint256 chainId) internal view {
-        TokenInstance[] memory chainTokens = tokens(chainId);
-        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            TokenInstance memory token = chainTokens[tokenIndex];
-            assertTickerBound(token, LibProdTokenConfig.configOf(token.underlying));
-        }
-    }
-
-    /// @notice Reverts `TickerNotBoundToVault` unless `token`'s receipt vault
-    /// reports `"t" + config.ticker` as its live symbol.
-    /// @param token The token whose vault the rename writes to.
-    /// @param config The row the rename writes.
-    function assertTickerBound(TokenInstance memory token, TokenConfig memory config) internal view {
-        string memory symbol = IERC20Metadata(token.receiptVault).symbol();
-        if (keccak256(bytes(symbol)) != keccak256(bytes(string.concat("t", config.ticker)))) {
-            revert TickerNotBoundToVault(config.ticker, token.receiptVault, symbol);
-        }
-    }
-
-    /// @notice Reverts unless every row the chain's rename sets writes its
-    /// listing-time asset id as the ISIN.
-    /// @param chainId The chain id.
-    function assertIsinsBound(uint256 chainId) internal pure {
-        TokenInstance[] memory chainTokens = tokens(chainId);
-        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            assertIsinBound(LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying));
-        }
-    }
-
-    /// @notice Reverts `IsinNotBoundToAssetId` unless `config`'s ISIN is its
-    /// listing-time asset id.
-    /// @param config The row.
-    function assertIsinBound(TokenConfig memory config) internal pure {
-        if (keccak256(bytes(config.isin)) != keccak256(bytes(config.assetId.id))) {
-            revert IsinNotBoundToAssetId(config.underlying, config.isin, config.assetId.id);
-        }
-    }
-
-    /// @notice Reverts unless every row the chain's rename sets is well
-    /// formed (see `MalformedUnderlying`).
-    /// @param chainId The chain id.
-    function assertUnderlyingsWellFormed(uint256 chainId) internal pure {
-        TokenInstance[] memory chainTokens = tokens(chainId);
-        TokenConfig[] memory rows = new TokenConfig[](chainTokens.length);
-        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
-        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
-            rows[tokenIndex] = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying, configs);
-        }
-        assertRowsWellFormed(rows);
-    }
-
-    /// @notice Reverts `MalformedUnderlying` on the first row of `rows` that is
-    /// not well formed.
-    /// @param rows The rows.
-    function assertRowsWellFormed(TokenConfig[] memory rows) internal pure {
-        for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
-            assertUnderlyingWellFormed(rows[rowIndex]);
-        }
-    }
-
-    /// @notice Reverts `MalformedUnderlying` unless `config`'s ticker and
-    /// underlying name are well formed, and `MalformedUnderlyingIsin` unless
-    /// its ISIN is.
-    /// @param config The row.
-    function assertUnderlyingWellFormed(TokenConfig memory config) internal pure {
-        if (
-            !LibSecurity.tickerWellFormed(bytes(config.ticker))
-                || !LibSecurity.nameWellFormed(bytes(config.underlyingName))
-        ) {
-            revert MalformedUnderlying(config.ticker, config.underlyingName);
-        }
-        if (!LibSecurity.isinWellFormed(config.isin)) revert MalformedUnderlyingIsin(config.isin);
-    }
-
     /// @notice The beacon batch's operation id on `timelock`.
     /// @param timelock The chain's timelock.
     /// @param chainId The chain id.
@@ -425,17 +236,6 @@ library LibUnderlyingNamingRollout {
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = beaconBatch(chainId);
         return
             TimelockController(payable(timelock)).hashOperationBatch(targets, values, payloads, bytes32(0), BEACON_SALT);
-    }
-
-    /// @notice The rename batch's operation id on `timelock`. Its predecessor
-    /// is the beacon batch.
-    /// @param timelock The chain's timelock.
-    /// @param chainId The chain id.
-    /// @return The operation id.
-    function renameOperationId(address timelock, uint256 chainId) internal view returns (bytes32) {
-        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = renameBatch(chainId);
-        return TimelockController(payable(timelock))
-            .hashOperationBatch(targets, values, payloads, beaconOperationId(timelock, chainId), RENAME_SALT);
     }
 
     /// @notice `scheduleBatch` calldata for the beacon batch.
@@ -448,24 +248,4 @@ library LibUnderlyingNamingRollout {
             (targets, values, payloads, bytes32(0), BEACON_SALT, LibTimelockInvariants.TIMELOCK_MIN_DELAY)
         );
     }
-
-    /// @notice `scheduleBatch` calldata for the rename batch.
-    /// @param timelock The chain's timelock.
-    /// @param chainId The chain id.
-    /// @return The calldata.
-    function scheduleRenameCalldata(address timelock, uint256 chainId) internal view returns (bytes memory) {
-        (address[] memory targets, uint256[] memory values, bytes[] memory payloads) = renameBatch(chainId);
-        return abi.encodeCall(
-            TimelockController.scheduleBatch,
-            (
-                targets,
-                values,
-                payloads,
-                beaconOperationId(timelock, chainId),
-                RENAME_SALT,
-                LibTimelockInvariants.TIMELOCK_MIN_DELAY
-            )
-        );
-    }
 }
-

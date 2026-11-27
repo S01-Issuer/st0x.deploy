@@ -128,13 +128,6 @@ library LibStoxMigrations {
     bytes32 internal constant SCHEDULE_UNDERLYING_NAMING_BEACONS =
         keccak256("script/20261021-schedule-underlying-naming-beacons.s.sol");
 
-    /// @notice `script/20261021-schedule-underlying-naming-rename.s.sol`.
-    bytes32 internal constant SCHEDULE_UNDERLYING_NAMING_RENAME =
-        keccak256("script/20261021-schedule-underlying-naming-rename.s.sol");
-
-    /// @notice `script/20261021-execute-underlying-naming.s.sol`.
-    bytes32 internal constant EXECUTE_UNDERLYING_NAMING = keccak256("script/20261021-execute-underlying-naming.s.sol");
-
     /// @notice `script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol`.
     bytes32 internal constant SCHEDULE_REVOKE_SERVICE_SIGNER =
         keccak256("script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol");

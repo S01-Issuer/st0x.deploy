@@ -37,9 +37,9 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `upgradeMigration` (the beacon batch's record,
-/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS`, on every network), `renameMigration` (the rename
+/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS`, on every network), `renameMigration` (the beacon
 /// batch's record,
-/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME`, on every network: its record on the chain selects the
+/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS`, on every network: its record on the chain selects the
 /// renamed fields, which repeat the current ones on a network the rename and beacon batches were not cut for, 0G),
 /// `registryDelegates` (each delegation the root is expected to have approved in a
 /// registry it writes through: `registry`, `account`, `delegate`, `unscoped`; an unscoped one carries no `scope`, a
@@ -360,7 +360,7 @@ contract BuildExpectedState is Script {
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
         vm.serializeBytes32(key, "upgradeMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
-        vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
+        vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
         vm.serializeString(key, "registryDelegates", registryDelegatesJson(chainId, key));
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
