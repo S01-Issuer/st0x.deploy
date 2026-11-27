@@ -41,16 +41,28 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
     }
 
     /// field 0, 1, 2 is the ticker, name, ISIN.
+    function setField(UnderlyingSnapshotRow memory row, uint256 field, uint256 length) internal pure {
+        if (field == 0) row.ticker = filled(length);
+        else if (field == 1) row.name = filled(length);
+        else row.isin = filled(length);
+    }
+
     function rowWithField(address token, uint256 field, uint256 length)
         internal
         pure
         returns (UnderlyingSnapshotRow memory)
     {
         UnderlyingSnapshotRow memory row = UnderlyingSnapshotRow(token, "AAPL", "Apple Inc.", "US0378331005");
-        if (field == 0) row.ticker = filled(length);
-        else if (field == 1) row.name = filled(length);
-        else row.isin = filled(length);
+        setField(row, field, length);
         return row;
+    }
+
+    /// Gives row `j` row `i`'s token, `i` and `j` bounded to distinct rows.
+    function duplicateToken(UnderlyingSnapshotRow[] memory rows, uint256 i, uint256 j) internal pure {
+        i = bound(i, 0, rows.length - 1);
+        j = bound(j, 0, rows.length - 2);
+        if (j >= i) j++;
+        rows[j].token = rows[i].token;
     }
 
     function one(UnderlyingSnapshotRow memory row) internal pure returns (UnderlyingSnapshotRow[] memory) {
@@ -136,13 +148,69 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         pure
     {
         UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 2, 40));
-        i = bound(i, 0, rows.length - 1);
-        j = bound(j, 0, rows.length - 2);
-        if (j >= i) j++;
-        rows[j].token = rows[i].token;
+        duplicateToken(rows, i, j);
         (bool fits, bytes memory data) = LibUnderlyingSnapshotBuilder.shardData(rows, bound(k, 1, type(uint16).max));
         assertFalse(fits, "fits");
         assertEq(data.length, 0, "data");
+    }
+
+    function overLong(uint256 length) internal pure returns (uint256) {
+        return bound(length, uint256(type(uint8).max) + 1, 1024);
+    }
+
+    /// Sets each field after row `first` whose bit in `later` is set over 255 bytes.
+    function overLongAfter(UnderlyingSnapshotRow[] memory rows, uint256 first, uint256 later) internal pure {
+        for (uint256 r = first + 1; r < rows.length; r++) {
+            for (uint256 f = 0; f < 3; f++) {
+                if ((later >> (3 * r + f)) & 1 == 1) {
+                    setField(rows[r], f, overLong(uint256(keccak256(abi.encode(later, r, f)))));
+                }
+            }
+        }
+    }
+
+    function testFirstOffendingRowNamesFieldTooLongOverDuplicateToken(
+        bytes32 seed,
+        uint256 count,
+        uint256 i,
+        uint256 j,
+        uint256 first,
+        uint256 field,
+        uint256 length,
+        uint256 later
+    ) external {
+        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 2, 40));
+        duplicateToken(rows, i, j);
+        first = bound(first, 0, rows.length - 1);
+        length = overLong(length);
+        setField(rows[first], bound(field, 0, 2), length);
+        overLongAfter(rows, first, later);
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingSnapshotFieldTooLong.selector, rows[first].token, length));
+        this.build(0, rows);
+    }
+
+    /// Fields run in row order, then ticker, name, ISIN within a row.
+    function testFirstOverLongFieldWinsOverALaterOne(
+        bytes32 seed,
+        uint256 count,
+        uint256 i,
+        uint256 j,
+        uint256 a,
+        uint256 b,
+        uint256 lengthA,
+        uint256 lengthB
+    ) external {
+        UnderlyingSnapshotRow[] memory rows = LibTestUnderlyingSnapshotRows.rowsFrom(vm, seed, bound(count, 2, 40));
+        duplicateToken(rows, i, j);
+        a = bound(a, 0, 3 * rows.length - 2);
+        b = bound(b, a + 1, 3 * rows.length - 1);
+        lengthA = overLong(lengthA);
+        lengthB = bound(lengthB, uint256(type(uint8).max) + 1, 1023);
+        if (lengthB >= lengthA) lengthB++;
+        setField(rows[a / 3], a % 3, lengthA);
+        setField(rows[b / 3], b % 3, lengthB);
+        vm.expectRevert(abi.encodeWithSelector(UnderlyingSnapshotFieldTooLong.selector, rows[a / 3].token, lengthA));
+        this.build(0, rows);
     }
 
     function testZeroRowsBuildOneShardThatFindsNothing(uint256 asOf, address token) external {
