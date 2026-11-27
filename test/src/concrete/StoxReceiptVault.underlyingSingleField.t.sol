@@ -117,7 +117,7 @@ contract StoxReceiptVaultUnderlyingSingleFieldTest is Test {
         internal
     {
         string[3] memory before = current(token);
-        string[3] memory expected = before;
+        string[3] memory expected = [before[SYMBOL], before[NAME], before[ISIN]];
         expected[field] = value;
 
         vm.warp(timestamp);
