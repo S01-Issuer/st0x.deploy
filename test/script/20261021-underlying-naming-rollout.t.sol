@@ -267,7 +267,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
 
     /// @notice The ticker the rename batch writes to the vault at
     /// `tokenIndex` of the chain's rollout.
-    function writtenTicker(uint256 chainId, uint256 tokenIndex) internal pure returns (string memory) {
+    function writtenTicker(uint256 chainId, uint256 tokenIndex) internal view returns (string memory) {
         (,, bytes[] memory payloads) = LibUnderlyingNamingRollout.renameBatch(chainId);
         (string memory setTicker,,) = decodeSetUnderlying(payloads[tokenIndex]);
         return setTicker;
