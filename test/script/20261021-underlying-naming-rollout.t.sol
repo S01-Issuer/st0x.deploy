@@ -257,7 +257,7 @@ contract UnderlyingNamingRolloutTest is UnderlyingNamingRolloutFixture {
                 (,, string memory setIsin) = decodeSetUnderlying(payloads[tokenIndex]);
                 assertEq(
                     setIsin,
-                    LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying).assetId,
+                    LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying).assetId.id,
                     string.concat(networks[i].name, ": ", chainTokens[tokenIndex].underlying)
                 );
             }

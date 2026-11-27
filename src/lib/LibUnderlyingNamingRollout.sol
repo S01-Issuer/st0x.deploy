@@ -376,8 +376,8 @@ library LibUnderlyingNamingRollout {
     /// listing-time asset id.
     /// @param config The row.
     function assertIsinBound(TokenConfig memory config) internal pure {
-        if (keccak256(bytes(config.isin)) != keccak256(bytes(config.assetId))) {
-            revert IsinNotBoundToAssetId(config.underlying, config.isin, config.assetId);
+        if (keccak256(bytes(config.isin)) != keccak256(bytes(config.assetId.id))) {
+            revert IsinNotBoundToAssetId(config.underlying, config.isin, config.assetId.id);
         }
     }
 
