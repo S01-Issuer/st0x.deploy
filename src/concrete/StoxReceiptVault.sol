@@ -82,6 +82,52 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
         return super.initialize(abi.decode(result, (bytes)));
     }
 
+    /// @notice Forwarded to the corporate actions facet.
+    /// @return The name.
+    function name() public view virtual override returns (string memory) {
+        return forwardStringToFacetView();
+    }
+
+    /// @notice Forwarded to the corporate actions facet.
+    /// @return The symbol.
+    function symbol() public view virtual override returns (string memory) {
+        return forwardStringToFacetView();
+    }
+
+    /// @dev A view cannot delegatecall, so `forwardToFacet` is cast to a view;
+    /// the facet's `name` and `symbol` are views. The string return type is
+    /// nominal: `forwardToFacet` returns the facet's returndata itself.
+    /// @return Never reached.
+    function forwardStringToFacetView() internal view returns (string memory) {
+        function() internal f = forwardToFacet;
+        function() internal view returns (string memory) g;
+        assembly ("memory-safe") {
+            g := f
+        }
+        return g();
+    }
+
+    /// @dev Delegatecalls the facet with this call's calldata and returns or
+    /// reverts with its returndata; it never returns to the caller.
+    function forwardToFacet() internal {
+        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
+        bytes4 notDeployed = CorporateActionsFacetNotDeployed.selector;
+        assembly ("memory-safe") {
+            if iszero(extcodesize(facet)) {
+                mstore(0, notDeployed)
+                mstore(4, facet)
+                revert(0, 0x24)
+            }
+            let ptr := mload(0x40)
+            calldatacopy(ptr, 0, calldatasize())
+            let success := delegatecall(gas(), facet, ptr, calldatasize(), 0, 0)
+            returndatacopy(ptr, 0, returndatasize())
+            switch success
+            case 0 { revert(ptr, returndatasize()) }
+            default { return(ptr, returndatasize()) }
+        }
+    }
+
     /// @notice Returns `account`'s ERC20 balance including any pending rebase
     /// multipliers from completed corporate actions. Does NOT mutate state —
     /// if the account's stored balance is stale relative to the latest
@@ -220,21 +266,7 @@ contract StoxReceiptVault is OffchainAssetReceiptVault {
     /// per-function comments for the per-method argument that the
     /// linked-list and cursor writes remain consistent under re-entry.
     fallback() external payable virtual override {
-        address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
-        bytes4 notDeployed = CorporateActionsFacetNotDeployed.selector;
-        assembly ("memory-safe") {
-            if iszero(extcodesize(facet)) {
-                mstore(0, notDeployed)
-                mstore(4, facet)
-                revert(0, 0x24)
-            }
-            calldatacopy(0, 0, calldatasize())
-            let success := delegatecall(gas(), facet, 0, calldatasize(), 0, 0)
-            returndatacopy(0, 0, returndatasize())
-            switch success
-            case 0 { revert(0, returndatasize()) }
-            default { return(0, returndatasize()) }
-        }
+        forwardToFacet();
     }
 
     /// @notice Reject authorizers that don't configure admin hierarchies

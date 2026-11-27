@@ -25,13 +25,11 @@ interface IStoxUnderlyingV2 {
     );
 
     /// @notice The underlying ticker, e.g. "NVDA".
-    /// @return The override ticker, else the `StoxTokenConfigV1` listing ticker
-    /// the vault was initialized with, else the empty string.
+    /// @return The ticker.
     function underlyingSymbol() external view returns (string memory);
 
     /// @notice The underlying asset's name, e.g. "NVIDIA Corporation".
-    /// @return The override name, else the `StoxTokenConfigV1` listing name the
-    /// vault was initialized with, else the empty string.
+    /// @return The name.
     function underlyingName() external view returns (string memory);
 
     /// @notice Sets this token's underlying ticker, name and ISIN override,

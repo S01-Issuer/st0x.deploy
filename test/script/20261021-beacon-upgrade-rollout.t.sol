@@ -27,7 +27,8 @@ import {
     ImplementationNotDeployed,
     BeaconAlreadyUpgraded,
     OperationAlreadyScheduled,
-    BeaconUpgradeMovedMetadata,
+    BeaconUpgradeWrongMetadata,
+    UnderlyingSnapshotNotDeployed,
     scheduleBeaconUpgradeDeclaration
 } from "../../script/20261021-schedule-beacon-upgrade.s.sol";
 import {ScheduleBeaconUpgradeHarness} from "./ScheduleBeaconUpgradeHarness.sol";
@@ -50,6 +51,12 @@ import {LibStoxDeployNetworks} from "../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "../../src/lib/LibTokenInvariants.sol";
+import {LibUnderlyingSnapshot} from "../../src/lib/LibUnderlyingSnapshot.sol";
+import {UNDERLYING_SNAPSHOT_ROOT} from "../../src/generated/LibUnderlyingSnapshotCode.sol";
+import {IStoxUnderlyingV2} from "../../src/interface/IStoxUnderlyingV2.sol";
+import {IStoxAssetIdV1} from "../../src/interface/IStoxAssetIdV1.sol";
+import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../script/LibUnderlyingSnapshotBuilder.sol";
+import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 
 /// @title BeaconUpgradeRolloutTest
 /// @notice The beacon upgrade on every deployment network, 0G included. Per
@@ -168,7 +175,7 @@ contract BeaconUpgradeRolloutTest is BeaconUpgradeFixture {
         assertEq(
             LibStoxMigrations.head(), scheduleBeaconUpgradeDeclaration().onto, string.concat(network, ": line at onto")
         );
-        vm.expectPartialRevert(ImplementationNotDeployed.selector);
+        vm.expectPartialRevert(UnderlyingSnapshotNotDeployed.selector);
         schedule.callPreflight();
         vm.expectRevert(abi.encodeWithSelector(BeaconUpgradeNotReady.selector, id, false, false));
         execution.execute();
@@ -499,8 +506,11 @@ contract BeaconUpgradeRolloutTest is BeaconUpgradeFixture {
     }
 
     /// @notice The execution proof refuses any of the four metadata values
-    /// that moved across the upgrade, on the first and last rows of the token
-    /// table and on tQSEP.
+    /// that reads other than its resolved value after the upgrade, on the
+    /// first and last rows of the token table and on tQSEP. A table row has no
+    /// snapshot row and no listing, so it resolves to the value it stored
+    /// before the upgrade; tQSEP has no table row and resolves to whatever it
+    /// read before the batch.
     function testBeaconProofRefusesEachBrokenUpgrade() external {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
         advanceRootLineToBeaconSchedule();
@@ -525,13 +535,86 @@ contract BeaconUpgradeRolloutTest is BeaconUpgradeFixture {
         ];
         string[6] memory getters = ["name()", "symbol()", "symbol()", "name()", "name()", "symbol()"];
         for (uint256 getterIndex = 0; getterIndex < targets.length; getterIndex++) {
-            vm.mockCalls(targets[getterIndex], abi.encodeWithSignature(getters[getterIndex]), moved);
+            bytes memory getter = abi.encodeWithSignature(getters[getterIndex]);
+            string memory resolved = "Before";
+            if (getterIndex < 4) {
+                (bool success, bytes memory stored) = targets[getterIndex].staticcall(getter);
+                assertTrue(success, getters[getterIndex]);
+                resolved = abi.decode(stored, (string));
+            }
+            vm.mockCalls(targets[getterIndex], getter, moved);
             vm.expectRevert(
-                abi.encodeWithSelector(BeaconUpgradeMovedMetadata.selector, targets[getterIndex], "Before", "After")
+                abi.encodeWithSelector(BeaconUpgradeWrongMetadata.selector, targets[getterIndex], resolved, "After")
             );
             schedule.callProveExecution();
             vm.revertToState(snapshot);
             vm.clearMockedCalls();
+        }
+    }
+
+    /// @notice On Base, with the snapshot at its root naming the live NVDA
+    /// vault, after the upgrade the vault reads its snapshot row's ticker,
+    /// name and ISIN and formats its name and symbol from them, the wrapper
+    /// follows the vault, and the execution proof accepts it.
+    function testBaseVaultReadsItsSnapshotRowAfterTheUpgrade() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        landBeaconSchedule();
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](1);
+        rows[0] = UnderlyingSnapshotRow(
+            LibTokenInvariants.NVDA_RECEIPT_VAULT, "NVDA.SNAP", "Snapshot NVIDIA Corporation", "US67066G1040"
+        );
+        (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(block.timestamp, rows);
+        vm.etch(UNDERLYING_SNAPSHOT_ROOT, LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes).code);
+        assertEq(IERC20Metadata(LibTokenInvariants.NVDA_RECEIPT_VAULT).symbol(), "tNVDA", "vault symbol before");
+
+        new ScheduleBeaconUpgradeHarness("snapshot-row").callProveExecution();
+
+        assertEq(
+            IERC20Metadata(LibTokenInvariants.NVDA_RECEIPT_VAULT).name(), "Snapshot NVIDIA Corporation (ST0x)", "name"
+        );
+        assertEq(IERC20Metadata(LibTokenInvariants.NVDA_RECEIPT_VAULT).symbol(), "tNVDA.SNAP", "symbol");
+        assertEq(IStoxUnderlyingV2(LibTokenInvariants.NVDA_RECEIPT_VAULT).underlyingSymbol(), "NVDA.SNAP", "ticker");
+        assertEq(
+            IStoxUnderlyingV2(LibTokenInvariants.NVDA_RECEIPT_VAULT).underlyingName(),
+            "Snapshot NVIDIA Corporation",
+            "underlying name"
+        );
+        assertEq(IStoxAssetIdV1(LibTokenInvariants.NVDA_RECEIPT_VAULT).assetId(), "US67066G1040", "isin");
+        assertEq(
+            IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).name(),
+            "Snapshot NVIDIA Corporation (ST0x)",
+            "wrapper name"
+        );
+        assertEq(IERC20Metadata(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT).symbol(), "NVDA.SNAPs", "wrapper symbol");
+    }
+
+    /// @notice The beacon pre-flight refuses a missing snapshot root, and each
+    /// missing shard the root names, with everything else present.
+    function testBeaconPreflightRefusesAMissingSnapshotRootOrShard() external {
+        LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
+        advanceRootLineToBeaconSchedule();
+        plantImplementations();
+        ScheduleBeaconUpgradeHarness schedule = new ScheduleBeaconUpgradeHarness("snapshot");
+        schedule.callPreflight();
+        address[] memory shards = LibUnderlyingSnapshot.shards(UNDERLYING_SNAPSHOT_ROOT);
+        assertGt(shards.length, 0, "shards");
+        address[] memory pointers = new address[](shards.length + 1);
+        pointers[0] = UNDERLYING_SNAPSHOT_ROOT;
+        for (uint256 i = 0; i < shards.length; i++) {
+            pointers[i + 1] = shards[i];
+        }
+        for (uint256 i = 0; i < pointers.length; i++) {
+            uint256 snapshot = vm.snapshotState();
+            bytes32 deployed = pointers[i].codehash;
+            vm.etch(pointers[i], hex"00");
+            vm.expectRevert(
+                abi.encodeWithSelector(
+                    UnderlyingSnapshotNotDeployed.selector, pointers[i], deployed, keccak256(hex"00")
+                )
+            );
+            schedule.callPreflight();
+            vm.revertToState(snapshot);
         }
     }
 

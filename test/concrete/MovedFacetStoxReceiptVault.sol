@@ -4,8 +4,8 @@ pragma solidity =0.8.25;
 
 import {StoxReceiptVault} from "../../src/concrete/StoxReceiptVault.sol";
 
-/// A vault implementation whose fallback delegatecalls a corporate-actions facet at another address, the shape of a
-/// facet upgrade.
+/// A vault implementation whose fallback, `name` and `symbol` delegatecall a corporate-actions facet at another
+/// address, the shape of a facet upgrade.
 contract MovedFacetStoxReceiptVault is StoxReceiptVault {
     address internal immutable I_FACET;
 
@@ -14,7 +14,28 @@ contract MovedFacetStoxReceiptVault is StoxReceiptVault {
         I_FACET = facet;
     }
 
+    function name() public view override returns (string memory) {
+        return forwardStringToMovedFacetView();
+    }
+
+    function symbol() public view override returns (string memory) {
+        return forwardStringToMovedFacetView();
+    }
+
     fallback() external payable override {
+        forwardToMovedFacet();
+    }
+
+    function forwardStringToMovedFacetView() internal view returns (string memory) {
+        function() internal f = forwardToMovedFacet;
+        function() internal view returns (string memory) g;
+        assembly ("memory-safe") {
+            g := f
+        }
+        return g();
+    }
+
+    function forwardToMovedFacet() internal {
         address facet = I_FACET;
         assembly ("memory-safe") {
             calldatacopy(0, 0, calldatasize())

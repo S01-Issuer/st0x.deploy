@@ -18,6 +18,12 @@ import {LibTimelockInvariants} from "../src/lib/LibTimelockInvariants.sol";
 import {LibBeaconUpgrade, BeaconUpgradeReleaseNotFrozen} from "../src/lib/LibBeaconUpgrade.sol";
 import {IStoxScript, ScriptDeclaration} from "../src/interface/IStoxScript.sol";
 import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
+import {LibUnderlyingSnapshot} from "../src/lib/LibUnderlyingSnapshot.sol";
+import {LibSecurity} from "../src/lib/LibSecurity.sol";
+import {LibProdTokenConfig, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
+import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
+import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {LibUnderlyingSnapshotCode, UNDERLYING_SNAPSHOT_ROOT} from "../src/generated/LibUnderlyingSnapshotCode.sol";
 
 /// @notice An implementation the beacon batch points a beacon at does not
 /// carry its pinned code on this chain. Deploy it first (rollout step 1).
@@ -25,6 +31,13 @@ import {LibStoxMigrations} from "../src/lib/LibStoxMigrations.sol";
 /// @param expected The pinned codehash.
 /// @param actual The codehash on chain.
 error ImplementationNotDeployed(address implementation, bytes32 expected, bytes32 actual);
+
+/// @notice The underlying snapshot root, or a shard it names, does not carry
+/// its pinned code on this chain.
+/// @param pointer The root or shard.
+/// @param expected The pinned codehash.
+/// @param actual The codehash on chain.
+error UnderlyingSnapshotNotDeployed(address pointer, bytes32 expected, bytes32 actual);
 
 /// @notice A beacon this batch upgrades already points at the target
 /// implementation, so the batch has run on this chain.
@@ -47,11 +60,12 @@ error OperationNotPendingInsideDelay(bytes32 id);
 /// @param actual The beacon's implementation.
 error BeaconNotUpgraded(address beacon, address expected, address actual);
 
-/// @notice The beacon batch changed a vault's or wrapper's name or symbol.
+/// @notice A vault or wrapper does not read its resolved name or symbol after
+/// the beacon batch.
 /// @param token The vault or wrapper.
-/// @param before The value before the batch.
-/// @param afterUpgrade The value after it.
-error BeaconUpgradeMovedMetadata(address token, string before, string afterUpgrade);
+/// @param expected The resolved value.
+/// @param afterUpgrade The value it reads.
+error BeaconUpgradeWrongMetadata(address token, string expected, string afterUpgrade);
 
 /// @notice This script's declaration: the beacon batch's own record, written
 /// by the timelock at execution, after the Safe-owned Base vault handover.
@@ -121,9 +135,35 @@ contract ScheduleBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
         }
     }
 
+    /// @notice Reverts unless `pointer` carries the runtime code
+    /// `creationCode` deploys.
+    /// @param pointer The snapshot root or shard.
+    /// @param creationCode Its generated creation code.
+    function assertSnapshotDeployed(address pointer, bytes memory creationCode) internal view {
+        // The runtime keeps the prefix's trailing STOP byte.
+        uint256 runtimeStart = PREFIX_BYTES_LENGTH - 1;
+        bytes32 expected;
+        assembly ("memory-safe") {
+            expected := keccak256(add(add(creationCode, 0x20), runtimeStart), sub(mload(creationCode), runtimeStart))
+        }
+        if (pointer.codehash != expected) revert UnderlyingSnapshotNotDeployed(pointer, expected, pointer.codehash);
+    }
+
+    /// @notice Reverts unless the snapshot root and every shard address read
+    /// from it carry their pinned code.
+    function assertUnderlyingSnapshotDeployed() internal view {
+        assertSnapshotDeployed(UNDERLYING_SNAPSHOT_ROOT, LibUnderlyingSnapshotCode.ROOT_CREATION_CODE);
+        address[] memory shards = LibUnderlyingSnapshot.shards(UNDERLYING_SNAPSHOT_ROOT);
+        bytes[] memory shardCodes = LibUnderlyingSnapshotCode.shardCreationCodes();
+        for (uint256 i = 0; i < shards.length; i++) {
+            assertSnapshotDeployed(shards[i], shardCodes[i]);
+        }
+    }
+
     /// @inheritdoc SafeBundleScript
     /// @dev The release is frozen, the Safe and timelock are the pinned ones,
     /// the timelock owns the in-use beacons, the three implementations carry their pinned code, the
+    /// underlying snapshot root and every shard it names carry their pinned code, the
     /// beacons have not moved and still serve their pinned from-implementations,
     /// the operation is not registered, and the root line is at this
     /// migration's `onto` and the timelock may write the batch's record.
@@ -134,6 +174,7 @@ contract ScheduleBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
         LibStoxMigrations.assertNext(scheduleBeaconUpgradeDeclaration(), timelock());
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
+        assertUnderlyingSnapshotDeployed();
         assertDeployed(LibBeaconUpgrade.FACET, LibBeaconUpgrade.FACET_CODEHASH);
         assertDeployed(LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION, LibBeaconUpgrade.RECEIPT_VAULT_CODEHASH);
         assertDeployed(
@@ -201,10 +242,10 @@ contract ScheduleBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
         vm.revertToState(postBundle);
     }
 
-    /// @notice The execution proof `assertReversible` runs. It records the
-    /// `name()` and `symbol()` of every vault and wrapper behind the two
-    /// beacons, the token table and tQSEP on Base, before the batch and
-    /// requires them unchanged after it.
+    /// @notice The execution proof `assertReversible` runs. After the batch,
+    /// every vault and wrapper behind the two beacons, the token table and
+    /// tQSEP on Base, must read the `name()` and `symbol()` `expectedMetadata`
+    /// resolves for it.
     function proveExecution() internal {
         TokenInstance[] memory chainTokens = LibBeaconUpgrade.beaconTokens(block.chainid);
         string[] memory before = LibBeaconUpgrade.metadata(chainTokens);
@@ -220,17 +261,82 @@ contract ScheduleBeaconUpgrade is StoxSafeBundleScript, IStoxScript {
             LibBeaconUpgrade.wrappedTokenVaultBeacon(block.chainid), LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION
         );
         assertBeacon(LibBeaconUpgrade.receiptVaultBeacon(block.chainid), LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION);
+        string[] memory expected = expectedMetadata(chainTokens, before);
         string[] memory afterUpgrade = LibBeaconUpgrade.metadata(chainTokens);
-        for (uint256 i = 0; i < before.length; i++) {
-            if (keccak256(bytes(before[i])) != keccak256(bytes(afterUpgrade[i]))) {
-                revert BeaconUpgradeMovedMetadata(
-                    LibBeaconUpgrade.metadataToken(chainTokens, i), before[i], afterUpgrade[i]
+        for (uint256 i = 0; i < expected.length; i++) {
+            if (keccak256(bytes(expected[i])) != keccak256(bytes(afterUpgrade[i]))) {
+                revert BeaconUpgradeWrongMetadata(
+                    LibBeaconUpgrade.metadataToken(chainTokens, i), expected[i], afterUpgrade[i]
                 );
             }
         }
-        console2.log(
-            "Execution proven: both beacons upgraded by a roleless executor after 48h, no name or symbol moved"
-        );
+        console2.log("Execution proven: both beacons upgraded by a roleless executor after 48h, every name resolved");
+    }
+
+    /// @notice The `name()` and `symbol()` each vault and wrapper resolves
+    /// after the batch, in `LibBeaconUpgrade.metadata` order. The underlying
+    /// is the vault's snapshot row, else its table row's listing when the
+    /// vault is at its listed address; the vault reads `LibSecurity.vaultName`
+    /// / `LibSecurity.vaultSymbol` of it and the wrapper the vault's name /
+    /// ticker + "s". A vault with neither reads its table row's `name` /
+    /// `symbol`, and its wrapper `"Wrapped " + name` / `"w" + symbol`; one
+    /// with no table row keeps `before`.
+    /// @param chainTokens The tokens.
+    /// @param before `LibBeaconUpgrade.metadata` before the batch.
+    /// @return The expected values.
+    function expectedMetadata(TokenInstance[] memory chainTokens, string[] memory before)
+        internal
+        view
+        returns (string[] memory)
+    {
+        TokenConfig[] memory table = LibProdTokenConfig.canonicalTokenConfigs();
+        string[] memory expected = new string[](before.length);
+        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
+            TokenInstance memory token = chainTokens[tokenIndex];
+            LibUnderlyingSnapshot.Lookup memory row =
+                LibUnderlyingSnapshot.lookup(UNDERLYING_SNAPSHOT_ROOT, token.receiptVault);
+            (bool inTable, TokenConfig memory config) = tableRow(token.underlying, table);
+            string memory ticker;
+            string memory underlyingName;
+            if (row.found) {
+                (ticker, underlyingName) = (row.ticker, row.name);
+            } else if (inTable && token.receiptVault == LibProdTokenParams.tokenAddress(config)) {
+                (ticker, underlyingName) = (config.listingTicker, config.listingName);
+            }
+            uint256 at = tokenIndex * 4;
+            if (bytes(underlyingName).length > 0) {
+                expected[at] = LibSecurity.vaultName(underlyingName);
+                expected[at + 1] = LibSecurity.vaultSymbol(ticker);
+                expected[at + 2] = expected[at];
+                expected[at + 3] = string.concat(ticker, "s");
+            } else if (inTable) {
+                expected[at] = config.name;
+                expected[at + 1] = config.symbol;
+                expected[at + 2] = string.concat("Wrapped ", config.name);
+                expected[at + 3] = string.concat("w", config.symbol);
+            } else {
+                for (uint256 leg = 0; leg < 4; leg++) {
+                    expected[at + leg] = before[at + leg];
+                }
+            }
+        }
+        return expected;
+    }
+
+    /// @notice The row of `table` for `underlying`, if any.
+    /// @param underlying The ticker join key.
+    /// @param table The table.
+    /// @return Whether there is one, and the row.
+    function tableRow(string memory underlying, TokenConfig[] memory table)
+        internal
+        pure
+        returns (bool, TokenConfig memory)
+    {
+        for (uint256 i = 0; i < table.length; i++) {
+            if (keccak256(bytes(table[i].underlying)) == keccak256(bytes(underlying))) return (true, table[i]);
+        }
+        TokenConfig memory none;
+        return (false, none);
     }
 
     /// @notice Reverts unless `beacon` points at `expected`.

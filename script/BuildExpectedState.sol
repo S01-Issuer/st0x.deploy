@@ -42,7 +42,9 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// registry it writes through: `registry`, `account`, `delegate`, `unscoped`; an unscoped one carries no `scope`, a
 /// scoped one its non-zero `scope`), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
 /// `listingName`, `region` (`US` or `EU`), `name`, `symbol`, `decimals`, `wrappedTokenVaultName`,
-/// `wrappedTokenVaultSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
+/// `wrappedTokenVaultSymbol`, `wrappedTokenVaultDecimals`, for a token whose names `upgradeMigration` changes (a
+/// listed token with an underlying snapshot row) `upgradeName`, `upgradeSymbol`, `upgradeWrappedTokenVaultName`,
+/// `upgradeWrappedTokenVaultSymbol`, `receiptVault`, `receipt`, `wrappedTokenVault`,
 /// `receiptVaultReceipt` (`receiptVault.receipt()`), `receiptManager` (`receipt.manager()`), `wrappedTokenVaultAsset`
 /// (`wrappedTokenVault.asset()`), the
 /// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
@@ -157,6 +159,27 @@ contract BuildExpectedState is Script {
         vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, state));
         vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, state));
         vm.serializeUint(row, "wrappedTokenVaultDecimals", LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
+        if (state == TokenMetadataState.Listed && inSnapshot(config)) {
+            vm.serializeString(row, "upgradeName", LibTokenMetadata.vaultName(config, TokenMetadataState.Renamed));
+            vm.serializeString(row, "upgradeSymbol", LibTokenMetadata.vaultSymbol(config, TokenMetadataState.Renamed));
+            vm.serializeString(
+                row, "upgradeWrappedTokenVaultName", LibTokenMetadata.wrappedName(config, TokenMetadataState.Renamed)
+            );
+            vm.serializeString(
+                row,
+                "upgradeWrappedTokenVaultSymbol",
+                LibTokenMetadata.wrappedSymbol(config, TokenMetadataState.Renamed)
+            );
+        }
+    }
+
+    /// Whether the underlying snapshot has a row for `config`'s listed token.
+    function inSnapshot(TokenConfig memory config) internal pure returns (bool) {
+        TokenConfig[] memory rows = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 i = 0; i < rows.length; i++) {
+            if (keccak256(bytes(rows[i].underlying)) == keccak256(bytes(config.underlying))) return true;
+        }
+        return false;
     }
 
     function tokenLegsJson(

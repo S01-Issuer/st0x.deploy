@@ -92,11 +92,13 @@ library LibTestDeploy {
     }
 
     /// The candidate implementations behind the V1 receipt, vault and wrapper
-    /// beacons, and the pinned clone factory and ConfigRegistry, on a local EVM
-    /// that is Base, the chain the V1 beacons serve.
+    /// beacons, the underlying snapshot, and the pinned clone factory and
+    /// ConfigRegistry, on a local EVM that is Base, the chain the V1 beacons
+    /// serve.
     function deployAll(Vm vm) internal {
         vm.chainId(LibSafeInvariants.BASE_CHAIN_ID);
         deployImplementations(vm);
+        deployUnderlyingSnapshot(vm);
         address owner = LibProdDeployV1.BEACON_INITIAL_OWNER;
         placeBeacon(vm, LibProdDeployV1.STOX_RECEIPT_BEACON_V1, LibProdDeployV4.STOX_RECEIPT_CANDIDATE, owner);
         placeBeacon(

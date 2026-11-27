@@ -16,15 +16,17 @@ import {AssetId, AssetIdKind, Region} from "../interface/IStoxTokenConfigV1.sol"
 /// name/symbol on-chain from the receipt vault. So the receipt vault's
 /// `name` + `symbol` were their only free initialization inputs.
 ///
-/// The underlying ticker and name are not deploy inputs: the vault owner sets
-/// them after deployment with `IStoxUnderlyingV2.setUnderlying`. The ticker
-/// is the row's `ticker` and the name is `underlyingName`. Once both are set,
-/// the receipt vault reports `"t" + ticker` / `underlyingName + " (ST0x)"`
-/// and the wrapped token vault `ticker + "s"` / the receipt vault's name.
-/// Until then a token deployed before `StoxTokenConfigV1` reports the
-/// `name` + `symbol` it was initialized with, and its wrapper
-/// `"Wrapped " + name` / `"w" + symbol`; a `StoxTokenConfigV1` token reports
-/// its listing (`LibTokenMetadata`).
+/// The underlying ticker, name and ISIN are not deploy inputs: the underlying
+/// snapshot records each row's `ticker`, `underlyingName` and `isin` against
+/// its token. A token reads its `IStoxUnderlyingV2.setUnderlying` override if
+/// set after the snapshot's `asOf`, else its snapshot row, else its override,
+/// else its `StoxTokenConfigV1` listing. From what it reads, the receipt vault
+/// reports `LibSecurity.vaultName` / `LibSecurity.vaultSymbol`
+/// (`name + " (ST0x)"` / `"t" + ticker`) and the wrapped token vault the
+/// receipt vault's name / `ticker + "s"`. A token deployed before
+/// `StoxTokenConfigV1` that reads none of these reports the `name` + `symbol`
+/// it was initialized with, and its wrapper `"Wrapped " + name` /
+/// `"w" + symbol`.
 ///
 /// `assetId`, `listingTicker` and `listingName` record the listing each
 /// token tracks, and are the token's `StoxTokenConfigV1` init data.

@@ -49,6 +49,9 @@ import {LibTokenMetadata, TokenMetadataState} from "../../src/lib/LibTokenMetada
 import {LibProdTokenParams} from "../../src/lib/LibProdTokenParams.sol";
 import {LibTestTokenMetadata} from "../lib/LibTestTokenMetadata.sol";
 import {LibBeaconUpgrade} from "../../src/lib/LibBeaconUpgrade.sol";
+import {LibUnderlyingSnapshot} from "../../src/lib/LibUnderlyingSnapshot.sol";
+import {UNDERLYING_SNAPSHOT_ROOT} from "../../src/generated/LibUnderlyingSnapshotCode.sol";
+import {LibTestDeploy} from "../lib/LibTestDeploy.sol";
 
 /// @notice No `zoltu` row carries the key.
 error ZoltuRowMissing(string key);
@@ -780,6 +783,63 @@ contract BuildExpectedStateTest is Test {
         ExpectedTokenMetadata memory metadata = tokenMetadataOf(harness.tokenMetadata(token));
         assertTokenMetadata(metadata, config, TokenMetadataState.Listed);
         assertEq(metadata.symbol, string.concat("t", config.listingTicker));
+    }
+
+    function listedToken(TokenConfig memory config) internal pure returns (TokenInstance memory) {
+        return TokenInstance({
+            underlying: config.underlying,
+            receipt: address(0),
+            receiptVault: LibProdTokenParams.tokenAddress(config),
+            wrappedTokenVault: address(0)
+        });
+    }
+
+    function upgradeFields() internal pure returns (string[4] memory) {
+        return [".upgradeName", ".upgradeSymbol", ".upgradeWrappedTokenVaultName", ".upgradeWrappedTokenVaultSymbol"];
+    }
+
+    /// Every production token at its suite address carries, as its upgrade names, its snapshot row in the vault's and
+    /// the wrapper's format.
+    function testAListedTokenCarriesItsSnapshotRowAsItsUpgradeNames() external {
+        LibTestDeploy.deployUnderlyingSnapshot(vm);
+        BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
+        TokenConfig[] memory configs = LibProdTokenConfig.productionTokenConfigs();
+        for (uint256 i = 0; i < configs.length; i++) {
+            TokenInstance memory token = listedToken(configs[i]);
+            LibUnderlyingSnapshot.Lookup memory row =
+                LibUnderlyingSnapshot.lookup(UNDERLYING_SNAPSHOT_ROOT, token.receiptVault);
+            assertTrue(row.found, token.underlying);
+            string memory json = harness.tokenMetadata(token);
+            string memory name = string.concat(row.name, " (ST0x)");
+            string[4] memory expected = [name, string.concat("t", row.ticker), name, string.concat(row.ticker, "s")];
+            for (uint256 j = 0; j < expected.length; j++) {
+                assertEq(vm.parseJsonString(json, upgradeFields()[j]), expected[j], token.underlying);
+            }
+        }
+    }
+
+    /// A token at another address than its suite's, and a token at its suite address with no snapshot row, carry no
+    /// upgrade names.
+    function testOnlyAListedTokenWithASnapshotRowCarriesUpgradeNames() external {
+        LibTestDeploy.deployUnderlyingSnapshot(vm);
+        BuildExpectedStateHarness harness = new BuildExpectedStateHarness();
+        TokenInstance memory initialized =
+            LibTokenInvariants.productionTokensForChainId(LibSafeInvariants.BASE_CHAIN_ID)[0];
+        assertTrue(
+            initialized.receiptVault
+                != LibProdTokenParams.tokenAddress(LibProdTokenConfig.configOf(initialized.underlying)),
+            "initialized"
+        );
+        TokenInstance memory unsnapshotted = listedToken(LibProdTokenConfig.offBaseTokenConfigs()[0]);
+        assertFalse(LibUnderlyingSnapshot.lookup(UNDERLYING_SNAPSHOT_ROOT, unsnapshotted.receiptVault).found, "row");
+        TokenInstance[2] memory tokens = [initialized, unsnapshotted];
+        for (uint256 i = 0; i < tokens.length; i++) {
+            string memory json = harness.tokenMetadata(tokens[i]);
+            assertTrue(vm.keyExistsJson(json, ".name"), tokens[i].underlying);
+            for (uint256 j = 0; j < upgradeFields().length; j++) {
+                assertFalse(vm.keyExistsJson(json, upgradeFields()[j]), tokens[i].underlying);
+            }
+        }
     }
 
     function testV2IsTheV2NetworksKeyedByChainId() external {

@@ -80,9 +80,9 @@
 - **Expected state marks a token at its suite address `Listed`**
   (`LibTokenMetadata`): the listing-derived names and symbols above. Tokens
   deployed earlier keep their initialized `TokenConfig.name` / `symbol`.
-- **`IStoxAssetIdV1.assetId()` reads the override ISIN, else the stored listing
-  asset id** through the vault's fallback (`StoxCorporateActionsFacet`); a vault
-  with neither returns `""`.
+- **`IStoxAssetIdV1.assetId()` is the underlying ISIN**, resolved in the same
+  read as `underlyingSymbol()` / `underlyingName()`, through the vault's
+  fallback (`StoxCorporateActionsFacet`).
 - **`StoxReceiptVault.initialize` refuses
   `CorporateActionsFacetNotDeployed(facet)` when the pinned facet has no code**,
   instead of failing the decode with no reason.

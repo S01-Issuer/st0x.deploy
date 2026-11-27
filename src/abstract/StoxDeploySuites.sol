@@ -153,6 +153,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
 
     function candidateSuites() internal pure returns (DeployCandidate[] memory) {
         DeployCandidate[] memory candidates = new DeployCandidate[](13);
+        DeploySuite memory snapshotRoot = underlyingSnapshotRootSuite();
         candidates[0] = anchored(
             zoltu(
                 FACET,
@@ -161,7 +162,12 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
                 V4.STOX_CORPORATE_ACTIONS_FACET_CODEHASH_CANDIDATE,
                 V4.STOX_CORPORATE_ACTIONS_FACET_RUNTIME_CODE_CANDIDATE,
                 FACET_PATH,
-                one(TOFU_DECIMALS_ADDRESS, TOFU_DECIMALS_RUNTIME_CODE)
+                two(
+                    TOFU_DECIMALS_ADDRESS,
+                    TOFU_DECIMALS_RUNTIME_CODE,
+                    snapshotRoot.storedDeployedAddress,
+                    snapshotRoot.storedRuntimeCode
+                )
             )
         );
         candidates[1] = anchored(

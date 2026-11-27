@@ -102,49 +102,45 @@ contract StoxUnderlyingIntegrationTest is Test {
         IStoxUnderlyingV2(address(sVault)).setUnderlying("META", "Meta Platforms, Inc.", META_ISIN);
     }
 
-    /// Unset: the underlying getters fall back to the listing ticker and
-    /// name, so both tokens carry the names built from them.
-    function testUnsetFallsBackToTheListingTickerAndName() external view {
+    function testUnsetFallsBackToTheListingValues() external view {
         assertEq(IStoxUnderlyingV2(address(sVault)).underlyingSymbol(), "NVDA");
         assertEq(IStoxUnderlyingV2(address(sVault)).underlyingName(), "NVIDIA Corporation");
+        assertEq(IStoxAssetIdV1(address(sVault)).assetId(), NVDA_ISIN);
         assertEq(sVault.symbol(), "tNVDA");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
         assertEq(sWrapper.symbol(), "NVDAs");
         assertEq(sWrapper.name(), "NVIDIA Corporation (ST0x)");
     }
 
-    function testUnsetIsinFallsBackToTheAssetId() external view {
-        assertEq(IStoxAssetIdV1(address(sVault)).assetId(), NVDA_ISIN);
-    }
-
-    /// Set: both tokens carry the names built from the underlying ticker and
-    /// name.
     function testDerivedFromUnderlying() external {
         IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings", NEW_ISIN);
         assertEq(sVault.symbol(), "tNVDX");
         assertEq(sVault.name(), "NVIDIA Holdings (ST0x)");
+        assertEq(IStoxAssetIdV1(address(sVault)).assetId(), NEW_ISIN);
         assertEq(sWrapper.symbol(), "NVDXs");
         assertEq(sWrapper.name(), "NVIDIA Holdings (ST0x)");
     }
 
-    /// With no facet code at the pinned address, `setUnderlying` reverts
-    /// rather than succeeding as a no-op, and the metadata is untouched.
     function testSetUnderlyingRevertsWithoutFacet() external {
         address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
+        bytes memory facetCode = facet.code;
         vm.etch(facet, "");
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings", NEW_ISIN);
+        vm.etch(facet, facetCode);
         assertEq(sVault.symbol(), "tNVDA");
         assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
     }
 
-    /// Once set, the tStock's metadata is plain ERC-20 storage: reading it
-    /// needs no facet.
-    function testSetMetadataReadsWithoutFacet() external {
+    /// Reads are live, so the metadata never outlives the facet.
+    function testMetadataReadsNeedTheFacet() external {
         IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings", NEW_ISIN);
-        vm.etch(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "");
-        assertEq(sVault.symbol(), "tNVDX");
-        assertEq(sVault.name(), "NVIDIA Holdings (ST0x)");
+        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
+        vm.etch(facet, "");
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        sVault.symbol();
+        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
+        sVault.name();
     }
 
     /// The ERC-1155 receipt builds its name and symbol from the vault's
@@ -158,10 +154,11 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(receipt.name(), receiptNameBefore);
     }
 
-    /// A ticker change moves both tokens' metadata with it.
     function testRenameFollowsThrough() external {
+        vm.warp(100);
         IStoxUnderlyingV2(address(sVault)).setUnderlying("FB", "Meta Platforms, Inc.", META_ISIN);
         assertEq(sWrapper.symbol(), "FBs");
+        vm.warp(200);
         IStoxUnderlyingV2(address(sVault)).setUnderlying("META", "Meta Platforms, Inc.", META_ISIN);
         assertEq(sVault.symbol(), "tMETA");
         assertEq(sWrapper.symbol(), "METAs");
@@ -174,7 +171,7 @@ contract StoxUnderlyingIntegrationTest is Test {
     }
 
     /// The underlying ticker, name and ISIN and the ERC-20 name and symbol survive a beacon upgrade to an
-    /// implementation whose fallback delegatecalls a facet at another address, with the pinned facet gone, and the
+    /// implementation that delegatecalls a facet at another address, with the pinned facet gone, and the
     /// upgrade back.
     function testUnderlyingAndMetadataSurviveABeaconUpgradeToAMovedFacet() external {
         IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation", NEW_ISIN);

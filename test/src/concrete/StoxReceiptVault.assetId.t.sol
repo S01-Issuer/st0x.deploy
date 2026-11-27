@@ -3,28 +3,34 @@
 pragma solidity =0.8.25;
 
 import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
-import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {CloneFactory} from "rain-factory-deploy-0.2.14/src/concrete/CloneFactory.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {
     StoxOffchainAssetReceiptVaultAuthorizerV1
 } from "../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
+import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
 import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxAssetIdV1} from "../../../src/interface/IStoxAssetIdV1.sol";
 import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
-import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
+import {MalformedUnderlyingSnapshot} from "../../../src/error/ErrUnderlying.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
+import {UNDERLYING_SNAPSHOT_ROOT} from "../../../src/generated/LibUnderlyingSnapshotCode.sol";
+import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../../script/LibUnderlyingSnapshotBuilder.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
-import {MovedFacetStoxReceiptVault} from "../../concrete/MovedFacetStoxReceiptVault.sol";
 
+/// `assetId()` reads the current ISIN by the snapshot read rule.
 contract StoxReceiptVaultAssetIdTest is Test {
     address internal constant AUTHORITY = address(uint160(uint256(keccak256("AUTHORITY"))));
     address internal constant OWNER = address(uint160(uint256(keccak256("OWNER"))));
     bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
-    string internal constant NVDA_ISIN = "US67066G1040";
-    string internal constant AAPL_ISIN = "US0378331005";
-    string internal constant META_ISIN = "US30303M1027";
+    uint256 internal constant AS_OF = 1_000_000;
+
+    string internal constant INIT_ISIN = "US67066G1040";
+    string internal constant ROW_ISIN = "US0378331005";
+    string internal constant OVERRIDE_ISIN = "US30303M1027";
+
+    StoxReceiptVault internal sVault;
 
     function setUp() external {
         LibTestDeploy.deployAll(vm);
@@ -38,59 +44,112 @@ contract StoxReceiptVaultAssetIdTest is Test {
                 )
         );
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, OWNER, authorizer);
+        sVault = newVault(INIT_ISIN, "NVDA", "NVIDIA Corporation");
     }
 
     function newVault(string memory assetId, string memory listingTicker, string memory listingName)
         internal
-        returns (IStoxAssetIdV1)
+        returns (StoxReceiptVault)
     {
-        return IStoxAssetIdV1(
-            address(
-                LibTestDeploy.newVault(
-                    AUTHORITY, LibTestDeploy.vaultData(assetId, listingTicker, listingName, AUTHORITY, RBAC_NAME)
-                )
-            )
+        return LibTestDeploy.newVault(
+            AUTHORITY, LibTestDeploy.vaultData(assetId, listingTicker, listingName, AUTHORITY, RBAC_NAME)
         );
     }
 
-    function upgradeVaultBeacon(address implementation) internal {
-        vm.prank(LibProdDeployV1.BEACON_INITIAL_OWNER);
-        UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).upgradeTo(implementation);
+    function assetIdOf(StoxReceiptVault vault) internal view returns (string memory) {
+        return IStoxAssetIdV1(address(vault)).assetId();
     }
 
-    /// Unset, `assetId()` falls back to the asset id each vault was initialized with.
-    function testUnsetAssetIdIsTheInitializedAssetId() external {
-        IStoxAssetIdV1 nvda = newVault(NVDA_ISIN, "NVDA", "NVIDIA Corporation");
-        IStoxAssetIdV1 aapl = newVault(AAPL_ISIN, "AAPL", "Apple Inc.");
-        assertEq(nvda.assetId(), NVDA_ISIN);
-        assertEq(aapl.assetId(), AAPL_ISIN);
+    /// Replaces the snapshot at its constant address with one holding
+    /// `rows`, returning the shard addresses.
+    function plantSnapshot(uint256 asOf, UnderlyingSnapshotRow[] memory rows) internal returns (address[] memory) {
+        (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(asOf, rows);
+        vm.etch(UNDERLYING_SNAPSHOT_ROOT, LibTestDeploy.deployUnderlyingSnapshot(vm, rootCode, shardCodes).code);
+        address[] memory shards = new address[](shardCodes.length);
+        for (uint256 i = 0; i < shardCodes.length; i++) {
+            shards[i] = LibRainDeploy.zoltuAddress(shardCodes[i]);
+        }
+        return shards;
+    }
+
+    function plantSnapshotWithRow(uint256 asOf) internal returns (address[] memory) {
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](1);
+        rows[0] = UnderlyingSnapshotRow(address(sVault), "NVDX", "NVIDIA Holdings", ROW_ISIN);
+        return plantSnapshot(asOf, rows);
+    }
+
+    function plantSnapshotWithoutRow(uint256 asOf) internal {
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](1);
+        rows[0] = UnderlyingSnapshotRow(address(0x1111), "AAA", "Other One", "US5949181045");
+        plantSnapshot(asOf, rows);
+    }
+
+    function setOverrideAt(uint256 timestamp) internal {
+        vm.warp(timestamp);
+        vm.prank(OWNER);
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDO", "NVIDIA Overridden", OVERRIDE_ISIN);
+    }
+
+    function testNoRowNoOverrideReadsTheInitializedAssetId() external {
+        StoxReceiptVault aapl = newVault("US0378331005", "AAPL", "Apple Inc.");
+        plantSnapshotWithoutRow(AS_OF);
+        assertEq(assetIdOf(sVault), INIT_ISIN);
+        assertEq(assetIdOf(aapl), "US0378331005");
+    }
+
+    function testRowWithoutOverrideWinsOverTheInitializedAssetId() external {
+        plantSnapshotWithRow(AS_OF);
+        assertEq(assetIdOf(sVault), ROW_ISIN);
+    }
+
+    /// A tie goes to the snapshot.
+    function testRowWinsOverAnOverrideNoNewerThanAsOf(uint256 timestamp) external {
+        timestamp = bound(timestamp, 1, AS_OF);
+        plantSnapshotWithRow(AS_OF);
+        setOverrideAt(timestamp);
+        assertEq(assetIdOf(sVault), ROW_ISIN);
+    }
+
+    function testOverrideNewerThanAsOfWinsOverTheRow(uint256 timestamp) external {
+        timestamp = bound(timestamp, AS_OF + 1, type(uint64).max);
+        plantSnapshotWithRow(AS_OF);
+        setOverrideAt(timestamp);
+        assertEq(assetIdOf(sVault), OVERRIDE_ISIN);
+    }
+
+    function testOverrideWithoutRowWinsAtAnyAge(uint256 timestamp) external {
+        timestamp = bound(timestamp, 1, type(uint64).max);
+        plantSnapshotWithoutRow(AS_OF);
+        setOverrideAt(timestamp);
+        assertEq(assetIdOf(sVault), OVERRIDE_ISIN);
     }
 
     /// `assetId()` reports each `setUnderlying` ISIN, and only on the vault it was set on.
     function testAssetIdFollowsSetUnderlyingIsin() external {
-        IStoxAssetIdV1 vault = newVault(NVDA_ISIN, "NVDA", "NVIDIA Corporation");
-        IStoxAssetIdV1 other = newVault(AAPL_ISIN, "AAPL", "Apple Inc.");
+        StoxReceiptVault aapl = newVault("US0378331005", "AAPL", "Apple Inc.");
+        plantSnapshotWithoutRow(AS_OF);
         vm.prank(OWNER);
-        IStoxUnderlyingV2(address(vault)).setUnderlying("NVDQ", "NVIDIA Corp", META_ISIN);
-        assertEq(vault.assetId(), META_ISIN, "first set");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDQ", "NVIDIA Corp", OVERRIDE_ISIN);
+        assertEq(assetIdOf(sVault), OVERRIDE_ISIN, "first set");
         vm.prank(OWNER);
-        IStoxUnderlyingV2(address(vault)).setUnderlying("NVDQ", "NVIDIA Corp", NVDA_ISIN);
-        assertEq(vault.assetId(), NVDA_ISIN, "second set");
-        assertEq(other.assetId(), AAPL_ISIN, "other vault");
+        IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDQ", "NVIDIA Corp", INIT_ISIN);
+        assertEq(assetIdOf(sVault), INIT_ISIN, "second set");
+        assertEq(assetIdOf(aapl), "US0378331005", "other vault");
     }
 
-    /// `UnderlyingSet`'s old ISIN is `assetId()` before the update: the initialized asset id on the first set, the
-    /// previous override after.
+    /// `UnderlyingSet`'s old ISIN is `assetId()` before the update: the snapshot row's on the first set, the previous
+    /// override after.
     function testUnderlyingSetOldIsinIsThePriorAssetId() external {
-        IStoxAssetIdV1 vault = newVault(NVDA_ISIN, "NVDA", "NVIDIA Corporation");
-        string[2] memory newIsins = [META_ISIN, AAPL_ISIN];
-        string[2] memory priors = [NVDA_ISIN, META_ISIN];
+        plantSnapshotWithRow(AS_OF);
+        vm.warp(AS_OF + 1);
+        string[2] memory newIsins = [OVERRIDE_ISIN, INIT_ISIN];
+        string[2] memory priors = [ROW_ISIN, OVERRIDE_ISIN];
         for (uint256 i = 0; i < newIsins.length; i++) {
-            string memory prior = vault.assetId();
+            string memory prior = assetIdOf(sVault);
             assertEq(prior, priors[i]);
             vm.recordLogs();
             vm.prank(OWNER);
-            IStoxUnderlyingV2(address(vault)).setUnderlying("NVDA", "NVIDIA Corporation", newIsins[i]);
+            IStoxUnderlyingV2(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation", newIsins[i]);
             Vm.Log[] memory logs = vm.getRecordedLogs();
             assertEq(logs.length, 1);
             assertEq(logs[0].topics[0], IStoxUnderlyingV2.UnderlyingSet.selector);
@@ -101,29 +160,23 @@ contract StoxReceiptVaultAssetIdTest is Test {
         }
     }
 
-    /// The set ISIN survives a beacon upgrade to an implementation whose fallback delegatecalls a facet at another
-    /// address with the pinned facet gone, and the upgrade back.
-    function testAssetIdSurvivesSetUnderlyingAndAFacetMove() external {
-        IStoxAssetIdV1 vault = newVault(NVDA_ISIN, "NVDA", "NVIDIA Corporation");
-        vm.prank(OWNER);
-        IStoxUnderlyingV2(address(vault)).setUnderlying("NVDQ", "NVIDIA Corp", META_ISIN);
-        assertEq(vault.assetId(), META_ISIN, "after setUnderlying");
+    function testMissingRootRevertsLikeName() external {
+        vm.etch(UNDERLYING_SNAPSHOT_ROOT, "");
+        bytes memory err = abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, UNDERLYING_SNAPSHOT_ROOT);
+        vm.expectRevert(err);
+        sVault.name();
+        vm.expectRevert(err);
+        assetIdOf(sVault);
+    }
 
-        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
-        bytes memory facetCode = facet.code;
-        address moved = address(new MovedFacetStoxReceiptVault(address(new StoxCorporateActionsFacet())));
-        upgradeVaultBeacon(moved);
-        assertEq(UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(), moved, "upgraded");
-        vm.etch(facet, "");
-        assertEq(vault.assetId(), META_ISIN, "moved");
-
-        vm.etch(facet, facetCode);
-        upgradeVaultBeacon(LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE);
-        assertEq(
-            UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
-            LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE,
-            "upgraded back"
-        );
-        assertEq(vault.assetId(), META_ISIN, "back");
+    function testMissingShardRevertsLikeName() external {
+        address[] memory shards = plantSnapshotWithRow(AS_OF);
+        assertEq(shards.length, 1);
+        vm.etch(shards[0], "");
+        bytes memory err = abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, shards[0]);
+        vm.expectRevert(err);
+        sVault.name();
+        vm.expectRevert(err);
+        assetIdOf(sVault);
     }
 }
