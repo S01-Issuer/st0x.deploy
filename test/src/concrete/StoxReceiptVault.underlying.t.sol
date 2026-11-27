@@ -5,7 +5,6 @@ pragma solidity =0.8.25;
 import {Test, Vm} from "forge-std-1.17.0/src/Test.sol";
 import {OwnableUpgradeable} from "@openzeppelin-contracts-upgradeable-5.7.0/access/OwnableUpgradeable.sol";
 import {StoxReceiptVault} from "../../../src/concrete/StoxReceiptVault.sol";
-import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActionsFacet.sol";
 import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
 import {EmptyUnderlyingSymbol, EmptyUnderlyingName} from "../../../src/error/ErrUnderlying.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
@@ -257,17 +256,5 @@ contract StoxReceiptVaultUnderlyingTest is Test {
         underlying().setUnderlying("NVDA", "NVIDIA Corporation");
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         underlying().underlyingSymbol();
-    }
-
-    /// Every new facet entry point refuses to run outside a delegatecall.
-    function testFacetDirectCallsRevert() external {
-        StoxCorporateActionsFacet facet =
-            StoxCorporateActionsFacet(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE);
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facet.underlyingSymbol();
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facet.underlyingName();
-        vm.expectRevert(StoxCorporateActionsFacet.FacetMustBeDelegatecalled.selector);
-        facet.setUnderlying("NVDA", "NVIDIA Corporation");
     }
 }

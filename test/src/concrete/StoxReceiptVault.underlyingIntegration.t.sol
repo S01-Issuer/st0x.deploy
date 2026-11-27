@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {UpgradeableBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/UpgradeableBeacon.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {IReceiptVaultV3} from "rain-vats-0.2.25/src/interface/IReceiptVaultV3.sol";
 import {IReceiptV3} from "rain-vats-0.2.25/src/interface/IReceiptV3.sol";
@@ -17,14 +18,16 @@ import {StoxCorporateActionsFacet} from "../../../src/concrete/StoxCorporateActi
 import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../src/error/ErrCorporateAction.sol";
 import {LibProdDeployV4} from "../../../src/generated/LibProdDeployV4.sol";
+import {LibProdDeployV1} from "../../../src/lib/LibProdDeployV1.sol";
 import {ST0X_NAME_SUFFIX} from "../../../src/lib/LibSecurity.sol";
 import {LibTokenMetadata} from "../../../src/lib/LibTokenMetadata.sol";
 import {LibTestDeploy} from "../../lib/LibTestDeploy.sol";
+import {MovedFacetStoxReceiptVault} from "../../concrete/MovedFacetStoxReceiptVault.sol";
 
 /// End-to-end naming for a token pair built as in production (registry beacon
 /// proxies over the candidate implementations): the tStock and its wrapper
-/// keep the initialized metadata until the owner sets the underlying ticker
-/// and name, then both carry the names built from it.
+/// carry the names built from the listing ticker and name until the owner
+/// sets the underlying ticker and name, then the names built from those.
 contract StoxUnderlyingIntegrationTest is Test {
     address internal constant AUTHORITY = address(uint160(uint256(keccak256("AUTHORITY"))));
     bytes32 internal constant RBAC_NAME = keccak256("st0x.rbac.test.v1");
@@ -48,7 +51,7 @@ contract StoxUnderlyingIntegrationTest is Test {
         );
         LibTestDeploy.bindRbac(vm, AUTHORITY, RBAC_NAME, address(this), authorizer);
         sVault = LibTestDeploy.newVault(
-            AUTHORITY, LibTestDeploy.vaultData("NVIDIA Corporation ST0x", "tNVDA", AUTHORITY, RBAC_NAME)
+            AUTHORITY, LibTestDeploy.vaultData("US67066G1040", "NVDA", "NVIDIA Corporation", AUTHORITY, RBAC_NAME)
         );
         sWrapper = LibTestDeploy.newWrapper(AUTHORITY, address(sVault));
     }
@@ -74,25 +77,37 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sWrapper.name(), string.concat(longName, ST0X_NAME_SUFFIX));
     }
 
-    /// Unset: the tStock reports its initialized metadata and the wrapper
-    /// derives "Wrapped " / "w" from it.
-    function testUnsetFallbacks() external view {
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "");
-        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "");
+    /// A set ticker and name win over the listing, and the first set reports
+    /// the listing the getters returned as the old values.
+    function testSetUnderlyingOverridesTheListing() external {
+        vm.expectEmit(address(sVault));
+        emit IStoxUnderlyingV1.UnderlyingSet(address(this), "NVDA", "NVIDIA Corporation", "NVDX", "NVIDIA Holdings");
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDX");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Holdings");
+        assertEq(sWrapper.symbol(), "NVDXs");
+        assertEq(sWrapper.name(), "NVIDIA Holdings (ST0x)");
+    }
+
+    /// Unset: the underlying getters fall back to the listing ticker and
+    /// name, so both tokens carry the names built from them.
+    function testUnsetFallsBackToTheListingTickerAndName() external view {
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDA");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Corporation");
         assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation ST0x");
-        assertEq(sWrapper.symbol(), "wtNVDA");
-        assertEq(sWrapper.name(), "Wrapped NVIDIA Corporation ST0x");
+        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
+        assertEq(sWrapper.symbol(), "NVDAs");
+        assertEq(sWrapper.name(), "NVIDIA Corporation (ST0x)");
     }
 
     /// Set: both tokens carry the names built from the underlying ticker and
     /// name.
     function testDerivedFromUnderlying() external {
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
-        assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
-        assertEq(sWrapper.symbol(), "NVDAs");
-        assertEq(sWrapper.name(), "NVIDIA Corporation (ST0x)");
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
+        assertEq(sVault.symbol(), "tNVDX");
+        assertEq(sVault.name(), "NVIDIA Holdings (ST0x)");
+        assertEq(sWrapper.symbol(), "NVDXs");
+        assertEq(sWrapper.name(), "NVIDIA Holdings (ST0x)");
     }
 
     /// With no facet code at the pinned address, `setUnderlying` reverts
@@ -101,18 +116,18 @@ contract StoxUnderlyingIntegrationTest is Test {
         address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
         vm.etch(facet, "");
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
         assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation ST0x");
+        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
     }
 
     /// Once set, the tStock's metadata is plain ERC-20 storage: reading it
     /// needs no facet.
     function testSetMetadataReadsWithoutFacet() external {
-        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDX", "NVIDIA Holdings");
         vm.etch(LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE, "");
-        assertEq(sVault.symbol(), "tNVDA");
-        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)");
+        assertEq(sVault.symbol(), "tNVDX");
+        assertEq(sVault.name(), "NVIDIA Holdings (ST0x)");
     }
 
     /// The ERC-1155 receipt builds its name and symbol from the vault's
@@ -134,6 +149,39 @@ contract StoxUnderlyingIntegrationTest is Test {
         assertEq(sVault.symbol(), "tMETA");
         assertEq(sWrapper.symbol(), "METAs");
         assertEq(sWrapper.name(), "Meta Platforms, Inc. (ST0x)");
+    }
+
+    function upgradeVaultBeacon(address implementation) internal {
+        vm.prank(LibProdDeployV1.BEACON_INITIAL_OWNER);
+        UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).upgradeTo(implementation);
+    }
+
+    /// The underlying ticker and name and the ERC-20 name and symbol survive a beacon upgrade to an implementation
+    /// whose fallback delegatecalls a facet at another address, with the pinned facet gone, and the upgrade back.
+    function testUnderlyingAndMetadataSurviveABeaconUpgradeToAMovedFacet() external {
+        IStoxUnderlyingV1(address(sVault)).setUnderlying("NVDA", "NVIDIA Corporation");
+        address facet = LibProdDeployV4.STOX_CORPORATE_ACTIONS_FACET_CANDIDATE;
+        bytes memory facetCode = facet.code;
+        address moved = address(new MovedFacetStoxReceiptVault(address(new StoxCorporateActionsFacet())));
+        upgradeVaultBeacon(moved);
+        assertEq(UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(), moved, "upgraded");
+        vm.etch(facet, "");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDA", "underlying symbol moved");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Corporation", "underlying name moved");
+        assertEq(sVault.symbol(), "tNVDA", "symbol moved");
+        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)", "name moved");
+
+        vm.etch(facet, facetCode);
+        upgradeVaultBeacon(LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE);
+        assertEq(
+            UpgradeableBeacon(LibProdDeployV1.STOX_RECEIPT_VAULT_BEACON_V1).implementation(),
+            LibProdDeployV4.STOX_RECEIPT_VAULT_CANDIDATE,
+            "upgraded back"
+        );
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingSymbol(), "NVDA", "underlying symbol back");
+        assertEq(IStoxUnderlyingV1(address(sVault)).underlyingName(), "NVIDIA Corporation", "underlying name back");
+        assertEq(sVault.symbol(), "tNVDA", "symbol back");
+        assertEq(sVault.name(), "NVIDIA Corporation (ST0x)", "name back");
     }
 
     function testVaultAndWrapperHaveTheTokenMetadataDecimals() external view {

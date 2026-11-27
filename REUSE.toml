@@ -11,6 +11,7 @@ path = [
   "soldeer.lock",
   "CHANGELOG.md",
   "CLAUDE.md",
+  ".claude/rules/**/",
   "README.md",
   "audit/**/",
   "docs/**/",
@@ -26,7 +27,16 @@ path = [
   "REUSE.toml",
   "slither.config.json",
   "subgraph/**/",
+  "test/fixture/wikidata-p946/README.md",
   "test/oracle/Cargo.lock",
 ]
 SPDX-FileCopyrightText = "Copyright (c) 2020 Rain Open Source Software Ltd"
 SPDX-License-Identifier = "LicenseRef-DCL-1.0"
+
+[[annotations]]
+path = [
+  "test/fixture/wikidata-p946/accepted.txt",
+  "test/fixture/wikidata-p946/rejected.txt",
+]
+SPDX-FileCopyrightText = "Wikidata contributors <https://www.wikidata.org>"
+SPDX-License-Identifier = "CC0-1.0"

@@ -71,4 +71,17 @@ contract LibTestTokenMetadataTest is Test {
         assertEq(LibTestTokenMetadata.eq(left, right), keccak256(bytes(left)) == keccak256(bytes(right)));
         assertFalse(LibTestTokenMetadata.eq(left, string.concat(left, "x")));
     }
+
+    /// A listed vault is accepted with its wrapper in the listed state only.
+    function testAcceptsTheListedState() external pure {
+        TokenConfig memory row = config();
+        row.listingName = "NVIDIA Corp";
+        row.listingTicker = "NVDX";
+        assertTrue(LibTestTokenMetadata.consistent(row, "NVIDIA Corp (ST0x)", "tNVDX", "NVIDIA Corp (ST0x)", "NVDXs"));
+        assertFalse(
+            LibTestTokenMetadata.consistent(row, "NVIDIA Corp (ST0x)", "tNVDX", "NVIDIA Corporation (ST0x)", "NVDXs")
+        );
+        assertFalse(LibTestTokenMetadata.consistent(row, "NVIDIA Corp (ST0x)", "tNVDA", "NVIDIA Corp (ST0x)", "NVDXs"));
+        assertFalse(LibTestTokenMetadata.consistent(row, "NVIDIA Corp (ST0x)", "tNVDX", "NVIDIA Corp (ST0x)", "NVDAs"));
+    }
 }

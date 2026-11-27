@@ -10,7 +10,7 @@ import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
-import {IERC20Metadata} from "@openzeppelin-contracts-5.7.0/token/ERC20/extensions/IERC20Metadata.sol";
+import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {TokenInstance} from "../src/lib/LibTokenInvariants.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";
@@ -53,22 +53,19 @@ error BeaconNotUpgraded(address beacon, address expected, address actual);
 /// @param afterUpgrade The value after it.
 error BeaconUpgradeMovedMetadata(address token, string before, string afterUpgrade);
 
-/// @notice This script's declaration: the Safe's record, after the Safe-owned Base vault handover.
+/// @notice This script's declaration: the beacon batch's own record, written
+/// by the timelock at execution, after the Safe-owned Base vault handover.
 /// @return The declaration.
 function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclaration memory) {
-    return ScriptDeclaration({
-        id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
-        onto: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
-        history: false
-    });
+    return LibUnderlyingNamingRollout.beaconDeclaration();
 }
 
 /// @title ScheduleUnderlyingNamingBeacons
 /// @notice Authors the per-chain Safe bundle that SCHEDULES the
-/// underlying-naming beacon batch on the chain's governance timelock (rollout
-/// step 2 in `docs/TIMELOCK.md`; see `LibUnderlyingNamingRollout` for
-/// the calls). Two Safe calls: `timelock.scheduleBatch(...)`, with the pinned
-/// 48h delay, then the Safe's root-line record.
+/// underlying-naming beacon batch on the chain's governance timelock (see
+/// `LibUnderlyingNamingRollout` for the calls). One Safe call:
+/// `timelock.scheduleBatch(...)`, with the pinned 48h delay. The batch's last
+/// call writes its root-line record.
 ///
 /// Execution is not a Safe action: the timelock lets anyone execute a ready
 /// operation (`20261021-execute-underlying-naming` does it from the CI deploy
@@ -82,7 +79,7 @@ function scheduleUnderlyingNamingBeaconsDeclaration() pure returns (ScriptDeclar
 /// @dev Dispatch via `Actions → run-script` with
 /// `script = 20261021-schedule-underlying-naming-beacons` per chain, after the
 /// implementations are deployed there.
-contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
+contract ScheduleUnderlyingNamingBeacons is StoxSafeBundleScript, IStoxScript {
     /// @inheritdoc IStoxScript
     function declaration(uint256) external pure returns (ScriptDeclaration memory) {
         return scheduleUnderlyingNamingBeaconsDeclaration();
@@ -129,12 +126,12 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     /// the timelock owns the in-use beacons, the three implementations carry their pinned code, the
     /// beacons have not moved and still serve their pinned from-implementations,
     /// the operation is not registered, and the root line is at this
-    /// migration's `onto`.
+    /// migration's `onto` and the timelock may write the batch's record.
     function preflight() internal view override {
         if (!releaseFrozen()) revert UnderlyingNamingReleaseNotFrozen();
         address chainSafe = LibSafeInvariants.assertActiveChainTokenOwnerSafe(block.chainid);
         LibTimelockInvariants.assertTimelockState(timelock(), chainSafe);
-        LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), chainSafe);
+        LibStoxMigrations.assertNext(scheduleUnderlyingNamingBeaconsDeclaration(), timelock());
         LibBeaconInvariants.assertProdBeaconsOwnedByChainTimelock(block.chainid);
 
         assertDeployed(LibUnderlyingNamingRollout.FACET, LibUnderlyingNamingRollout.FACET_CODEHASH);
@@ -176,29 +173,26 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev The schedule, then the record.
+    /// @dev The schedule alone; the batch carries its own record.
     function authorBundle() internal view override returns (SafeTx[] memory) {
-        SafeTx[] memory txs = new SafeTx[](2);
+        SafeTx[] memory txs = new SafeTx[](1);
         txs[0] = SafeTx({
             to: timelock(),
             value: 0,
             data: LibUnderlyingNamingRollout.scheduleBeaconCalldata(block.chainid),
             operation: Enum.Operation.Call
         });
-        txs[1] = LibStoxMigrations.recordTx(scheduleUnderlyingNamingBeaconsDeclaration());
         return txs;
     }
 
     /// @inheritdoc SafeBundleScript
-    /// @dev Scheduled, pending and not ready inside the delay; the record is
-    /// this bundle's and heads the root line.
+    /// @dev Scheduled, pending and not ready inside the delay.
     function assertPostState() internal view override {
         TimelockController controller = TimelockController(payable(timelock()));
         bytes32 id = LibUnderlyingNamingRollout.beaconOperationId(timelock(), block.chainid);
         if (!controller.isOperationPending(id) || controller.isOperationReady(id)) {
             revert OperationNotPendingInsideDelay(id);
         }
-        LibStoxMigrations.assertRecorded(scheduleUnderlyingNamingBeaconsDeclaration());
     }
 
     /// @inheritdoc SafeBundleScript
@@ -210,13 +204,14 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
         vm.revertToState(postBundle);
     }
 
-    /// @notice The execution proof `assertReversible` runs. It records every
-    /// production vault's and wrapper's `name()` and `symbol()` before the
-    /// batch and requires them unchanged after it: the beacon batch must not
-    /// rename anything, that is the rename batch's job.
+    /// @notice The execution proof `assertReversible` runs. It records the
+    /// `name()` and `symbol()` of every vault and wrapper behind the two
+    /// beacons, the token table and tQSEP on Base, the rows the rename skips
+    /// included, before the batch and requires them unchanged after it: the
+    /// beacon batch must not rename anything, that is the rename batch's job.
     function proveExecution() internal {
-        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.tokens(block.chainid);
-        string[] memory before = metadata(chainTokens);
+        TokenInstance[] memory chainTokens = LibUnderlyingNamingRollout.beaconTokens(block.chainid);
+        string[] memory before = LibUnderlyingNamingRollout.metadata(chainTokens);
         (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
             LibUnderlyingNamingRollout.beaconBatch(block.chainid);
         // forge-lint: disable-next-line(block-timestamp)
@@ -233,39 +228,17 @@ contract ScheduleUnderlyingNamingBeacons is SafeBundleScript, IStoxScript {
             LibUnderlyingNamingRollout.receiptVaultBeacon(block.chainid),
             LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION
         );
-        string[] memory afterUpgrade = metadata(chainTokens);
+        string[] memory afterUpgrade = LibUnderlyingNamingRollout.metadata(chainTokens);
         for (uint256 i = 0; i < before.length; i++) {
             if (keccak256(bytes(before[i])) != keccak256(bytes(afterUpgrade[i]))) {
-                revert BeaconUpgradeMovedMetadata(metadataToken(chainTokens, i), before[i], afterUpgrade[i]);
+                revert BeaconUpgradeMovedMetadata(
+                    LibUnderlyingNamingRollout.metadataToken(chainTokens, i), before[i], afterUpgrade[i]
+                );
             }
         }
         console2.log(
             "Execution proven: both beacons upgraded by a roleless executor after 48h, no name or symbol moved"
         );
-    }
-
-    /// @notice Every vault's and wrapper's name and symbol, in a fixed order:
-    /// vault name, vault symbol, wrapper name, wrapper symbol, per token.
-    /// @param chainTokens The chain's tokens.
-    /// @return The values read.
-    function metadata(TokenInstance[] memory chainTokens) internal view returns (string[] memory) {
-        string[] memory values = new string[](chainTokens.length * 4);
-        for (uint256 i = 0; i < chainTokens.length; i++) {
-            values[i * 4] = IERC20Metadata(chainTokens[i].receiptVault).name();
-            values[i * 4 + 1] = IERC20Metadata(chainTokens[i].receiptVault).symbol();
-            values[i * 4 + 2] = IERC20Metadata(chainTokens[i].wrappedTokenVault).name();
-            values[i * 4 + 3] = IERC20Metadata(chainTokens[i].wrappedTokenVault).symbol();
-        }
-        return values;
-    }
-
-    /// @notice The token `metadata` read at `index`.
-    /// @param chainTokens The chain's tokens.
-    /// @param index The index into `metadata`.
-    /// @return The vault or wrapper read there.
-    function metadataToken(TokenInstance[] memory chainTokens, uint256 index) internal pure returns (address) {
-        TokenInstance memory token = chainTokens[index / 4];
-        return index % 4 < 2 ? token.receiptVault : token.wrappedTokenVault;
     }
 
     /// @notice Reverts unless `beacon` points at `expected`.

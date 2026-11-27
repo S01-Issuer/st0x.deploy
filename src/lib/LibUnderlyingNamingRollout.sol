@@ -17,6 +17,8 @@ import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "./LibStoxDeployNetworks.sol";
 import {LibTimelockInvariants} from "./LibTimelockInvariants.sol";
 import {LibTokenInvariants, TokenInstance} from "./LibTokenInvariants.sol";
+import {LibStoxMigrations} from "./LibStoxMigrations.sol";
+import {ScriptDeclaration} from "../interface/IStoxScript.sol";
 import {LibSecurity} from "./LibSecurity.sol";
 
 /// @notice The implementations this rollout names are not a frozen, audited
@@ -65,12 +67,14 @@ error UnderlyingNamingNotCutForChain(uint256 chainId);
 ///
 /// 1. The beacon batch: the chain's in-use wrapped-token-vault beacon and
 ///    receipt-vault beacon move to the implementations below, then a
-///    read-only facet call on one production vault. A delegatecall into a
+///    read-only facet call on one production vault, then the batch's root-line
+///    record. A delegatecall into a
 ///    facet address with no code reverts with `CorporateActionsFacetNotDeployed`
 ///    in the new vault implementation, so the whole batch rolls back if the
 ///    facet is missing at execution.
 /// 2. The rename batch: `setUnderlying(ticker, underlyingName)` on every
-///    production vault of the chain, scheduled with the beacon batch as its
+///    production vault of the chain, then the batch's root-line record,
+///    scheduled with the beacon batch as its
 ///    predecessor, so the timelock refuses to execute it first.
 ///
 /// The implementations are the current-source candidate pins. They are the
@@ -112,7 +116,8 @@ library LibUnderlyingNamingRollout {
     address internal constant WRAPPED_TOKEN_VAULT_FROM_IMPLEMENTATION = LibProdDeployV4.STOX_WRAPPED_TOKEN_VAULT_0_1_1;
 
     /// @notice Whether the implementation constants above alias a frozen, audited release; while false both schedule
-    /// scripts refuse. The target implementation constants alias the current-source candidate pins.
+    /// scripts refuse. The targets (`FACET`, `RECEIPT_VAULT_IMPLEMENTATION`, `WRAPPED_TOKEN_VAULT_IMPLEMENTATION` and
+    /// their codehashes) alias the current-source candidate pins.
     bool internal constant RELEASE_FROZEN = false;
 
     /// @notice Whether st0x.liquidity, st0x.pricing, st0x-oracle-server and
@@ -153,7 +158,7 @@ library LibUnderlyingNamingRollout {
     /// @notice Whether the rollout's rename and beacon batches were cut for
     /// `chainId`: one of the networks before 0G
     /// (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
-    /// `BuildExpectedState.renameMigration` both read this, so they agree.
+    /// `BuildExpectedState`'s renamed fields both read this, so they agree.
     /// @param chainId The chain id.
     /// @return Whether the batches were cut for the chain.
     function cutForChain(uint256 chainId) internal pure returns (bool) {
@@ -186,6 +191,66 @@ library LibUnderlyingNamingRollout {
         return tokenIndex < TOKEN_COUNT;
     }
 
+    /// @notice Every vault and wrapper behind the two beacons on the chain:
+    /// the chain's token table, then tQSEP on Base.
+    /// @param chainId The chain id.
+    /// @return The tokens.
+    function beaconTokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+        if (chainId != LibSafeInvariants.BASE_CHAIN_ID) return table;
+        TokenInstance[] memory chainTokens = new TokenInstance[](table.length + 1);
+        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
+            chainTokens[tokenIndex] = table[tokenIndex];
+        }
+        chainTokens[table.length] = LibTokenInvariants.qsepToken();
+        return chainTokens;
+    }
+
+    /// @notice Every vault and wrapper behind the two beacons on the chain
+    /// that the rename does not set: the table rows past the renamed ones,
+    /// then tQSEP on Base.
+    /// @param chainId The chain id.
+    /// @return The tokens.
+    function unrenamedTokens(uint256 chainId) internal pure returns (TokenInstance[] memory) {
+        TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainId);
+        bool onBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
+        uint256 count = onBase ? 1 : 0;
+        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
+            if (!renamesRow(tokenIndex)) count++;
+        }
+        TokenInstance[] memory chainTokens = new TokenInstance[](count);
+        uint256 next = 0;
+        for (uint256 tokenIndex = 0; tokenIndex < table.length; tokenIndex++) {
+            if (!renamesRow(tokenIndex)) chainTokens[next++] = table[tokenIndex];
+        }
+        if (onBase) chainTokens[next] = LibTokenInvariants.qsepToken();
+        return chainTokens;
+    }
+
+    /// @notice Every vault's and wrapper's name and symbol, in a fixed order:
+    /// vault name, vault symbol, wrapper name, wrapper symbol, per token.
+    /// @param chainTokens The tokens.
+    /// @return The values read.
+    function metadata(TokenInstance[] memory chainTokens) internal view returns (string[] memory) {
+        string[] memory values = new string[](chainTokens.length * 4);
+        for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
+            values[tokenIndex * 4] = IERC20Metadata(chainTokens[tokenIndex].receiptVault).name();
+            values[tokenIndex * 4 + 1] = IERC20Metadata(chainTokens[tokenIndex].receiptVault).symbol();
+            values[tokenIndex * 4 + 2] = IERC20Metadata(chainTokens[tokenIndex].wrappedTokenVault).name();
+            values[tokenIndex * 4 + 3] = IERC20Metadata(chainTokens[tokenIndex].wrappedTokenVault).symbol();
+        }
+        return values;
+    }
+
+    /// @notice The vault or wrapper `metadata` read at `index`.
+    /// @param chainTokens The tokens.
+    /// @param index The index into `metadata`.
+    /// @return The vault or wrapper.
+    function metadataToken(TokenInstance[] memory chainTokens, uint256 index) internal pure returns (address) {
+        TokenInstance memory token = chainTokens[index / 4];
+        return index % 4 < 2 ? token.receiptVault : token.wrappedTokenVault;
+    }
+
     /// @notice The chain's in-use receipt-vault beacon.
     /// @param chainId The chain id.
     /// @return The beacon.
@@ -202,49 +267,67 @@ library LibUnderlyingNamingRollout {
 
     /// @notice The beacon batch's calls: the wrapper beacon upgrade, the vault
     /// beacon upgrade, then the facet probe on the chain's first production
-    /// vault.
+    /// vault, then the batch's root-line record (`beaconDeclaration`).
     /// @param chainId The chain id.
-    /// @return targets The call targets.
-    /// @return values The call values, all zero.
-    /// @return payloads The calldata.
-    function beaconBatch(uint256 chainId)
-        internal
-        view
-        returns (address[] memory targets, uint256[] memory values, bytes[] memory payloads)
-    {
-        targets = new address[](3);
-        values = new uint256[](3);
-        payloads = new bytes[](3);
+    /// @return The call targets.
+    /// @return The call values, all zero.
+    /// @return The calldata.
+    function beaconBatch(uint256 chainId) internal view returns (address[] memory, uint256[] memory, bytes[] memory) {
+        address[] memory targets = new address[](4);
+        uint256[] memory values = new uint256[](4);
+        bytes[] memory payloads = new bytes[](4);
         targets[0] = wrappedTokenVaultBeacon(chainId);
         payloads[0] = abi.encodeCall(UpgradeableBeacon.upgradeTo, (WRAPPED_TOKEN_VAULT_IMPLEMENTATION));
         targets[1] = receiptVaultBeacon(chainId);
         payloads[1] = abi.encodeCall(UpgradeableBeacon.upgradeTo, (RECEIPT_VAULT_IMPLEMENTATION));
         targets[2] = tokens(chainId)[0].receiptVault;
         payloads[2] = abi.encodeCall(ICorporateActionsV1.completedActionCount, ());
+        (targets[3], payloads[3]) = LibStoxMigrations.recordCall(beaconDeclaration());
+        return (targets, values, payloads);
+    }
+
+    /// @notice The beacon batch's root-line record, its last call, written by
+    /// the timelock as an approved root delegate.
+    /// @return The declaration.
+    function beaconDeclaration() internal pure returns (ScriptDeclaration memory) {
+        return ScriptDeclaration({
+            id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+            onto: LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK,
+            history: false
+        });
+    }
+
+    /// @notice The rename batch's root-line record, its last call, onto the
+    /// beacon batch's record.
+    /// @return The declaration.
+    function renameDeclaration() internal pure returns (ScriptDeclaration memory) {
+        return ScriptDeclaration({
+            id: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
+            onto: LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+            history: false
+        });
     }
 
     /// @notice The rename batch's calls: `setUnderlying(underlying,
     /// underlyingName)` on every production vault of the chain, in table
-    /// order.
+    /// order, then the batch's root-line record (`renameDeclaration`).
     /// @param chainId The chain id.
-    /// @return targets The call targets.
-    /// @return values The call values, all zero.
-    /// @return payloads The calldata.
-    function renameBatch(uint256 chainId)
-        internal
-        pure
-        returns (address[] memory targets, uint256[] memory values, bytes[] memory payloads)
-    {
+    /// @return The call targets.
+    /// @return The call values, all zero.
+    /// @return The calldata.
+    function renameBatch(uint256 chainId) internal view returns (address[] memory, uint256[] memory, bytes[] memory) {
         TokenInstance[] memory chainTokens = tokens(chainId);
-        targets = new address[](chainTokens.length);
-        values = new uint256[](chainTokens.length);
-        payloads = new bytes[](chainTokens.length);
+        address[] memory targets = new address[](chainTokens.length + 1);
+        uint256[] memory values = new uint256[](chainTokens.length + 1);
+        bytes[] memory payloads = new bytes[](chainTokens.length + 1);
         for (uint256 tokenIndex = 0; tokenIndex < chainTokens.length; tokenIndex++) {
             TokenConfig memory config = LibProdTokenConfig.configOf(chainTokens[tokenIndex].underlying);
             targets[tokenIndex] = chainTokens[tokenIndex].receiptVault;
             payloads[tokenIndex] =
                 abi.encodeCall(IStoxUnderlyingV1.setUnderlying, (config.underlying, config.underlyingName));
         }
+        (targets[chainTokens.length], payloads[chainTokens.length]) = LibStoxMigrations.recordCall(renameDeclaration());
+        return (targets, values, payloads);
     }
 
     /// @notice Reverts unless every production vault of the chain reports

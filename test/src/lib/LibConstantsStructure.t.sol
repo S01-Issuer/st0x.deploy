@@ -23,6 +23,8 @@ import {CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION} from "src/lib/LibCorporateAct
 import {ERC20_STORAGE_LOCATION} from "src/lib/LibERC20Storage.sol";
 import {ERC1155_STORAGE_LOCATION} from "src/lib/LibERC1155Storage.sol";
 import {UNDERLYING_STORAGE_LOCATION} from "../../../src/lib/LibSecurity.sol";
+import {STOX_TOKEN_CONFIG_STORAGE_LOCATION} from "../../../src/lib/LibStoxTokenConfig.sol";
+import {INITIALIZABLE_STORAGE_LOCATION} from "../../../src/lib/LibInitializableStorage.sol";
 import {NODE_NONE} from "src/lib/LibCorporateActionNode.sol";
 import {LibStockSplit} from "src/lib/LibStockSplit.sol";
 import {
@@ -269,16 +271,30 @@ contract LibConstantsStructureTest is Test {
         assertEq(UNDERLYING_STORAGE_LOCATION, expected);
     }
 
+    function testStoxTokenConfigStorageLocationMatchesNamespace() external pure {
+        bytes32 expected =
+            keccak256(abi.encode(uint256(keccak256("rain.storage.stox-token-config.1")) - 1)) & ~bytes32(uint256(0xff));
+        assertEq(STOX_TOKEN_CONFIG_STORAGE_LOCATION, expected);
+    }
+
+    function testInitializableStorageLocationMatchesNamespace() external pure {
+        bytes32 expected = keccak256(abi.encode(uint256(keccak256("openzeppelin.storage.Initializable")) - 1))
+            & ~bytes32(uint256(0xff));
+        assertEq(INITIALIZABLE_STORAGE_LOCATION, expected);
+    }
+
     /// Every storage-location constant must occupy a distinct slot. A
     /// collision would have two libraries sharing storage at the same
     /// ERC-7201 slot, breaking diamond-storage isolation.
     function testStorageLocationsPairwiseDistinct() external pure {
-        bytes32[5] memory slots = [
+        bytes32[7] memory slots = [
             CORPORATE_ACTION_STORAGE_LOCATION,
             CORPORATE_ACTION_RECEIPT_STORAGE_LOCATION,
             ERC20_STORAGE_LOCATION,
             ERC1155_STORAGE_LOCATION,
-            UNDERLYING_STORAGE_LOCATION
+            UNDERLYING_STORAGE_LOCATION,
+            STOX_TOKEN_CONFIG_STORAGE_LOCATION,
+            INITIALIZABLE_STORAGE_LOCATION
         ];
 
         for (uint256 i; i < slots.length; i++) {

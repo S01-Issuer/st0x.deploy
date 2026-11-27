@@ -34,9 +34,9 @@ error InvalidMask();
 /// @param role The corporate-action role with no configured admin.
 error AuthorizerMissingCorporateActionAdmin(address authorizer, bytes32 role);
 
-/// Thrown by the vault's `fallback()` when no code is deployed at the pinned
-/// corporate-actions facet address. A delegatecall into empty code would
-/// otherwise succeed with no effect, so every facet call (including
-/// `setUnderlying`) would silently do nothing.
+/// Thrown by the vault's `initialize` and `fallback()` when no code is
+/// deployed at the pinned corporate-actions facet address. A delegatecall into
+/// empty code succeeds with no effect: a facet call would silently do nothing,
+/// and `initialize` would fail to decode an empty result.
 /// @param facet The pinned facet address.
 error CorporateActionsFacetNotDeployed(address facet);
