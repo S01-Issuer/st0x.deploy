@@ -135,11 +135,12 @@ library LibUnderlyingNamingRollout {
         return table;
     }
 
-    /// @notice Whether the rename batch renames the row at `tokenIndex` of a
-    /// chain's production table: one of the leading `TOKEN_COUNT`.
+    /// @notice Whether the row at `tokenIndex` of a chain's production table
+    /// reads its renamed names after the beacon upgrade: one of the leading
+    /// `TOKEN_COUNT`.
     /// @param tokenIndex The row's index in the chain's production table.
-    /// @return Whether the rename batch renames it.
-    function renamesRow(uint256 tokenIndex) internal pure returns (bool) {
+    /// @return Whether it reads its renamed names after the beacon upgrade.
+    function renamedAfterUpgrade(uint256 tokenIndex) internal pure returns (bool) {
         return tokenIndex < TOKEN_COUNT;
     }
 
