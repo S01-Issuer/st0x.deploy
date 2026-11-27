@@ -37,14 +37,12 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
 /// under `zoltu` (key, address, codehash), `upgradeMigration` (the beacon batch's record,
-/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS`, on every network: its record on the chain selects the
-/// renamed fields, which repeat the current ones on a network the beacon batch was not cut for, 0G),
+/// `LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS`, on every network),
 /// `registryDelegates` (each delegation the root is expected to have approved in a
 /// registry it writes through: `registry`, `account`, `delegate`, `unscoped`; an unscoped one carries no `scope`, a
 /// scoped one its non-zero `scope`), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
-/// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`, `decimals`, `wrappedTokenVaultName`,
-/// `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
-/// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
+/// `listingName`, `region` (`US` or `EU`), `name`, `symbol`, `decimals`, `wrappedTokenVaultName`,
+/// `wrappedTokenVaultSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
 /// `receiptVaultReceipt` (`receiptVault.receipt()`), `receiptManager` (`receipt.manager()`), `wrappedTokenVaultAsset`
 /// (`wrappedTokenVault.asset()`), the
 /// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
@@ -146,13 +144,7 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(at, "instance", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
     }
 
-    function tokenMetadataJson(
-        uint256 chainId,
-        string memory row,
-        uint256 i,
-        TokenInstance memory token,
-        TokenConfig memory config
-    ) internal {
+    function tokenMetadataJson(string memory row, TokenInstance memory token, TokenConfig memory config) internal {
         vm.serializeString(row, "underlying", token.underlying);
         vm.serializeString(row, "assetId", config.assetId.id);
         vm.serializeString(row, "listingTicker", config.listingTicker);
@@ -161,18 +153,11 @@ contract BuildExpectedState is Script {
         TokenMetadataState state = token.receiptVault == LibProdTokenParams.tokenAddress(config)
             ? TokenMetadataState.Listed
             : TokenMetadataState.Initialized;
-        TokenMetadataState renamed = LibUnderlyingNamingRollout.cutForChain(chainId)
-            && LibUnderlyingNamingRollout.renamedAfterUpgrade(i)
-            ? TokenMetadataState.Renamed
-            : state;
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, state));
-        vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renamed));
         vm.serializeString(row, "symbol", LibTokenMetadata.vaultSymbol(config, state));
         vm.serializeUint(row, "decimals", LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
         vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, state));
-        vm.serializeString(row, "wrappedTokenVaultRenamedName", LibTokenMetadata.wrappedName(config, renamed));
         vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, state));
-        vm.serializeString(row, "wrappedTokenVaultRenamedSymbol", LibTokenMetadata.wrappedSymbol(config, renamed));
         vm.serializeUint(row, "wrappedTokenVaultDecimals", LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
     }
 
@@ -223,7 +208,7 @@ contract BuildExpectedState is Script {
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
             TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying, configs);
-            tokenMetadataJson(chainId, row, i, tokens[i], config);
+            tokenMetadataJson(row, tokens[i], config);
             tokenLegsJson(row, tokens[i], beacons, proxyCodehashes);
             rows[i] = tokenAuthorityJson(chainId, row, config.region, usAuthoriser);
         }

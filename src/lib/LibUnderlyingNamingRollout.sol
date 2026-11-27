@@ -105,8 +105,7 @@ library LibUnderlyingNamingRollout {
     }
 
     /// @notice Whether the rollout was cut for `chainId`: one of the networks
-    /// before 0G (`LibStoxDeployNetworks.networksBeforeZerog`). `tokens` and
-    /// `BuildExpectedState`'s renamed fields both read this, so they agree.
+    /// before 0G (`LibStoxDeployNetworks.networksBeforeZerog`).
     /// @param chainId The chain id.
     /// @return Whether the rollout was cut for the chain.
     function cutForChain(uint256 chainId) internal pure returns (bool) {
@@ -128,15 +127,6 @@ library LibUnderlyingNamingRollout {
             mstore(table, count)
         }
         return table;
-    }
-
-    /// @notice Whether the row at `tokenIndex` of a chain's production table
-    /// reads its renamed names after the beacon upgrade: one of the leading
-    /// `TOKEN_COUNT`.
-    /// @param tokenIndex The row's index in the chain's production table.
-    /// @return Whether it reads its renamed names after the beacon upgrade.
-    function renamedAfterUpgrade(uint256 tokenIndex) internal pure returns (bool) {
-        return tokenIndex < TOKEN_COUNT;
     }
 
     /// @notice Every vault and wrapper behind the two beacons on the chain:
