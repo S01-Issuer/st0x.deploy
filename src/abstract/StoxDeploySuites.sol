@@ -9,6 +9,7 @@ import {
     DeploySuite,
     RainDeploySuitesBase
 } from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
+import {ExternalDeployment} from "rain-deploy-0.1.41/src/abstract/RainDeployDeclarationChecks.sol";
 import {LibRainDeployDeclaration} from "rain-deploy-0.1.41/src/lib/LibRainDeployDeclaration.sol";
 import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.41/src/lib/LibRainDeployZoltuMechanism.sol";
 import {CloneDeploy} from "rain-factory-0.2.20/src/lib/LibRainDeployClone.sol";
@@ -20,20 +21,24 @@ import {
 } from "rain-factory-0.2.20/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
-    RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE
+    RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE,
+    BYTECODE_HASH as CLONE_FACTORY_V8_CODEHASH
 } from "rain-factory-deploy-0.2.14/src/generated/0_2_5/CloneFactory.sol";
 import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
-    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE
+    RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE,
+    BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
 } from "rain-deploy-0.1.41/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
-    RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE
+    RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE,
+    BYTECODE_HASH as CLONE_FACTORY_CODEHASH
 } from "rain-factory-deploy-0.2.14/src/generated/0_1_15/CloneFactory.sol";
 
 import {
     DEPLOYED_ADDRESS as TOFU_DECIMALS_ADDRESS,
-    RUNTIME_CODE as TOFU_DECIMALS_RUNTIME_CODE
+    RUNTIME_CODE as TOFU_DECIMALS_RUNTIME_CODE,
+    BYTECODE_HASH as TOFU_DECIMALS_CODEHASH
 } from "rain-tofu-erc20-decimals-deploy-0.1.9/src/generated/0_1_0/TOFUTokenDecimals.sol";
 
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
@@ -119,7 +124,20 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         addTokenSuites(declared, LibProdTokenConfig.testTokenConfigs());
         LibCloneCandidates.addRegistryBeaconProxies(declared, orchestratorProxySuites());
         setCandidateNetworks(declared);
+        declared.externalDeployments = externalDeployments();
         return declared;
+    }
+
+    /// Dependencies no suite deploys.
+    function externalDeployments() internal pure returns (ExternalDeployment[] memory) {
+        ExternalDeployment[] memory externals = new ExternalDeployment[](4);
+        externals[0] = ExternalDeployment({deployedAddress: CLONE_FACTORY_ADDRESS, codeHash: CLONE_FACTORY_CODEHASH});
+        externals[1] = ExternalDeployment({deployedAddress: TOFU_DECIMALS_ADDRESS, codeHash: TOFU_DECIMALS_CODEHASH});
+        externals[2] =
+            ExternalDeployment({deployedAddress: CLONE_FACTORY_V8_ADDRESS, codeHash: CLONE_FACTORY_V8_CODEHASH});
+        externals[3] =
+            ExternalDeployment({deployedAddress: CONFIG_REGISTRY_ADDRESS, codeHash: CONFIG_REGISTRY_CODEHASH});
+        return externals;
     }
 
     /// Puts the US assets authoriser on 0G alone, keeps the EU assets

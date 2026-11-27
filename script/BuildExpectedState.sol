@@ -245,17 +245,15 @@ contract BuildExpectedState is Script, StoxDeploySuites {
         return vm.serializeAddress(row, "authoriser", LibAuthoriserInvariants.authoriserForChainId(chainId));
     }
 
-    function releasedSuites() internal view returns (DeploySuite[] memory) {
-        return declaration().released;
-    }
-
     function zoltuOn(DeploySuite memory suite, uint256 chainId) internal pure returns (bool) {
         return LibRainDeployDeclaration.mechanismIdOf(suite) == ZOLTU_MECHANISM_ID
             && LibRainDeploy.hasChainId(LibRainDeploy.declaredNetworkConfigs(suite.networks), chainId);
     }
 
-    function zoltuJson(uint256 chainId, string memory key) internal returns (string[] memory) {
-        DeploySuite[] memory suites = releasedSuites();
+    function zoltuJson(uint256 chainId, string memory key, DeploySuite[] memory suites)
+        internal
+        returns (string[] memory)
+    {
         uint256 count = 0;
         for (uint256 i = 0; i < suites.length; i++) {
             if (zoltuOn(suites[i], chainId)) {
@@ -328,7 +326,10 @@ contract BuildExpectedState is Script, StoxDeploySuites {
             : LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId);
     }
 
-    function chainJson(SupportedNetwork memory network, TokenConfig[] memory configs) internal returns (string memory) {
+    function chainJson(SupportedNetwork memory network, TokenConfig[] memory configs, DeploySuite[] memory released)
+        internal
+        returns (string memory)
+    {
         uint256 chainId = network.chainId;
         string memory key = vm.toString(chainId);
         vm.serializeString(key, "network", network.name);
@@ -355,7 +356,7 @@ contract BuildExpectedState is Script, StoxDeploySuites {
                 LibEuAuthoriserClone.cloneDeployedCodehash()
             )
         );
-        vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
+        vm.serializeString(key, "zoltu", zoltuJson(chainId, key, released));
         vm.serializeBytes32(key, "upgradeMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
         vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
         vm.serializeString(key, "registryDelegates", registryDelegatesJson(chainId, key));
@@ -488,9 +489,13 @@ contract BuildExpectedState is Script, StoxDeploySuites {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
+        // Built once: a declaration per chain exhausts the memory limit.
+        DeploySuite[] memory released = declaration().released;
         string memory chains;
         for (uint256 i = 0; i < networks.length; i++) {
-            chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i], configs));
+            chains = vm.serializeString(
+                "chains", vm.toString(networks[i].chainId), chainJson(networks[i], configs, released)
+            );
         }
         SupportedNetwork[] memory v2 = LibRainDeploy.declaredNetworkConfigs(LibProdDeployV2.deployedNetworks());
         string memory v2Chains;
