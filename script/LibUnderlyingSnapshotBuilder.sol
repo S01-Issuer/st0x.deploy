@@ -4,6 +4,7 @@ pragma solidity ^0.8.25;
 
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibDataContract} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {Arrays} from "@openzeppelin-contracts-5.7.0/utils/Arrays.sol";
 import {
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,
     UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH,
@@ -86,45 +87,17 @@ library LibUnderlyingSnapshotBuilder {
     }
 
     function hasDuplicate(UnderlyingSnapshotRow[] memory rows) internal pure returns (bool) {
-        uint256[] memory tokens = new uint256[](rows.length);
+        address[] memory tokens = new address[](rows.length);
         for (uint256 i = 0; i < rows.length; i++) {
-            tokens[i] = uint256(uint160(rows[i].token));
+            tokens[i] = rows[i].token;
         }
-        sortAscending(tokens);
+        Arrays.sort(tokens);
         for (uint256 i = 1; i < tokens.length; i++) {
             if (tokens[i] == tokens[i - 1]) {
                 return true;
             }
         }
         return false;
-    }
-
-    function sortAscending(uint256[] memory values) internal pure {
-        uint256 length = values.length;
-        for (uint256 start = length / 2; start > 0; start--) {
-            siftDown(values, start - 1, length);
-        }
-        for (uint256 end = length; end > 1; end--) {
-            (values[0], values[end - 1]) = (values[end - 1], values[0]);
-            siftDown(values, 0, end - 1);
-        }
-    }
-
-    function siftDown(uint256[] memory values, uint256 root, uint256 end) internal pure {
-        while (true) {
-            uint256 child = 2 * root + 1;
-            if (child >= end) {
-                return;
-            }
-            if (child + 1 < end && values[child] < values[child + 1]) {
-                child++;
-            }
-            if (values[root] >= values[child]) {
-                return;
-            }
-            (values[root], values[child]) = (values[child], values[root]);
-            root = child;
-        }
     }
 
     function rowLength(UnderlyingSnapshotRow memory row) internal pure returns (uint256) {
