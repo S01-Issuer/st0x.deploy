@@ -33,9 +33,18 @@ library LibUnderlyingSnapshotBuilder {
             // forge-lint: disable-next-line(boolean-cst)
             return (false, "");
         }
+        return distinctShardData(rows, k);
+    }
+
+    function distinctShardData(UnderlyingSnapshotRow[] memory rows, uint256 k)
+        internal
+        pure
+        returns (bool, bytes memory)
+    {
         (bytes memory body, uint256[] memory rowStarts) = encodeRows(rows);
-        (uint256[] memory rowBuckets, uint256[] memory order) = bucketsOf(rows, k);
-        (bool fits, bytes memory displacements, uint256[] memory slotRows) = index(rows, rowBuckets, order, body.length);
+        (uint256[] memory order, uint256[][] memory bucketRows) = bucketsOf(rows, k);
+        (bool fits, bytes memory displacements, uint256[] memory slotRows) =
+            index(rows, bucketRows, order, body.length);
         if (!fits) {
             // forge-lint: disable-next-line(boolean-cst)
             return (false, "");
@@ -44,49 +53,125 @@ library LibUnderlyingSnapshotBuilder {
         return (true, encodeShard(rows.length, displacements, slotRows, rowStarts, body));
     }
 
+    function bucketCountOf(uint256 rowCount) internal pure returns (uint256) {
+        return rowCount == 0 ? 1 : (rowCount + 3) / 4;
+    }
+
+    function minSlotCount(uint256 rowCount) internal pure returns (uint256) {
+        return rowCount == 0 ? 1 : (12 * rowCount + 9) / 10;
+    }
+
     function bucketsOf(UnderlyingSnapshotRow[] memory rows, uint256 k)
         internal
         pure
-        returns (uint256[] memory, uint256[] memory)
+        returns (uint256[] memory, uint256[][] memory)
     {
-        uint256 bucketCount = rows.length == 0 ? 1 : (rows.length + 3) / 4;
+        uint256 bucketCount = bucketCountOf(rows.length);
         uint256[] memory rowBuckets = new uint256[](rows.length);
         uint256[] memory sizes = new uint256[](bucketCount);
         for (uint256 i = 0; i < rows.length; i++) {
             rowBuckets[i] = (uint256(uint160(rows[i].token)) / k) % bucketCount;
             sizes[rowBuckets[i]]++;
         }
-        return (rowBuckets, bucketOrder(sizes));
+        uint256[] memory order = bucketOrder(sizes);
+        uint256[][] memory bucketRows = new uint256[][](bucketCount);
+        for (uint256 b = 0; b < bucketCount; b++) {
+            bucketRows[b] = new uint256[](sizes[b]);
+            sizes[b] = 0;
+        }
+        for (uint256 i = 0; i < rows.length; i++) {
+            uint256 b = rowBuckets[i];
+            bucketRows[b][sizes[b]++] = i;
+        }
+        return (order, bucketRows);
     }
 
     function hasDuplicate(UnderlyingSnapshotRow[] memory rows) internal pure returns (bool) {
+        uint256[] memory tokens = new uint256[](rows.length);
         for (uint256 i = 0; i < rows.length; i++) {
-            for (uint256 j = i + 1; j < rows.length; j++) {
-                if (rows[i].token == rows[j].token) {
-                    return true;
-                }
+            tokens[i] = uint256(uint160(rows[i].token));
+        }
+        sortAscending(tokens);
+        for (uint256 i = 1; i < tokens.length; i++) {
+            if (tokens[i] == tokens[i - 1]) {
+                return true;
             }
         }
         return false;
     }
 
+    function sortAscending(uint256[] memory values) internal pure {
+        uint256 length = values.length;
+        for (uint256 start = length / 2; start > 0; start--) {
+            siftDown(values, start - 1, length);
+        }
+        for (uint256 end = length; end > 1; end--) {
+            (values[0], values[end - 1]) = (values[end - 1], values[0]);
+            siftDown(values, 0, end - 1);
+        }
+    }
+
+    function siftDown(uint256[] memory values, uint256 root, uint256 end) internal pure {
+        while (true) {
+            uint256 child = 2 * root + 1;
+            if (child >= end) {
+                return;
+            }
+            if (child + 1 < end && values[child] < values[child + 1]) {
+                child++;
+            }
+            if (values[root] >= values[child]) {
+                return;
+            }
+            (values[root], values[child]) = (values[child], values[root]);
+            root = child;
+        }
+    }
+
+    function rowLength(UnderlyingSnapshotRow memory row) internal pure returns (uint256) {
+        uint256 length = 23;
+        length += fieldLength(row.token, row.ticker);
+        length += fieldLength(row.token, row.name);
+        length += fieldLength(row.token, row.isin);
+        return length;
+    }
+
     function encodeRows(UnderlyingSnapshotRow[] memory rows) internal pure returns (bytes memory, uint256[] memory) {
-        bytes memory body;
         uint256[] memory rowStarts = new uint256[](rows.length);
+        uint256 length = 0;
         for (uint256 i = 0; i < rows.length; i++) {
-            rowStarts[i] = body.length;
-            body = abi.encodePacked(
-                body,
-                rows[i].token,
-                fieldLength(rows[i].token, rows[i].ticker),
-                rows[i].ticker,
-                fieldLength(rows[i].token, rows[i].name),
-                rows[i].name,
-                fieldLength(rows[i].token, rows[i].isin),
-                rows[i].isin
-            );
+            rowStarts[i] = length;
+            length += rowLength(rows[i]);
+        }
+        bytes memory body = new bytes(length);
+        for (uint256 i = 0; i < rows.length; i++) {
+            writeRow(body, rowStarts[i], rows[i]);
         }
         return (body, rowStarts);
+    }
+
+    function writeRow(bytes memory body, uint256 start, UnderlyingSnapshotRow memory row) internal pure {
+        address token = row.token;
+        uint256 cursor;
+        assembly ("memory-safe") {
+            cursor := add(add(body, 0x20), start)
+            mstore(0, shl(96, token))
+            mcopy(cursor, 0, 20)
+            cursor := add(cursor, 20)
+        }
+        cursor = writeField(cursor, bytes(row.ticker));
+        cursor = writeField(cursor, bytes(row.name));
+        writeField(cursor, bytes(row.isin));
+    }
+
+    function writeField(uint256 cursor, bytes memory field) internal pure returns (uint256) {
+        assembly ("memory-safe") {
+            let length := mload(field)
+            mstore8(cursor, length)
+            mcopy(add(cursor, 1), add(field, 0x20), length)
+            cursor := add(add(cursor, 1), length)
+        }
+        return cursor;
     }
 
     function bucketOrder(uint256[] memory sizes) internal pure returns (uint256[] memory) {
@@ -104,21 +189,25 @@ library LibUnderlyingSnapshotBuilder {
 
     function index(
         UnderlyingSnapshotRow[] memory rows,
-        uint256[] memory rowBuckets,
+        uint256[][] memory bucketRows,
         uint256[] memory order,
         uint256 bodyLength
     ) internal pure returns (bool, bytes memory, uint256[] memory) {
-        for (
-            uint256 slotCount = rows.length == 0 ? 1 : (12 * rows.length + 9) / 10;
-            UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + order.length + 2 * slotCount + bodyLength + 1
-                <= EIP170_MAX_RUNTIME;
-            slotCount++
-        ) {
-            (bool placed, bytes memory displacements, uint256[] memory slotRows) =
-                place(rows, rowBuckets, order, slotCount);
-            if (placed) {
-                // forge-lint: disable-next-line(boolean-cst)
-                return (true, displacements, slotRows);
+        uint256 fixedLength = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + order.length + bodyLength + 1;
+        uint256 slotCount = minSlotCount(rows.length);
+        if (fixedLength + 2 * slotCount <= EIP170_MAX_RUNTIME) {
+            uint256 maxSlotCount = (EIP170_MAX_RUNTIME - fixedLength) / 2;
+            bytes memory displacements = new bytes(order.length);
+            uint256[] memory slotRows = new uint256[](maxSlotCount);
+            uint256[] memory rowSlots = new uint256[](rows.length);
+            for (; slotCount <= maxSlotCount; slotCount++) {
+                assembly ("memory-safe") {
+                    mstore(slotRows, slotCount)
+                }
+                if (place(rows, bucketRows, order, displacements, slotRows, rowSlots)) {
+                    // forge-lint: disable-next-line(boolean-cst)
+                    return (true, displacements, slotRows);
+                }
             }
         }
         // forge-lint: disable-next-line(boolean-cst)
@@ -127,50 +216,53 @@ library LibUnderlyingSnapshotBuilder {
 
     function place(
         UnderlyingSnapshotRow[] memory rows,
-        uint256[] memory rowBuckets,
+        uint256[][] memory bucketRows,
         uint256[] memory order,
-        uint256 slotCount
-    ) internal pure returns (bool, bytes memory, uint256[] memory) {
-        bytes memory displacements = new bytes(order.length);
-        uint256[] memory slotRows = new uint256[](slotCount);
-        uint256[] memory rowSlots = new uint256[](rows.length);
+        bytes memory displacements,
+        uint256[] memory slotRows,
+        uint256[] memory rowSlots
+    ) internal pure returns (bool) {
+        for (uint256 s = 0; s < slotRows.length; s++) {
+            slotRows[s] = 0;
+        }
         for (uint256 o = 0; o < order.length; o++) {
             bool placed = false;
             for (uint256 d = 0; d <= type(uint8).max && !placed; d++) {
                 // forge-lint: disable-next-line(unsafe-typecast)
-                placed = displace(rows, rowBuckets, order[o], bytes1(uint8(d)), slotRows, rowSlots);
+                placed = displace(rows, bucketRows[order[o]], bytes1(uint8(d)), slotRows, rowSlots);
                 if (placed) {
                     // forge-lint: disable-next-line(unsafe-typecast)
                     displacements[order[o]] = bytes1(uint8(d));
                 }
             }
             if (!placed) {
-                // forge-lint: disable-next-line(boolean-cst)
-                return (false, displacements, slotRows);
+                return false;
             }
         }
-        // forge-lint: disable-next-line(boolean-cst)
-        return (true, displacements, slotRows);
+        return true;
     }
 
     function displace(
         UnderlyingSnapshotRow[] memory rows,
-        uint256[] memory rowBuckets,
-        uint256 bucket,
+        uint256[] memory members,
         bytes1 displacement,
         uint256[] memory slotRows,
         uint256[] memory rowSlots
     ) internal pure returns (bool) {
-        for (uint256 i = 0; i < rows.length; i++) {
-            if (rowBuckets[i] != bucket) {
-                continue;
+        for (uint256 m = 0; m < members.length; m++) {
+            uint256 i = members[m];
+            address token = rows[i].token;
+            uint256 hash;
+            // keccak256(abi.encodePacked(token, displacement)) in scratch space, so probes allocate nothing.
+            assembly ("memory-safe") {
+                mstore(0, shl(96, token))
+                mstore8(20, shr(248, displacement))
+                hash := keccak256(0, 21)
             }
-            uint256 slot = uint256(keccak256(abi.encodePacked(rows[i].token, displacement))) % slotRows.length;
+            uint256 slot = hash % slotRows.length;
             if (slotRows[slot] != 0) {
-                for (uint256 j = 0; j < i; j++) {
-                    if (rowBuckets[j] == bucket) {
-                        slotRows[rowSlots[j]] = 0;
-                    }
+                for (uint256 j = 0; j < m; j++) {
+                    slotRows[rowSlots[members[j]]] = 0;
                 }
                 return false;
             }
@@ -236,40 +328,71 @@ library LibUnderlyingSnapshotBuilder {
         pure
         returns (bytes memory, bytes[] memory)
     {
-        for (uint256 k = 1; k <= (EIP170_MAX_RUNTIME - 1 - UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) / 20; k++) {
-            bytes[] memory shardCodes = new bytes[](k);
-            address[] memory shards = new address[](k);
-            bool fits = true;
-            for (uint256 s = 0; s < k && fits; s++) {
-                bytes memory data;
-                (fits, data) = shardData(shardRows(rows, k, s), k);
-                if (fits) {
-                    shardCodes[s] = LibDataContract.contractCreationCode(data);
+        if (hasDuplicate(rows)) {
+            revert UnderlyingSnapshotDoesNotShard(rows.length);
+        }
+        uint256[] memory rowLengths = new uint256[](rows.length);
+        uint256 total = 0;
+        for (uint256 i = 0; i < rows.length; i++) {
+            rowLengths[i] = rowLength(rows[i]);
+            total += rowLengths[i] + 2;
+        }
+        // A shard holds its header, at least one bucket byte, the data prefix, and per row its bytes plus >= 2 offset bytes.
+        uint256 capacity = EIP170_MAX_RUNTIME - UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH - 2;
+        uint256 k = (total + capacity - 1) / capacity;
+        for (k = k == 0 ? 1 : k; k <= (EIP170_MAX_RUNTIME - 1 - UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH) / 20; k++) {
+            (bool fits, bytes[] memory shardCodes) = shardCodesOf(rows, rowLengths, k);
+            if (fits) {
+                address[] memory shards = new address[](k);
+                for (uint256 s = 0; s < k; s++) {
                     shards[s] = LibRainDeploy.zoltuAddress(shardCodes[s]);
                 }
-            }
-            if (fits) {
                 return (LibDataContract.contractCreationCode(rootData(asOf, shards)), shardCodes);
             }
         }
         revert UnderlyingSnapshotDoesNotShard(rows.length);
     }
 
-    function shardRows(UnderlyingSnapshotRow[] memory rows, uint256 k, uint256 s)
+    function shardCodesOf(UnderlyingSnapshotRow[] memory rows, uint256[] memory rowLengths, uint256 k)
         internal
         pure
-        returns (UnderlyingSnapshotRow[] memory)
+        returns (bool, bytes[] memory)
     {
-        UnderlyingSnapshotRow[] memory member = new UnderlyingSnapshotRow[](rows.length);
-        uint256 n = 0;
+        uint256[] memory counts = new uint256[](k);
+        uint256[] memory bodyLengths = new uint256[](k);
         for (uint256 i = 0; i < rows.length; i++) {
-            if (uint256(uint160(rows[i].token)) % k == s) {
-                member[n++] = rows[i];
+            uint256 s = uint256(uint160(rows[i].token)) % k;
+            counts[s]++;
+            bodyLengths[s] += rowLengths[i];
+        }
+        for (uint256 s = 0; s < k; s++) {
+            if (
+                UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + bucketCountOf(counts[s]) + 2 * minSlotCount(counts[s])
+                        + bodyLengths[s] + 1 > EIP170_MAX_RUNTIME
+            ) {
+                // forge-lint: disable-next-line(boolean-cst)
+                return (false, new bytes[](0));
             }
         }
-        assembly ("memory-safe") {
-            mstore(member, n)
+        UnderlyingSnapshotRow[][] memory members = new UnderlyingSnapshotRow[][](k);
+        for (uint256 s = 0; s < k; s++) {
+            members[s] = new UnderlyingSnapshotRow[](counts[s]);
+            counts[s] = 0;
         }
-        return member;
+        for (uint256 i = 0; i < rows.length; i++) {
+            uint256 s = uint256(uint160(rows[i].token)) % k;
+            members[s][counts[s]++] = rows[i];
+        }
+        bytes[] memory shardCodes = new bytes[](k);
+        for (uint256 s = 0; s < k; s++) {
+            (bool fits, bytes memory data) = distinctShardData(members[s], k);
+            if (!fits) {
+                // forge-lint: disable-next-line(boolean-cst)
+                return (false, new bytes[](0));
+            }
+            shardCodes[s] = LibDataContract.contractCreationCode(data);
+        }
+        // forge-lint: disable-next-line(boolean-cst)
+        return (true, shardCodes);
     }
 }
