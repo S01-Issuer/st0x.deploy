@@ -153,7 +153,9 @@ contract StoxReceiptVaultUnderlyingSingleFieldTest is Test {
         uint32 timestamp
     ) external {
         string[3] memory values = newValues(symbolSeed, symbolLength, nameSeed, isinIndex);
+        uint256 fresh = vm.snapshotState();
         for (uint256 field = 0; field < 3; field++) {
+            vm.revertToState(fresh);
             StoxReceiptVault token = newToken();
             string[3] memory listing = current(token);
             assertEq(listing[SYMBOL], "NVDA");
@@ -174,7 +176,9 @@ contract StoxReceiptVaultUnderlyingSingleFieldTest is Test {
     ) external {
         string[3] memory values = newValues(symbolSeed, symbolLength, nameSeed, isinIndex);
         vm.assume(overrideTimestamp != timestamp);
+        uint256 fresh = vm.snapshotState();
         for (uint256 field = 0; field < 3; field++) {
+            vm.revertToState(fresh);
             StoxReceiptVault token = newToken();
             vm.warp(overrideTimestamp);
             vm.prank(OWNER);
