@@ -8,6 +8,7 @@ import {IBeacon} from "@openzeppelin-contracts-5.7.0/proxy/beacon/IBeacon.sol";
 import {DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.41/src/interface/IConfigRegistryV5.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.41/src/lib/LibRainDeployDeclaration.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
@@ -35,6 +36,12 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
 
     function deploySuite() external returns (address[] memory) {
         return deployLocally(declaration(), vm, beaconSuite());
+    }
+
+    function etchBeaconDependencyClosure() internal {
+        address[] memory own = new address[](1);
+        own[0] = pin();
+        LibRainDeployDeclaration.etchDependencyClosure(declaration(), vm, beaconSuite(), own);
     }
 
     function bindBeaconInitialOwner(address owner) internal {
@@ -80,7 +87,7 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     }
 
     function testBeaconSuiteRefusesWhereTheOwnerIsUnbound() external {
-        LibRainDeploy.etchDependencies(vm, beaconSuite().dependencies);
+        etchBeaconDependencyClosure();
         vm.expectRevert(
             abi.encodeWithSelector(
                 IConfigRegistryV5.NameNotRegistered.selector,
@@ -95,7 +102,7 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     }
 
     function testBeaconSuiteRefusesWhereTheOwnerIsBoundToZero() external {
-        LibRainDeploy.etchDependencies(vm, beaconSuite().dependencies);
+        etchBeaconDependencyClosure();
         LibTestDeploy.bind(
             vm,
             LibRegistryAuthority.ROOT_AUTHORITY,
