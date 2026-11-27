@@ -14,6 +14,7 @@ import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.38/src/lib/LibRainDep
 import {CloneDeploy} from "rain-factory-0.2.18/src/lib/LibRainDeployClone.sol";
 import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {Bytes} from "@openzeppelin-contracts-5.7.0/utils/Bytes.sol";
 import {LibCloneCandidates} from "rain-factory-0.2.18/src/lib/LibCloneCandidates.sol";
 import {LibRainDeployCloneMechanism} from "rain-factory-0.2.18/src/lib/LibRainDeployCloneMechanism.sol";
 import {
@@ -386,10 +387,7 @@ abstract contract StoxDeploySuites is RainDeploySuitesBase {
         string memory artifactPath,
         DeployDependency[] memory dependencies
     ) internal pure returns (DeploySuite memory) {
-        bytes memory runtimeCode = new bytes(creationCode.length - (PREFIX_BYTES_LENGTH - 1));
-        for (uint256 i = 0; i < runtimeCode.length; i++) {
-            runtimeCode[i] = creationCode[i + (PREFIX_BYTES_LENGTH - 1)];
-        }
+        bytes memory runtimeCode = Bytes.slice(creationCode, PREFIX_BYTES_LENGTH - 1);
         return zoltu(
             suite,
             creationCode,

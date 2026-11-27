@@ -3,22 +3,15 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {LibPointer, Pointer} from "rain-solmem-0.1.28/src/lib/LibPointer.sol";
 import {LibUnderlyingSnapshotBuilder, UnderlyingSnapshotRow} from "../../script/LibUnderlyingSnapshotBuilder.sol";
 import {LibTestUnderlyingSnapshotRows} from "../lib/LibTestUnderlyingSnapshotRows.sol";
 
 contract LibUnderlyingSnapshotBuilderMemoryTest is Test {
-    function freeMemoryPointer() internal pure returns (uint256) {
-        uint256 pointer;
-        assembly ("memory-safe") {
-            pointer := mload(0x40)
-        }
-        return pointer;
-    }
-
     function buildMemory(UnderlyingSnapshotRow[] memory rows) internal pure returns (uint256) {
-        uint256 start = freeMemoryPointer();
+        uint256 start = Pointer.unwrap(LibPointer.allocatedMemoryPointer());
         LibUnderlyingSnapshotBuilder.build(0, rows);
-        return freeMemoryPointer() - start;
+        return Pointer.unwrap(LibPointer.allocatedMemoryPointer()) - start;
     }
 
     function testFiveThousandRowsBuildWithinTheDefaultMemoryLimit() external pure {
