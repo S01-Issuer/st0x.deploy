@@ -207,8 +207,8 @@ abstract contract RootLineBatchRecordScriptTest is Test {
     }
 
     function testExecuteRefusesAForeignRecordOntoItsOnto(bytes32 next) external {
-        assumeForeign(next);
         scheduleThenExecutePredecessors();
+        assumeForeign(next);
         assertEq(LibStoxMigrations.head(), declaredOnto(), "line at the onto");
         LibTestRootLine.write(vm, safeAddress(), next, declaredOnto());
         vm.expectRevert(

@@ -116,10 +116,10 @@ contract ScheduleUnderlyingNamingRenameRootLineTest is UnderlyingNamingRolloutFi
     }
 
     function testPreflightRefusesAForeignHeadAfterTheBeaconBatchExecutes(bytes32 next) external {
-        assumeForeign(next);
         // forge-lint: disable-next-line(block-timestamp)
         vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
         executePredecessors();
+        assumeForeign(next);
         sScript.callPreflight();
         LibTestRootLine.write(vm, safeAddress(), next, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
         vm.expectRevert(abi.encodeWithSelector(UnexpectedMigrationLine.selector, next));
