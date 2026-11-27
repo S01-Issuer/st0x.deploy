@@ -246,7 +246,7 @@ contract StoxSafeBundleScriptTest is Test {
         scheduleRecord[0] = LibStoxMigrations.recordTx(scheduleZerogOrchestratorRolesDeclaration());
         bytes32 authored = schedule.run();
 
-        assertEq(authored, hashOf(LibSafeTx.multiSendTx(scheduleRecord), live + 1), "authored at the next nonce");
+        assertEq(authored, hashOf(LibSafeTx.bundleTx(scheduleRecord), live + 1), "authored at the next nonce");
         assertEq(safe.nonce(), live + 2, "schedule executed on top");
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES, "line at the schedule");
     }
