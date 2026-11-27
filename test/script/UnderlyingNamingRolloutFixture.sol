@@ -10,12 +10,10 @@ import {LibSafeFork} from "rain-deploy-0.1.38/src/lib/LibSafeFork.sol";
 import {LibSafeTxBuilderJson} from "rain-deploy-0.1.38/src/lib/LibSafeTxBuilderJson.sol";
 import {SafeBundleScript} from "rain-deploy-0.1.38/src/abstract/SafeBundleScript.sol";
 
-import {ExecuteUnderlyingNaming} from "../../script/20261021-execute-underlying-naming.s.sol";
 import {
     scheduleUnderlyingNamingBeaconsDeclaration
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
 import {ScheduleUnderlyingNamingBeaconsHarness} from "./ScheduleUnderlyingNamingBeaconsHarness.sol";
-import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingRenameHarness.sol";
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
@@ -92,14 +90,6 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
         );
     }
 
-    /// @notice Brings the forked chain to the point where the rename can be
-    /// authored: the beacon batch registered and every vault owned by the
-    /// timelock.
-    function prepareRename() internal {
-        advanceRootLineToBeaconSchedule();
-        landBeaconSchedule();
-    }
-
     /// @notice From the line at the beacon onto: plants the implementations
     /// and lands the beacon bundle.
     function landBeaconSchedule() internal {
@@ -108,19 +98,5 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
         LibSafeFork.executeBundle(
             vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), beacons.callAuthorBundle()
         );
-    }
-
-    /// @notice Runs the rollout on the fork through to the executed rename
-    /// batch.
-    function executeRollout(ScheduleUnderlyingNamingRenameHarness rename) internal {
-        prepareRename();
-        LibSafeFork.executeBundle(
-            vm, Safe(payable(LibSafeInvariants.safeForChainId(block.chainid))), rename.callAuthorBundle()
-        );
-        // forge-lint: disable-next-line(block-timestamp)
-        vm.warp(block.timestamp + LibTimelockInvariants.TIMELOCK_MIN_DELAY);
-        ExecuteUnderlyingNaming executor = new ExecuteUnderlyingNaming();
-        executor.execute();
-        executor.execute();
     }
 }

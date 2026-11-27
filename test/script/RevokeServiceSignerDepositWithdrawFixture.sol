@@ -4,11 +4,12 @@ pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
-import {executeUnderlyingNamingDeclaration} from "../../script/20261021-execute-underlying-naming.s.sol";
+import {
+    executeUnderlyingNamingBeaconsDeclaration
+} from "../../script/20261021-execute-underlying-naming-beacons.s.sol";
 import {
     scheduleUnderlyingNamingBeaconsDeclaration
 } from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
-import {scheduleUnderlyingNamingRenameDeclaration} from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
 import {
     scheduleRevokeServiceSignerDeclaration
 } from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
@@ -36,16 +37,15 @@ abstract contract RevokeServiceSignerDepositWithdrawFixture is UnderlyingNamingR
         LibTestRootLine.write(vm, LibTimelockInvariants.timelockForChainId(block.chainid), declared.id, declared.onto);
     }
 
-    /// @notice Lands the root line up to the naming execution's onto: each
-    /// naming batch's record, as the timelock.
+    /// @notice Lands the root line up to the naming execution's onto: the
+    /// beacon batch's record, as the timelock.
     function advanceRootLineToNamingExecution() internal {
         advanceRootLineToBeaconSchedule();
         writeTimelockRecord(scheduleUnderlyingNamingBeaconsDeclaration());
-        writeTimelockRecord(scheduleUnderlyingNamingRenameDeclaration());
     }
 
     function landNamingExecutionRecord() internal {
-        writeRecord(executeUnderlyingNamingDeclaration());
+        writeRecord(executeUnderlyingNamingBeaconsDeclaration());
     }
 
     /// @notice Lands the root line up to the revoke schedule's onto.

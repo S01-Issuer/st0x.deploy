@@ -156,7 +156,6 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
             LibAuthoriserInvariants.GRANTEE_EU_MINTER
         );
         LibTokenInvariants.assertUniformOwnership(tokens, timelock);
-        LibUnderlyingNamingRollout.assertTickersBound(block.chainid);
 
         // tMSTR, moved to the timelock by the 2026-07-29 migration.
         TokenInstance memory migrated = tokens[0];

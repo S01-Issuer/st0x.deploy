@@ -52,7 +52,7 @@ contract ExecuteRevokeServiceSignerDepositWithdrawRootLineTest is
             vm,
             safeAddress(),
             LibStoxMigrations.SCHEDULE_REVOKE_SERVICE_SIGNER,
-            LibStoxMigrations.EXECUTE_UNDERLYING_NAMING
+            LibStoxMigrations.EXECUTE_UNDERLYING_NAMING_BEACONS
         );
     }
 
