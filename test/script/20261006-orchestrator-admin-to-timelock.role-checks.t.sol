@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
-import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.41/src/interface/IMigrationRegistryV5.sol";
+import {MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.43/src/interface/IMigrationRegistryV5.sol";
 
 import {RoleNotHeld} from "../../script/20261006-orchestrator-admin-to-timelock.s.sol";
 import {LocalBaseOrchestratorFixture} from "./LocalBaseOrchestratorFixture.sol";

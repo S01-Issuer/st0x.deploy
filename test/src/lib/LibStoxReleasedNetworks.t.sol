@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
+import {DeploySuite} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
 import {LibReleasedSuites} from "../../../src/lib/LibReleasedSuites.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
 import {LibStoxReleasedNetworks, ReleaseNotOnZerogUnknown} from "../../../src/lib/LibStoxReleasedNetworks.sol";

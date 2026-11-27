@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {SafeTx} from "rain-deploy-0.1.41/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.43/src/lib/LibSafeTx.sol";
 
 import {StoxSafeBundleScript} from "../../src/abstract/StoxSafeBundleScript.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";

@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity =0.8.25;
 
-import {SafeTx} from "rain-deploy-0.1.41/src/lib/LibSafeTx.sol";
+import {SafeTx} from "rain-deploy-0.1.43/src/lib/LibSafeTx.sol";
 
 import {ExecuteZerogOrchestratorRoles} from "../../script/20261123-execute-zerog-orchestrator-roles.s.sol";
 

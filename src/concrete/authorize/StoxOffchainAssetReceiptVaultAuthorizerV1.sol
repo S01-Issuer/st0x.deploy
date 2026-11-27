@@ -6,7 +6,7 @@ import {
     OffchainAssetReceiptVaultAuthorizerV1,
     OffchainAssetReceiptVaultAuthorizerV1Config
 } from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.20/src/interface/ICloneableV2.sol";
+import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.21/src/interface/ICloneableV2.sol";
 import {SCHEDULE_CORPORATE_ACTION, CANCEL_CORPORATE_ACTION} from "../../lib/LibCorporateAction.sol";
 
 /// @dev Role admin for SCHEDULE_CORPORATE_ACTION.

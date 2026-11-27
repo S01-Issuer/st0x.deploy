@@ -8,17 +8,17 @@ import {
     DeployDependency,
     DeploySuite,
     RainDeploySuitesBase
-} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
-import {ExternalDeployment} from "rain-deploy-0.1.41/src/abstract/RainDeployDeclarationChecks.sol";
-import {LibRainDeployDeclaration} from "rain-deploy-0.1.41/src/lib/LibRainDeployDeclaration.sol";
-import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.41/src/lib/LibRainDeployZoltuMechanism.sol";
-import {CloneDeploy} from "rain-factory-0.2.20/src/lib/LibRainDeployClone.sol";
-import {LibCloneCandidates} from "rain-factory-0.2.20/src/lib/LibCloneCandidates.sol";
-import {LibRainDeployCloneMechanism} from "rain-factory-0.2.20/src/lib/LibRainDeployCloneMechanism.sol";
+} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
+import {ExternalDeployment} from "rain-deploy-0.1.43/src/abstract/RainDeployDeclarationChecks.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.43/src/lib/LibRainDeployDeclaration.sol";
+import {LibRainDeployZoltuMechanism} from "rain-deploy-0.1.43/src/lib/LibRainDeployZoltuMechanism.sol";
+import {CloneDeploy} from "rain-factory-0.2.21/src/lib/LibRainDeployClone.sol";
+import {LibCloneCandidates} from "rain-factory-0.2.21/src/lib/LibCloneCandidates.sol";
+import {LibRainDeployCloneMechanism} from "rain-factory-0.2.21/src/lib/LibRainDeployCloneMechanism.sol";
 import {
     RegistryBeaconProxyDeploy,
     RegistryBeaconProxyParams
-} from "rain-factory-0.2.20/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+} from "rain-factory-0.2.21/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_V8_RUNTIME_CODE,
@@ -28,7 +28,7 @@ import {
     DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS,
     RUNTIME_CODE as CONFIG_REGISTRY_RUNTIME_CODE,
     BYTECODE_HASH as CONFIG_REGISTRY_CODEHASH
-} from "rain-deploy-0.1.41/src/generated/0_1_29/ConfigRegistry.sol";
+} from "rain-deploy-0.1.43/src/generated/0_1_29/ConfigRegistry.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_ADDRESS,
     RUNTIME_CODE as CLONE_FACTORY_RUNTIME_CODE,

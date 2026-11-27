@@ -3,11 +3,11 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.41/src/interface/IConfigRegistryV5.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
-import {LibTimelockController} from "rain-deploy-0.1.41/src/lib/LibTimelockController.sol";
+import {DeploySuite} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.43/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
+import {LibTimelockController} from "rain-deploy-0.1.43/src/lib/LibTimelockController.sol";
 import {BeaconInitialOwnerMismatch} from "../../script/Deploy.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";

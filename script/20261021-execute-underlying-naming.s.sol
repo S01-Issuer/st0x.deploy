@@ -6,8 +6,8 @@ import {console2} from "forge-std-1.17.0/src/console2.sol";
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 import {TimelockController} from "@openzeppelin-contracts-5.7.0/governance/TimelockController.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {SafeBundleScript} from "rain-deploy-0.1.41/src/abstract/SafeBundleScript.sol";
-import {SafeTx} from "rain-deploy-0.1.41/src/lib/LibSafeTx.sol";
+import {SafeBundleScript} from "rain-deploy-0.1.43/src/abstract/SafeBundleScript.sol";
+import {SafeTx} from "rain-deploy-0.1.43/src/lib/LibSafeTx.sol";
 
 import {StoxSafeBundleScript} from "../src/abstract/StoxSafeBundleScript.sol";
 import {LibSafeInvariants} from "../src/lib/LibSafeInvariants.sol";

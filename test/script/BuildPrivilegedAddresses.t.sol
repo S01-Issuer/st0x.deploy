@@ -3,8 +3,8 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
 import {BuildPrivilegedAddresses} from "../../script/BuildPrivilegedAddresses.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";

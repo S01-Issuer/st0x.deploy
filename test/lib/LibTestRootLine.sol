@@ -3,14 +3,14 @@
 pragma solidity ^0.8.25;
 
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {IMigrationRegistryV5, Prerequisite} from "rain-deploy-0.1.41/src/interface/IMigrationRegistryV5.sol";
-import {IRegistryDelegatesV3} from "rain-deploy-0.1.41/src/interface/IRegistryDelegatesV3.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.41/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.41/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
+import {IMigrationRegistryV5, Prerequisite} from "rain-deploy-0.1.43/src/interface/IMigrationRegistryV5.sol";
+import {IRegistryDelegatesV3} from "rain-deploy-0.1.43/src/interface/IRegistryDelegatesV3.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.43/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.43/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
 import {
     RUNTIME_CODE as MIGRATION_REGISTRY_RUNTIME_CODE
-} from "rain-deploy-0.1.41/src/generated/candidate/MigrationRegistry.sol";
+} from "rain-deploy-0.1.43/src/generated/candidate/MigrationRegistry.sol";
 
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 

@@ -4,14 +4,14 @@ pragma solidity =0.8.25;
 
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {OwnerManager} from "safe-global-safe-smart-account-1.4.1-3/contracts/base/OwnerManager.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.41/src/interface/IConfigRegistryV5.sol";
-import {LibConfigRegistry} from "rain-deploy-0.1.41/src/lib/LibConfigRegistry.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.41/src/lib/LibConfigRegistryDeploy.sol";
-import {SafeTx} from "rain-deploy-0.1.41/src/lib/LibSafeTx.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
-import {LibSafe} from "rain-deploy-0.1.41/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.41/src/lib/LibSafeFork.sol";
-import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.41/src/lib/LibTimelockController.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.43/src/interface/IConfigRegistryV5.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.43/src/lib/LibConfigRegistry.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.43/src/lib/LibConfigRegistryDeploy.sol";
+import {SafeTx} from "rain-deploy-0.1.43/src/lib/LibSafeTx.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
+import {LibSafe} from "rain-deploy-0.1.43/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.43/src/lib/LibSafeFork.sol";
+import {ITimelockControllerState, LibTimelockController} from "rain-deploy-0.1.43/src/lib/LibTimelockController.sol";
 
 import {BeaconInitialOwnerBindingMismatch} from "../../script/20261022-bind-beacon-initial-owner.s.sol";
 import {BindBeaconInitialOwnerHarness} from "./BindBeaconInitialOwnerHarness.sol";

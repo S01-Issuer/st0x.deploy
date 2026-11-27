@@ -3,10 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
-import {SupportedNetwork} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.41/src/interface/IConfigRegistryV5.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
+import {DeploySuite} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
+import {SupportedNetwork} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.43/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,
@@ -28,7 +28,7 @@ import {
     BeaconOwnerMismatch
 } from "../../src/lib/LibBeaconInvariants.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
-import {LibTimelockController} from "rain-deploy-0.1.41/src/lib/LibTimelockController.sol";
+import {LibTimelockController} from "rain-deploy-0.1.43/src/lib/LibTimelockController.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";

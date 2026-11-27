@@ -6,9 +6,9 @@ import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessContro
 import {Ownable} from "@openzeppelin-contracts-5.7.0/access/Ownable.sol";
 import {Initializable} from "@openzeppelin-contracts-upgradeable-5.7.0/proxy/utils/Initializable.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.41/src/lib/LibSafeTx.sol";
-import {LibSafeFork} from "rain-deploy-0.1.41/src/lib/LibSafeFork.sol";
-import {ICloneableV2} from "rain-factory-0.2.20/src/interface/ICloneableV2.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.43/src/lib/LibSafeTx.sol";
+import {LibSafeFork} from "rain-deploy-0.1.43/src/lib/LibSafeFork.sol";
+import {ICloneableV2} from "rain-factory-0.2.21/src/interface/ICloneableV2.sol";
 import {
     OffchainAssetReceiptVault,
     OffchainAssetReceiptVaultConfigV2

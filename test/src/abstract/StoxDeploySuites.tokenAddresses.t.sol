@@ -6,7 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {
     LibRainDeployRegistryBeaconProxy,
     RegistryBeaconProxyParams
-} from "rain-factory-0.2.20/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+} from "rain-factory-0.2.21/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 
 import {TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibProdTokenParams} from "../../../src/lib/LibProdTokenParams.sol";

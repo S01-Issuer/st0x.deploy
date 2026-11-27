@@ -3,14 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.41/src/lib/LibSafe.sol";
-import {DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployDeclaration} from "rain-deploy-0.1.41/src/lib/LibRainDeployDeclaration.sol";
-import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.41/src/lib/LibRainDeployZoltuMechanism.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.41/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.41/src/lib/LibConfigRegistryDeploy.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.43/src/lib/LibSafe.sol";
+import {DeploySuite} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.43/src/lib/LibRainDeployDeclaration.sol";
+import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.43/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.43/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.43/src/lib/LibConfigRegistryDeploy.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";

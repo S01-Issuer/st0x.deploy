@@ -4,12 +4,12 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Vm} from "forge-std-1.17.0/src/Vm.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.41/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.41/src/lib/LibRainDeploy.sol";
-import {LibConfigRegistryRegister} from "rain-deploy-0.1.41/src/lib/LibConfigRegistryRegister.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
-import {ICloneableFactoryV7} from "rain-factory-0.2.20/src/interface/ICloneableFactoryV7.sol";
-import {RegistryBeaconProxyParams} from "rain-factory-0.2.20/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
+import {LibConfigRegistryRegister} from "rain-deploy-0.1.43/src/lib/LibConfigRegistryRegister.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
+import {ICloneableFactoryV7} from "rain-factory-0.2.21/src/interface/ICloneableFactoryV7.sol";
+import {RegistryBeaconProxyParams} from "rain-factory-0.2.21/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {IAuthorizeV1} from "rain-vats-0.2.25/src/interface/IAuthorizeV1.sol";
 import {
     OffchainAssetReceiptVaultRbacV1,

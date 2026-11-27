@@ -8,16 +8,16 @@ import {
     BYTECODE_HASH as REGISTRY_V2_CODEHASH,
     DEPLOYED_ADDRESS as REGISTRY_V2,
     RUNTIME_CODE as REGISTRY_V2_RUNTIME_CODE
-} from "rain-deploy-0.1.41/src/generated/0_1_18/MigrationRegistry.sol";
-import {IMigrationRegistryV2, Prerequisite} from "rain-deploy-0.1.41/src/interface/deprecated/IMigrationRegistryV2.sol";
-import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.41/src/interface/IMigrationRegistryV5.sol";
-import {LibMigrationRegistry} from "rain-deploy-0.1.41/src/lib/LibMigrationRegistry.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.41/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.41/src/lib/LibRegistryAuthority.sol";
-import {LibSafe} from "rain-deploy-0.1.41/src/lib/LibSafe.sol";
-import {LibSafeFork} from "rain-deploy-0.1.41/src/lib/LibSafeFork.sol";
-import {LibSafeTxBuilderJson} from "rain-deploy-0.1.41/src/lib/LibSafeTxBuilderJson.sol";
-import {SafeTx} from "rain-deploy-0.1.41/src/lib/LibSafeTx.sol";
+} from "rain-deploy-0.1.43/src/generated/0_1_18/MigrationRegistry.sol";
+import {IMigrationRegistryV2, Prerequisite} from "rain-deploy-0.1.43/src/interface/deprecated/IMigrationRegistryV2.sol";
+import {IMigrationRegistryV5, MIGRATION_HEAD_GENESIS} from "rain-deploy-0.1.43/src/interface/IMigrationRegistryV5.sol";
+import {LibMigrationRegistry} from "rain-deploy-0.1.43/src/lib/LibMigrationRegistry.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.43/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
+import {LibSafe} from "rain-deploy-0.1.43/src/lib/LibSafe.sol";
+import {LibSafeFork} from "rain-deploy-0.1.43/src/lib/LibSafeFork.sol";
+import {LibSafeTxBuilderJson} from "rain-deploy-0.1.43/src/lib/LibSafeTxBuilderJson.sol";
+import {SafeTx} from "rain-deploy-0.1.43/src/lib/LibSafeTx.sol";
 
 import {
     UnexpectedRegistryV2CodeHash,
