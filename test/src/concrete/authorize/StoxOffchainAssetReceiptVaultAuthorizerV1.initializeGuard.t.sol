@@ -10,7 +10,7 @@ import {
     CANCEL_CORPORATE_ACTION_ADMIN
 } from "../../../../src/concrete/authorize/StoxOffchainAssetReceiptVaultAuthorizerV1.sol";
 import {FailingSuperInitAuthorizer} from "./FailingSuperInitAuthorizer.sol";
-import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.18/src/interface/ICloneableV2.sol";
+import {ICLONEABLE_V2_SUCCESS} from "rain-factory-0.2.21/src/interface/ICloneableV2.sol";
 import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 
 contract StoxOffchainAssetReceiptVaultAuthorizerV1InitializeGuardTest is Test {

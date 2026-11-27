@@ -2,8 +2,8 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {LibConfigRegistry} from "rain-deploy-0.1.38/src/lib/LibConfigRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {LibConfigRegistry} from "rain-deploy-0.1.43/src/lib/LibConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
 
 error ZeroOrchestratorInitialAdmin();
 
@@ -60,6 +60,10 @@ library LibStoxConfig {
         );
         return abi.decode(value, (address));
     }
+
+    /// @notice `abi.encode(address)`: the authoriser clone's initial admin,
+    /// read once at its initialize.
+    bytes32 internal constant AUTHORISER_INITIAL_ADMIN_NAME = keccak256("st0x.authoriser-initial-admin.v1");
 
     /// @notice `abi.encode(address)`: the orchestrator's initial admin,
     /// read once in its `initialize`.

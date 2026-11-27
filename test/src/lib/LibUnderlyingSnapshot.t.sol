@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibRainDeploy} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
 import {LibTestUnderlyingSnapshotRows} from "../../lib/LibTestUnderlyingSnapshotRows.sol";
 import {LibUnderlyingSnapshot} from "../../../src/lib/LibUnderlyingSnapshot.sol";
 import {LibProdTokenConfig, TokenConfig, UNDERLYING_SNAPSHOT_AS_OF} from "../../../src/lib/LibProdTokenConfig.sol";

@@ -3,15 +3,14 @@
 pragma solidity =0.8.25;
 
 import {Script} from "forge-std-1.17.0/src/Script.sol";
-import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
-import {LibSafe} from "rain-deploy-0.1.38/src/lib/LibSafe.sol";
-import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
-import {LibRainDeployDeclaration} from "rain-deploy-0.1.38/src/lib/LibRainDeployDeclaration.sol";
-import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.38/src/lib/LibRainDeployZoltuMechanism.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
-import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
-import {LibConfigRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibConfigRegistryDeploy.sol";
-import {LibStoxReleasedNetworks} from "../src/lib/LibStoxReleasedNetworks.sol";
+import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
+import {LibSafe} from "rain-deploy-0.1.43/src/lib/LibSafe.sol";
+import {DeploySuite} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.43/src/lib/LibRainDeployDeclaration.sol";
+import {ZOLTU_MECHANISM_ID} from "rain-deploy-0.1.43/src/lib/LibRainDeployZoltuMechanism.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.43/src/lib/LibMigrationRegistryDeploy.sol";
+import {LibConfigRegistryDeploy} from "rain-deploy-0.1.43/src/lib/LibConfigRegistryDeploy.sol";
 import {LibAuthoriserInvariants} from "../src/lib/LibAuthoriserInvariants.sol";
 import {LibBeaconInvariants} from "../src/lib/LibBeaconInvariants.sol";
 import {LibEuAuthoriserClone} from "../src/lib/LibEuAuthoriserClone.sol";
@@ -29,6 +28,7 @@ import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../src/lib/LibProdDeployV2BaseOverrides.sol";
 import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
+import {StoxDeploySuites} from "../src/abstract/StoxDeploySuites.sol";
 
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
@@ -55,7 +55,7 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// Under `v2`, per network V2 was checked on: `network`, `deployments` (each `LibProdDeployV2` key, address,
 /// codehash), `beaconSetDeployer`, and `receiptBeacon`, `receiptVaultBeacon`, `wrappedTokenVaultBeacon` (beacon,
 /// implementation, owner).
-contract BuildExpectedState is Script {
+contract BuildExpectedState is Script, StoxDeploySuites {
     string internal constant PATH = "expected-state.json";
 
     /// The implementations `upgradeMigration`'s beacon batch moves the beacons to; the current ones where the batch was
@@ -245,20 +245,15 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(row, "authoriser", LibAuthoriserInvariants.authoriserForChainId(chainId));
     }
 
-    function releasedSuites() internal pure returns (DeploySuite[] memory) {
-        DeployDeclaration memory declared;
-        LibRainDeployDeclaration.setNetworks(declared, LibStoxDeployNetworks.deploymentNetworks());
-        LibRainDeployDeclaration.addReleased(declared, LibStoxReleasedNetworks.releasedSuites());
-        return declared.released;
-    }
-
     function zoltuOn(DeploySuite memory suite, uint256 chainId) internal pure returns (bool) {
         return LibRainDeployDeclaration.mechanismIdOf(suite) == ZOLTU_MECHANISM_ID
             && LibRainDeploy.hasChainId(LibRainDeploy.declaredNetworkConfigs(suite.networks), chainId);
     }
 
-    function zoltuJson(uint256 chainId, string memory key) internal returns (string[] memory) {
-        DeploySuite[] memory suites = releasedSuites();
+    function zoltuJson(uint256 chainId, string memory key, DeploySuite[] memory suites)
+        internal
+        returns (string[] memory)
+    {
         uint256 count = 0;
         for (uint256 i = 0; i < suites.length; i++) {
             if (zoltuOn(suites[i], chainId)) {
@@ -331,7 +326,10 @@ contract BuildExpectedState is Script {
             : LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId);
     }
 
-    function chainJson(SupportedNetwork memory network, TokenConfig[] memory configs) internal returns (string memory) {
+    function chainJson(SupportedNetwork memory network, TokenConfig[] memory configs, DeploySuite[] memory released)
+        internal
+        returns (string memory)
+    {
         uint256 chainId = network.chainId;
         string memory key = vm.toString(chainId);
         vm.serializeString(key, "network", network.name);
@@ -358,7 +356,7 @@ contract BuildExpectedState is Script {
                 LibEuAuthoriserClone.cloneDeployedCodehash()
             )
         );
-        vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
+        vm.serializeString(key, "zoltu", zoltuJson(chainId, key, released));
         vm.serializeBytes32(key, "upgradeMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
         vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
         vm.serializeString(key, "registryDelegates", registryDelegatesJson(chainId, key));
@@ -491,9 +489,13 @@ contract BuildExpectedState is Script {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
         TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
+        // Built once: a declaration per chain exhausts the memory limit.
+        DeploySuite[] memory released = declaration().released;
         string memory chains;
         for (uint256 i = 0; i < networks.length; i++) {
-            chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i], configs));
+            chains = vm.serializeString(
+                "chains", vm.toString(networks[i].chainId), chainJson(networks[i], configs, released)
+            );
         }
         SupportedNetwork[] memory v2 = LibRainDeploy.declaredNetworkConfigs(LibProdDeployV2.deployedNetworks());
         string memory v2Chains;

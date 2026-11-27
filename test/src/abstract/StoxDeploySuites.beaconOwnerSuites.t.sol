@@ -3,10 +3,10 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {DeployCandidate} from "rain-deploy-0.1.38/src/abstract/RainDeploySuitesBase.sol";
-import {IConfigRegistryV5} from "rain-deploy-0.1.38/src/interface/IConfigRegistryV5.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
-import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {DeployCandidate, DeployDeclaration} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
+import {IConfigRegistryV5} from "rain-deploy-0.1.43/src/interface/IConfigRegistryV5.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
+import {DeploySuiteIndex, LibRainDeployDeclaration} from "rain-deploy-0.1.43/src/lib/LibRainDeployDeclaration.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
 import {LibStoxConfig} from "../../../src/lib/LibStoxConfig.sol";
@@ -35,10 +35,14 @@ contract StoxDeploySuitesBeaconOwnerSuitesTest is Test, StoxDeploySuites {
             LibRegistryAuthority.ROOT_AUTHORITY,
             LibStoxConfig.BEACON_INITIAL_OWNER_NAME
         );
+        DeployDeclaration memory declared = declaration();
         DeployCandidate[] memory candidates = candidateSuites();
+        DeploySuiteIndex memory index = LibRainDeployDeclaration.emptyIndex();
         uint256 reading = 0;
         for (uint256 i = 0; i < candidates.length; i++) {
-            LibRainDeploy.etchDependencies(vm, candidates[i].snapshot.dependencies);
+            address[] memory own = new address[](1);
+            own[0] = deployedAddress(declared, candidates[i].snapshot, 0);
+            LibRainDeployDeclaration.etchDependencyClosure(declared, index, vm, candidates[i].snapshot, own);
             bytes memory creationCode = candidates[i].snapshot.creationCode;
             bytes memory reverted;
             bool deployed;

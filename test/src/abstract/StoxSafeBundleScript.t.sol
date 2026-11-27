@@ -5,7 +5,7 @@ pragma solidity =0.8.25;
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {Safe} from "safe-global-safe-smart-account-1.4.1-3/contracts/Safe.sol";
 import {Enum} from "safe-global-safe-smart-account-1.4.1-3/contracts/common/Enum.sol";
-import {LibSafeTx, SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
+import {LibSafeTx, SafeTx} from "rain-deploy-0.1.43/src/lib/LibSafeTx.sol";
 
 import {createZerogTokensDeclaration} from "../../../script/20261119-create-zerog-tokens.s.sol";
 import {
@@ -246,7 +246,7 @@ contract StoxSafeBundleScriptTest is Test {
         scheduleRecord[0] = LibStoxMigrations.recordTx(scheduleZerogOrchestratorRolesDeclaration());
         bytes32 authored = schedule.run();
 
-        assertEq(authored, hashOf(LibSafeTx.multiSendTx(scheduleRecord), live + 1), "authored at the next nonce");
+        assertEq(authored, hashOf(LibSafeTx.bundleTx(scheduleRecord), live + 1), "authored at the next nonce");
         assertEq(safe.nonce(), live + 2, "schedule executed on top");
         assertEq(LibStoxMigrations.head(), LibStoxMigrations.SCHEDULE_ZEROG_ORCHESTRATOR_ROLES, "line at the schedule");
     }

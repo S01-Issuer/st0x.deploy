@@ -2,12 +2,12 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {RegistryBeaconProxyParams} from "rain-factory-0.2.18/src/lib/LibRainDeployRegistryBeaconProxy.sol";
+import {RegistryBeaconProxyParams} from "rain-factory-0.2.21/src/lib/LibRainDeployRegistryBeaconProxy.sol";
 import {
     DEPLOYED_ADDRESS as CLONE_FACTORY_V8_ADDRESS
 } from "rain-factory-deploy-0.2.14/src/generated/0_2_5/CloneFactory.sol";
-import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.38/src/generated/0_1_29/ConfigRegistry.sol";
-import {LibRegistryAuthority} from "rain-deploy-0.1.38/src/lib/LibRegistryAuthority.sol";
+import {DEPLOYED_ADDRESS as CONFIG_REGISTRY_ADDRESS} from "rain-deploy-0.1.43/src/generated/0_1_29/ConfigRegistry.sol";
+import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
 import {LibProdDeployV4 as V4} from "../generated/LibProdDeployV4.sol";
 import {LibStoxConfig} from "./LibStoxConfig.sol";
 
