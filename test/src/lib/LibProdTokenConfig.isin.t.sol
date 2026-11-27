@@ -175,7 +175,7 @@ contract LibProdTokenConfigIsinTest is Test {
             for (uint256 j = 0; j < isins.length; j++) {
                 if (keccak256(bytes(isins[j].underlying)) != keccak256(bytes(rows[i].underlying))) continue;
                 matches++;
-                assertEq(rows[i].assetId, isins[j].isin, rows[i].underlying);
+                assertEq(rows[i].assetId.id, isins[j].isin, rows[i].underlying);
             }
             assertEq(matches, 1, rows[i].underlying);
         }
@@ -184,7 +184,7 @@ contract LibProdTokenConfigIsinTest is Test {
     function assertRowsHaveIsins(UnderlyingIsin[] memory isins) internal pure {
         for (uint256 i = 0; i < isins.length; i++) {
             TokenConfig memory config = LibProdTokenConfig.configOf(isins[i].underlying);
-            assertEq(config.assetId, isins[i].isin, isins[i].underlying);
+            assertEq(config.assetId.id, isins[i].isin, isins[i].underlying);
         }
     }
 

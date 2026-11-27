@@ -14,7 +14,7 @@ import {LibTokenInvariants, TokenInstance} from "../../../src/lib/LibTokenInvari
 /// listing ticker and listing name.
 contract LibProdTokenConfigListingWellFormedTest is Test {
     function assertListingWellFormed(string memory rowName, TokenConfig memory config) internal pure {
-        assertTrue(LibSecurity.isinWellFormed(config.assetId), string.concat(rowName, " assetId"));
+        assertTrue(LibSecurity.isinWellFormed(config.assetId.id), string.concat(rowName, " assetId"));
         assertTrue(LibSecurity.tickerWellFormed(bytes(config.listingTicker)), string.concat(rowName, " listingTicker"));
         assertTrue(LibSecurity.nameWellFormed(bytes(config.listingName)), string.concat(rowName, " listingName"));
     }
