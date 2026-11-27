@@ -71,7 +71,9 @@ contract BeaconUpgradeRolloutTest is BeaconUpgradeFixture {
         assertEq(targets.length, 4, string.concat(network, ": beacon batch length"));
         assertEq(values.length, 4, string.concat(network, ": values length"));
         assertEq(payloads.length, 4, string.concat(network, ": payloads length"));
-        assertEq(targets[0], LibBeaconUpgrade.wrappedTokenVaultBeacon(chainId), string.concat(network, ": wrapper beacon"));
+        assertEq(
+            targets[0], LibBeaconUpgrade.wrappedTokenVaultBeacon(chainId), string.concat(network, ": wrapper beacon")
+        );
         assertEq(
             payloads[0],
             abi.encodeCall(UpgradeableBeacon.upgradeTo, (LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION)),
@@ -422,7 +424,10 @@ contract BeaconUpgradeRolloutTest is BeaconUpgradeFixture {
             vm.etch(implementations[missing], hex"00");
             vm.expectRevert(
                 abi.encodeWithSelector(
-                    ImplementationNotDeployed.selector, implementations[missing], codehashes[missing], keccak256(hex"00")
+                    ImplementationNotDeployed.selector,
+                    implementations[missing],
+                    codehashes[missing],
+                    keccak256(hex"00")
                 )
             );
             schedule.callPreflight();
