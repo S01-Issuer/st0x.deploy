@@ -333,7 +333,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (row.found) return (row.ticker, row.name, row.isin);
         if (o.timestamp > 0) return (o.symbol, o.name, o.isin);
         LibStoxTokenConfig.StoxTokenConfigStorage storage c = LibStoxTokenConfig.getStorage();
-        return (c.listingTicker, c.listingName, c.assetId);
+        return (c.listingTicker, c.listingName, c.assetId.id);
     }
 
     /// @dev Authorize via the vault's authorizer. Since this facet is
