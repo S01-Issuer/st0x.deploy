@@ -26,6 +26,7 @@ import {
 import {BuildExpectedState} from "../../script/BuildExpectedState.sol";
 import {BuildExpectedStateHarness} from "./BuildExpectedStateHarness.sol";
 import {LibLocalProdState} from "../lib/LibLocalProdState.sol";
+import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {LibProdDeployCurrent} from "../../src/generated/LibProdDeployCurrent.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
 import {IST0xVaultBeaconSet} from "../../src/interface/IST0xVaultBeaconSet.sol";
@@ -334,6 +335,7 @@ contract BuildExpectedStateTest is Test {
     /// cut for: every one before 0G.
     function testRenamedImplementationsAreTheBeaconBatchsUpgrades() external {
         string memory json = build.render();
+        LibTestRootLine.etchRegistry(vm);
         SupportedNetwork[] memory nets =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
         for (uint256 c = 0; c < nets.length; c++) {
@@ -586,7 +588,7 @@ contract BuildExpectedStateTest is Test {
                 vm.parseJsonTypeArray(json, string.concat(chain(nets[c]), ".tokens"), TOKEN_METADATA_JSON),
                 (ExpectedTokenMetadata[])
             );
-            // 0G has no rename migration (`testZerogHasNoRenameMigration`).
+            // The batches were not cut for 0G (`testZerogRenamesNothing`).
             bool chainRenames = LibRainDeploy.hasChainId(
                 LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog()), nets[c].chainId
             );
@@ -798,15 +800,28 @@ contract BuildExpectedStateTest is Test {
         }
     }
 
-    /// The rename migration is the id of the script that executes the rename batch.
-    function testRenameMigrationIsTheExecuteUnderlyingNamingScript() external {
+    /// The upgrade migration is the beacon batch's record, the id of the script that schedules it.
+    function testUpgradeMigrationIsTheBeaconBatchRecord() external {
         string memory json = build.render();
-        string memory script = "script/20261021-execute-underlying-naming.s.sol";
+        string memory script = "script/20261021-schedule-underlying-naming-beacons.s.sol";
+        assertTrue(vm.exists(script));
+        SupportedNetwork[] memory nets = networks();
+        for (uint256 c = 0; c < nets.length; c++) {
+            bytes32 id = vm.parseJsonBytes32(json, string.concat(chain(nets[c]), ".upgradeMigration"));
+            assertEq(id, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS);
+            assertEq(id, keccak256(bytes(script)));
+        }
+    }
+
+    /// The rename migration is the rename batch's record, the id of the script that schedules it.
+    function testRenameMigrationIsTheRenameBatchRecord() external {
+        string memory json = build.render();
+        string memory script = "script/20261021-schedule-underlying-naming-rename.s.sol";
         assertTrue(vm.exists(script));
         SupportedNetwork[] memory nets = networks();
         for (uint256 c = 0; c < nets.length; c++) {
             bytes32 id = vm.parseJsonBytes32(json, string.concat(chain(nets[c]), ".renameMigration"));
-            assertEq(id, LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
+            assertEq(id, LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME);
             assertEq(id, keccak256(bytes(script)));
         }
     }
@@ -1060,10 +1075,6 @@ contract BuildExpectedStateTest is Test {
         return false;
     }
 
-    function zoltuAddressOf(ExpectedDeployment[] memory rows, string memory key) external pure returns (address) {
-        return zoltuAddress(rows, key);
-    }
-
     function zoltuAddress(ExpectedDeployment[] memory rows, string memory key) internal pure returns (address) {
         for (uint256 i = 0; i < rows.length; i++) {
             if (keccak256(bytes(rows[i].key)) == keccak256(bytes(key))) {
@@ -1173,7 +1184,7 @@ contract BuildExpectedStateTest is Test {
 
     function chainFields(uint256 chainId) internal pure returns (string[] memory) {
         bool isBase = chainId == LibSafeInvariants.BASE_CHAIN_ID;
-        string[] memory fields = new string[](isBase ? 13 : 12);
+        string[] memory fields = new string[](isBase ? 14 : 13);
         fields[0] = "network";
         fields[1] = "beaconSetDeployer";
         fields[2] = "beacons";
@@ -1183,11 +1194,12 @@ contract BuildExpectedStateTest is Test {
         fields[6] = "authoriser";
         fields[7] = "euAuthoriser";
         fields[8] = "zoltu";
-        fields[9] = "renameMigration";
-        fields[10] = "registryDelegates";
-        fields[11] = "tokens";
+        fields[9] = "upgradeMigration";
+        fields[10] = "renameMigration";
+        fields[11] = "registryDelegates";
+        fields[12] = "tokens";
         if (isBase) {
-            fields[12] = "qsep";
+            fields[13] = "qsep";
         }
         return fields;
     }
