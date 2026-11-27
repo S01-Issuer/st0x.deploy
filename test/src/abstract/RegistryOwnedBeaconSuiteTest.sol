@@ -35,13 +35,15 @@ abstract contract RegistryOwnedBeaconSuiteTest is Test, StoxDeploySuites {
     }
 
     function deploySuite() external returns (address[] memory) {
-        return deployLocally(declaration(), vm, beaconSuite());
+        return deployLocally(declaration(), LibRainDeployDeclaration.emptyIndex(), vm, beaconSuite());
     }
 
     function etchBeaconDependencyClosure() internal {
         address[] memory own = new address[](1);
         own[0] = pin();
-        LibRainDeployDeclaration.etchDependencyClosure(declaration(), vm, beaconSuite(), own);
+        LibRainDeployDeclaration.etchDependencyClosure(
+            declaration(), LibRainDeployDeclaration.emptyIndex(), vm, beaconSuite(), own
+        );
     }
 
     function bindBeaconInitialOwner(address owner) internal {

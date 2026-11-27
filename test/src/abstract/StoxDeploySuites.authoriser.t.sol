@@ -8,6 +8,7 @@ import {
     DeploySuite
 } from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.43/src/lib/LibRainDeployDeclaration.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
@@ -53,7 +54,7 @@ contract StoxDeploySuitesAuthoriserTest is StoxAuthorizerInitTest, StoxDeploySui
     }
 
     function deployOnChain() external {
-        deployLocallyOnChain(declaration(), vm, authoriserSuite());
+        deployLocallyOnChain(declaration(), LibRainDeployDeclaration.emptyIndex(), vm, authoriserSuite());
     }
 
     function assertAdminSeated(address admin) internal view {
@@ -83,7 +84,7 @@ contract StoxDeploySuitesAuthoriserTest is StoxAuthorizerInitTest, StoxDeploySui
     function testAuthoriserSuiteDeploysTheCloneOnEveryCandidateNetwork() external {
         DeploySuite memory suite = authoriserSuite();
         bindAuthoriserInitialAdmin(LibTimelockInvariants.STOX_GOVERNANCE_TIMELOCK);
-        address[] memory deployed = deployLocally(declaration(), vm, suite);
+        address[] memory deployed = deployLocally(declaration(), LibRainDeployDeclaration.emptyIndex(), vm, suite);
         SupportedNetwork[] memory nets = networks();
         assertEq(deployed.length, nets.length, "deployed");
         for (uint256 i = 0; i < deployed.length; i++) {

@@ -6,6 +6,7 @@ import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {DeployDeclaration, DeploySuite} from "rain-deploy-0.1.43/src/abstract/RainDeploySuitesBase.sol";
 import {IConfigRegistryV5} from "rain-deploy-0.1.43/src/interface/IConfigRegistryV5.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.43/src/lib/LibRainDeploy.sol";
+import {LibRainDeployDeclaration} from "rain-deploy-0.1.43/src/lib/LibRainDeployDeclaration.sol";
 import {LibRegistryAuthority} from "rain-deploy-0.1.43/src/lib/LibRegistryAuthority.sol";
 
 import {StoxDeploySuites} from "../../../src/abstract/StoxDeploySuites.sol";
@@ -50,7 +51,7 @@ contract StoxDeploySuitesOrchestratorProxyTest is Test, StoxDeploySuites {
         for (uint256 i = 0; i < nets.length; i++) {
             assertEq(deployedAddress(declared, suite, nets[i].chainId), instance, nets[i].name);
         }
-        address[] memory deployed = deployLocally(declared, vm, suite);
+        address[] memory deployed = deployLocally(declared, LibRainDeployDeclaration.emptyIndex(), vm, suite);
         assertEq(deployed.length, nets.length, "deployed");
         for (uint256 i = 0; i < deployed.length; i++) {
             assertEq(deployed[i], instance, nets[i].name);
