@@ -29,8 +29,8 @@ error UnexpectedMigrationLine(bytes32 head);
 
 /// @notice The registry would not let the account write the root line, so
 /// the record would revert.
-/// @param safe The account.
-error SafeNotApprovedWriter(address safe);
+/// @param delegate The account.
+error RootLineWriterNotApproved(address delegate);
 
 /// @notice After the bundle, the migration's record is not the one the
 /// bundle wrote.
@@ -50,15 +50,18 @@ error LineHeadMismatch(bytes32 head);
 /// those records.
 ///
 /// Every record is on one line: writer `LibRegistryAuthority.ROOT_AUTHORITY`,
-/// namespace `NAMESPACE`. The chain's token-owner Safe, the root's delegate for
-/// `NAMESPACE` or unscoped, writes every record, so the line does not depend
-/// on which account performs a migration:
+/// namespace `NAMESPACE`, written by the root's delegates for `NAMESPACE` or
+/// unscoped: the chain's token-owner Safe and its governance timelock. So the
+/// line does not depend on which account performs a migration:
 ///
 /// - a migration the Safe performs directly is recorded as the last call of
 ///   the Safe's MultiSend, so the record and the change land atomically;
 /// - a migration executed through the governance timelock is recorded by the
-///   Safe in its next bundle after the operation executes; no record rides in
-///   a timelock batch, so a pending batch never holds the line.
+///   Safe in its next bundle after the operation executes, or as the last call
+///   of the timelock batch, written by the timelock at execution. The line is
+///   not held during the delay: a migration recorded onto the head meanwhile
+///   makes the batch's record revert at execution, and the fix is cancel and
+///   reschedule.
 ///
 /// A migration that ran before anything was recorded is recorded later as
 /// history, with the moment it executed. Until that record lands, `applied`
@@ -200,8 +203,9 @@ library LibStoxMigrations {
         return LibMigrationRegistry.onto(LibRegistryAuthority.ROOT_AUTHORITY, NAMESPACE, declared.onto);
     }
 
-    /// @notice The registry call, sent by the Safe as the root's delegate for
-    /// `NAMESPACE` or unscoped, that writes `declared`'s record. Verifies the
+    /// @notice The registry call that writes `declared`'s record, sent by a root
+    /// delegate for `NAMESPACE` or unscoped: the Safe in its bundle, or the
+    /// timelock as a batch's last call. Verifies the
     /// registry's code hash first.
     /// @param declared The declaration.
     /// @return The registry.
@@ -228,7 +232,7 @@ library LibStoxMigrations {
     function assertNext(ScriptDeclaration memory declared, address delegate) internal view {
         bytes32 lineHead = head();
         if (lineHead != declared.onto) revert UnexpectedMigrationLine(lineHead);
-        if (!approved(delegate)) revert SafeNotApprovedWriter(delegate);
+        if (!approved(delegate)) revert RootLineWriterNotApproved(delegate);
     }
 
     /// @notice Reverts unless `declared` was recorded in this block and heads

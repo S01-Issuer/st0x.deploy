@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2020 Rain Open Source Software Ltd
 pragma solidity ^0.8.25;
 
-import {Region} from "../interface/IStoxTokenConfigV1.sol";
+import {AssetId, AssetIdKind, Region} from "../interface/IStoxTokenConfigV1.sol";
 
 /// @notice The deploy-time configuration for one production token — the
 /// inputs `StoxUnifiedDeployer.newTokenAndWrapperVault` needs to reproduce
@@ -31,7 +31,7 @@ import {Region} from "../interface/IStoxTokenConfigV1.sol";
 ///
 /// The underlying snapshot is built from `ticker`, `underlyingName` and
 /// `isin`.
-/// @param assetId The listing-time ISIN of the share line the token tracks.
+/// @param assetId The listing-time id of the share line the token tracks.
 /// @param listingTicker The underlying's ticker as listed.
 /// @param listingName The underlying's name as listed.
 /// @param underlying The frozen chain-agnostic join key, matching
@@ -48,7 +48,7 @@ import {Region} from "../interface/IStoxTokenConfigV1.sol";
 /// (MSTR, RKLB).
 /// @param isin The underlying share line's current ISIN.
 struct TokenConfig {
-    string assetId;
+    AssetId assetId;
     string listingTicker;
     string listingName;
     string underlying;
@@ -93,7 +93,7 @@ library LibProdTokenConfig {
         configs[0] = TokenConfig({
             underlying: "MSTR",
             ticker: "MSTR",
-            assetId: "US5949724083",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US5949724083"}),
             listingTicker: "MSTR",
             listingName: "MicroStrategy Incorporated",
             name: "MicroStrategy Incorporated ST0x",
@@ -105,7 +105,7 @@ library LibProdTokenConfig {
         configs[1] = TokenConfig({
             underlying: "TSLA",
             ticker: "TSLA",
-            assetId: "US88160R1014",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US88160R1014"}),
             listingTicker: "TSLA",
             listingName: "Tesla Inc",
             name: "Tesla Inc ST0x",
@@ -117,7 +117,7 @@ library LibProdTokenConfig {
         configs[2] = TokenConfig({
             underlying: "COIN",
             ticker: "COIN",
-            assetId: "US19260Q1076",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US19260Q1076"}),
             listingTicker: "COIN",
             listingName: "Coinbase Global Inc",
             name: "Coinbase Global Inc ST0x",
@@ -129,7 +129,7 @@ library LibProdTokenConfig {
         configs[3] = TokenConfig({
             underlying: "SPYM",
             ticker: "SPYM",
-            assetId: "US78464A8541",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US78464A8541"}),
             listingTicker: "SPYM",
             listingName: "State Street SPDR Portfolio S&P 500 ETF",
             name: "State Street SPDR Portfolio S&P 500 ETF ST0x",
@@ -141,7 +141,7 @@ library LibProdTokenConfig {
         configs[4] = TokenConfig({
             underlying: "SIVR",
             ticker: "SIVR",
-            assetId: "US0032641088",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US0032641088"}),
             listingTicker: "SIVR",
             listingName: "abrdn Physical Silver Shares ETF",
             name: "abrdn Physical Silver Shares ETF ST0x",
@@ -153,7 +153,7 @@ library LibProdTokenConfig {
         configs[5] = TokenConfig({
             underlying: "CRCL",
             ticker: "CRCL",
-            assetId: "US1725731079",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US1725731079"}),
             listingTicker: "CRCL",
             listingName: "Circle Internet Group Inc",
             name: "Circle Internet Group Inc ST0x",
@@ -165,7 +165,7 @@ library LibProdTokenConfig {
         configs[6] = TokenConfig({
             underlying: "NVDA",
             ticker: "NVDA",
-            assetId: "US67066G1040",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US67066G1040"}),
             listingTicker: "NVDA",
             listingName: "NVIDIA Corporation",
             name: "NVIDIA Corporation ST0x",
@@ -177,7 +177,7 @@ library LibProdTokenConfig {
         configs[7] = TokenConfig({
             underlying: "IAU",
             ticker: "IAU",
-            assetId: "US4642852044",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US4642852044"}),
             listingTicker: "IAU",
             listingName: "iShares Gold Trust",
             name: "iShares Gold Trust ST0x",
@@ -189,7 +189,7 @@ library LibProdTokenConfig {
         configs[8] = TokenConfig({
             underlying: "PPLT",
             ticker: "PPLT",
-            assetId: "US0032601066",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US0032601066"}),
             listingTicker: "PPLT",
             listingName: "abrdn Physical Platinum Shares ETF",
             name: "abrdn Physical Platinum Shares ETF ST0x",
@@ -201,7 +201,7 @@ library LibProdTokenConfig {
         configs[9] = TokenConfig({
             underlying: "AMZN",
             ticker: "AMZN",
-            assetId: "US0231351067",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US0231351067"}),
             listingTicker: "AMZN",
             listingName: "Amazon.com Inc",
             name: "Amazon.com Inc ST0x",
@@ -213,7 +213,7 @@ library LibProdTokenConfig {
         configs[10] = TokenConfig({
             underlying: "BMNR",
             ticker: "BMNR",
-            assetId: "US09175A2069",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US09175A2069"}),
             listingTicker: "BMNR",
             listingName: "Bitmine Immersion Technologies, Inc",
             name: "Bitmine Immersion Technologies, Inc ST0x",
@@ -225,7 +225,7 @@ library LibProdTokenConfig {
         configs[11] = TokenConfig({
             underlying: "IBHG",
             ticker: "IBHG",
-            assetId: "US46436E4787",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US46436E4787"}),
             listingTicker: "IBHG",
             listingName: "iShares iBonds 2027 Term High Yield and Income ETF",
             name: "iShares iBonds 2027 Term High Yield and Income ETF ST0x",
@@ -238,7 +238,7 @@ library LibProdTokenConfig {
         configs[12] = TokenConfig({
             underlying: "SGOV",
             ticker: "SGOV",
-            assetId: "US46436E7186",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US46436E7186"}),
             listingTicker: "SGOV",
             listingName: "iShares 0-3 Month Treasury Bond ETF",
             name: " iShares 0-3 Month Treasury Bond ETF ST0x",
@@ -250,7 +250,7 @@ library LibProdTokenConfig {
         configs[13] = TokenConfig({
             underlying: "QQQM",
             ticker: "QQQM",
-            assetId: "US46138G6492",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US46138G6492"}),
             listingTicker: "QQQM",
             listingName: "Invesco NASDAQ 100 ETF",
             name: "Invesco NASDAQ 100 ETF ST0x",
@@ -262,7 +262,7 @@ library LibProdTokenConfig {
         configs[14] = TokenConfig({
             underlying: "VWO",
             ticker: "VWO",
-            assetId: "US9220428588",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US9220428588"}),
             listingTicker: "VWO",
             listingName: "Vanguard Emerging Markets Stock Index Fund",
             name: "Vanguard Emerging Markets Stock Index Fund ST0x",
@@ -274,7 +274,7 @@ library LibProdTokenConfig {
         configs[15] = TokenConfig({
             underlying: "ARKK",
             ticker: "ARKK",
-            assetId: "US00214Q1040",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US00214Q1040"}),
             listingTicker: "ARKK",
             listingName: "ARK Innovation ETF",
             name: "ARK Innovation ETF ST0x",
@@ -286,7 +286,7 @@ library LibProdTokenConfig {
         configs[16] = TokenConfig({
             underlying: "SPCX",
             ticker: "SPCX",
-            assetId: "US84615Q1031",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US84615Q1031"}),
             listingTicker: "SPCX",
             listingName: "Space Exploration Technologies Corp.",
             name: "Space Exploration Technologies Corp. ST0x",
@@ -298,7 +298,7 @@ library LibProdTokenConfig {
         configs[17] = TokenConfig({
             underlying: "CEG",
             ticker: "CEG",
-            assetId: "US21037T1097",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US21037T1097"}),
             listingTicker: "CEG",
             listingName: "Constellation Energy Corporation",
             name: "Constellation Energy Corporation ST0x",
@@ -310,7 +310,7 @@ library LibProdTokenConfig {
         configs[18] = TokenConfig({
             underlying: "DRAM",
             ticker: "DRAM",
-            assetId: "US77926X3200",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US77926X3200"}),
             listingTicker: "DRAM",
             listingName: "Roundhill Memory ETF",
             name: "Roundhill Memory ETF ST0x",
@@ -322,7 +322,7 @@ library LibProdTokenConfig {
         configs[19] = TokenConfig({
             underlying: "TSM",
             ticker: "TSM",
-            assetId: "US8740391003",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US8740391003"}),
             listingTicker: "TSM",
             listingName: "Taiwan Semiconductor Manufacturing Company Limited ADR",
             name: "Taiwan Semiconductor Manufacturing Company Limited ADR ST0x",
@@ -334,7 +334,7 @@ library LibProdTokenConfig {
         configs[20] = TokenConfig({
             underlying: "SKHY",
             ticker: "SKHY",
-            assetId: "US78392B2060",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US78392B2060"}),
             listingTicker: "SKHY",
             listingName: "SK hynix Inc. ADR",
             name: "SK hynix Inc. ADR ST0x",
@@ -346,7 +346,7 @@ library LibProdTokenConfig {
         configs[21] = TokenConfig({
             underlying: "ASML",
             ticker: "ASML",
-            assetId: "USN070592100",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "USN070592100"}),
             listingTicker: "ASML",
             listingName: "ASML Holding N.V.",
             name: "ASML Holding N.V. ST0x",
@@ -358,7 +358,7 @@ library LibProdTokenConfig {
         configs[22] = TokenConfig({
             underlying: "MU",
             ticker: "MU",
-            assetId: "US5951121038",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US5951121038"}),
             listingTicker: "MU",
             listingName: "Micron Technology, Inc.",
             name: "Micron Technology, Inc. ST0x",
@@ -370,7 +370,7 @@ library LibProdTokenConfig {
         configs[23] = TokenConfig({
             underlying: "AMD",
             ticker: "AMD",
-            assetId: "US0079031078",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US0079031078"}),
             listingTicker: "AMD",
             listingName: "Advanced Micro Devices, Inc.",
             name: "Advanced Micro Devices, Inc. ST0x",
@@ -382,7 +382,7 @@ library LibProdTokenConfig {
         configs[24] = TokenConfig({
             underlying: "AVGO",
             ticker: "AVGO",
-            assetId: "US11135F1012",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US11135F1012"}),
             listingTicker: "AVGO",
             listingName: "Broadcom Inc.",
             name: "Broadcom Inc. ST0x",
@@ -394,7 +394,7 @@ library LibProdTokenConfig {
         configs[25] = TokenConfig({
             underlying: "AMAT",
             ticker: "AMAT",
-            assetId: "US0382221051",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US0382221051"}),
             listingTicker: "AMAT",
             listingName: "Applied Materials, Inc.",
             name: "Applied Materials, Inc. ST0x",
@@ -406,7 +406,7 @@ library LibProdTokenConfig {
         configs[26] = TokenConfig({
             underlying: "LRCX",
             ticker: "LRCX",
-            assetId: "US5128073062",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US5128073062"}),
             listingTicker: "LRCX",
             listingName: "Lam Research Corporation",
             name: "Lam Research Corporation ST0x",
@@ -418,7 +418,7 @@ library LibProdTokenConfig {
         configs[27] = TokenConfig({
             underlying: "TTWO",
             ticker: "TTWO",
-            assetId: "US8740541094",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US8740541094"}),
             listingTicker: "TTWO",
             listingName: "Take-Two Interactive Software, Inc.",
             name: "Take-Two Interactive Software, Inc. ST0x",
@@ -430,7 +430,7 @@ library LibProdTokenConfig {
         configs[28] = TokenConfig({
             underlying: "RKLB",
             ticker: "RKLB",
-            assetId: "US7731211089",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US7731211089"}),
             listingTicker: "RKLB",
             listingName: "Rocket Lab USA Inc",
             name: "Rocket Lab USA Inc ST0x",
@@ -442,7 +442,7 @@ library LibProdTokenConfig {
         configs[29] = TokenConfig({
             underlying: "GOOGL",
             ticker: "GOOGL",
-            assetId: "US02079K3059",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US02079K3059"}),
             listingTicker: "GOOGL",
             listingName: "Alphabet Inc. Class A",
             name: "Alphabet Inc. Class A ST0x",
@@ -454,7 +454,7 @@ library LibProdTokenConfig {
         configs[30] = TokenConfig({
             underlying: "AAPL",
             ticker: "AAPL",
-            assetId: "US0378331005",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US0378331005"}),
             listingTicker: "AAPL",
             listingName: "Apple Inc.",
             name: "Apple Inc. ST0x",
@@ -466,7 +466,7 @@ library LibProdTokenConfig {
         configs[31] = TokenConfig({
             underlying: "MSFT",
             ticker: "MSFT",
-            assetId: "US5949181045",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US5949181045"}),
             listingTicker: "MSFT",
             listingName: "Microsoft Corporation",
             name: "Microsoft Corporation ST0x",
@@ -478,7 +478,7 @@ library LibProdTokenConfig {
         configs[32] = TokenConfig({
             underlying: "LLY",
             ticker: "LLY",
-            assetId: "US5324571083",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US5324571083"}),
             listingTicker: "LLY",
             listingName: "Eli Lilly and Company",
             name: "Eli Lilly and Company ST0x",
@@ -490,7 +490,7 @@ library LibProdTokenConfig {
         configs[33] = TokenConfig({
             underlying: "PTY",
             ticker: "PTY",
-            assetId: "US72201B1017",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US72201B1017"}),
             listingTicker: "PTY",
             listingName: "PIMCO Corporate & Income Opportunity Fund",
             name: "PIMCO Corporate & Income Opportunity Fund ST0x",
@@ -502,7 +502,7 @@ library LibProdTokenConfig {
         configs[34] = TokenConfig({
             underlying: "INTC",
             ticker: "INTC",
-            assetId: "US4581401001",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US4581401001"}),
             listingTicker: "INTC",
             listingName: "Intel Corporation",
             name: "Intel Corporation ST0x",
@@ -514,7 +514,7 @@ library LibProdTokenConfig {
         configs[35] = TokenConfig({
             underlying: "HOOD",
             ticker: "HOOD",
-            assetId: "US7707001027",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US7707001027"}),
             listingTicker: "HOOD",
             listingName: "Robinhood Markets, Inc.",
             name: "Robinhood Markets, Inc. ST0x",
@@ -526,7 +526,7 @@ library LibProdTokenConfig {
         configs[36] = TokenConfig({
             underlying: "ORCL",
             ticker: "ORCL",
-            assetId: "US68389X1054",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US68389X1054"}),
             listingTicker: "ORCL",
             listingName: "Oracle Corporation",
             name: "Oracle Corporation ST0x",
@@ -538,7 +538,7 @@ library LibProdTokenConfig {
         configs[37] = TokenConfig({
             underlying: "SMCI",
             ticker: "SMCI",
-            assetId: "US86800U3023",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US86800U3023"}),
             listingTicker: "SMCI",
             listingName: "Super Micro Computer, Inc.",
             name: "Super Micro Computer, Inc. ST0x",
@@ -550,7 +550,7 @@ library LibProdTokenConfig {
         configs[38] = TokenConfig({
             underlying: "BABA",
             ticker: "BABA",
-            assetId: "US01609W1027",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US01609W1027"}),
             listingTicker: "BABA",
             listingName: "Alibaba Group Holding Limited ADR",
             name: "Alibaba Group Holding Limited ADR ST0x",
@@ -562,7 +562,7 @@ library LibProdTokenConfig {
         configs[39] = TokenConfig({
             underlying: "TQQQ",
             ticker: "TQQQ",
-            assetId: "US74347X8314",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US74347X8314"}),
             listingTicker: "TQQQ",
             listingName: "ProShares UltraPro QQQ",
             name: "ProShares UltraPro QQQ ST0x",
@@ -574,7 +574,7 @@ library LibProdTokenConfig {
         configs[40] = TokenConfig({
             underlying: "FTF",
             ticker: "FTF",
-            assetId: "US35472T1016",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US35472T1016"}),
             listingTicker: "FTF",
             listingName: "Franklin Limited Duration Income Trust",
             name: "Franklin Limited Duration Income Trust ST0x",
@@ -586,7 +586,7 @@ library LibProdTokenConfig {
         configs[41] = TokenConfig({
             underlying: "CBRS",
             ticker: "CBRS",
-            assetId: "US15675D1037",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US15675D1037"}),
             listingTicker: "CBRS",
             listingName: "Cerebras Systems Inc.",
             name: "Cerebras Systems Inc. ST0x",
@@ -598,7 +598,7 @@ library LibProdTokenConfig {
         configs[42] = TokenConfig({
             underlying: "MCD",
             ticker: "MCD",
-            assetId: "US5801351017",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US5801351017"}),
             listingTicker: "MCD",
             listingName: "McDonald's Corporation",
             name: "McDonald's Corporation ST0x",
@@ -610,7 +610,7 @@ library LibProdTokenConfig {
         configs[43] = TokenConfig({
             underlying: "NKE",
             ticker: "NKE",
-            assetId: "US6541061031",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US6541061031"}),
             listingTicker: "NKE",
             listingName: "NIKE, Inc.",
             name: "NIKE, Inc. ST0x",
@@ -622,7 +622,7 @@ library LibProdTokenConfig {
         configs[44] = TokenConfig({
             underlying: "GRND",
             ticker: "GRND",
-            assetId: "US39854F1012",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US39854F1012"}),
             listingTicker: "GRND",
             listingName: "Grindr Inc.",
             name: "Grindr Inc. ST0x",
@@ -634,7 +634,7 @@ library LibProdTokenConfig {
         configs[45] = TokenConfig({
             underlying: "DNUT",
             ticker: "DNUT",
-            assetId: "US50101L1061",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US50101L1061"}),
             listingTicker: "DNUT",
             listingName: "Krispy Kreme, Inc.",
             name: "Krispy Kreme, Inc. ST0x",
@@ -646,7 +646,7 @@ library LibProdTokenConfig {
         configs[46] = TokenConfig({
             underlying: "PLBY",
             ticker: "PLBY",
-            assetId: "US72814P1093",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US72814P1093"}),
             listingTicker: "PLBY",
             listingName: "Playboy, Inc.",
             name: "Playboy, Inc. ST0x",
@@ -658,7 +658,7 @@ library LibProdTokenConfig {
         configs[47] = TokenConfig({
             underlying: "TR",
             ticker: "TR",
-            assetId: "US8905161076",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US8905161076"}),
             listingTicker: "TR",
             listingName: "Tootsie Roll Industries, Inc.",
             name: "Tootsie Roll Industries, Inc. ST0x",
@@ -670,7 +670,7 @@ library LibProdTokenConfig {
         configs[48] = TokenConfig({
             underlying: "WEN",
             ticker: "WEN",
-            assetId: "US95058W1009",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US95058W1009"}),
             listingTicker: "WEN",
             listingName: "The Wendy's Company",
             name: "The Wendy's Company ST0x",
@@ -682,7 +682,7 @@ library LibProdTokenConfig {
         configs[49] = TokenConfig({
             underlying: "FGI",
             ticker: "FGI",
-            assetId: "KYG3302D2024",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "KYG3302D2024"}),
             listingTicker: "FGI",
             listingName: "FGI Industries Ltd.",
             name: "FGI Industries Ltd. ST0x",
@@ -697,7 +697,7 @@ library LibProdTokenConfig {
         configs[50] = TokenConfig({
             underlying: "BIRD",
             ticker: "BIRD",
-            assetId: "US01675A2087",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US01675A2087"}),
             listingTicker: "BIRD",
             listingName: "Smartbird, Inc.",
             name: "Smartbird, Inc. ST0x",
@@ -711,7 +711,7 @@ library LibProdTokenConfig {
         configs[51] = TokenConfig({
             underlying: "SPY",
             ticker: "SPY",
-            assetId: "US78462F1030",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US78462F1030"}),
             listingTicker: "SPY",
             listingName: "State Street SPDR S&P 500 ETF Trust",
             name: "State Street SPDR S&P 500 ETF Trust ST0x",
@@ -725,7 +725,7 @@ library LibProdTokenConfig {
         configs[52] = TokenConfig({
             underlying: "SNES",
             ticker: "SNES",
-            assetId: "US81720R6045",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US81720R6045"}),
             listingTicker: "SNES",
             listingName: "SenesTech, Inc.",
             name: "SenesTech, Inc. ST0x",
@@ -740,7 +740,7 @@ library LibProdTokenConfig {
         configs[53] = TokenConfig({
             underlying: "WMT",
             ticker: "WMT",
-            assetId: "US9311421039",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US9311421039"}),
             listingTicker: "WMT",
             listingName: "Walmart Inc.",
             name: "Walmart Inc. ST0x",
@@ -752,7 +752,7 @@ library LibProdTokenConfig {
         configs[54] = TokenConfig({
             underlying: "MC",
             ticker: "MC",
-            assetId: "FR0000121014",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "FR0000121014"}),
             listingTicker: "MC",
             listingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
             name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x",
@@ -764,7 +764,7 @@ library LibProdTokenConfig {
         configs[55] = TokenConfig({
             underlying: "DIS",
             ticker: "DIS",
-            assetId: "US2546871060",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US2546871060"}),
             listingTicker: "DIS",
             listingName: "The Walt Disney Company",
             name: "The Walt Disney Company ST0x",
@@ -776,7 +776,7 @@ library LibProdTokenConfig {
         configs[56] = TokenConfig({
             underlying: "IFX",
             ticker: "IFX",
-            assetId: "DE0006231004",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "DE0006231004"}),
             listingTicker: "IFX",
             listingName: "Infineon Technologies AG",
             name: "Infineon Technologies AG ST0x",
@@ -788,7 +788,7 @@ library LibProdTokenConfig {
         configs[57] = TokenConfig({
             underlying: "SOI",
             ticker: "SOI",
-            assetId: "FR0013227113",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "FR0013227113"}),
             listingTicker: "SOI",
             listingName: "Soitec SA",
             name: "Soitec SA ST0x",
@@ -800,7 +800,7 @@ library LibProdTokenConfig {
         configs[58] = TokenConfig({
             underlying: "TPRO",
             ticker: "TPRO",
-            assetId: "IT0005482333",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "IT0005482333"}),
             listingTicker: "TPRO",
             listingName: "Technoprobe S.p.A.",
             name: "Technoprobe S.p.A. ST0x",
@@ -819,7 +819,7 @@ library LibProdTokenConfig {
         configs[0] = TokenConfig({
             underlying: "AIR.PA",
             ticker: "AIR.PA",
-            assetId: "NL0000235190",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "NL0000235190"}),
             listingTicker: "AIR",
             listingName: "Airbus SE",
             name: "Airbus SE ST0x",
@@ -831,7 +831,7 @@ library LibProdTokenConfig {
         configs[1] = TokenConfig({
             underlying: "BMW.DE",
             ticker: "BMW.DE",
-            assetId: "DE0005190003",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "DE0005190003"}),
             listingTicker: "BMW",
             listingName: "Bayerische Motoren Werke Aktiengesellschaft",
             name: "Bayerische Motoren Werke Aktiengesellschaft ST0x",
@@ -843,7 +843,7 @@ library LibProdTokenConfig {
         configs[2] = TokenConfig({
             underlying: "MC.PA",
             ticker: "MC.PA",
-            assetId: "FR0000121014",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "FR0000121014"}),
             listingTicker: "MC",
             listingName: unicode"LVMH Moët Hennessy Louis Vuitton SE",
             name: unicode"LVMH Moët Hennessy Louis Vuitton SE ST0x",
@@ -855,7 +855,7 @@ library LibProdTokenConfig {
         configs[3] = TokenConfig({
             underlying: "SIE.DE",
             ticker: "SIE.DE",
-            assetId: "DE0007236101",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "DE0007236101"}),
             listingTicker: "SIE",
             listingName: "Siemens Aktiengesellschaft",
             name: "Siemens Aktiengesellschaft ST0x",
@@ -867,7 +867,7 @@ library LibProdTokenConfig {
         configs[4] = TokenConfig({
             underlying: "MBG.DE",
             ticker: "MBG.DE",
-            assetId: "DE0007100000",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "DE0007100000"}),
             listingTicker: "MBG",
             listingName: "Mercedes-Benz Group AG",
             name: "Mercedes-Benz Group AG ST0x",
@@ -879,7 +879,7 @@ library LibProdTokenConfig {
         configs[5] = TokenConfig({
             underlying: "RHM.DE",
             ticker: "RHM.DE",
-            assetId: "DE0007030009",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "DE0007030009"}),
             listingTicker: "RHM",
             listingName: "Rheinmetall AG",
             name: "Rheinmetall AG ST0x",
@@ -1000,7 +1000,7 @@ library LibProdTokenConfig {
         configs[0] = TokenConfig({
             underlying: "USTEST",
             ticker: "USTEST",
-            assetId: "US78462F1030",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US78462F1030"}),
             listingTicker: "USTEST",
             listingName: "US Test",
             name: "US Test ST0x",
@@ -1012,7 +1012,7 @@ library LibProdTokenConfig {
         configs[1] = TokenConfig({
             underlying: "EUTEST",
             ticker: "EUTEST",
-            assetId: "US78462F1030",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US78462F1030"}),
             listingTicker: "EUTEST",
             listingName: "EU Test",
             name: "EU Test ST0x",
@@ -1029,6 +1029,15 @@ library LibProdTokenConfig {
     /// @return The row. Reverts `UnknownUnderlying` when there is none.
     function configOf(string memory underlying) internal pure returns (TokenConfig memory) {
         return rowIn(underlying, productionTokenConfigs(), offBaseTokenConfigs());
+    }
+
+    /// @notice The row of `table` for `underlying`.
+    /// @param underlying The ticker join key.
+    /// @param table The table searched, e.g. one `canonicalTokenConfigs()`
+    /// build shared across many lookups.
+    /// @return The row. Reverts `UnknownUnderlying` when there is none.
+    function configOf(string memory underlying, TokenConfig[] memory table) internal pure returns (TokenConfig memory) {
+        return rowIn(underlying, table, new TokenConfig[](0));
     }
 
     /// @notice The region of the production or off-Base row for

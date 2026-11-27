@@ -3,6 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
+import {AssetId, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibTokenMetadata, TokenMetadataState} from "../../../src/lib/LibTokenMetadata.sol";
 
@@ -12,7 +13,7 @@ import {LibTokenMetadata, TokenMetadataState} from "../../../src/lib/LibTokenMet
 contract LibTokenMetadataTest is Test {
     function config() internal pure returns (TokenConfig memory) {
         return TokenConfig({
-            assetId: "US67066G1040",
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: "US67066G1040"}),
             listingTicker: "NVDA",
             listingName: "NVIDIA Corporation",
             underlying: "NVDA",

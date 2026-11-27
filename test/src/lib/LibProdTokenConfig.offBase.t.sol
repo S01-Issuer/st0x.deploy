@@ -27,7 +27,7 @@ contract LibProdTokenConfigOffBaseTest is Test {
         for (uint256 i = 0; i < rows.length; i++) {
             TokenConfig memory found = LibProdTokenConfig.configOf(rows[i].underlying);
             string memory label = rows[i].underlying;
-            assertEq(found.assetId, rows[i].assetId, string.concat(label, " assetId"));
+            assertEq(abi.encode(found.assetId), abi.encode(rows[i].assetId), string.concat(label, " assetId"));
             assertEq(found.listingTicker, rows[i].listingTicker, string.concat(label, " listingTicker"));
             assertEq(found.listingName, rows[i].listingName, string.concat(label, " listingName"));
             assertEq(found.underlying, rows[i].underlying, string.concat(label, " underlying"));

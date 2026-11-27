@@ -19,7 +19,7 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x2F9Ed1Bbb21485e4Ca34275D33bD51B61Edb9425"
+          "renamedImplementation": "0xfb791Df1a6F7d9dC82262AF7dc7EEEDA767804ca"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
@@ -70,7 +70,7 @@
           "unscoped": true
         }
       ],
-      "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
+      "renameMigration": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
         "fallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
@@ -2057,6 +2057,7 @@
           "wrappedTokenVaultSymbol": "wtRHM.DE"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -2210,7 +2211,7 @@
           "unscoped": true
         }
       ],
-      "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
+      "renameMigration": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
         "fallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
@@ -4197,6 +4198,7 @@
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -4294,7 +4296,7 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x2F9Ed1Bbb21485e4Ca34275D33bD51B61Edb9425"
+          "renamedImplementation": "0xfb791Df1a6F7d9dC82262AF7dc7EEEDA767804ca"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
@@ -4345,7 +4347,7 @@
           "unscoped": true
         }
       ],
-      "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
+      "renameMigration": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
         "fallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
@@ -6332,6 +6334,7 @@
           "wrappedTokenVaultSymbol": "wtRHM.DE"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -6434,7 +6437,7 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x2F9Ed1Bbb21485e4Ca34275D33bD51B61Edb9425"
+          "renamedImplementation": "0xfb791Df1a6F7d9dC82262AF7dc7EEEDA767804ca"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
@@ -6485,7 +6488,7 @@
           "unscoped": true
         }
       ],
-      "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
+      "renameMigration": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
         "fallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
@@ -8472,6 +8475,7 @@
           "wrappedTokenVaultSymbol": "wtRHM.DE"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -8574,7 +8578,7 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x48ba1371A78E6cC54157c63721756ab444510DB3",
-          "renamedImplementation": "0x2F9Ed1Bbb21485e4Ca34275D33bD51B61Edb9425"
+          "renamedImplementation": "0xfb791Df1a6F7d9dC82262AF7dc7EEEDA767804ca"
         },
         {
           "beacon": "0x4c2d2d3Bf1232bf0d3FB7123007A9B8444637bC8",
@@ -8641,7 +8645,7 @@
           "unscoped": true
         }
       ],
-      "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
+      "renameMigration": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
       "safe": {
         "address": "0xe70d821f3462a074e63b42d0AaC6523faAe1d611",
         "fallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
@@ -10448,6 +10452,7 @@
           "wrappedTokenVaultSymbol": "wtTPRO"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",
@@ -10550,7 +10555,7 @@
           "codehash": "0x8e95867e52db417944afd90f3b6c3c980962831e8a944e7f6958ba8f8cc10630",
           "implementation": "0x52174538a83b18462c5cF898016539B086c920C7",
           "owner": "0x831E4e1bB2b9a67C00b7d17F252A18a22cd0bD2B",
-          "renamedImplementation": "0x2F9Ed1Bbb21485e4Ca34275D33bD51B61Edb9425"
+          "renamedImplementation": "0xfb791Df1a6F7d9dC82262AF7dc7EEEDA767804ca"
         },
         {
           "beacon": "0x9FD790f65CA3aF2772358c653F097f0a4c7EE7d2",
@@ -10601,7 +10606,7 @@
           "unscoped": true
         }
       ],
-      "renameMigration": "0xdb5ef986dc4f7bfd8e32c1ce772cfd820f03b142b96044f33c019782c97273e2",
+      "renameMigration": "0x933e465b962e2417c890cdb5545b101fd719b931597138569f778a2decefff3a",
       "safe": {
         "address": "0x3840aeDaEc8e82f79d8F6a8F6ADCa271E13E0329",
         "fallbackHandler": "0xfd0732Dc9E303f09fCEf3a7388Ad10A83459Ec99",
@@ -12588,6 +12593,7 @@
           "wrappedTokenVaultSymbol": "wtRHM.DE"
         }
       ],
+      "upgradeMigration": "0x43b60cbbe0baf80197f9bd765484b69a4ce99c4bb6e1ac3a0e2d127529c5ec61",
       "zoltu": [
         {
           "address": "0x2dF5cFE6d688EF9fF1B7c59A499D254b1527b286",

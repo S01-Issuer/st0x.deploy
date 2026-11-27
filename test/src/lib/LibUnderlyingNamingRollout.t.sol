@@ -4,6 +4,7 @@ pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
 import {LibRainDeploy, SupportedNetwork} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
+import {LibMigrationRegistryDeploy} from "rain-deploy-0.1.38/src/lib/LibMigrationRegistryDeploy.sol";
 import {
     LibUnderlyingNamingRollout,
     MalformedUnderlying,
@@ -11,9 +12,13 @@ import {
     UnderlyingNamingNotCutForChain,
     UnderlyingNamingTokenTableShort
 } from "../../../src/lib/LibUnderlyingNamingRollout.sol";
+import {AssetId, AssetIdKind} from "../../../src/interface/IStoxTokenConfigV1.sol";
 import {LibProdTokenConfig, TokenConfig, Region} from "../../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../../src/lib/LibSafeInvariants.sol";
 import {LibStoxDeployNetworks} from "../../../src/lib/LibStoxDeployNetworks.sol";
+import {LibStoxMigrations} from "../../../src/lib/LibStoxMigrations.sol";
+import {LibLocalProdState} from "../../lib/LibLocalProdState.sol";
+import {LibTestRootLine} from "../../lib/LibTestRootLine.sol";
 import {LibTokenInvariants, NoTokenTableForChain, TokenInstance} from "../../../src/lib/LibTokenInvariants.sol";
 import {RUNTIME_CODE as RECEIPT_VAULT_RUNTIME_CODE} from "../../../src/generated/candidate/StoxReceiptVault.sol";
 import {DownstreamNotReadyRenameHarness} from "../../script/DownstreamNotReadyRenameHarness.sol";
@@ -47,7 +52,7 @@ contract LibUnderlyingNamingRolloutTest is Test {
         returns (TokenConfig memory)
     {
         return TokenConfig({
-            assetId: isin,
+            assetId: AssetId({kind: AssetIdKind.ISIN, id: isin}),
             listingTicker: ticker,
             listingName: underlyingName,
             underlying: ticker,
@@ -256,6 +261,61 @@ contract LibUnderlyingNamingRolloutTest is Test {
         this.externalLeadingRows(1, shorter);
     }
 
+    /// Each batch's last call writes its root-line record on every chain it was cut for: the beacon batch onto
+    /// the Safe-owned Base vault handover, the rename batch onto the beacon batch's record.
+    function testEachBatchEndsWithItsRootLineRecord() external {
+        LibTestRootLine.etchRegistry(vm);
+        SupportedNetwork[] memory networks =
+            LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.networksBeforeZerog());
+        assertEq(networks.length, 5, "five chains");
+        for (uint256 networkIndex = 0; networkIndex < networks.length; networkIndex++) {
+            uint256 chainId = networks[networkIndex].chainId;
+            string memory network = networks[networkIndex].name;
+            uint256 snapshot = vm.snapshotState();
+            LibLocalProdState.beacons(vm, chainId);
+            (address[] memory targets, uint256[] memory values, bytes[] memory payloads) =
+                LibUnderlyingNamingRollout.beaconBatch(chainId);
+            vm.revertToState(snapshot);
+            assertRecordLast(
+                targets,
+                values,
+                payloads,
+                LibTestRootLine.recordCalldata(
+                    LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS,
+                    LibStoxMigrations.HAND_SAFE_OWNED_BASE_VAULTS_TO_TIMELOCK
+                ),
+                string.concat(network, ": beacon batch")
+            );
+            (targets, values, payloads) = LibUnderlyingNamingRollout.renameBatch(chainId);
+            assertRecordLast(
+                targets,
+                values,
+                payloads,
+                LibTestRootLine.recordCalldata(
+                    LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_RENAME,
+                    LibStoxMigrations.SCHEDULE_UNDERLYING_NAMING_BEACONS
+                ),
+                string.concat(network, ": rename batch")
+            );
+        }
+    }
+
+    function assertRecordLast(
+        address[] memory targets,
+        uint256[] memory values,
+        bytes[] memory payloads,
+        bytes memory record,
+        string memory label
+    ) internal pure {
+        uint256 last = targets.length - 1;
+        assertEq(targets[last], LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, label);
+        assertEq(values[last], 0, label);
+        assertEq(payloads[last], record, label);
+        for (uint256 callIndex = 0; callIndex < last; callIndex++) {
+            assertTrue(targets[callIndex] != LibMigrationRegistryDeploy.MIGRATION_REGISTRY_DEPLOYED_ADDRESS, label);
+        }
+    }
+
     function externalBeaconTokens(uint256 chainId) external pure returns (TokenInstance[] memory) {
         return LibUnderlyingNamingRollout.beaconTokens(chainId);
     }
@@ -301,7 +361,8 @@ contract LibUnderlyingNamingRolloutTest is Test {
 
     /// `unrenamedTokens` is `beaconTokens` without the vaults the rename batch
     /// targets, in order: the rows the rename skips, then tQSEP on Base.
-    function testUnrenamedTokensAreTheBeaconTokensTheRenameSkips() external pure {
+    function testUnrenamedTokensAreTheBeaconTokensTheRenameSkips() external {
+        LibTestRootLine.etchRegistry(vm);
         uint256[5] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
             uint256 chainId = chainIds[chainIndex];
@@ -333,14 +394,9 @@ contract LibUnderlyingNamingRolloutTest is Test {
     }
 
     /// `renamesRow` holds for exactly the table rows whose vault the rename batch targets.
-    function testRenamesRowIsTheRenameBatchTargets() external pure {
-        uint256[5] memory chainIds = [
-            LibSafeInvariants.BASE_CHAIN_ID,
-            LibSafeInvariants.ETHEREUM_CHAIN_ID,
-            LibSafeInvariants.HYPEREVM_CHAIN_ID,
-            LibSafeInvariants.ROBINHOOD_CHAIN_ID,
-            LibSafeInvariants.BSC_CHAIN_ID
-        ];
+    function testRenamesRowIsTheRenameBatchTargets() external {
+        LibTestRootLine.etchRegistry(vm);
+        uint256[5] memory chainIds = rolloutChainIds();
         for (uint256 chainIndex = 0; chainIndex < chainIds.length; chainIndex++) {
             (address[] memory targets,,) = LibUnderlyingNamingRollout.renameBatch(chainIds[chainIndex]);
             TokenInstance[] memory table = LibTokenInvariants.productionTokensForChainId(chainIds[chainIndex]);

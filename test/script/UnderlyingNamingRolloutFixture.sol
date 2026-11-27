@@ -19,6 +19,7 @@ import {ScheduleUnderlyingNamingRenameHarness} from "./ScheduleUnderlyingNamingR
 import {BackfillMigrationRegistryV5Harness} from "./BackfillMigrationRegistryV5Harness.sol";
 import {OrchestratorAdminToTimelockHarness} from "./OrchestratorAdminToTimelockHarness.sol";
 import {LibTestBeaconInitialOwnerBind} from "../lib/LibTestBeaconInitialOwnerBind.sol";
+import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {HandSafeOwnedBaseVaultsToTimelockHarness} from "./HandSafeOwnedBaseVaultsToTimelockHarness.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
@@ -32,7 +33,8 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
     /// @notice Lands, as the Safe would, the root-line records before the
     /// beacon schedule: the V5 backfill, the 0G token creation record, the
     /// beacon-initial-owner bind, the orchestrator admin move, then the
-    /// Safe-owned Base vault handover.
+    /// Safe-owned Base vault handover; then the root approves the timelock,
+    /// which writes each batch's record.
     function advanceRootLineToBeaconSchedule() internal {
         Safe safe = Safe(payable(LibSafeInvariants.safeForChainId(block.chainid)));
         BackfillMigrationRegistryV5Harness backfill = new BackfillMigrationRegistryV5Harness("underlying-naming");
@@ -46,6 +48,7 @@ abstract contract UnderlyingNamingRolloutFixture is Test {
             new HandSafeOwnedBaseVaultsToTimelockHarness("underlying-naming");
         handover.callPreflight();
         LibSafeFork.executeBundle(vm, safe, handover.callAuthorBundle());
+        LibTestRootLine.approve(vm, LibTimelockInvariants.timelockForChainId(block.chainid));
         assertEq(LibStoxMigrations.head(), scheduleUnderlyingNamingBeaconsDeclaration().onto, "line at the beacon onto");
     }
 
