@@ -15,7 +15,7 @@ import {LibRainDeploy} from "rain-deploy-0.1.38/src/lib/LibRainDeploy.sol";
 import {LibProdDeployV1} from "../../../../src/lib/LibProdDeployV1.sol";
 import {LibProdDeployCurrent} from "../../../../src/generated/LibProdDeployCurrent.sol";
 import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
-import {IStoxUnderlyingV1} from "../../../../src/interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../../../../src/interface/IStoxUnderlyingV2.sol";
 import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../../src/error/ErrCorporateAction.sol";
 
@@ -23,19 +23,19 @@ import {CorporateActionsFacetNotDeployed} from "../../../../src/error/ErrCorpora
 /// and name set, with the NVDA pair reporting its initialized metadata.
 uint256 constant NAMING_PRE_ROLLOUT_BLOCK_BASE = 52662900;
 
-/// @title UnderlyingNamingUpgradeShadowForkTest
+/// @title BeaconUpgradeShadowForkTest
 /// @notice Applies the current corporate-actions facet, receipt vault and
 /// wrapped token vault implementations to the live Base NVDA pair on a fork
-/// pinned before the rollout. `testRecommendedRolloutOrder` runs the order
-/// the rollout uses (facet deployed, wrapper upgrade, vault upgrade,
-/// `setUnderlying`) and checks metadata and supply after every step. The
+/// pinned before the beacon upgrade. `testRecommendedRolloutOrder` runs the
+/// beacon upgrade's order (facet deployed, wrapper upgrade, vault upgrade),
+/// then `setUnderlying`, and checks metadata and supply after every step. The
 /// other tests cover single steps, the vault-first order, and a vault
 /// upgraded before its facet exists.
 ///
 /// @dev Implementations are planted at their deterministic candidate addresses
 /// with `deployCodeTo`, so constructors (the facet's `_SELF`) run in place, and
 /// each beacon is upgraded by its live owner.
-contract UnderlyingNamingUpgradeShadowForkTest is Test {
+contract BeaconUpgradeShadowForkTest is Test {
     IERC20Metadata internal constant VAULT = IERC20Metadata(LibTokenInvariants.NVDA_RECEIPT_VAULT);
     IERC4626 internal constant WRAPPER = IERC4626(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT);
 
@@ -93,7 +93,7 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
 
     function setNvda() internal {
         vm.prank(OwnableUpgradeable(address(VAULT)).owner());
-        IStoxUnderlyingV1(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV2(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation", "US67066G1040");
     }
 
     function assertSupplyIntact() internal view {
@@ -120,16 +120,16 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         assertEq(sWrapperNameBefore, "Wrapped NVIDIA Corporation ST0x");
     }
 
-    /// The rollout order: wrapper upgrade, vault upgrade, then
-    /// `setUnderlying`. No visible metadata moves until the final step, which
-    /// renames both tokens together.
+    /// The beacon upgrade's order, wrapper then vault, then `setUnderlying`.
+    /// No visible metadata moves until `setUnderlying`, which renames both
+    /// tokens together.
     function testRecommendedRolloutOrder() external {
         upgradeWrapper();
         assertMetadataUnchanged();
         assertSupplyIntact();
 
         upgradeVault();
-        assertEq(IStoxUnderlyingV1(address(VAULT)).underlyingSymbol(), "");
+        assertEq(IStoxUnderlyingV2(address(VAULT)).underlyingSymbol(), "");
         assertMetadataUnchanged();
         assertSupplyIntact();
 
@@ -171,7 +171,7 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         address owner = OwnableUpgradeable(address(VAULT)).owner();
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         vm.prank(owner);
-        IStoxUnderlyingV1(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV2(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation", "US67066G1040");
     }
 
     /// Only the vault owner sets the underlying on a live vault.
@@ -180,6 +180,6 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         vm.assume(caller != OwnableUpgradeable(address(VAULT)).owner());
         vm.expectRevert(abi.encodeWithSelector(OwnableUpgradeable.OwnableUnauthorizedAccount.selector, caller));
         vm.prank(caller);
-        IStoxUnderlyingV1(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation");
+        IStoxUnderlyingV2(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation", "US67066G1040");
     }
 }

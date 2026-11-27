@@ -20,7 +20,7 @@ import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
 import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title ScheduleRevokeServiceSignerDepositWithdrawRootLineTest
-/// @notice The revoke schedule on Base, from the line at the naming execution's
+/// @notice The revoke schedule on Base, from the line at the beacon upgrade execution's
 /// onto.
 contract ScheduleRevokeServiceSignerDepositWithdrawRootLineTest is
     RevokeServiceSignerDepositWithdrawFixture,
@@ -35,16 +35,16 @@ contract ScheduleRevokeServiceSignerDepositWithdrawRootLineTest is
     }
 
     function declaredOnto() internal pure override returns (bytes32) {
-        return LibStoxMigrations.EXECUTE_UNDERLYING_NAMING;
+        return LibStoxMigrations.EXECUTE_BEACON_UPGRADE;
     }
 
     function landBeforeOnto() internal override {
         LibTestPreBackfillFork.select(vm, LibRainDeploy.BASE);
-        advanceRootLineToNamingExecution();
+        advanceRootLineToBeaconUpgradeExecution();
     }
 
     function landOnto() internal override {
-        landNamingExecutionRecord();
+        landBeaconUpgradeExecutionRecord();
     }
 
     /// @dev Past the delay the post-state refuses the ready operation before the record.

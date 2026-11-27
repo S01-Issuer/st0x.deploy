@@ -9,14 +9,14 @@ import {LibProdTokenConfig} from "../../src/lib/LibProdTokenConfig.sol";
 /// @title BuildExpectedStateHarness
 /// @notice External shim so `vm.expectRevert` can intercept reverts from the script's internal emitters.
 contract BuildExpectedStateHarness is BuildExpectedState {
-    function callTokenMetadataJson(uint256 chainId, string memory row, uint256 i, TokenInstance memory token) external {
-        tokenMetadataJson(chainId, row, i, token, LibProdTokenConfig.configOf(token.underlying));
+    function callTokenMetadataJson(string memory row, TokenInstance memory token) external {
+        tokenMetadataJson(row, token, LibProdTokenConfig.configOf(token.underlying));
     }
 
-    /// @dev The metadata fields `tokenMetadataJson` writes for row `i` on `chainId`, as a JSON object.
-    function tokenMetadata(uint256 chainId, uint256 i, TokenInstance memory token) external returns (string memory) {
-        string memory row = string.concat("metadata.", vm.toString(chainId), ".", vm.toString(i));
-        tokenMetadataJson(chainId, row, i, token, LibProdTokenConfig.configOf(token.underlying));
+    /// @dev The metadata fields `tokenMetadataJson` writes for `token`, as a JSON object.
+    function tokenMetadata(TokenInstance memory token) external returns (string memory) {
+        string memory row = string.concat("metadata.", token.underlying);
+        tokenMetadataJson(row, token, LibProdTokenConfig.configOf(token.underlying));
         return vm.serializeString(row, "underlying", token.underlying);
     }
 }

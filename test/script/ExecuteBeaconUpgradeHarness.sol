@@ -4,17 +4,17 @@ pragma solidity =0.8.25;
 
 import {SafeTx} from "rain-deploy-0.1.38/src/lib/LibSafeTx.sol";
 
-import {ExecuteUnderlyingNaming} from "../../script/20261021-execute-underlying-naming.s.sol";
+import {ExecuteBeaconUpgrade} from "../../script/20261021-execute-beacon-upgrade.s.sol";
 
 /// @dev Exposes the script's hooks; tags the artifact path because `run()` rewrites it and tests run in parallel.
-contract ExecuteUnderlyingNamingHarness is ExecuteUnderlyingNaming {
+contract ExecuteBeaconUpgradeHarness is ExecuteBeaconUpgrade {
     string internal sArtifactTag;
 
     constructor(string memory artifactTag) {
         sArtifactTag = artifactTag;
     }
 
-    /// @inheritdoc ExecuteUnderlyingNaming
+    /// @inheritdoc ExecuteBeaconUpgrade
     function artifactPath() internal view override returns (string memory) {
         return vm.replace(super.artifactPath(), ".json", string.concat("-", sArtifactTag, ".json"));
     }

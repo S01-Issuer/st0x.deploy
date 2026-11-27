@@ -289,12 +289,12 @@ contract WorkflowChoicesTest is Test {
     function testChoicesStripDoubleQuotesAndComments() external view {
         string[] memory found = this.externalChoicesIn(
             "inputs:\n  script:\n    options:\n      - \"20261030-backfill-migration-registry-v5\"\n"
-            "      - 20261021-execute-underlying-naming # the executor\n  network:\n",
+            "      - 20261021-execute-beacon-upgrade # the executor\n  network:\n",
             "script"
         );
         assertEq(found.length, 2, "two choices");
         assertEq(found[0], "20261030-backfill-migration-registry-v5", "double quotes");
-        assertEq(found[1], "20261021-execute-underlying-naming", "comment");
+        assertEq(found[1], "20261021-execute-beacon-upgrade", "comment");
     }
 
     /// A line inside the options block that is not a choice is refused rather than ending the list.
@@ -647,9 +647,7 @@ contract WorkflowChoicesTest is Test {
         this.externalAssertOffered(
             one("20261030-backfill-migration-registry-v5"), one("20261030-backfill-migration-registry-v5"), none
         );
-        this.externalAssertOffered(
-            one("20261021-execute-underlying-naming"), none, one("20261021-execute-underlying-naming")
-        );
+        this.externalAssertOffered(one("20261021-execute-beacon-upgrade"), none, one("20261021-execute-beacon-upgrade"));
         vm.expectRevert(bytes("no workflow offers 20261030-backfill-migration-registry-v5"));
         this.externalAssertOffered(one("20261030-backfill-migration-registry-v5"), none, none);
     }

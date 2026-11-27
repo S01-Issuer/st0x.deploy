@@ -54,7 +54,6 @@ import {
     ReceiptVaultOwnerMismatch,
     TokenInstance
 } from "../../src/lib/LibTokenInvariants.sol";
-import {LibUnderlyingNamingRollout} from "../../src/lib/LibUnderlyingNamingRollout.sol";
 
 contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
     function forkAtBackfill(string memory network, string memory tag)
@@ -136,9 +135,8 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         );
     }
 
-    function vaultOutsideTheRenameRows() internal view returns (address) {
+    function lastProductionVault() internal view returns (address) {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(block.chainid);
-        assertGt(tokens.length, LibUnderlyingNamingRollout.TOKEN_COUNT, "a production vault outside the rename's rows");
         return tokens[tokens.length - 1].receiptVault;
     }
 
@@ -156,7 +154,6 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
             LibAuthoriserInvariants.GRANTEE_EU_MINTER
         );
         LibTokenInvariants.assertUniformOwnership(tokens, timelock);
-        LibUnderlyingNamingRollout.assertTickersBound(block.chainid);
 
         // tMSTR, moved to the timelock by the 2026-07-29 migration.
         TokenInstance memory migrated = tokens[0];
@@ -215,7 +212,7 @@ contract HandSafeOwnedBaseVaultsToTimelockTest is Test {
         uint256 snapshot = vm.snapshotState();
         address safe = LibSafeInvariants.safeForChainId(block.chainid);
         address timelock = LibTimelockInvariants.timelockForChainId(block.chainid);
-        address vault = vaultOutsideTheRenameRows();
+        address vault = lastProductionVault();
         vm.prank(timelock);
         Ownable(vault).transferOwnership(safe);
         vm.expectRevert(abi.encodeWithSelector(VaultNotOnTimelock.selector, vault, safe));

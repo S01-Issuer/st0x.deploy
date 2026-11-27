@@ -28,14 +28,16 @@ contract LibTokenMetadataTest is Test {
 
     function testRenamedMetadata() external pure {
         TokenConfig memory row = config();
+        row.ticker = "NVDY";
         assertEq(LibTokenMetadata.renamedName(row), "NVIDIA Corporation (ST0x)");
-        assertEq(LibTokenMetadata.renamedWrappedSymbol(row), "NVDAs");
+        assertEq(LibTokenMetadata.renamedWrappedSymbol(row), "NVDYs");
     }
 
     function testMetadataInEachState() external pure {
         TokenConfig memory row = config();
         row.listingTicker = "NVDX";
         row.listingName = "NVIDIA Corp";
+        row.ticker = "NVDY";
         TokenMetadataState initialized = TokenMetadataState.Initialized;
         assertEq(LibTokenMetadata.vaultName(row, initialized), "NVIDIA Corporation ST0x");
         assertEq(LibTokenMetadata.vaultSymbol(row, initialized), "tNVDA");
@@ -48,8 +50,8 @@ contract LibTokenMetadataTest is Test {
         assertEq(LibTokenMetadata.wrappedSymbol(row, listed), "NVDXs");
         TokenMetadataState renamed = TokenMetadataState.Renamed;
         assertEq(LibTokenMetadata.vaultName(row, renamed), "NVIDIA Corporation (ST0x)");
-        assertEq(LibTokenMetadata.vaultSymbol(row, renamed), "tNVDA");
+        assertEq(LibTokenMetadata.vaultSymbol(row, renamed), "tNVDY");
         assertEq(LibTokenMetadata.wrappedName(row, renamed), "NVIDIA Corporation (ST0x)");
-        assertEq(LibTokenMetadata.wrappedSymbol(row, renamed), "NVDAs");
+        assertEq(LibTokenMetadata.wrappedSymbol(row, renamed), "NVDYs");
     }
 }

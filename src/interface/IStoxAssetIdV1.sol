@@ -4,6 +4,6 @@ pragma solidity ^0.8.25;
 
 /// @dev Not proof that a token is genuine; only the pinned address is.
 interface IStoxAssetIdV1 {
-    /// @return The token's current asset id (an ISIN), or "" for a vault initialized before StoxTokenConfigV1.
+    /// @return The override ISIN, else the StoxTokenConfigV1 asset id, else "".
     function assetId() external view returns (string memory);
 }

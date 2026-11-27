@@ -23,7 +23,7 @@ import {
     StoxTokenConfigV1,
     STOX_TOKEN_CONFIG_V1_TAG
 } from "../../../src/interface/IStoxTokenConfigV1.sol";
-import {IStoxUnderlyingV1} from "../../../src/interface/IStoxUnderlyingV1.sol";
+import {IStoxUnderlyingV2} from "../../../src/interface/IStoxUnderlyingV2.sol";
 import {LibProdDeployCurrent} from "../../../src/generated/LibProdDeployCurrent.sol";
 import {LibAuthoriserInvariants} from "../../../src/lib/LibAuthoriserInvariants.sol";
 import {Region, TokenConfig} from "../../../src/lib/LibProdTokenConfig.sol";
@@ -159,8 +159,8 @@ contract StoxDeploySuitesTokenRowsBaseForkTest is Test, StoxDeploySuites {
         StoxReceiptVault vault = StoxReceiptVault(payable(token));
         assertEq(vault.name(), LibTokenMetadata.vaultName(config, TokenMetadataState.Listed), config.underlying);
         assertEq(vault.symbol(), LibTokenMetadata.vaultSymbol(config, TokenMetadataState.Listed), config.underlying);
-        assertEq(IStoxUnderlyingV1(token).underlyingSymbol(), config.listingTicker, config.underlying);
-        assertEq(IStoxUnderlyingV1(token).underlyingName(), config.listingName, config.underlying);
+        assertEq(IStoxUnderlyingV2(token).underlyingSymbol(), config.listingTicker, config.underlying);
+        assertEq(IStoxUnderlyingV2(token).underlyingName(), config.listingName, config.underlying);
         assertEq(vault.owner(), LibProdDeployCurrent.STOX_GOVERNANCE_TIMELOCK, config.underlying);
         assertEq(
             address(vault.authorizer()),
