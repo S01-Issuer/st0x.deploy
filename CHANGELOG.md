@@ -27,6 +27,14 @@
   `STOX_GOVERNANCE_TIMELOCK` (`NameNotRegistered` when unbound,
   `BeaconInitialOwnerMismatch` when bound to another address); before, it had no
   check.
+- **`Deploy.preDeployCheck` refuses a token suite unless the bound vault beacon
+  is owned by the governance timelock and serves
+  `LibProdDeployCurrent.STOX_RECEIPT_VAULT` and its code**
+  (`LibBeaconInvariants.assertBeaconInvariants`: `BeaconOwnerMismatch`,
+  `BeaconImplementationMismatch`, `BeaconImplNotDeployed`), because a token's
+  address commits to the beacon name, not the implementation. The vault beacon
+  is a suite dependency, so the broadcaster's dependency check refuses it with
+  no code or other code first.
 
 ## Registry-config tokens (rain.vats 0.2.9)
 
@@ -51,8 +59,9 @@
 ### Token init data (`StoxTokenConfigV1`)
 
 - **Tokens initialize from the listing facts.** Init data is
-  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the listing-time
-  ISIN, ticker and name, the region, the ConfigRegistry authority, RBAC and
+  `abi.encode(STOX_TOKEN_CONFIG_V1_TAG, StoxTokenConfigV1)`: the token's
+  starting asset id (`AssetId`: an `AssetIdKind`, only `ISIN`, and the id),
+  ticker and name, the region, the ConfigRegistry authority, RBAC and
   receipt-beacon names, and opaque metadata. `StoxReceiptVault.initialize`
   delegatecalls the facet's `initializeStoxToken`, which refuses
   `InvalidStoxTokenConfigTag`, `NonCanonicalStoxTokenConfig`,

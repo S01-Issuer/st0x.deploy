@@ -4,7 +4,7 @@ pragma solidity ^0.8.25;
 
 import {IOwnable} from "../interface/IOwnable.sol";
 import {IAuthorisable} from "../interface/IAuthorisable.sol";
-import {LibProdTokenConfig, Region} from "./LibProdTokenConfig.sol";
+import {LibProdTokenConfig, Region, TokenConfig} from "./LibProdTokenConfig.sol";
 import {LibAuthoriserInvariants} from "./LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "./LibSafeInvariants.sol";
 
@@ -925,11 +925,11 @@ library LibTokenInvariants {
     }
 
     /// @notice Returns the production token instance triples on Ethereum
-    /// mainnet — Base's underlyings in Base row order, so the tables pair by
-    /// index as well as by key.
+    /// mainnet — Base's underlyings in Base row order, then the six
+    /// off-Base tokens in creation order. Pair rows by underlying.
     /// @return tokens The production token instances on Ethereum.
     function productionTokensEthereum() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](59);
+        tokens = new TokenInstance[](65);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: address(0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763),
@@ -1284,14 +1284,50 @@ library LibTokenInvariants {
             receiptVault: address(0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536),
             wrappedTokenVault: address(0x5d6775Cb5b22faF47471986e99265C1a4846d845)
         });
+        tokens[59] = TokenInstance({
+            underlying: "AIR.PA",
+            receipt: address(0x9452c603A552f35003206f9001C51007C36F530F),
+            receiptVault: address(0x4Da175A70020EeEFa71C36d710307ed0803Aed60),
+            wrappedTokenVault: address(0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c)
+        });
+        tokens[60] = TokenInstance({
+            underlying: "BMW.DE",
+            receipt: address(0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C),
+            receiptVault: address(0x6872cEe8E1a07Dd8C1154755f7e215F2973caE52),
+            wrappedTokenVault: address(0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8)
+        });
+        tokens[61] = TokenInstance({
+            underlying: "MC.PA",
+            receipt: address(0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F),
+            receiptVault: address(0xaE7115d434c84F2f4a1196BaD67415d479804af1),
+            wrappedTokenVault: address(0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a)
+        });
+        tokens[62] = TokenInstance({
+            underlying: "SIE.DE",
+            receipt: address(0xee6F971a9Bf473355286749b52Bfe614Df5fC129),
+            receiptVault: address(0x269CA594b6463F0D94086fb2D77dFaad32d1c6C4),
+            wrappedTokenVault: address(0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054)
+        });
+        tokens[63] = TokenInstance({
+            underlying: "MBG.DE",
+            receipt: address(0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4),
+            receiptVault: address(0xA1768baE756058fE00dD281C405DDe1C48B00F3B),
+            wrappedTokenVault: address(0x6a73364EaE305199B62585C4486C24f3b72b2C72)
+        });
+        tokens[64] = TokenInstance({
+            underlying: "RHM.DE",
+            receipt: address(0xbf56725da5a71B3111C660c2279ADA6D1270772E),
+            receiptVault: address(0x8790337c4Ce51b66CBa179129d830A3683780ff6),
+            wrappedTokenVault: address(0x24ae429A29882b06898afCBAef20BfDb93f67e20)
+        });
     }
 
     /// @notice Returns the production token instance triples on HyperEVM,
-    /// in the same row order as `productionTokensBase()` (the cross-chain
-    /// parity pin asserts the alignment).
+    /// in `productionTokensBase()` row order, then the six off-Base
+    /// tokens in creation order. Pair rows by underlying.
     /// @return tokens The production token instances on HyperEVM.
     function productionTokensHyperEvm() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](59);
+        tokens = new TokenInstance[](65);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -1645,15 +1681,51 @@ library LibTokenInvariants {
             receipt: address(0xe26C011A6dcFd8286a3Cf47718F14299d33f9478),
             receiptVault: address(0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536),
             wrappedTokenVault: address(0x5d6775Cb5b22faF47471986e99265C1a4846d845)
+        });
+        tokens[59] = TokenInstance({
+            underlying: "AIR.PA",
+            receipt: address(0x9452c603A552f35003206f9001C51007C36F530F),
+            receiptVault: address(0x4Da175A70020EeEFa71C36d710307ed0803Aed60),
+            wrappedTokenVault: address(0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c)
+        });
+        tokens[60] = TokenInstance({
+            underlying: "BMW.DE",
+            receipt: address(0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C),
+            receiptVault: address(0x6872cEe8E1a07Dd8C1154755f7e215F2973caE52),
+            wrappedTokenVault: address(0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8)
+        });
+        tokens[61] = TokenInstance({
+            underlying: "MC.PA",
+            receipt: address(0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F),
+            receiptVault: address(0xaE7115d434c84F2f4a1196BaD67415d479804af1),
+            wrappedTokenVault: address(0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a)
+        });
+        tokens[62] = TokenInstance({
+            underlying: "SIE.DE",
+            receipt: address(0xee6F971a9Bf473355286749b52Bfe614Df5fC129),
+            receiptVault: address(0x269CA594b6463F0D94086fb2D77dFaad32d1c6C4),
+            wrappedTokenVault: address(0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054)
+        });
+        tokens[63] = TokenInstance({
+            underlying: "MBG.DE",
+            receipt: address(0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4),
+            receiptVault: address(0xA1768baE756058fE00dD281C405DDe1C48B00F3B),
+            wrappedTokenVault: address(0x6a73364EaE305199B62585C4486C24f3b72b2C72)
+        });
+        tokens[64] = TokenInstance({
+            underlying: "RHM.DE",
+            receipt: address(0xbf56725da5a71B3111C660c2279ADA6D1270772E),
+            receiptVault: address(0x8790337c4Ce51b66CBa179129d830A3683780ff6),
+            wrappedTokenVault: address(0x24ae429A29882b06898afCBAef20BfDb93f67e20)
         });
     }
 
     /// @notice Returns the production token instance triples on Robinhood
-    /// Chain (chain id 4663) — Base's underlyings in Base row order, so the
-    /// tables pair by index as well as by key.
+    /// Chain (chain id 4663) — Base's underlyings in Base row order, then the
+    /// six off-Base tokens. Pair rows by underlying.
     /// @return tokens The production token instances on Robinhood Chain.
     function productionTokensRobinhood() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](59);
+        tokens = new TokenInstance[](65);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0xE3772C8695c2cf3dcAA2Dd29759f4Bb91a342763,
@@ -2008,14 +2080,50 @@ library LibTokenInvariants {
             receiptVault: address(0xb4e960909A3fe9179Ed7e0FBC6ABF3301Ce85536),
             wrappedTokenVault: address(0x5d6775Cb5b22faF47471986e99265C1a4846d845)
         });
+        tokens[59] = TokenInstance({
+            underlying: "AIR.PA",
+            receipt: address(0x9452c603A552f35003206f9001C51007C36F530F),
+            receiptVault: address(0x4Da175A70020EeEFa71C36d710307ed0803Aed60),
+            wrappedTokenVault: address(0xc3bc6EEf91FfAeBACB13f4c48aC0515C820d2b0c)
+        });
+        tokens[60] = TokenInstance({
+            underlying: "BMW.DE",
+            receipt: address(0x7bc0B10f99c95F9F3e1e12a436a3869B53c9cb9C),
+            receiptVault: address(0x6872cEe8E1a07Dd8C1154755f7e215F2973caE52),
+            wrappedTokenVault: address(0x36FE4dc30b3b4906c9A64D5C957D49388E8d38E8)
+        });
+        tokens[61] = TokenInstance({
+            underlying: "MC.PA",
+            receipt: address(0xc562dB7c3B8A41cBF8B84D3C057787723BD13d2F),
+            receiptVault: address(0xaE7115d434c84F2f4a1196BaD67415d479804af1),
+            wrappedTokenVault: address(0xeaA6da57f120D5a0acB9Ff4807F7990EfBbE303a)
+        });
+        tokens[62] = TokenInstance({
+            underlying: "SIE.DE",
+            receipt: address(0xee6F971a9Bf473355286749b52Bfe614Df5fC129),
+            receiptVault: address(0x269CA594b6463F0D94086fb2D77dFaad32d1c6C4),
+            wrappedTokenVault: address(0x08A85a5AcE300e881e7c8828412A3Bdfd6F99054)
+        });
+        tokens[63] = TokenInstance({
+            underlying: "MBG.DE",
+            receipt: address(0x5536F0308E969C2DB0e52dBe99CB6871cC9E35f4),
+            receiptVault: address(0xA1768baE756058fE00dD281C405DDe1C48B00F3B),
+            wrappedTokenVault: address(0x6a73364EaE305199B62585C4486C24f3b72b2C72)
+        });
+        tokens[64] = TokenInstance({
+            underlying: "RHM.DE",
+            receipt: address(0xbf56725da5a71B3111C660c2279ADA6D1270772E),
+            receiptVault: address(0x8790337c4Ce51b66CBa179129d830A3683780ff6),
+            wrappedTokenVault: address(0x24ae429A29882b06898afCBAef20BfDb93f67e20)
+        });
     }
 
     /// @notice Returns the production token instance triples on BNB Smart
-    /// Chain (chain id 56) — Base's underlyings in Base row order, so the
-    /// tables pair by index as well as by key.
+    /// Chain (chain id 56) — Base's underlyings in Base row order, then the
+    /// six off-Base tokens. Pair rows by underlying.
     /// @return tokens The production token instances on BNB Smart Chain.
     function productionTokensBsc() internal pure returns (TokenInstance[] memory tokens) {
-        tokens = new TokenInstance[](59);
+        tokens = new TokenInstance[](65);
         tokens[0] = TokenInstance({
             underlying: "MSTR",
             receipt: 0x8Ea1ba9Fc0CF7338B41DdDa5B778a9118274AEA8,
@@ -2369,6 +2477,42 @@ library LibTokenInvariants {
             receipt: address(0x3e461B61F8807bc1d7a6b64B4caC06670c50eb1D),
             receiptVault: address(0x21ebe855F15c2e1BAdea603c1cB07B964096A616),
             wrappedTokenVault: address(0x8626f71cFB43D7e14a26728ba74a5dc5170d7794)
+        });
+        tokens[59] = TokenInstance({
+            underlying: "AIR.PA",
+            receipt: address(0x079E9711E66b8e7A206ef23737374F4eD2Ff821b),
+            receiptVault: address(0x7a54A3D95721E086bC9F7F50ae6B6A2f440c5983),
+            wrappedTokenVault: address(0xADF02BecE4427217C2e2f5c221F625b6bfC02d0d)
+        });
+        tokens[60] = TokenInstance({
+            underlying: "BMW.DE",
+            receipt: address(0x2d5656B1861B7dE521dBd5dF8a0AaC3aA822D035),
+            receiptVault: address(0x710645EE06D013581617f9fDbCcFbcc8D891D43a),
+            wrappedTokenVault: address(0x11E2B27101A8074779195019937b43195234D1C8)
+        });
+        tokens[61] = TokenInstance({
+            underlying: "MC.PA",
+            receipt: address(0x5c5957E4bDCE3845D21fa33a71F425D57da8e1a2),
+            receiptVault: address(0x194C6Ebe9919C8681aa17C8814ee6c8A0534b28f),
+            wrappedTokenVault: address(0x20BAdF51225A689B3C5b17eAA71927c1D3C1d481)
+        });
+        tokens[62] = TokenInstance({
+            underlying: "SIE.DE",
+            receipt: address(0x56371804af362136D8f6F6b9ECd21D3e5c8dA740),
+            receiptVault: address(0xEA6093BAD015aF29ADfa4013904e0f75f140b59b),
+            wrappedTokenVault: address(0x795B83223EC78f2Ba6abD2Db23ddd4D6163A4e5C)
+        });
+        tokens[63] = TokenInstance({
+            underlying: "MBG.DE",
+            receipt: address(0x22122e8717ef11FE544495e700a1Fba8B5aF3d07),
+            receiptVault: address(0xa814255182F68cd5176bdb356A57411340F87d84),
+            wrappedTokenVault: address(0x3ef1367B12A4099caa73A003a4DB273Dd9a11E18)
+        });
+        tokens[64] = TokenInstance({
+            underlying: "RHM.DE",
+            receipt: address(0x8F63D208EFD46bD8632d93e97f9bA3A53089AF11),
+            receiptVault: address(0xc6E584f4341E418962A0DDe3F2969B6be58f1920),
+            wrappedTokenVault: address(0x83f8828b6EAd177Fb3D516b3dD7C2E96c39F84CE)
         });
     }
 
@@ -2873,9 +3017,16 @@ library LibTokenInvariants {
         pure
         returns (address)
     {
-        return LibProdTokenConfig.regionOf(underlying) == Region.EU
-            ? LibAuthoriserInvariants.euAuthoriserForChainId(chainId)
-            : usAuthoriser;
+        return expectedAuthoriser(LibProdTokenConfig.regionOf(underlying), usAuthoriser, chainId);
+    }
+
+    /// @notice The authoriser a receipt vault of `region` must report on a chain.
+    /// @param region The token's `LibProdTokenConfig` region.
+    /// @param usAuthoriser The authoriser every US receipt vault on the chain shares.
+    /// @param chainId The chain id.
+    /// @return The expected authoriser.
+    function expectedAuthoriser(Region region, address usAuthoriser, uint256 chainId) internal pure returns (address) {
+        return region == Region.EU ? LibAuthoriserInvariants.euAuthoriserForChainId(chainId) : usAuthoriser;
     }
 
     /// @notice Chain-parametric `assertUniformAuthoriser`: assert every
@@ -2890,8 +3041,11 @@ library LibTokenInvariants {
     /// @param tokens The token table whose receipt vaults are checked.
     /// @param expected The authoriser every US receipt vault must share.
     function assertUniformAuthoriser(TokenInstance[] memory tokens, address expected) internal view {
+        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
         for (uint256 i = 0; i < tokens.length; i++) {
-            address expectedForToken = expectedAuthoriser(tokens[i].underlying, expected, block.chainid);
+            address expectedForToken = expectedAuthoriser(
+                LibProdTokenConfig.configOf(tokens[i].underlying, configs).region, expected, block.chainid
+            );
             address actual = IAuthorisable(tokens[i].receiptVault).authorizer();
             if (actual != expectedForToken) {
                 revert ReceiptVaultAuthoriserMismatch(tokens[i].receiptVault, expectedForToken, actual);

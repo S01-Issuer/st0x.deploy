@@ -71,8 +71,8 @@ contract LibProdTokenParamsTest is Test {
             (bytes32 tag, StoxTokenConfigV1 memory config) = abi.decode(params[i].data, (bytes32, StoxTokenConfigV1));
             assertEq(abi.encode(tag, config), params[i].data, "canonical");
             assertEq(tag, STOX_TOKEN_CONFIG_V1_TAG, "tag");
-            assertEq(config.assetId, configs[i].assetId, "asset id");
-            assertEq(uint8(config.assetIdKind), uint8(AssetIdKind.ISIN), "asset id kind");
+            assertEq(config.assetId.id, configs[i].assetId.id, "asset id");
+            assertEq(uint8(config.assetId.kind), uint8(AssetIdKind.ISIN), "asset id kind");
             assertEq(config.listingTicker, configs[i].listingTicker, "listing ticker");
             assertEq(config.listingName, configs[i].listingName, "listing name");
             assertEq(uint8(config.region), uint8(configs[i].region), "region");

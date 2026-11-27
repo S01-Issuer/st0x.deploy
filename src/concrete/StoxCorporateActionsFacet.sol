@@ -297,7 +297,7 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         if (tag != STOX_TOKEN_CONFIG_V1_TAG) revert InvalidStoxTokenConfigTag(tag);
         (, StoxTokenConfigV1 memory config) = abi.decode(data, (bytes32, StoxTokenConfigV1));
         if (keccak256(abi.encode(tag, config)) != keccak256(data)) revert NonCanonicalStoxTokenConfig();
-        if (!LibSecurity.isinWellFormed(config.assetId)) revert MalformedAssetId(config.assetId);
+        if (!LibSecurity.isinWellFormed(config.assetId.id)) revert MalformedAssetId(config.assetId.id);
         if (!LibSecurity.tickerWellFormed(bytes(config.listingTicker))) {
             revert MalformedListingTicker(config.listingTicker);
         }
@@ -308,7 +308,6 @@ contract StoxCorporateActionsFacet is ICorporateActionsV1, IStoxUnderlyingV2, IS
         tokenConfigStorage.listingTicker = config.listingTicker;
         tokenConfigStorage.listingName = config.listingName;
         tokenConfigStorage.region = config.region;
-        tokenConfigStorage.assetIdKind = config.assetIdKind;
 
         emit StoxTokenInitialized(msg.sender, config);
 

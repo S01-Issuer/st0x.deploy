@@ -4,48 +4,50 @@ pragma solidity =0.8.25;
 
 import {IAccessControl} from "@openzeppelin-contracts-5.7.0/access/IAccessControl.sol";
 
-import {executeUnderlyingNamingDeclaration} from "../../script/20261021-execute-underlying-naming.s.sol";
-import {
-    scheduleUnderlyingNamingBeaconsDeclaration
-} from "../../script/20261021-schedule-underlying-naming-beacons.s.sol";
-import {scheduleUnderlyingNamingRenameDeclaration} from "../../script/20261021-schedule-underlying-naming-rename.s.sol";
+import {executeBeaconUpgradeDeclaration} from "../../script/20261021-execute-beacon-upgrade.s.sol";
+import {scheduleBeaconUpgradeDeclaration} from "../../script/20261021-schedule-beacon-upgrade.s.sol";
 import {
     scheduleRevokeServiceSignerDeclaration
 } from "../../script/20261109-schedule-revoke-service-signer-deposit-withdraw.s.sol";
 import {
     ScheduleRevokeServiceSignerDepositWithdrawHarness
 } from "./ScheduleRevokeServiceSignerDepositWithdrawHarness.sol";
-import {UnderlyingNamingRolloutFixture} from "./UnderlyingNamingRolloutFixture.sol";
+import {BeaconUpgradeFixture} from "./BeaconUpgradeFixture.sol";
 import {LibTestRootLine} from "../lib/LibTestRootLine.sol";
 import {ScriptDeclaration} from "../../src/interface/IStoxScript.sol";
 import {LibAuthoriserInvariants} from "../../src/lib/LibAuthoriserInvariants.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibStoxMigrations} from "../../src/lib/LibStoxMigrations.sol";
+import {LibTimelockInvariants} from "../../src/lib/LibTimelockInvariants.sol";
 
 /// @title RevokeServiceSignerDepositWithdrawFixture
 /// @notice Brings a forked deployment network to the service-signer revoke's
-/// onto. The naming records are written without their effects, which touch no
+/// onto. The beacon upgrade records are written without their effects, which touch no
 /// authoriser role.
-abstract contract RevokeServiceSignerDepositWithdrawFixture is UnderlyingNamingRolloutFixture {
+abstract contract RevokeServiceSignerDepositWithdrawFixture is BeaconUpgradeFixture {
     function writeRecord(ScriptDeclaration memory declared) internal {
         LibTestRootLine.write(vm, LibSafeInvariants.safeForChainId(block.chainid), declared.id, declared.onto);
     }
 
-    /// @notice Lands the root line up to the naming execution's onto.
-    function advanceRootLineToNamingExecution() internal {
-        advanceRootLineToBeaconSchedule();
-        writeRecord(scheduleUnderlyingNamingBeaconsDeclaration());
-        writeRecord(scheduleUnderlyingNamingRenameDeclaration());
+    function writeTimelockRecord(ScriptDeclaration memory declared) internal {
+        LibTestRootLine.write(vm, LibTimelockInvariants.timelockForChainId(block.chainid), declared.id, declared.onto);
     }
 
-    function landNamingExecutionRecord() internal {
-        writeRecord(executeUnderlyingNamingDeclaration());
+    /// @notice Lands the root line up to the beacon upgrade execution's onto: the
+    /// beacon batch's record, as the timelock.
+    function advanceRootLineToBeaconUpgradeExecution() internal {
+        advanceRootLineToBeaconSchedule();
+        writeTimelockRecord(scheduleBeaconUpgradeDeclaration());
+    }
+
+    function landBeaconUpgradeExecutionRecord() internal {
+        writeRecord(executeBeaconUpgradeDeclaration());
     }
 
     /// @notice Lands the root line up to the revoke schedule's onto.
     function advanceRootLineToRevokeSchedule() internal {
-        advanceRootLineToNamingExecution();
-        landNamingExecutionRecord();
+        advanceRootLineToBeaconUpgradeExecution();
+        landBeaconUpgradeExecutionRecord();
         assertEq(LibStoxMigrations.head(), scheduleRevokeServiceSignerDeclaration().onto, "line at the revoke onto");
     }
 

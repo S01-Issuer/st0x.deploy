@@ -24,7 +24,7 @@ import {LibTokenInvariants, TokenInstance} from "../src/lib/LibTokenInvariants.s
 import {LibProdTokenConfig, Region, TokenConfig} from "../src/lib/LibProdTokenConfig.sol";
 import {LibTokenMetadata, TokenMetadataState} from "../src/lib/LibTokenMetadata.sol";
 import {LibProdTokenParams} from "../src/lib/LibProdTokenParams.sol";
-import {LibUnderlyingNamingRollout} from "../src/lib/LibUnderlyingNamingRollout.sol";
+import {LibBeaconUpgrade} from "../src/lib/LibBeaconUpgrade.sol";
 import {LibProdDeployV4} from "../src/generated/LibProdDeployV4.sol";
 import {LibProdDeployV2} from "../src/lib/LibProdDeployV2.sol";
 import {LibProdDeployV2BaseOverrides} from "../src/lib/LibProdDeployV2BaseOverrides.sol";
@@ -33,17 +33,16 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 /// @title BuildExpectedState
 /// @notice Writes `expected-state.json`, the live state the dashboard checks. Under `chains`, per deployment network:
 /// `network`, `beaconSetDeployer`, `beacons` (the four in-use beacons: beacon,
-/// codehash, implementation, renamedImplementation once `renameMigration` is recorded, owner), the token-owner `safe`
+/// codehash, implementation, upgradeImplementation once `upgradeMigration` is recorded, owner), the token-owner `safe`
 /// lock-down, the `timelock`, the `orchestrator`, the V4
 /// `authoriser` and `euAuthoriser` clones (address, codehash), every released Zoltu suite declared on that network
-/// under `zoltu` (key, address, codehash), `renameMigration` (the migration whose record on the chain selects each
-/// token's renamed metadata; on a network its rename and beacon batches were not cut for, 0G, the renamed fields
-/// repeat the current ones), `registryDelegates` (each delegation the root is expected to have approved in a
+/// under `zoltu` (key, address, codehash), `upgradeMigration` (the beacon batch's record,
+/// `LibStoxMigrations.SCHEDULE_BEACON_UPGRADE`, on every network),
+/// `registryDelegates` (each delegation the root is expected to have approved in a
 /// registry it writes through: `registry`, `account`, `delegate`, `unscoped`; an unscoped one carries no `scope`, a
 /// scoped one its non-zero `scope`), and per production token under `tokens`: `underlying`, `assetId`, `listingTicker`,
-/// `listingName`, `region` (`US` or `EU`), `name`, `renamedName`, `symbol`, `decimals`, `wrappedTokenVaultName`,
-/// `wrappedTokenVaultRenamedName`, `wrappedTokenVaultSymbol`,
-/// `wrappedTokenVaultRenamedSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
+/// `listingName`, `region` (`US` or `EU`), `name`, `symbol`, `decimals`, `wrappedTokenVaultName`,
+/// `wrappedTokenVaultSymbol`, `wrappedTokenVaultDecimals`, `receiptVault`, `receipt`, `wrappedTokenVault`,
 /// `receiptVaultReceipt` (`receiptVault.receipt()`), `receiptManager` (`receipt.manager()`), `wrappedTokenVaultAsset`
 /// (`wrappedTokenVault.asset()`), the
 /// per-leg beacons `receiptVaultBeacon`, `receiptBeacon`, `wrappedTokenVaultBeacon`, the per-leg proxy codehashes
@@ -55,14 +54,12 @@ import {LibProdDeployV1} from "../src/lib/LibProdDeployV1.sol";
 contract BuildExpectedState is Script {
     string internal constant PATH = "expected-state.json";
 
-    /// The implementations `renameMigration`'s beacon batch moves the beacons to; the current ones where the batch was
-    /// not cut.
-    function renamedImplementations(uint256 chainId) internal pure returns (address[4] memory) {
+    /// The implementations `upgradeMigration`'s beacon batch moves the beacons to.
+    function upgradeImplementations(uint256 chainId) internal pure returns (address[4] memory) {
         address[4] memory impls = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
-        if (!LibUnderlyingNamingRollout.cutForChain(chainId)) return impls;
-        impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibUnderlyingNamingRollout.RECEIPT_VAULT_IMPLEMENTATION;
+        impls[LibBeaconInvariants.RECEIPT_VAULT_BEACON_INDEX] = LibBeaconUpgrade.RECEIPT_VAULT_IMPLEMENTATION;
         impls[LibBeaconInvariants.WRAPPED_TOKEN_VAULT_BEACON_INDEX] =
-        LibUnderlyingNamingRollout.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
+        LibBeaconUpgrade.WRAPPED_TOKEN_VAULT_IMPLEMENTATION;
         return impls;
     }
 
@@ -70,7 +67,7 @@ contract BuildExpectedState is Script {
         address[4] memory derived = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId);
         address[4] memory implementations = LibBeaconInvariants.prodExpectedImplementationsForChainId(chainId);
         bytes32[4] memory codehashes = LibBeaconInvariants.prodBeaconCodehashesForChainId(chainId);
-        address[4] memory renamed = renamedImplementations(chainId);
+        address[4] memory upgraded = upgradeImplementations(chainId);
         address owner = LibTimelockInvariants.timelockForChainId(chainId);
         string[] memory rows = new string[](derived.length);
         for (uint256 rowIndex = 0; rowIndex < rows.length; rowIndex++) {
@@ -78,7 +75,7 @@ contract BuildExpectedState is Script {
             vm.serializeAddress(row, "beacon", derived[rowIndex]);
             vm.serializeBytes32(row, "codehash", codehashes[rowIndex]);
             vm.serializeAddress(row, "implementation", implementations[rowIndex]);
-            vm.serializeAddress(row, "renamedImplementation", renamed[rowIndex]);
+            vm.serializeAddress(row, "upgradeImplementation", upgraded[rowIndex]);
             rows[rowIndex] = vm.serializeAddress(row, "owner", owner);
         }
         return rows;
@@ -145,28 +142,20 @@ contract BuildExpectedState is Script {
         return vm.serializeAddress(at, "instance", LibOrchestratorInvariants.ST0X_ORCHESTRATOR_INSTANCE);
     }
 
-    function tokenMetadataJson(uint256 chainId, string memory row, uint256 i, TokenInstance memory token) internal {
-        TokenConfig memory config = LibProdTokenConfig.configOf(token.underlying);
+    function tokenMetadataJson(string memory row, TokenInstance memory token, TokenConfig memory config) internal {
         vm.serializeString(row, "underlying", token.underlying);
-        vm.serializeString(row, "assetId", config.assetId);
+        vm.serializeString(row, "assetId", config.assetId.id);
         vm.serializeString(row, "listingTicker", config.listingTicker);
         vm.serializeString(row, "listingName", config.listingName);
         vm.serializeString(row, "region", config.region == Region.US ? "US" : "EU");
         TokenMetadataState state = token.receiptVault == LibProdTokenParams.tokenAddress(config)
             ? TokenMetadataState.Listed
             : TokenMetadataState.Initialized;
-        TokenMetadataState renamed = LibUnderlyingNamingRollout.cutForChain(chainId)
-            && LibUnderlyingNamingRollout.renamesRow(i)
-            ? TokenMetadataState.Renamed
-            : state;
         vm.serializeString(row, "name", LibTokenMetadata.vaultName(config, state));
-        vm.serializeString(row, "renamedName", LibTokenMetadata.vaultName(config, renamed));
         vm.serializeString(row, "symbol", LibTokenMetadata.vaultSymbol(config, state));
         vm.serializeUint(row, "decimals", LibTokenMetadata.RECEIPT_VAULT_DECIMALS);
         vm.serializeString(row, "wrappedTokenVaultName", LibTokenMetadata.wrappedName(config, state));
-        vm.serializeString(row, "wrappedTokenVaultRenamedName", LibTokenMetadata.wrappedName(config, renamed));
         vm.serializeString(row, "wrappedTokenVaultSymbol", LibTokenMetadata.wrappedSymbol(config, state));
-        vm.serializeString(row, "wrappedTokenVaultRenamedSymbol", LibTokenMetadata.wrappedSymbol(config, renamed));
         vm.serializeUint(row, "wrappedTokenVaultDecimals", LibTokenMetadata.WRAPPED_TOKEN_VAULT_DECIMALS);
     }
 
@@ -196,7 +185,19 @@ contract BuildExpectedState is Script {
         );
     }
 
-    function tokensJson(uint256 chainId, string memory key) internal returns (string[] memory) {
+    function tokenAuthorityJson(uint256 chainId, string memory row, Region region, address usAuthoriser)
+        internal
+        returns (string memory)
+    {
+        vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
+        return
+            vm.serializeAddress(row, "authoriser", LibTokenInvariants.expectedAuthoriser(region, usAuthoriser, chainId));
+    }
+
+    function tokensJson(uint256 chainId, string memory key, TokenConfig[] memory configs)
+        internal
+        returns (string[] memory)
+    {
         TokenInstance[] memory tokens = LibTokenInvariants.productionTokensForChainId(chainId);
         address usAuthoriser = LibAuthoriserInvariants.authoriserForChainId(chainId);
         address[4] memory beacons = LibBeaconInvariants.prodDerivedBeaconsForChainId(chainId);
@@ -204,12 +205,10 @@ contract BuildExpectedState is Script {
         string[] memory rows = new string[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
             string memory row = string.concat(key, ".token.", vm.toString(i));
-            tokenMetadataJson(chainId, row, i, tokens[i]);
+            TokenConfig memory config = LibProdTokenConfig.configOf(tokens[i].underlying, configs);
+            tokenMetadataJson(row, tokens[i], config);
             tokenLegsJson(row, tokens[i], beacons, proxyCodehashes);
-            vm.serializeAddress(row, "owner", LibTimelockInvariants.timelockForChainId(chainId));
-            rows[i] = vm.serializeAddress(
-                row, "authoriser", LibTokenInvariants.expectedAuthoriser(tokens[i].underlying, usAuthoriser, chainId)
-            );
+            rows[i] = tokenAuthorityJson(chainId, row, config.region, usAuthoriser);
         }
         return rows;
     }
@@ -313,7 +312,7 @@ contract BuildExpectedState is Script {
             : LibBeaconInvariants.prodBeaconSetDeployerForChainId(chainId);
     }
 
-    function chainJson(SupportedNetwork memory network) internal returns (string memory) {
+    function chainJson(SupportedNetwork memory network, TokenConfig[] memory configs) internal returns (string memory) {
         uint256 chainId = network.chainId;
         string memory key = vm.toString(chainId);
         vm.serializeString(key, "network", network.name);
@@ -341,12 +340,12 @@ contract BuildExpectedState is Script {
             )
         );
         vm.serializeString(key, "zoltu", zoltuJson(chainId, key));
-        vm.serializeBytes32(key, "renameMigration", LibStoxMigrations.EXECUTE_UNDERLYING_NAMING);
+        vm.serializeBytes32(key, "upgradeMigration", LibStoxMigrations.SCHEDULE_BEACON_UPGRADE);
         vm.serializeString(key, "registryDelegates", registryDelegatesJson(chainId, key));
         if (chainId == LibSafeInvariants.BASE_CHAIN_ID) {
             vm.serializeString(key, "qsep", qsepJson(chainId, key));
         }
-        return vm.serializeString(key, "tokens", tokensJson(chainId, key));
+        return vm.serializeString(key, "tokens", tokensJson(chainId, key, configs));
     }
 
     function v2DeploymentJson(string memory key, uint256 i, string memory name, address deployed, bytes32 codehash)
@@ -471,9 +470,10 @@ contract BuildExpectedState is Script {
     function render() public returns (string memory) {
         SupportedNetwork[] memory networks =
             LibRainDeploy.declaredNetworkConfigs(LibStoxDeployNetworks.deploymentNetworks());
+        TokenConfig[] memory configs = LibProdTokenConfig.canonicalTokenConfigs();
         string memory chains;
         for (uint256 i = 0; i < networks.length; i++) {
-            chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i]));
+            chains = vm.serializeString("chains", vm.toString(networks[i].chainId), chainJson(networks[i], configs));
         }
         SupportedNetwork[] memory v2 = LibRainDeploy.declaredNetworkConfigs(LibProdDeployV2.deployedNetworks());
         string memory v2Chains;

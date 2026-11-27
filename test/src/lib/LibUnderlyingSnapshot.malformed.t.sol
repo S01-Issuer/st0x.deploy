@@ -3,7 +3,6 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {InvalidParseMeta} from "rainlang-0.2.40/src/lib/parse/LibParseMeta.sol";
 import {
     LibUnderlyingSnapshot,
     UNDERLYING_SNAPSHOT_ROOT_HEADER_LENGTH,
@@ -19,7 +18,6 @@ import {UNDERLYING_SNAPSHOT_AS_OF as AS_OF} from "../../../src/lib/LibProdTokenC
 /// `MalformedUnderlyingSnapshot` naming the contract, and never read past them.
 contract LibUnderlyingSnapshotMalformedTest is Test {
     address constant MEMBER = address(0xA11CE);
-    address constant SECOND = address(0xB0B);
 
     address internal root = makeAddr("root");
     address internal shard = makeAddr("shard");
@@ -45,16 +43,33 @@ contract LibUnderlyingSnapshotMalformedTest is Test {
     function oneRowShard() internal pure returns (bytes memory) {
         UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](1);
         rows[0] = memberRow(MEMBER);
-        return LibUnderlyingSnapshotBuilder.shardData(rows);
+        (, bytes memory shardData) = LibUnderlyingSnapshotBuilder.shardData(rows, 1);
+        return shardData;
     }
 
-    function metaLength(bytes memory shardData) internal pure returns (uint256) {
-        return uint256(uint8(shardData[6])) << 8 | uint8(shardData[7]);
+    function readUint16(bytes memory data, uint256 offset) internal pure returns (uint256) {
+        return uint256(uint8(data[offset])) << 8 | uint8(data[offset + 1]);
     }
 
-    /// The only row of a one-row shard starts right after its single offset.
-    function firstRow(bytes memory shardData) internal pure returns (uint256) {
-        return UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + metaLength(shardData) + 2;
+    function bucketCount(bytes memory shardData) internal pure returns (uint256) {
+        return readUint16(shardData, 6);
+    }
+
+    function slotCount(bytes memory shardData) internal pure returns (uint256) {
+        return readUint16(shardData, 8);
+    }
+
+    function rowsStart(bytes memory shardData) internal pure returns (uint256) {
+        return UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + bucketCount(shardData) + 2 * slotCount(shardData);
+    }
+
+    /// Where a one-row shard holds the offset of the slot its row owns.
+    function memberSlot(bytes memory shardData) internal pure returns (uint256) {
+        uint256 offsets = UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH + bucketCount(shardData);
+        for (uint256 s = 0; s < slotCount(shardData); s++) {
+            if (readUint16(shardData, offsets + 2 * s) != 0) return offsets + 2 * s;
+        }
+        revert("no owned slot");
     }
 
     function writeUint16(bytes memory data, uint256 offset, uint256 value) internal pure {
@@ -160,80 +175,109 @@ contract LibUnderlyingSnapshotMalformedTest is Test {
         expectShardMalformed(shardData);
     }
 
-    function testShardRowCountPastItsEndIsMalformed() external {
+    function testShardWithNoBucketsIsMalformed() external {
         bytes memory shardData = oneRowShard();
-        writeUint16(shardData, 4, type(uint16).max);
+        writeUint16(shardData, 6, 0);
         expectShardMalformed(shardData);
     }
 
-    function testShardMetaLengthPastItsEndIsMalformed() external {
+    function testShardWithNoSlotsIsMalformed() external {
         bytes memory shardData = oneRowShard();
-        writeUint16(shardData, 6, type(uint16).max);
+        writeUint16(shardData, 8, 0);
         expectShardMalformed(shardData);
     }
 
-    function testShardMetaShorterThanItsStructureRevertsInvalidParseMeta() external {
+    function testShardBucketsPastItsEndAreMalformed(uint256 excess) external {
         bytes memory shardData = oneRowShard();
-        uint256 length = metaLength(shardData);
-        writeUint16(shardData, 6, length - 1);
+        uint256 fill = shardData.length - UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH - 2 * slotCount(shardData);
+        writeUint16(shardData, 6, fill + bound(excess, 1, type(uint16).max - fill));
+        expectShardMalformed(shardData);
+    }
+
+    function testShardSlotsPastItsEndAreMalformed(uint256 excess) external {
+        bytes memory shardData = oneRowShard();
+        uint256 fill = (shardData.length - UNDERLYING_SNAPSHOT_SHARD_HEADER_LENGTH - bucketCount(shardData)) / 2;
+        writeUint16(shardData, 8, fill + bound(excess, 1, type(uint16).max - fill));
+        expectShardMalformed(shardData);
+    }
+
+    /// A shard of no rows is its index alone.
+    function noRowShard() internal pure returns (bytes memory) {
+        (, bytes memory shardData) = LibUnderlyingSnapshotBuilder.shardData(new UnderlyingSnapshotRow[](0), 1);
+        assertEq(rowsStart(shardData), shardData.length, "index fills the shard");
+        return shardData;
+    }
+
+    function testShardIndexEndingAtItsDataFindsNothing(address token) external {
+        etchRootOverShard();
+        etchData(shard, noRowShard());
+        LibUnderlyingSnapshot.Lookup memory row = this.lookup(token);
+        assertEq(row.asOf, AS_OF, "asOf");
+        assertFalse(row.found, "found");
+    }
+
+    function testShardIndexOneBytePastItsDataIsMalformed() external {
+        bytes memory shardData = noRowShard();
+        writeUint16(shardData, 6, bucketCount(shardData) + 1);
+        expectShardMalformed(shardData);
+    }
+
+    function testSlotOffsetBeforeTheRowsIsMalformed() external {
+        bytes memory shardData = oneRowShard();
+        writeUint16(shardData, memberSlot(shardData), rowsStart(shardData) - 1);
+        expectShardMalformed(shardData);
+    }
+
+    function testSlotOffsetLeavingLessThanARowHeadIsMalformed() external {
+        bytes memory shardData = oneRowShard();
+        writeUint16(shardData, memberSlot(shardData), shardData.length - 20);
+        expectShardMalformed(shardData);
+    }
+
+    /// The 21 bytes there hold no member address, so the lookup misses.
+    function testSlotOffsetLeavingExactlyARowHeadIsAddressChecked() external {
+        bytes memory shardData = oneRowShard();
+        writeUint16(shardData, memberSlot(shardData), shardData.length - 21);
         etchRootOverShard();
         etchData(shard, shardData);
-        vm.expectRevert(abi.encodeWithSelector(InvalidParseMeta.selector, length, length - 1));
-        this.lookup(MEMBER);
-    }
-
-    function testMetaIndexPastTheRowCountIsMalformed() external {
-        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](2);
-        rows[0] = memberRow(MEMBER);
-        rows[1] = memberRow(SECOND);
-        bytes memory shardData = LibUnderlyingSnapshotBuilder.shardData(rows);
-        writeUint16(shardData, 4, 1);
-        etchRootOverShard();
-        etchData(shard, shardData);
-        expectMalformed(shard);
-        this.lookup(SECOND);
-    }
-
-    function testRowOffsetBeforeTheRowsIsMalformed() external {
-        bytes memory shardData = oneRowShard();
-        uint256 row = firstRow(shardData);
-        writeUint16(shardData, row - 2, row - 1);
-        expectShardMalformed(shardData);
+        LibUnderlyingSnapshot.Lookup memory row = this.lookup(MEMBER);
+        assertEq(row.asOf, AS_OF, "asOf");
+        assertFalse(row.found, "found");
     }
 
     function testRowCutBeforeItsTickerLengthIsMalformed() external {
         bytes memory shardData = oneRowShard();
-        expectShardMalformed(truncate(shardData, firstRow(shardData) + 20));
+        expectShardMalformed(truncate(shardData, rowsStart(shardData) + 20));
     }
 
     function testTickerPastTheDataIsMalformed() external {
         bytes memory shardData = oneRowShard();
-        shardData[firstRow(shardData) + 20] = bytes1(0xff);
+        shardData[rowsStart(shardData) + 20] = bytes1(0xff);
         expectShardMalformed(shardData);
     }
 
     function testRowCutAfterItsTickerIsMalformed() external {
         bytes memory shardData = oneRowShard();
-        expectShardMalformed(truncate(shardData, firstRow(shardData) + 21 + bytes("AAPL").length));
+        expectShardMalformed(truncate(shardData, rowsStart(shardData) + 21 + bytes("AAPL").length));
     }
 
     function testNamePastTheDataIsMalformed() external {
         bytes memory shardData = oneRowShard();
-        shardData[firstRow(shardData) + 21 + bytes("AAPL").length] = bytes1(0xff);
+        shardData[rowsStart(shardData) + 21 + bytes("AAPL").length] = bytes1(0xff);
         expectShardMalformed(shardData);
     }
 
     function testRowCutAfterItsNameIsMalformed() external {
         bytes memory shardData = oneRowShard();
         expectShardMalformed(
-            truncate(shardData, firstRow(shardData) + 22 + bytes("AAPL").length + bytes("Apple Inc.").length)
+            truncate(shardData, rowsStart(shardData) + 22 + bytes("AAPL").length + bytes("Apple Inc.").length)
         );
     }
 
     function testIsinPastTheDataIsMalformed() external {
         bytes memory shardData = oneRowShard();
         // One past the 12-byte ISIN.
-        shardData[firstRow(shardData) + 22 + bytes("AAPL").length + bytes("Apple Inc.").length] = bytes1(0x0d);
+        shardData[rowsStart(shardData) + 22 + bytes("AAPL").length + bytes("Apple Inc.").length] = bytes1(0x0d);
         expectShardMalformed(shardData);
     }
 

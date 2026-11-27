@@ -27,7 +27,12 @@ import {
 } from "rain-vats-0.2.25/src/concrete/authorize/OffchainAssetReceiptVaultAuthorizerV1.sol";
 import {LibProdDeployV1} from "../../src/lib/LibProdDeployV1.sol";
 import {LibStoxConfig} from "../../src/lib/LibStoxConfig.sol";
-import {StoxTokenConfigV1, STOX_TOKEN_CONFIG_V1_TAG, AssetIdKind} from "../../src/interface/IStoxTokenConfigV1.sol";
+import {
+    AssetId,
+    AssetIdKind,
+    StoxTokenConfigV1,
+    STOX_TOKEN_CONFIG_V1_TAG
+} from "../../src/interface/IStoxTokenConfigV1.sol";
 import {Region} from "../../src/lib/LibProdTokenConfig.sol";
 import {LibSafeInvariants} from "../../src/lib/LibSafeInvariants.sol";
 import {LibProdDeployV4} from "../../src/generated/LibProdDeployV4.sol";
@@ -247,8 +252,7 @@ library LibTestDeploy {
         return abi.encode(
             STOX_TOKEN_CONFIG_V1_TAG,
             StoxTokenConfigV1({
-                assetId: assetId,
-                assetIdKind: AssetIdKind.ISIN,
+                assetId: AssetId({kind: AssetIdKind.ISIN, id: assetId}),
                 listingTicker: listingTicker,
                 listingName: listingName,
                 region: Region.US,

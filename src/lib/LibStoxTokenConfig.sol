@@ -2,7 +2,7 @@
 // SPDX-FileCopyrightText: Copyright (c) 2026 S01 Issuer GmbH
 pragma solidity ^0.8.25;
 
-import {AssetIdKind, Region} from "../interface/IStoxTokenConfigV1.sol";
+import {AssetId, Region} from "../interface/IStoxTokenConfigV1.sol";
 
 bytes32 constant STOX_TOKEN_CONFIG_STORAGE_LOCATION =
     keccak256(abi.encode(uint256(keccak256("rain.storage.stox-token-config.1")) - 1)) & ~bytes32(uint256(0xff));
@@ -14,11 +14,10 @@ library LibStoxTokenConfig {
     /// @custom:storage-location erc7201:rain.storage.stox-token-config.1
     /// @dev Append only: live vaults hold this layout.
     struct StoxTokenConfigStorage {
-        string assetId;
+        AssetId assetId;
         string listingTicker;
         string listingName;
         Region region;
-        AssetIdKind assetIdKind;
     }
 
     function getStorage() internal pure returns (StoxTokenConfigStorage storage) {

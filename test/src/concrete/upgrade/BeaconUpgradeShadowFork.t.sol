@@ -18,28 +18,24 @@ import {LibTokenInvariants} from "../../../../src/lib/LibTokenInvariants.sol";
 import {IStoxUnderlyingV2} from "../../../../src/interface/IStoxUnderlyingV2.sol";
 import {ICorporateActionsV1} from "../../../../src/interface/ICorporateActionsV1.sol";
 import {CorporateActionsFacetNotDeployed} from "../../../../src/error/ErrCorporateAction.sol";
-import {MalformedUnderlyingSnapshot} from "../../../../src/error/ErrUnderlying.sol";
-import {UNDERLYING_SNAPSHOT_ROOT} from "../../../../src/generated/LibUnderlyingSnapshotCode.sol";
-import {LibTestDeploy} from "../../../lib/LibTestDeploy.sol";
 
 /// @dev A Base block before any production vault has its underlying ticker
 /// and name set, with the NVDA pair reporting its initialized metadata.
 uint256 constant NAMING_PRE_ROLLOUT_BLOCK_BASE = 52662900;
 
-/// @title UnderlyingNamingUpgradeShadowForkTest
+/// @title BeaconUpgradeShadowForkTest
 /// @notice Applies the current corporate-actions facet, receipt vault and
 /// wrapped token vault implementations to the live Base NVDA pair on a fork
-/// pinned before the rollout. `testRecommendedRolloutOrder` runs the order
-/// the rollout uses (facet deployed, wrapper upgrade, vault upgrade,
-/// `setUnderlying`) and checks metadata and supply after every step. The
+/// pinned before the beacon upgrade. `testRecommendedRolloutOrder` runs the
+/// beacon upgrade's order (facet deployed, wrapper upgrade, vault upgrade),
+/// then `setUnderlying`, and checks metadata and supply after every step. The
 /// other tests cover single steps, the vault-first order, and a vault
-/// upgraded before its facet or the snapshot exists.
+/// upgraded before its facet exists.
 ///
 /// @dev Implementations are planted at their deterministic candidate addresses
-/// with `deployCodeTo`, so constructors (the facet's `_SELF`) run in place, the
-/// snapshot is Zoltu-deployed at its constant address, and each beacon is
-/// upgraded by its live owner.
-contract UnderlyingNamingUpgradeShadowForkTest is Test {
+/// with `deployCodeTo`, so constructors (the facet's `_SELF`) run in place, and
+/// each beacon is upgraded by its live owner.
+contract BeaconUpgradeShadowForkTest is Test {
     IERC20Metadata internal constant VAULT = IERC20Metadata(LibTokenInvariants.NVDA_RECEIPT_VAULT);
     IERC4626 internal constant WRAPPER = IERC4626(LibTokenInvariants.NVDA_WRAPPED_TOKEN_VAULT);
 
@@ -76,7 +72,6 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
             "src/concrete/StoxWrappedTokenVault.sol:StoxWrappedTokenVault",
             LibProdDeployCurrent.STOX_WRAPPED_TOKEN_VAULT
         );
-        LibTestDeploy.deployUnderlyingSnapshot(vm);
     }
 
     function receiptOf() internal view returns (IReceiptV3) {
@@ -125,9 +120,9 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         assertEq(sWrapperNameBefore, "Wrapped NVIDIA Corporation ST0x");
     }
 
-    /// The rollout order: wrapper upgrade, vault upgrade, then
-    /// `setUnderlying`. No visible metadata moves until the final step, which
-    /// renames both tokens together.
+    /// The beacon upgrade's order, wrapper then vault, then `setUnderlying`.
+    /// No visible metadata moves until `setUnderlying`, which renames both
+    /// tokens together.
     function testRecommendedRolloutOrder() external {
         upgradeWrapper();
         assertMetadataUnchanged();
@@ -162,36 +157,21 @@ contract UnderlyingNamingUpgradeShadowForkTest is Test {
         assertSupplyIntact();
     }
 
-    /// A vault upgraded before the facet exists keeps its supply, and its
-    /// metadata and every facet call, `setUnderlying` included, revert rather
-    /// than succeeding as a no-op. This is why the facet deploy comes first.
+    /// A vault upgraded before the facet exists keeps every token's metadata,
+    /// and every facet call, `setUnderlying` included, reverts rather than
+    /// succeeding as a no-op. This is why the facet deploy comes first.
     function testVaultUpgradeBeforeFacetDeploy() external {
         address facet = LibProdDeployCurrent.STOX_CORPORATE_ACTIONS_FACET;
         vm.etch(facet, "");
         upgradeVault();
+        assertMetadataUnchanged();
         assertSupplyIntact();
-        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
-        VAULT.name();
-        vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
-        VAULT.symbol();
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         ICorporateActionsV1(address(VAULT)).completedActionCount();
         address owner = OwnableUpgradeable(address(VAULT)).owner();
         vm.expectRevert(abi.encodeWithSelector(CorporateActionsFacetNotDeployed.selector, facet));
         vm.prank(owner);
         IStoxUnderlyingV2(address(VAULT)).setUnderlying("NVDA", "NVIDIA Corporation", "US67066G1040");
-    }
-
-    /// A vault upgraded before the snapshot exists keeps its supply, and its
-    /// name and symbol revert rather than falling back to its stored values.
-    function testVaultUpgradeBeforeSnapshotDeploy() external {
-        vm.etch(UNDERLYING_SNAPSHOT_ROOT, "");
-        upgradeVault();
-        assertSupplyIntact();
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, UNDERLYING_SNAPSHOT_ROOT));
-        VAULT.name();
-        vm.expectRevert(abi.encodeWithSelector(MalformedUnderlyingSnapshot.selector, UNDERLYING_SNAPSHOT_ROOT));
-        VAULT.symbol();
     }
 
     /// Only the vault owner sets the underlying on a live vault.
