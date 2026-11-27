@@ -795,9 +795,7 @@ contract BuildExpectedStateTest is Test {
     }
 
     function upgradeFields() internal pure returns (string[4] memory) {
-        return [
-            ".upgradeName", ".upgradeSymbol", ".upgradeWrappedTokenVaultName", ".upgradeWrappedTokenVaultSymbol"
-        ];
+        return [".upgradeName", ".upgradeSymbol", ".upgradeWrappedTokenVaultName", ".upgradeWrappedTokenVaultSymbol"];
     }
 
     /// Every production token at its suite address carries, as its upgrade names, its snapshot row in the vault's and
