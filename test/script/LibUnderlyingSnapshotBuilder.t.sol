@@ -3,7 +3,7 @@
 pragma solidity =0.8.25;
 
 import {Test} from "forge-std-1.17.0/src/Test.sol";
-import {PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
+import {LibDataContract, PREFIX_BYTES_LENGTH} from "rain-datacontract-0.2.1/src/lib/LibDataContract.sol";
 import {
     LibUnderlyingSnapshot,
     UNDERLYING_SNAPSHOT_ROOT_MAGIC,
@@ -268,6 +268,106 @@ contract LibUnderlyingSnapshotBuilderTest is Test {
         (bytes memory rootCode, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
         assertEq(shardCodes.length, 2, "shard count");
         assertEveryRowReadsBack(0, rows, rootCode, shardCodes);
+    }
+
+    function routedTo(UnderlyingSnapshotRow[] memory rows, uint256 k, uint256 s)
+        internal
+        pure
+        returns (UnderlyingSnapshotRow[] memory)
+    {
+        uint256 count = 0;
+        for (uint256 i = 0; i < rows.length; i++) {
+            if (uint160(rows[i].token) % k == s) count++;
+        }
+        UnderlyingSnapshotRow[] memory routed = new UnderlyingSnapshotRow[](count);
+        count = 0;
+        for (uint256 i = 0; i < rows.length; i++) {
+            if (uint160(rows[i].token) % k == s) routed[count++] = rows[i];
+        }
+        return routed;
+    }
+
+    function everyShardFits(UnderlyingSnapshotRow[] memory rows, uint256 k) internal pure returns (bool) {
+        for (uint256 s = 0; s < k; s++) {
+            (bool fits,) = LibUnderlyingSnapshotBuilder.shardData(routedTo(rows, k, s), k);
+            if (!fits) return false;
+        }
+        return true;
+    }
+
+    /// Rows routing to shard `s` of `k` whose shard runtime is `runtime` bytes.
+    function shardRowsOfRuntime(bytes32 seed, uint256 k, uint256 s, uint256 runtime)
+        internal
+        pure
+        returns (UnderlyingSnapshotRow[] memory)
+    {
+        // A row is at most 788 bytes, so fewer rows cannot reach `runtime`.
+        uint256 count = runtime / 788 + 1 + uint256(keccak256(abi.encode(seed, s))) % 97;
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](count);
+        for (uint256 i = 0; i < count; i++) {
+            uint256 h = uint256(keccak256(abi.encode(seed, s, i))) >> 97;
+            // forge-lint: disable-next-line(unsafe-typecast)
+            rows[i] = UnderlyingSnapshotRow(address(uint160(h / k * k + s)), "", "", "");
+        }
+        (bool fits, bytes memory data) = LibUnderlyingSnapshotBuilder.shardData(rows, k);
+        assertTrue(fits, "empty fields fit");
+        uint256 remaining = runtime - (data.length + 1);
+        for (uint256 f = 3 * count; f > 0; f--) {
+            uint256 low = remaining > 255 * (f - 1) ? remaining - 255 * (f - 1) : 0;
+            uint256 high = remaining < 255 ? remaining : 255;
+            uint256 length = low + uint256(keccak256(abi.encode(seed, s, f))) % (high - low + 1);
+            setField(rows[(f - 1) / 3], (f - 1) % 3, length);
+            remaining -= length;
+        }
+        (fits, data) = LibUnderlyingSnapshotBuilder.shardData(rows, k);
+        assertEq(fits, runtime <= EIP170_MAX_RUNTIME, "sized fits");
+        if (fits) assertEq(data.length + 1, runtime, "sized runtime");
+        return rows;
+    }
+
+    /// Shard `full` of `k` is one byte under, at, or over EIP-170 as `over` is 0, 1, 2;
+    /// every other shard is within 4096 bytes under it.
+    function rowsNearShardBoundary(bytes32 seed, uint256 k, uint256 full, uint256 over)
+        internal
+        pure
+        returns (UnderlyingSnapshotRow[] memory)
+    {
+        UnderlyingSnapshotRow[][] memory shards = new UnderlyingSnapshotRow[][](k);
+        uint256 count = 0;
+        for (uint256 s = 0; s < k; s++) {
+            uint256 runtime = s == full
+                ? EIP170_MAX_RUNTIME - 1 + over
+                : EIP170_MAX_RUNTIME - uint256(keccak256(abi.encode(seed, k, s))) % 4097;
+            shards[s] = shardRowsOfRuntime(seed, k, s, runtime);
+            count += shards[s].length;
+        }
+        UnderlyingSnapshotRow[] memory rows = new UnderlyingSnapshotRow[](count);
+        count = 0;
+        for (uint256 s = 0; s < k; s++) {
+            for (uint256 i = 0; i < shards[s].length; i++) {
+                rows[count++] = shards[s][i];
+            }
+        }
+        return rows;
+    }
+
+    function testBuildReturnsTheSmallestShardCountThatFits(bytes32 seed, uint256 k, uint256 full, uint256 over)
+        external
+        pure
+    {
+        k = bound(k, 1, 4);
+        UnderlyingSnapshotRow[] memory rows = rowsNearShardBoundary(seed, k, bound(full, 0, k - 1), bound(over, 0, 2));
+        (, bytes[] memory shardCodes) = LibUnderlyingSnapshotBuilder.build(0, rows);
+        uint256 built = shardCodes.length;
+        for (uint256 s = 0; s < built; s++) {
+            (bool fits, bytes memory data) = LibUnderlyingSnapshotBuilder.shardData(routedTo(rows, built, s), built);
+            assertTrue(fits, "built shard fits");
+            assertLe(data.length + 1, EIP170_MAX_RUNTIME, "built shard runtime");
+            assertEq(shardCodes[s], LibDataContract.contractCreationCode(data), "built shard code");
+        }
+        for (uint256 smaller = 1; smaller < built; smaller++) {
+            assertFalse(everyShardFits(rows, smaller), "a smaller shard count fits");
+        }
     }
 
     function readUint(bytes memory data, uint256 start, uint256 length) internal pure returns (uint256) {
